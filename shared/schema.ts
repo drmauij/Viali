@@ -7006,6 +7006,18 @@ export const insertFlowSchema = createInsertSchema(flows).omit({ id: true, creat
 export type Flow = typeof flows.$inferSelect;
 export type InsertFlow = z.infer<typeof insertFlowSchema>;
 
+export const flowHospitals = pgTable("flow_hospitals", {
+  flowId: varchar("flow_id").notNull().references(() => flows.id, { onDelete: "cascade" }),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: "cascade" }),
+}, (table) => [
+  primaryKey({ columns: [table.flowId, table.hospitalId] }),
+  index("idx_flow_hospitals_hospital").on(table.hospitalId),
+]);
+
+export const insertFlowHospitalSchema = createInsertSchema(flowHospitals);
+export type FlowHospital = typeof flowHospitals.$inferSelect;
+export type InsertFlowHospital = z.infer<typeof insertFlowHospitalSchema>;
+
 export const flowVariants = pgTable("flow_variants", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   flowId: varchar("flow_id").notNull().references(() => flows.id, { onDelete: 'cascade' }),

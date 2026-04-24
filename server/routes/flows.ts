@@ -6,6 +6,7 @@ import {
   flows,
   flowExecutions,
   flowEvents,
+  flowHospitals,
   flowVariants,
   promoCodes,
   patients,
@@ -56,31 +57,6 @@ async function isMarketingAccess(req: any, res: Response, next: any) {
   }
 }
 
-/**
- * Task 12: resolve the audience scope for a Flows segment query. Reads the
- * optional `X-Active-Scope` header (default `"hospital"`) and returns the
- * list of hospital IDs the segment/audience resolver should span.
- *
- * Rules:
- *   - Default / `scope !== "group"` → `[activeHospitalId]` (today's behaviour).
- *   - `scope === "group"` but the active hospital has no `groupId` → silently
- *     fall back to `[activeHospitalId]`. Matches the Task 5 and Task 11
- *     contract so a chain tenant that switches to a solo hospital does not
- *     suddenly see 400s.
- *   - `scope === "group"` and the active hospital belongs to a group → the
- *     caller must be `group_admin` for that group. Platform admins satisfy
- *     this implicitly via `userIsGroupAdminForHospital`. If the check fails
- *     we throw `FlowsScopeForbiddenError` which the route handler turns into
- *     a 403 response body with code `GROUP_SCOPE_FORBIDDEN`.
- *   - On success with group access, returns every hospital ID in that group
- *     — the segment/send loop widens its `patients.hospital_id IN (...)`
- *     clause to include all of them.
- *
- * Note: a Flow campaign record always belongs to the *initiating* hospital
- * (the one in the URL). Only the audience/send audience widens — billing,
- * consent footer branding, and flowExecutions.flow_id stay tied to that one
- * hospital so revenue attribution and per-campaign metrics stay coherent.
- */
 class FlowsScopeForbiddenError extends Error {
   code = "GROUP_SCOPE_FORBIDDEN" as const;
   constructor() {
@@ -88,41 +64,78 @@ class FlowsScopeForbiddenError extends Error {
   }
 }
 
+/**
+ * Resolve the audience hospital-ID list for a Flows segment/send query.
+ *
+ * Chain-aware: reads the `flow_hospitals` join table when a `flowId` is
+ * provided (for edit flows or send-loop). Falls back to `[activeHospitalId]`
+ * for the segment-preview endpoint when no flow exists yet.
+ *
+ * For the create-preview path, the caller may include `explicitHospitalIds`
+ * (from the new MultiLocationSelector on /chain/campaigns/new). We trust
+ * it only after verifying every listed hospital is in the active hospital's
+ * group AND the caller is group_admin/platform admin when targeting more
+ * than the active hospital alone.
+ *
+ * The `X-Active-Scope` header is no longer consulted — the UI paths that
+ * previously sent it have been replaced by /chain/campaigns where audience
+ * is explicit in the request body.
+ */
 async function resolveFlowsAudienceScope(
   req: Request,
   userId: string,
   activeHospitalId: string,
+  opts: { flowId?: string; explicitHospitalIds?: string[] } = {},
 ): Promise<string[]> {
-  const scopeHeader = (req.headers["x-active-scope"] as string | undefined)?.toLowerCase();
-  if (scopeHeader !== "group") {
-    return [activeHospitalId];
-  }
-  const groupId = await getHospitalGroupIdCached(activeHospitalId, req);
-  if (!groupId) {
-    // Un-grouped tenant: collapse to hospital scope silently. Matches Task 5
-    // and Task 11 behaviour — single-location clients that always send the
-    // header should not break.
-    return [activeHospitalId];
-  }
-  // Group-scope gate: only group_admin (or platform admin) can send chain-
-  // wide. A plain marketing/manager role at one location is not enough —
-  // sending to patients at sister clinics is a bigger blast radius than
-  // editing the local campaign, so we escalate the permission bar here.
-  // `isMarketingAccess` already guaranteed the caller has *some* marketing
-  // role at the initiating hospital.
-  const [u] = await db
-    .select({ isPlatformAdmin: users.isPlatformAdmin })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  const isPlatformAdmin = u?.isPlatformAdmin === true;
-  if (!isPlatformAdmin) {
-    const isGroupAdmin = await userIsGroupAdminForHospital(userId, activeHospitalId, req);
-    if (!isGroupAdmin) {
-      throw new FlowsScopeForbiddenError();
+  const { flowId, explicitHospitalIds } = opts;
+
+  // Path 1: send-loop / edit existing flow — read from flow_hospitals join
+  if (flowId) {
+    const rows = await db
+      .select({ hospitalId: flowHospitals.hospitalId })
+      .from(flowHospitals)
+      .where(eq(flowHospitals.flowId, flowId));
+    if (rows.length === 0) {
+      // Defensive: pre-migration flow or data issue. Fall back to active
+      // hospital so we never silently send zero recipients.
+      return [activeHospitalId];
     }
+    return rows.map(r => r.hospitalId);
   }
-  return await getGroupHospitalIdsCached(groupId, req);
+
+  // Path 2: create-preview with explicit audience list — validate every ID
+  // is in the active hospital's group before trusting the input.
+  if (explicitHospitalIds && explicitHospitalIds.length > 0) {
+    const groupId = await getHospitalGroupIdCached(activeHospitalId, req);
+    if (!groupId) {
+      // Un-grouped tenant cannot target multiple locations — clamp to active.
+      return [activeHospitalId];
+    }
+    const groupHospitalIds = await getGroupHospitalIdsCached(groupId, req);
+    const valid = explicitHospitalIds.filter(h => groupHospitalIds.includes(h));
+    if (valid.length === 0) return [activeHospitalId];
+
+    // Authorisation: caller must be group_admin (or platform admin) to target
+    // sibling clinics. Plain marketing/manager is fine for the active one.
+    if (valid.length > 1 || !valid.includes(activeHospitalId)) {
+      const [u] = await db
+        .select({ isPlatformAdmin: users.isPlatformAdmin })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      const isPlatformAdmin = u?.isPlatformAdmin === true;
+      if (!isPlatformAdmin) {
+        const isGroupAdmin = await userIsGroupAdminForHospital(userId, activeHospitalId, req);
+        if (!isGroupAdmin) {
+          throw new FlowsScopeForbiddenError();
+        }
+      }
+    }
+    return valid;
+  }
+
+  // Path 3: no flowId, no explicit list — default to single active hospital.
+  return [activeHospitalId];
 }
 
 // ─── Flows CRUD ───────────────────────────────────────────────
@@ -304,16 +317,19 @@ router.post(
     try {
       const { hospitalId } = req.params;
       const userId = (req as any).user.id;
-      const { channel, filters } = segmentFilterSchema.parse(req.body);
+      const bodyParsed = segmentFilterSchema.extend({
+        audienceHospitalIds: z.array(z.string()).optional(),
+      }).parse(req.body);
+      const { channel, filters } = bodyParsed;
 
-      // Task 12: resolve audience scope — hospital (default) or group when
-      // the caller is group_admin on the active hospital's group. When group
-      // scope is permitted the WHERE clause widens from `= hospitalId` to
-      // `IN (groupHospitalIds)`, letting the same segment description reach
-      // every patient across the chain.
+      // Phase C: resolve audience scope from flow_hospitals join table (for
+      // existing flows) or from an explicit list supplied by the chain-campaign
+      // create-preview flow. Falls back to [hospitalId] for single-clinic use.
       let audienceHospitalIds: string[];
       try {
-        audienceHospitalIds = await resolveFlowsAudienceScope(req, userId, hospitalId);
+        audienceHospitalIds = await resolveFlowsAudienceScope(req, userId, hospitalId, {
+          explicitHospitalIds: bodyParsed.audienceHospitalIds,
+        });
       } catch (e) {
         if (e instanceof FlowsScopeForbiddenError) {
           return res.status(403).json({ message: e.message, code: e.code });
@@ -1375,13 +1391,12 @@ router.post(
         if (pc) promoCode = pc.code;
       }
 
-      // Task 12: resolve audience scope the same way segment-count does so
-      // the send loop's audience matches what the preview showed. Group scope
-      // is gated on group_admin; a non-group-admin who flipped the toggle
-      // client-side gets 403 here rather than silently sending to everyone.
+      // Phase C: resolve audience from flow_hospitals join table so the send
+      // loop targets exactly the hospitals that were selected when the campaign
+      // was created (not the X-Active-Scope header).
       let audienceHospitalIds: string[];
       try {
-        audienceHospitalIds = await resolveFlowsAudienceScope(req, userId, hospitalId);
+        audienceHospitalIds = await resolveFlowsAudienceScope(req, userId, hospitalId, { flowId });
       } catch (e) {
         if (e instanceof FlowsScopeForbiddenError) {
           return res.status(403).json({ message: e.message, code: e.code });
