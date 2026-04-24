@@ -204,38 +204,71 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
             {showHospitalDropdown && hospitals.length > 1 && (
               <div className="absolute top-full left-0 mt-2 w-72 bg-card border border-border rounded-lg shadow-lg z-50 max-h-[60vh] overflow-y-auto">
                 {hasMultipleHospitals ? (
-                  // Grouped view for multi-hospital users
-                  groupedHospitals.map((group, groupIndex) => (
-                    <div key={group.hospitalId}>
-                      {/* Hospital header */}
-                      <div className="px-4 py-2 bg-muted/50 border-b border-border sticky top-0">
-                        <div className="font-semibold text-sm text-foreground flex items-center gap-2">
-                          <i className="fas fa-hospital text-xs text-primary"></i>
-                          {group.hospitalName}
+                  // Grouped view for multi-hospital users. When a hospital
+                  // has exactly one (unit, role) row we collapse the header
+                  // + sub-row into a single clickable button so the user
+                  // doesn't have to click a nested item — common case for
+                  // group admins seeded with one admin row per clinic.
+                  groupedHospitals.map((group) => {
+                    if (group.roles.length === 1) {
+                      const hospital = group.roles[0];
+                      const isActive =
+                        activeHospital?.id === hospital.id &&
+                        activeHospital?.unitId === hospital.unitId &&
+                        activeHospital?.role === hospital.role;
+                      return (
+                        <button
+                          key={`${hospital.id}-${hospital.unitId}-${hospital.role}`}
+                          className={`w-full px-4 py-2.5 text-left hover:bg-accent hover:text-accent-foreground border-b border-border last:border-b-0 ${isActive ? 'bg-accent/50' : ''}`}
+                          onClick={() => {
+                            onHospitalChange?.(hospital);
+                            setShowHospitalDropdown(false);
+                          }}
+                          data-testid={`hospital-option-${hospital.id}-${hospital.unitId}`}
+                        >
+                          <div className="font-semibold text-sm text-foreground flex items-center gap-2">
+                            <i className="fas fa-hospital text-xs text-primary"></i>
+                            {group.hospitalName}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5 pl-[18px]">
+                            {hospital.unitName} · {hospital.role}
+                          </div>
+                        </button>
+                      );
+                    }
+                    return (
+                      <div key={group.hospitalId}>
+                        {/* Hospital header */}
+                        <div className="px-4 py-2 bg-muted/50 border-b border-border sticky top-0">
+                          <div className="font-semibold text-sm text-foreground flex items-center gap-2">
+                            <i className="fas fa-hospital text-xs text-primary"></i>
+                            {group.hospitalName}
+                          </div>
                         </div>
+                        {/* Roles within this hospital */}
+                        {group.roles.map((hospital) => {
+                          const isActive =
+                            activeHospital?.id === hospital.id &&
+                            activeHospital?.unitId === hospital.unitId &&
+                            activeHospital?.role === hospital.role;
+                          return (
+                            <button
+                              key={`${hospital.id}-${hospital.unitId}-${hospital.role}`}
+                              className={`w-full px-4 py-2.5 pl-8 text-left hover:bg-accent hover:text-accent-foreground border-b border-border last:border-b-0 ${isActive ? 'bg-accent/50' : ''}`}
+                              onClick={() => {
+                                onHospitalChange?.(hospital);
+                                setShowHospitalDropdown(false);
+                              }}
+                              data-testid={`hospital-option-${hospital.id}-${hospital.unitId}`}
+                            >
+                              <div className="text-sm font-medium">{hospital.unitName}</div>
+                              <div className="text-xs text-muted-foreground">{hospital.role}</div>
+                            </button>
+                          );
+                        })}
                       </div>
-                      {/* Roles within this hospital */}
-                      {group.roles.map((hospital, roleIndex) => {
-                        const isActive = activeHospital?.id === hospital.id && 
-                                        activeHospital?.unitId === hospital.unitId && 
-                                        activeHospital?.role === hospital.role;
-                        return (
-                          <button
-                            key={`${hospital.id}-${hospital.unitId}-${hospital.role}`}
-                            className={`w-full px-4 py-2.5 pl-8 text-left hover:bg-accent hover:text-accent-foreground border-b border-border last:border-b-0 ${isActive ? 'bg-accent/50' : ''}`}
-                            onClick={() => {
-                              onHospitalChange?.(hospital);
-                              setShowHospitalDropdown(false);
-                            }}
-                            data-testid={`hospital-option-${hospital.id}-${hospital.unitId}`}
-                          >
-                            <div className="text-sm font-medium">{hospital.unitName}</div>
-                            <div className="text-xs text-muted-foreground">{hospital.role}</div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   // Simple view for single hospital with multiple roles
                   hospitals.map((hospital) => {
