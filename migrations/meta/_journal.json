@@ -1646,6 +1646,13 @@
       "when": 1778800000000,
       "tag": "0234_group_logo",
       "breakpoints": true
+    },
+    {
+      "idx": 235,
+      "version": "7",
+      "when": 1778900000000,
+      "tag": "0235_hospital_clinic_kind",
+      "breakpoints": true
     }
   ]
 }

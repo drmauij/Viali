@@ -65,6 +65,8 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const clinicKindEnum = pgEnum("clinic_kind", ["aesthetic", "surgical", "mixed"]);
+
 // Hospital groups — chain/brand layer above hospitals (multi-location groups).
 // A group lets one brand (e.g. "beauty2go") unify multiple hospitals for
 // patient rostering, shared services, cross-location booking, etc.
@@ -136,6 +138,13 @@ export const hospitals = pgTable("hospitals", {
   defaultAdmissionOffsetMinutes: integer("default_admission_offset_minutes").default(60).notNull(), // Minutes before planned start when the patient should arrive
   // Treatment module inventory source — which unit's items are used in aesthetic treatments
   treatmentInventorySourceUnitType: varchar("treatment_inventory_source_unit_type", { enum: ["clinic", "or"] }).default("clinic").notNull(),
+  // Clinic type — drives which KPIs and columns render on /business and /chain.
+  // 'aesthetic' = treatments only (Botox/fillers/laser), 'surgical' = surgeries only,
+  // 'mixed' = both. Default 'mixed' preserves today's behaviour; operators narrow
+  // this in /admin/settings → General. The /chain cockpit infers the chain's kind
+  // by max over member hospitals (any 'surgical' or 'mixed' → chain shows surgery
+  // columns; any 'aesthetic' or 'mixed' → chain shows treatment columns).
+  clinicKind: clinicKindEnum("clinic_kind").default("mixed").notNull(),
   // Billing add-on services - per-record fees
   addonQuestionnaire: boolean("addon_questionnaire").default(true), // Patient questionnaires (+0.5 CHF/record)
   addonDispocura: boolean("addon_dispocura").default(false), // Dispocura integration for cost calculation (+1 CHF/record)
