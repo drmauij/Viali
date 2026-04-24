@@ -89,7 +89,7 @@ const SurgeonPortal = React.lazy(() => import("@/pages/SurgeonPortal"));
 const LogisticInventory = React.lazy(() => import("@/pages/logistic/LogisticInventory"));
 const LogisticOrders = React.lazy(() => import("@/pages/logistic/LogisticOrders"));
 const LogisticMatches = React.lazy(() => import("@/pages/logistic/LogisticMatches"));
-const Marketing = React.lazy(() => import("@/pages/business/Marketing"));
+const Funnels = React.lazy(() => import("@/pages/business/Funnels"));
 const Flows = React.lazy(() => import("@/pages/business/Flows"));
 const FlowCreate = React.lazy(() => import("@/pages/business/FlowCreate"));
 const FlowMetrics = React.lazy(() => import("@/pages/business/FlowMetrics"));
@@ -330,7 +330,7 @@ function Router() {
                   lived at /business/marketing; renamed for clarity since the
                   page shows funnels/ROI, not the generic "marketing" concept.
                   Old URL kept as a redirect so bookmarks survive. */}
-              <Route path="/business/funnels">{() => <ProtectedRoute requireBusiness><Marketing /></ProtectedRoute>}</Route>
+              <Route path="/business/funnels">{() => <ProtectedRoute requireBusiness><Funnels /></ProtectedRoute>}</Route>
               <Route path="/business/marketing">{() => <Redirect to="/business/funnels" />}</Route>
               <Route path="/business/flows/new">{() => <ProtectedRoute requireBusiness><FlowCreate /></ProtectedRoute>}</Route>
               <Route path="/business/flows/:id/metrics">{(params) => <ProtectedRoute requireBusiness><FlowMetrics /></ProtectedRoute>}</Route>

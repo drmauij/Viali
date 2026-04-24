@@ -454,7 +454,7 @@ type ReferralEvent = {
   treatmentName: string | null;
 };
 
-export default function Marketing() {
+export default function Funnels() {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const [referralFrom, setReferralFrom] = useState("");
