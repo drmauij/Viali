@@ -558,7 +558,7 @@ export function LeadsPanel({
     mode === "inline" && lead.status !== "converted" && lead.status !== "closed";
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full max-h-screen">
       {/* Header */}
       <div className="p-2 sm:p-3 border-b space-y-2">
         <h3 className="font-semibold text-sm">{t("leads.title", "Leads")}</h3>
