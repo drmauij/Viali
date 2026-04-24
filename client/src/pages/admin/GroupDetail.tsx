@@ -977,9 +977,18 @@ function AdminsSection(props: AdminsSectionProps) {
                   </div>
                   <div className="flex gap-2 flex-wrap flex-1 justify-end">
                     {u.hospitalsInGroup.length === 0 ? (
-                      <span className="text-xs text-muted-foreground italic">
-                        No role at any group clinic — add a role first.
-                      </span>
+                      // User has no prior role at any clinic in this group —
+                      // let the platform admin pick a home clinic inline and
+                      // promote in one click. The server will auto-create the
+                      // group_admin role row + provision admin everywhere via
+                      // the auto-provisioning in promoteGroupAdmin.
+                      <PromoteExternalControl
+                        userId={u.userId}
+                        members={members}
+                        onPromote={props.onPromote}
+                        promoting={props.promoting}
+                        promotingKey={props.promotingKey}
+                      />
                     ) : eligibleHospitals.length === 0 ? (
                       <span className="text-xs text-muted-foreground italic">
                         Already group admin at every clinic they belong to.
@@ -1234,6 +1243,68 @@ function CreateAdminUserForm({
           {saving ? "Creating…" : "Create & promote"}
         </Button>
       </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------
+// Inline picker-and-promote for a search hit that has no pre-existing role
+// at any group clinic. Lets platform admin pick a home clinic from the
+// group's members and promote in one click — avoids the earlier "add a
+// role first" dead-end when onboarding an external email.
+// ----------------------------------------------------------------------
+function PromoteExternalControl({
+  userId,
+  members,
+  onPromote,
+  promoting,
+  promotingKey,
+}: {
+  userId: string;
+  members: Hospital[];
+  onPromote: (v: { userId: string; hospitalId: string }) => void;
+  promoting: boolean;
+  promotingKey: string | null;
+}) {
+  const [hospitalId, setHospitalId] = useState<string>(members[0]?.id ?? "");
+  useEffect(() => {
+    if (!hospitalId && members[0]?.id) setHospitalId(members[0].id);
+  }, [members, hospitalId]);
+
+  const promoteKey = `${userId}-${hospitalId}`;
+  const promotingThis = promoting && promotingKey === promoteKey;
+
+  return (
+    <div className="flex items-center gap-2">
+      <Select value={hospitalId} onValueChange={setHospitalId}>
+        <SelectTrigger
+          className="w-[180px] h-8"
+          data-testid={`select-external-home-${userId}`}
+        >
+          <SelectValue placeholder="Home clinic" />
+        </SelectTrigger>
+        <SelectContent>
+          {members.length === 0 ? (
+            <SelectItem value="__none" disabled>
+              No clinics in group
+            </SelectItem>
+          ) : (
+            members.map((m) => (
+              <SelectItem key={m.id} value={m.id}>
+                {m.name}
+              </SelectItem>
+            ))
+          )}
+        </SelectContent>
+      </Select>
+      <Button
+        size="sm"
+        disabled={!hospitalId || promotingThis}
+        onClick={() => onPromote({ userId, hospitalId })}
+        data-testid={`button-promote-external-${userId}`}
+      >
+        {promotingThis ? "Promoting…" : "Promote"}
+      </Button>
     </div>
   );
 }
