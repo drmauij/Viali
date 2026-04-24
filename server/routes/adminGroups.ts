@@ -194,6 +194,53 @@ router.get("/api/admin/groups/:id/user-search", async (req, res) => {
   }
 });
 
+// Logo upload. The client posts a data URL (image/* base64) — we store it
+// as-is, same pattern as hospitals.companyLogoUrl. Pass null to clear.
+// Cap at 2 MB of base64 (~1.5 MB raw image) for safety; the Settings page
+// compresses to 400×400 JPEG before upload which is typically <100 KB.
+const logoSchema = z.object({
+  logoUrl: z
+    .string()
+    .max(2 * 1024 * 1024, "Logo too large (max 2 MB as data URL)")
+    .nullable(),
+});
+
+router.patch("/api/admin/groups/:id/logo", async (req, res) => {
+  const parsed = logoSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+  try {
+    const updated = await groupStorage.updateGroupLogo(
+      req.params.id,
+      parsed.data.logoUrl,
+    );
+    if (!updated) return res.status(404).json({ error: "not found" });
+    res.json({ logoUrl: updated.logoUrl });
+  } catch (err) {
+    logger.error("Error updating group logo:", err);
+    res.status(500).json({ message: "Failed to update group logo" });
+  }
+});
+
+router.patch("/api/admin/hospitals/:hospitalId/logo", async (req, res) => {
+  const parsed = logoSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+  try {
+    const updated = await groupStorage.updateHospitalLogo(
+      req.params.hospitalId,
+      parsed.data.logoUrl,
+    );
+    if (!updated) return res.status(404).json({ error: "not found" });
+    res.json({ companyLogoUrl: updated.companyLogoUrl });
+  } catch (err) {
+    logger.error("Error updating hospital logo:", err);
+    res.status(500).json({ message: "Failed to update hospital logo" });
+  }
+});
+
 router.delete("/api/admin/groups/:id", async (req, res) => {
   try {
     await groupStorage.deleteGroup(req.params.id);

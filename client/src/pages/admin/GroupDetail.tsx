@@ -28,6 +28,7 @@ type Group = {
   bookingToken: string | null;
   defaultLicenseType: LicenseType | null;
   defaultPricePerRecord: string | null;
+  logoUrl: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -38,6 +39,7 @@ type Hospital = {
   groupId: string | null;
   licenseType: LicenseType;
   pricePerRecord: string | null;
+  companyLogoUrl: string | null;
 };
 type Admin = {
   userId: string;

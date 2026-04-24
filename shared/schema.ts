@@ -77,6 +77,10 @@ export const hospitalGroups = pgTable("hospital_groups", {
   // Individual clinics can still be overridden per-clinic afterwards.
   defaultLicenseType: varchar("default_license_type", { enum: ["free", "basic", "test"] }),
   defaultPricePerRecord: decimal("default_price_per_record", { precision: 10, scale: 2 }),
+  // Group logo — stored as a data URL string, same pattern as
+  // `hospitals.companyLogoUrl`. Nullable; rendered next to the group name
+  // in /admin/groups/:id when set.
+  logoUrl: text("logo_url"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

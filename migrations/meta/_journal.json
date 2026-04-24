@@ -1639,6 +1639,13 @@
       "when": 1778700000000,
       "tag": "0233_group_billing_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 234,
+      "version": "7",
+      "when": 1778800000000,
+      "tag": "0234_group_logo",
+      "breakpoints": true
     }
   ]
 }

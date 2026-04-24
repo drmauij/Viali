@@ -277,6 +277,27 @@ export async function cascadeGroupBillingDefaults(id: string): Promise<number> {
   return rows.length;
 }
 
+export async function updateGroupLogo(id: string, logoUrl: string | null) {
+  const [updated] = await db
+    .update(hospitalGroups)
+    .set({ logoUrl, updatedAt: new Date() })
+    .where(eq(hospitalGroups.id, id))
+    .returning();
+  return updated ?? null;
+}
+
+export async function updateHospitalLogo(
+  hospitalId: string,
+  logoUrl: string | null,
+) {
+  const [updated] = await db
+    .update(hospitals)
+    .set({ companyLogoUrl: logoUrl, updatedAt: new Date() })
+    .where(eq(hospitals.id, hospitalId))
+    .returning();
+  return updated ?? null;
+}
+
 export type HospitalBillingPatch = {
   licenseType?: "free" | "basic" | "test";
   pricePerRecord?: string | null;
