@@ -184,19 +184,19 @@ export default function BottomNav() {
         { id: "admin-integrations", icon: "fas fa-plug", label: t('bottomNav.admin.integrations'), path: "/admin/integrations" },
         { id: "admin-billing", icon: "fas fa-credit-card", label: t('bottomNav.admin.billing'), path: "/admin/billing" },
       ];
-      // Group-admin self-serve: show "Manage Group" in admin nav too (it
-      // also exists under business). Patrick doesn't need a business-unit
-      // role to reach his chain management. Server gate is authoritative.
+      // Group-admin self-serve: "Manage Chain" in admin nav (previously also
+      // in business, now admin-only since the surface is administrative).
+      // Server gate is authoritative; this is UX.
       const adminUserHospitals = (user as any)?.hospitals ?? [];
       const isGroupAdminUser =
         (user as any)?.isPlatformAdmin ||
         adminUserHospitals.some((h: any) => h.role === "group_admin");
       if (isGroupAdminUser && activeHospital?.groupId) {
         adminItems.push({
-          id: "admin-group",
+          id: "admin-chain",
           icon: "fas fa-sitemap",
-          label: t('bottomNav.business.group', 'Manage Group'),
-          path: "/business/group",
+          label: t('bottomNav.admin.chain', 'Manage Chain'),
+          path: "/admin/chain",
         });
       }
       // Platform-admin only: cross-tenant hospital group management.
@@ -214,15 +214,9 @@ export default function BottomNav() {
     if (activeModule === "business") {
       const businessItems: NavItem[] = [];
 
-      // Group-admin surface (Task 13). Shown alongside other business entries
-      // when the user has a group_admin role somewhere AND the active hospital
-      // is part of a group. The server is authoritative; this is UX.
-      const userHospitals = (user as any)?.hospitals ?? [];
-      const isGroupAdmin =
-        (user as any)?.isPlatformAdmin ||
-        userHospitals.some((h: any) => h.role === "group_admin");
-      const hasGroupContext = !!activeHospital?.groupId;
-      const showManageGroup = isGroupAdmin && hasGroupContext;
+      // Manage Chain lives under /admin/* now — see the admin-module
+      // nav block above. This section stays focused on per-hospital
+      // business surfaces (dashboard, marketing, administration, HR).
 
       if (activeHospital?.role === 'marketing') {
         // Marketing role: only Marketing page (Flows hidden for now)
@@ -243,14 +237,6 @@ export default function BottomNav() {
       } else {
         // Staff role users: Administration (surgery planning) only
         businessItems.push({ id: "business-administration", icon: "fas fa-table", label: t('bottomNav.business.administration', 'Administration'), path: "/business" });
-      }
-      if (showManageGroup) {
-        businessItems.push({
-          id: "business-group",
-          icon: "fas fa-network-wired",
-          label: t('bottomNav.business.group', 'Manage Group'),
-          path: "/business/group",
-        });
       }
       return businessItems;
     }

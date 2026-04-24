@@ -320,7 +320,12 @@ function Router() {
               {/* Business Module - requires business unit access */}
               {/* /business shows Dashboard (CostAnalytics) for managers, Administration (SimplifiedDashboard) for staff */}
               {/* Group admin surface (Task 13). Listed before /business so wouter doesn't match the generic business route first. */}
-              <Route path="/business/group">{() => <ProtectedRoute requireGroupAdmin><BusinessGroup /></ProtectedRoute>}</Route>
+              {/* Chain admin surface: managing the chain IS administrative
+                  work, not business analytics. Lives under /admin/* to
+                  match that mental model. /business/group still resolves
+                  via a redirect so old bookmarks survive. */}
+              <Route path="/admin/chain">{() => <ProtectedRoute requireGroupAdmin><BusinessGroup /></ProtectedRoute>}</Route>
+              <Route path="/business/group">{() => <Redirect to="/admin/chain" />}</Route>
               <Route path="/business/marketing">{() => <ProtectedRoute requireBusiness><Marketing /></ProtectedRoute>}</Route>
               <Route path="/business/flows/new">{() => <ProtectedRoute requireBusiness><FlowCreate /></ProtectedRoute>}</Route>
               <Route path="/business/flows/:id/metrics">{(params) => <ProtectedRoute requireBusiness><FlowMetrics /></ProtectedRoute>}</Route>
