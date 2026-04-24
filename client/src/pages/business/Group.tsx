@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useAuth } from "@/hooks/useAuth";
 
 /**
  * `/business/group` — group admin surface (Task 13).
@@ -73,6 +74,36 @@ export default function BusinessGroup() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+
+  // Click a clinic pill → switch the active hospital to that clinic and
+  // land on its Admin page. Mirrors the handleHospitalChange in Layout.tsx
+  // (localStorage + hospital-changed event), but goes straight to /admin
+  // instead of preserving the current page.
+  const jumpToClinicAdmin = (hospitalId: string) => {
+    const userHospitals = (user as any)?.hospitals ?? [];
+    // Prefer an admin row, then group_admin, then any role at this hospital.
+    const candidates = userHospitals.filter((h: any) => h.id === hospitalId);
+    const target =
+      candidates.find((h: any) => h.role === "admin") ??
+      candidates.find((h: any) => h.role === "group_admin") ??
+      candidates[0];
+    if (!target) {
+      toast({
+        title: "Cannot switch",
+        description: "You have no role at this clinic.",
+        variant: "destructive",
+      });
+      return;
+    }
+    localStorage.setItem(
+      "activeHospital",
+      `${target.id}-${target.unitId}-${target.role}`,
+    );
+    window.dispatchEvent(new CustomEvent("hospital-changed"));
+    navigate("/admin");
+  };
 
   const { data: overview, isLoading: overviewLoading, error: overviewError } =
     useQuery<Overview>({
@@ -180,14 +211,16 @@ export default function BusinessGroup() {
         <h1 className="text-2xl font-semibold">Managing {group.name}</h1>
         <div className="flex flex-wrap gap-2 mt-3">
           {members.map((m) => (
-            <Link
+            <button
               key={m.id}
-              href="/business"
-              className="inline-flex items-center rounded-full border px-3 py-1 text-xs hover:bg-accent"
+              type="button"
+              onClick={() => jumpToClinicAdmin(m.id)}
+              className="inline-flex items-center rounded-full border px-3 py-1 text-xs hover:bg-accent transition-colors"
+              title={`Switch to ${m.name} and open Admin`}
               data-testid={`member-chip-${m.id}`}
             >
               {m.name}
-            </Link>
+            </button>
           ))}
         </div>
       </div>
