@@ -1057,7 +1057,7 @@ export default function Marketing() {
                               </TableCell>
                               <TableCell>
                                 {hasClickIds ? (
-                                  <div className="flex gap-1 flex-wrap">
+                                  <div className="flex gap-1 whitespace-nowrap">
                                     {ev.gclid && (
                                       <Badge variant="outline" className="text-xs font-mono" title={ev.gclid}>
                                         gclid
