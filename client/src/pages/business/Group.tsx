@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useAuth } from "@/hooks/useAuth";
@@ -225,6 +226,27 @@ export default function BusinessGroup() {
         </div>
       </div>
 
+      <Tabs defaultValue="overview" className="w-full">
+        <div className="w-full overflow-x-auto -mx-1 px-1">
+          <TabsList className="inline-flex w-max min-w-full justify-start">
+            <TabsTrigger
+              value="overview"
+              className="whitespace-nowrap flex-shrink-0"
+              data-testid="tab-overview"
+            >
+              Overview
+            </TabsTrigger>
+            <TabsTrigger
+              value="admins"
+              className="whitespace-nowrap flex-shrink-0"
+              data-testid="tab-admins"
+            >
+              Admins ({admins.length})
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="overview" className="mt-4 space-y-6">
       {/* Three stat tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Tile label="Total patients" value={counts.patientCount} />
@@ -255,7 +277,9 @@ export default function BusinessGroup() {
           Chain marketing →
         </Button>
       </div>
+        </TabsContent>
 
+        <TabsContent value="admins" className="mt-4 space-y-6">
       {/* Group admins section */}
       <section className="border rounded p-4 space-y-3">
         <h2 className="text-lg font-medium">
@@ -395,6 +419,8 @@ export default function BusinessGroup() {
           or your platform admin for those.
         </div>
       </section>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
