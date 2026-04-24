@@ -207,7 +207,7 @@ export default function BusinessGroup() {
               className="whitespace-nowrap flex-shrink-0"
               data-testid="tab-overview"
             >
-              Overview
+              Shortcuts
             </TabsTrigger>
             <TabsTrigger
               value="admins"
