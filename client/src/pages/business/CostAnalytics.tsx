@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
-import { Redirect } from "wouter";
+import { Redirect, useLocation } from "wouter";
 import { 
   HelpCircle, 
   TrendingUp, 
@@ -322,7 +322,15 @@ export default function CostAnalytics() {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const [surgeryTypeFilter, setSurgeryTypeFilter] = useState("all");
-  const [activeSubTab, setActiveSubTab] = useState("surgeries");
+  const [activeTopTab, setActiveTopTab] = useState<"overview" | "treatments" | "surgeries" | "costs" | "inventory">("overview");
+  const [range, setRange] = useState<"30d" | "90d" | "365d">("30d");
+  const [showBackToChain, setShowBackToChain] = useState(false);
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    setShowBackToChain(sessionStorage.getItem("chain.drilledInto") === "true");
+  }, []);
+
   const [surgerySearch, setSurgerySearch] = useState("");
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set());
   const [inventorySortBy, setInventorySortBy] = useState<'price' | 'stock'>('price');
@@ -362,7 +370,7 @@ export default function CostAnalytics() {
     status: string;
   }[]>({
     queryKey: [`/api/business/${activeHospital?.id}/surgeries`],
-    enabled: !!activeHospital?.id && activeSubTab === 'surgeries',
+    enabled: !!activeHospital?.id && activeTopTab === 'surgeries',
   });
 
   // Fetch anesthesia nurse hours by month
@@ -377,7 +385,7 @@ export default function CostAnalytics() {
     hourlyRate: number;
   }>({
     queryKey: [`/api/business/${activeHospital?.id}/anesthesia-nurse-hours`],
-    enabled: !!activeHospital?.id && activeSubTab === 'surgeries',
+    enabled: !!activeHospital?.id && activeTopTab === 'surgeries',
   });
 
   // Fetch detailed cost breakdown for selected surgery
@@ -432,7 +440,7 @@ export default function CostAnalytics() {
     supplierCodes: any[];
   }>({
     queryKey: [`/api/business/${activeHospital?.id}/inventory-overview`],
-    enabled: !!activeHospital?.id && activeSubTab === 'inventories',
+    enabled: !!activeHospital?.id && activeTopTab === 'inventory',
   });
 
   // Extract data from the aggregated response
@@ -445,7 +453,30 @@ export default function CostAnalytics() {
   // Fetch aggregated inventory snapshots from all clinics for historical chart
   const { data: snapshotsData, isLoading: snapshotsLoading } = useQuery<any[]>({
     queryKey: [`/api/business/${activeHospital?.id}/inventory-snapshots?days=30`],
-    enabled: !!activeHospital?.id && activeSubTab === 'inventories',
+    enabled: !!activeHospital?.id && activeTopTab === 'inventory',
+  });
+
+  // Overview tab queries (treatments lens)
+  const { data: treatmentsSummary } = useQuery<{
+    topTreatments: Array<{ serviceId: string | null; name: string; revenue: number; count: number }>;
+    byDay: Array<{ date: string; revenue: number; count: number }>;
+  }>({
+    queryKey: [`/api/business/${activeHospital?.id}/treatments-summary?range=${range}`],
+    enabled: !!activeHospital?.id && activeTopTab === 'overview',
+  });
+
+  const { data: providersPerformance } = useQuery<{
+    providers: Array<{ providerId: string; name: string; treatmentsCount: number; surgeriesCount: number; revenue: number; utilizationPct: number | null }>;
+  }>({
+    queryKey: [`/api/business/${activeHospital?.id}/providers-performance?range=${range}`],
+    enabled: !!activeHospital?.id && activeTopTab === 'overview',
+  });
+
+  const { data: funnelSnapshot } = useQuery<{
+    leads: number; contacted: number; booked: number; firstVisit: number; conversionPct: number;
+  }>({
+    queryKey: [`/api/business/${activeHospital?.id}/funnel-snapshot?range=${range}`],
+    enabled: !!activeHospital?.id && activeTopTab === 'overview',
   });
 
   // Calculate inventory values per unit
@@ -590,11 +621,18 @@ export default function CostAnalytics() {
   const filteredSurgeries = useMemo(() => {
     if (!surgeriesData) return [];
     const searchLower = surgerySearch.toLowerCase();
-    return surgeriesData.filter(surgery => 
+    return surgeriesData.filter(surgery =>
       (surgery.surgeryName || '').toLowerCase().includes(searchLower) ||
       (surgery.patientName || '').toLowerCase().includes(searchLower)
     );
   }, [surgeriesData, surgerySearch]);
+
+  // Overview revenue: treatments revenue + surgery revenue (if loaded)
+  const overviewRevenue = useMemo(() => {
+    const treatmentRev = treatmentsSummary?.byDay.reduce((s, d) => s + (d.revenue ?? 0), 0) ?? 0;
+    const surgeryRev = (surgeriesData ?? []).reduce((s, sg) => s + ((sg.totalCost as number | undefined) ?? 0), 0);
+    return treatmentRev + surgeryRev;
+  }, [treatmentsSummary, surgeriesData]);
 
   // Format duration for display (e.g., "2h 15min")
   const formatDuration = (minutes: number | null | undefined) => {
@@ -611,32 +649,233 @@ export default function CostAnalytics() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24">
+      {showBackToChain && (
+        <div className="-mx-4 md:-mx-6 -mt-4 md:-mt-6 px-4 md:px-6 py-2 bg-blue-500/5 border-b border-blue-500/20 text-sm flex items-center gap-2">
+          <button
+            onClick={() => { sessionStorage.removeItem("chain.drilledInto"); navigate("/chain"); }}
+            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+            data-testid="back-to-chain-breadcrumb"
+          >
+            ← {t("business.backToChain", "Back to Chain overview")}
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold" data-testid="text-cost-analytics-title">
-            {t('business.costs.title')}
+            {activeHospital?.name ?? t('business.costs.title')}
           </h1>
           <p className="text-muted-foreground mt-1">
             {t('business.costs.subtitle')}
           </p>
         </div>
+        <Select value={range} onValueChange={(v) => setRange(v as any)}>
+          <SelectTrigger className="w-[180px]" data-testid="select-range">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="30d">{t('business.range.30d', 'Last 30 days')}</SelectItem>
+            <SelectItem value="90d">{t('business.range.90d', 'Last 90 days')}</SelectItem>
+            <SelectItem value="365d">{t('business.range.365d', 'Last year')}</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Subtabs for Surgeries and Inventories */}
-      <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
-        <TabsList className="grid w-full max-w-2xl grid-cols-2">
-          <TabsTrigger value="surgeries" className="flex items-center gap-2" data-testid="tab-costs-surgeries">
-            <List className="h-4 w-4" />
-            {t('business.costs.surgeries')}
+      {/* Top-level tabs: Overview / Treatments / Surgeries / Costs / Inventory */}
+      <Tabs value={activeTopTab} onValueChange={(v) => setActiveTopTab(v as any)} className="w-full">
+        <TabsList className="flex flex-wrap w-full justify-start gap-1">
+          <TabsTrigger value="overview" className="flex items-center gap-2" data-testid="tab-overview">
+            <BarChart3 className="h-4 w-4" />
+            {t('business.tabs.overview', 'Overview')}
           </TabsTrigger>
-          <TabsTrigger value="inventories" className="flex items-center gap-2" data-testid="tab-costs-inventories">
+          <TabsTrigger value="treatments" className="flex items-center gap-2" data-testid="tab-treatments">
+            <Activity className="h-4 w-4" />
+            {t('business.tabs.treatments', 'Treatments')}
+          </TabsTrigger>
+          <TabsTrigger value="surgeries" className="flex items-center gap-2" data-testid="tab-surgeries">
+            <List className="h-4 w-4" />
+            {t('business.tabs.surgeries', 'Surgeries')}
+          </TabsTrigger>
+          <TabsTrigger value="costs" className="flex items-center gap-2" data-testid="tab-costs">
+            <DollarSign className="h-4 w-4" />
+            {t('business.tabs.costs', 'Costs')}
+          </TabsTrigger>
+          <TabsTrigger value="inventory" className="flex items-center gap-2" data-testid="tab-inventory">
             <Package className="h-4 w-4" />
-            {t('business.costs.inventories')}
+            {t('business.tabs.inventory', 'Inventory')}
           </TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab Content */}
+        {/* Overview Tab Content — treatments lens */}
         <TabsContent value="overview" className="space-y-6 mt-6">
+          {/* KPI row */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <Card className="border-l-4 border-l-blue-500">
+              <CardContent className="pt-4">
+                <div className="text-xs uppercase text-muted-foreground">{t('business.kpi.revenue', 'Revenue')}</div>
+                <div className="text-2xl font-semibold mt-1" data-testid="kpi-overview-revenue">
+                  {formatCurrencyLocale(overviewRevenue)}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {t('business.kpi.lastRange', 'Last {{n}} days', { n: parseInt(range) })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4">
+                <div className="text-xs uppercase text-muted-foreground">{t('business.kpi.treatments', 'Treatments')}</div>
+                <div className="text-2xl font-semibold mt-1" data-testid="kpi-overview-treatments">
+                  {activeHospital?.clinicKind === 'surgical'
+                    ? <span className="text-muted-foreground">—</span>
+                    : (treatmentsSummary?.byDay.reduce((s, d) => s + (d.count ?? 0), 0) ?? 0)}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4">
+                <div className="text-xs uppercase text-muted-foreground">{t('business.kpi.surgeries', 'Surgeries')}</div>
+                <div className="text-2xl font-semibold mt-1" data-testid="kpi-overview-surgeries">
+                  {activeHospital?.clinicKind === 'aesthetic'
+                    ? <span className="text-muted-foreground">—</span>
+                    : (surgeriesData?.length ?? 0)}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4">
+                <div className="text-xs uppercase text-muted-foreground">{t('business.kpi.noShow', 'No-show rate')}</div>
+                <div className="text-2xl font-semibold mt-1" data-testid="kpi-overview-noshow">
+                  {funnelSnapshot && funnelSnapshot.booked > 0
+                    ? `${((1 - funnelSnapshot.firstVisit / funnelSnapshot.booked) * 100).toFixed(1)}%`
+                    : '—'}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Revenue by day */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{t('business.overview.revenueByDay', 'Revenue by day')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={treatmentsSummary?.byDay ?? []}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <RechartsTooltip
+                    formatter={(value: number) => [formatCurrencyLocale(value), '']}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Bar dataKey="revenue" fill="#3b82f6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Top items + Funnel side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {activeHospital?.clinicKind === 'surgical'
+                    ? t('business.overview.topSurgeries', 'Top surgeries')
+                    : t('business.overview.topTreatments', 'Top treatments')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {activeHospital?.clinicKind !== 'surgical' && (treatmentsSummary?.topTreatments ?? []).map(tr => (
+                  <div key={tr.serviceId ?? tr.name} className="flex justify-between py-1 text-sm">
+                    <span>{tr.name}</span>
+                    <span className="text-muted-foreground">{formatCurrencyLocale(tr.revenue)} · {tr.count}</span>
+                  </div>
+                ))}
+                {activeHospital?.clinicKind !== 'surgical' && (treatmentsSummary?.topTreatments ?? []).length === 0 && (
+                  <div className="text-sm text-muted-foreground">{t('common.noData', 'No data')}</div>
+                )}
+                {activeHospital?.clinicKind === 'surgical' && (
+                  <div className="text-sm text-muted-foreground">
+                    {t('business.overview.noTreatments', 'Clinic type is surgical-only; treatments not shown.')}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t('business.overview.funnel', 'Funnel snapshot')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {funnelSnapshot ? (
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span>{t('business.overview.leads', 'Leads')}</span><span className="font-medium">{funnelSnapshot.leads}</span></div>
+                    <div className="flex justify-between"><span>{t('business.overview.contacted', 'Contacted')}</span><span className="font-medium">{funnelSnapshot.contacted}</span></div>
+                    <div className="flex justify-between"><span>{t('business.overview.booked', 'Booked')}</span><span className="font-medium">{funnelSnapshot.booked}</span></div>
+                    <div className="flex justify-between"><span>{t('business.overview.firstVisit', 'First visit')}</span><span className="font-medium">{funnelSnapshot.firstVisit}</span></div>
+                    <div className="flex justify-between pt-1 border-t">
+                      <span>{t('business.overview.conversion', 'Conversion')}</span>
+                      <span className="font-medium">{funnelSnapshot.conversionPct.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">{t('common.loading', 'Loading...')}</div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Provider performance table */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{t('business.overview.providers', 'Provider performance')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('business.overview.provider', 'Provider')}</TableHead>
+                    {activeHospital?.clinicKind !== 'surgical' && <TableHead className="text-right">{t('business.overview.treatmentsCount', 'Treatments')}</TableHead>}
+                    {activeHospital?.clinicKind !== 'aesthetic' && <TableHead className="text-right">{t('business.overview.surgeriesCount', 'Surgeries')}</TableHead>}
+                    <TableHead className="text-right">{t('business.overview.revenue', 'Revenue')}</TableHead>
+                    <TableHead className="text-right">{t('business.overview.utilization', 'Utilization')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(providersPerformance?.providers ?? []).map(p => (
+                    <TableRow key={p.providerId}>
+                      <TableCell>{p.name}</TableCell>
+                      {activeHospital?.clinicKind !== 'surgical' && <TableCell className="text-right">{p.treatmentsCount}</TableCell>}
+                      {activeHospital?.clinicKind !== 'aesthetic' && <TableCell className="text-right">{p.surgeriesCount}</TableCell>}
+                      <TableCell className="text-right">{formatCurrencyLocale(p.revenue)}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {p.utilizationPct != null ? `${p.utilizationPct}%` : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Treatments Tab Content — Phase B.2 placeholder */}
+        <TabsContent value="treatments" className="space-y-6 mt-6">
+          <div className="p-8 text-center text-muted-foreground" data-testid="tab-treatments-placeholder">
+            {t('business.tabs.treatmentsPlaceholder', 'Detailed treatment analytics coming soon.')}
+          </div>
+        </TabsContent>
+
+        {/* Costs Tab Content — moved from orphaned overview content (mock cost data) */}
+        <TabsContent value="costs" className="space-y-6 mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <SummaryCard
               title={t('business.costs.totalSpending')}
@@ -1302,8 +1541,8 @@ export default function CostAnalytics() {
           </Card>
         </TabsContent>
 
-        {/* Inventories Tab Content */}
-        <TabsContent value="inventories" className="space-y-6 mt-6">
+        {/* Inventory Tab Content */}
+        <TabsContent value="inventory" className="space-y-6 mt-6">
           {/* Current Inventory Values */}
           <Card>
             <CardHeader>

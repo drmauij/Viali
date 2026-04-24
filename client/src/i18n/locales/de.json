@@ -5397,6 +5397,38 @@
     "absenceAbsent": "Abwesend"
   },
   "business": {
+    "backToChain": "Zurück zur Ketten-Übersicht",
+    "tabs": {
+      "overview": "Übersicht",
+      "treatments": "Behandlungen",
+      "surgeries": "Operationen",
+      "costs": "Kosten",
+      "inventory": "Lager",
+      "treatmentsPlaceholder": "Detaillierte Behandlungsanalyse kommt bald."
+    },
+    "range": {
+      "30d": "Letzte 30 Tage",
+      "90d": "Letzte 90 Tage",
+      "365d": "Letztes Jahr"
+    },
+    "overview": {
+      "revenueByDay": "Umsatz pro Tag",
+      "topTreatments": "Top-Behandlungen",
+      "topSurgeries": "Top-Operationen",
+      "noTreatments": "Kliniktyp ist rein chirurgisch; Behandlungen werden nicht angezeigt.",
+      "funnel": "Trichter-Snapshot",
+      "leads": "Leads",
+      "contacted": "Kontaktiert",
+      "booked": "Gebucht",
+      "firstVisit": "Erster Termin",
+      "conversion": "Konversion",
+      "providers": "Behandler-Performance",
+      "provider": "Behandler",
+      "treatmentsCount": "Behandlungen",
+      "surgeriesCount": "Operationen",
+      "revenue": "Umsatz",
+      "utilization": "Auslastung"
+    },
     "dashboard": {
       "title": "OP-Administration",
       "subtitle": "Verwaltung von administrativen Details wie Abrechnung, Verträge und Dokumentation",
@@ -5427,7 +5459,12 @@
       "cancellationRate": "Absagerate",
       "ofPlannedSurgeries": "Der geplanten OPs",
       "staffCosts": "Personalkosten",
-      "hourlyStaffThisMonth": "Leihpersonal diesen Monat"
+      "hourlyStaffThisMonth": "Leihpersonal diesen Monat",
+      "revenue": "Umsatz",
+      "treatments": "Behandlungen",
+      "surgeries": "Operationen",
+      "noShow": "No-Show-Quote",
+      "lastRange": "Letzte {{n}} Tage"
     },
     "charts": {
       "surgeryTrend": "OP-Volumen Trend",

@@ -21,6 +21,7 @@ interface Hospital {
   isLogisticModule?: boolean;
   showControlledMedications?: boolean;
   externalSurgeryToken?: string | null;
+  clinicKind?: "aesthetic" | "surgical" | "mixed";
   visionAiProvider?: string;
   currency?: string;
   dateFormat?: string;

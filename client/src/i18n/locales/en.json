@@ -5316,6 +5316,38 @@
     "absenceAbsent": "Absent"
   },
   "business": {
+    "backToChain": "Back to Chain overview",
+    "tabs": {
+      "overview": "Overview",
+      "treatments": "Treatments",
+      "surgeries": "Surgeries",
+      "costs": "Costs",
+      "inventory": "Inventory",
+      "treatmentsPlaceholder": "Detailed treatment analytics coming soon."
+    },
+    "range": {
+      "30d": "Last 30 days",
+      "90d": "Last 90 days",
+      "365d": "Last year"
+    },
+    "overview": {
+      "revenueByDay": "Revenue by day",
+      "topTreatments": "Top treatments",
+      "topSurgeries": "Top surgeries",
+      "noTreatments": "Clinic type is surgical-only; treatments not shown.",
+      "funnel": "Funnel snapshot",
+      "leads": "Leads",
+      "contacted": "Contacted",
+      "booked": "Booked",
+      "firstVisit": "First visit",
+      "conversion": "Conversion",
+      "providers": "Provider performance",
+      "provider": "Provider",
+      "treatmentsCount": "Treatments",
+      "surgeriesCount": "Surgeries",
+      "revenue": "Revenue",
+      "utilization": "Utilization"
+    },
     "dashboard": {
       "title": "Surgery Administration",
       "subtitle": "Manage administrative details for surgeries such as billing, contracts, and documentation",
@@ -5346,7 +5378,12 @@
       "cancellationRate": "Cancellation Rate",
       "ofPlannedSurgeries": "Of planned surgeries",
       "staffCosts": "Staff Costs",
-      "hourlyStaffThisMonth": "Hourly staff this month"
+      "hourlyStaffThisMonth": "Hourly staff this month",
+      "revenue": "Revenue",
+      "treatments": "Treatments",
+      "surgeries": "Surgeries",
+      "noShow": "No-show rate",
+      "lastRange": "Last {{n}} days"
     },
     "charts": {
       "surgeryTrend": "Surgery Volume Trend",
