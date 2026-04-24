@@ -16,9 +16,10 @@ import logger from "../logger";
  * is the gate: these routes require `group_admin` at the currently-active
  * hospital (or platform-admin).
  *
- * Group admins CANNOT: add/remove member hospitals, rename the group,
- * regenerate the booking token. Those stay on `/admin/groups` (platform
- * admin only) per the spec's permission matrix.
+ * Group admins CANNOT: add/remove member hospitals, regenerate the
+ * booking token. Those stay on `/admin/groups` (platform admin only).
+ * Group admins CAN: edit their chain's name + logo via the settings
+ * endpoint — it's their chain.
  */
 
 const router = Router();
@@ -50,6 +51,7 @@ router.get("/api/business/group/overview", async (req: any, res) => {
         id: group.id,
         name: group.name,
         bookingToken: group.bookingToken,
+        logoUrl: group.logoUrl,
       },
       members: members.map((m) => ({
         id: m.id,
@@ -61,6 +63,50 @@ router.get("/api/business/group/overview", async (req: any, res) => {
   } catch (err) {
     logger.error("Error fetching group overview:", err);
     res.status(500).json({ message: "Failed to fetch group overview" });
+  }
+});
+
+// PATCH /api/business/group/settings — group admin edits own chain's name
+// and/or logo. Logo is stored as a data URL, same pattern as
+// hospitals.companyLogoUrl. Cap the payload at 2 MB so we don't choke on
+// oversized client submissions.
+const settingsSchema = z
+  .object({
+    name: z.string().min(1).max(255).optional(),
+    logoUrl: z
+      .string()
+      .max(2 * 1024 * 1024, "Logo too large (max 2 MB as data URL)")
+      .nullable()
+      .optional(),
+  })
+  .refine(
+    (v) => v.name !== undefined || v.logoUrl !== undefined,
+    "Body must include at least one of name or logoUrl",
+  );
+router.patch("/api/business/group/settings", async (req: any, res) => {
+  const parsed = settingsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+  try {
+    const groupId = req._groupId as string;
+    if (parsed.data.name !== undefined) {
+      await groupStorage.renameGroup(groupId, parsed.data.name);
+    }
+    if (parsed.data.logoUrl !== undefined) {
+      await groupStorage.updateGroupLogo(groupId, parsed.data.logoUrl);
+    }
+    const updated = await groupStorage.getGroup(groupId);
+    if (!updated) return res.status(404).json({ error: "not found" });
+    res.json({
+      id: updated.id,
+      name: updated.name,
+      logoUrl: updated.logoUrl,
+      bookingToken: updated.bookingToken,
+    });
+  } catch (err) {
+    logger.error("Error updating group settings:", err);
+    res.status(500).json({ message: "Failed to update settings" });
   }
 });
 

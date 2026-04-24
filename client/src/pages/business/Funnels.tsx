@@ -11,6 +11,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useAuth } from "@/hooks/useAuth";
 import { useScopeToggle } from "@/hooks/useScopeToggle";
 import MarketingAiInsights from "./MarketingAiInsights";
 import { Redirect } from "wouter";
@@ -457,6 +458,7 @@ type ReferralEvent = {
 export default function Funnels() {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
+  const { user } = useAuth();
   const [referralFrom, setReferralFrom] = useState("");
   const [referralTo, setReferralTo] = useState(new Date().toISOString().slice(0, 10));
   const [selectedReferralSource, setSelectedReferralSource] = useState<string | null>(null);
@@ -472,7 +474,17 @@ export default function Funnels() {
       apiRequest("GET", `/api/clinic/${activeHospital?.id}/group-info`).then((r) => r.json()),
     enabled: !!activeHospital?.id,
   });
-  const canUseGroupScope = !!groupInfo?.groupId && !!groupInfo?.isGroupAdmin;
+  // Compute synchronously from data we already have — doing this via the
+  // groupInfo fetch caused a race where useScopeToggle collapsed to
+  // "hospital" (and stripped ?scope=group from the URL) before the query
+  // returned, making direct links to /business/funnels?scope=group fail
+  // to land in group view.
+  const userHospitals = (user as any)?.hospitals ?? [];
+  const isGroupAdminClient =
+    (user as any)?.isPlatformAdmin ||
+    userHospitals.some((h: any) => h.role === "group_admin");
+  const canUseGroupScope =
+    !!activeHospital?.groupId && isGroupAdminClient;
   const { scope, setScope } = useScopeToggle({ available: canUseGroupScope });
   const [sourceInsightsOpen, setSourceInsightsOpen] = useState<boolean>(() => {
     try {
