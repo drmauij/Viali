@@ -54,8 +54,14 @@ export default function ModuleDrawer() {
   const hasBusinessAccess = activeHospital?.unitType === 'business';
   const hasClinicAccess = activeHospital?.unitType === 'clinic';
   const hasLogisticAccess = activeHospital?.unitType === 'logistic';
-  const isAdmin = activeHospital?.role === "admin";
-  const canAccessPreOp = activeHospital?.role === "admin" || activeHospital?.role === "doctor";
+  // Treat group_admin as admin-equivalent for module visibility — a chain
+  // group admin needs to reach the Admin module at every clinic they
+  // manage (that's the whole point of the role).
+  const isAdmin =
+    activeHospital?.role === "admin" ||
+    activeHospital?.role === "group_admin";
+  const canAccessPreOp =
+    isAdmin || activeHospital?.role === "doctor";
 
   const { data: pendingCountData } = useQuery<{ total: number; overdue: number }>({
     queryKey: [`/api/checklists/count/${activeHospital?.id}?unitId=${activeHospital?.unitId}`],

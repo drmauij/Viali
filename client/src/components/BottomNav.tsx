@@ -40,7 +40,11 @@ export default function BottomNav() {
     return userHospitals[0];
   }, [user]);
 
-  const isAdmin = activeHospital?.role === "admin";
+  // group_admin is admin-equivalent for navigation purposes — a chain group
+  // admin needs to reach the Admin module at every member clinic.
+  const isAdmin =
+    activeHospital?.role === "admin" ||
+    activeHospital?.role === "group_admin";
 
   // Fetch pending checklist count for the active unit
   const { data: pendingCountData } = useQuery<{ total: number; overdue: number }>({
@@ -53,7 +57,7 @@ export default function BottomNav() {
   const hasOverdueChecklists = (pendingCountData?.overdue || 0) > 0;
 
   // Fetch pending time-off count for business staff badge
-  const isManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager';
+  const isManager = isAdmin || activeHospital?.role === 'manager';
   const { data: pendingTimeOffData } = useQuery<{ count: number }>({
     queryKey: [`/api/business/${activeHospital?.id}/time-off/pending-count`],
     enabled: !!activeHospital?.id && isManager,
@@ -135,7 +139,7 @@ export default function BottomNav() {
   }, [activeHospital?.id]);
 
   // Pre-Op tab is only visible for admin and doctor roles, not for nurse
-  const canAccessPreOp = activeHospital?.role === "admin" || activeHospital?.role === "doctor";
+  const canAccessPreOp = isAdmin || activeHospital?.role === "doctor";
 
   const navItems: NavItem[] = useMemo(() => {
     if (activeModule === "anesthesia") {
@@ -180,11 +184,26 @@ export default function BottomNav() {
         { id: "admin-integrations", icon: "fas fa-plug", label: t('bottomNav.admin.integrations'), path: "/admin/integrations" },
         { id: "admin-billing", icon: "fas fa-credit-card", label: t('bottomNav.admin.billing'), path: "/admin/billing" },
       ];
+      // Group-admin self-serve: show "Manage Group" in admin nav too (it
+      // also exists under business). Patrick doesn't need a business-unit
+      // role to reach his chain management. Server gate is authoritative.
+      const adminUserHospitals = (user as any)?.hospitals ?? [];
+      const isGroupAdminUser =
+        (user as any)?.isPlatformAdmin ||
+        adminUserHospitals.some((h: any) => h.role === "group_admin");
+      if (isGroupAdminUser && activeHospital?.groupId) {
+        adminItems.push({
+          id: "admin-group",
+          icon: "fas fa-sitemap",
+          label: t('bottomNav.business.group', 'Manage Group'),
+          path: "/business/group",
+        });
+      }
       // Platform-admin only: cross-tenant hospital group management.
       if ((user as any)?.isPlatformAdmin) {
         adminItems.push({
           id: "admin-groups",
-          icon: "fas fa-sitemap",
+          icon: "fas fa-building",
           label: "Groups",
           path: "/admin/groups",
         });
