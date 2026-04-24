@@ -46,9 +46,7 @@ export default function Integrations() {
     normalizedUrlTab && (validTabs as string[]).includes(normalizedUrlTab) ? normalizedUrlTab as IntegrationsTab : "galexis"
   );
 
-  const isAdmin =
-    activeHospital?.role === "admin" ||
-    activeHospital?.role === "group_admin";
+  const isAdmin = activeHospital?.role === "admin";
 
   // ── TARDOC Billing Identifiers state ─────────────────────────────────
   const [billingForm, setBillingForm] = useState({

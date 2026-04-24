@@ -38,10 +38,7 @@ export default function Checklists() {
   });
   const [newTemplateItem, setNewTemplateItem] = useState("");
 
-  // Check if user is admin
-  const isAdmin =
-    activeHospital?.role === "admin" ||
-    activeHospital?.role === "group_admin";
+  const isAdmin = activeHospital?.role === "admin";
 
   // Fetch units
   const { data: units = [] } = useQuery<any[]>({
