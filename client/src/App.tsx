@@ -326,7 +326,12 @@ function Router() {
                   via a redirect so old bookmarks survive. */}
               <Route path="/admin/chain">{() => <ProtectedRoute requireGroupAdmin><BusinessGroup /></ProtectedRoute>}</Route>
               <Route path="/business/group">{() => <Redirect to="/admin/chain" />}</Route>
-              <Route path="/business/marketing">{() => <ProtectedRoute requireBusiness><Marketing /></ProtectedRoute>}</Route>
+              {/* Funnels (conversion tracking / ad-funnel analytics). Previously
+                  lived at /business/marketing; renamed for clarity since the
+                  page shows funnels/ROI, not the generic "marketing" concept.
+                  Old URL kept as a redirect so bookmarks survive. */}
+              <Route path="/business/funnels">{() => <ProtectedRoute requireBusiness><Marketing /></ProtectedRoute>}</Route>
+              <Route path="/business/marketing">{() => <Redirect to="/business/funnels" />}</Route>
               <Route path="/business/flows/new">{() => <ProtectedRoute requireBusiness><FlowCreate /></ProtectedRoute>}</Route>
               <Route path="/business/flows/:id/metrics">{(params) => <ProtectedRoute requireBusiness><FlowMetrics /></ProtectedRoute>}</Route>
               <Route path="/business/flows/:id">{(params) => <ProtectedRoute requireBusiness><FlowCreate editId={params.id} /></ProtectedRoute>}</Route>

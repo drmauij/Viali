@@ -70,7 +70,7 @@ export function ProtectedRoute({
   // Determine the default redirect path based on active unit's module
   const getDefaultRedirect = (): string => {
     if (hasBusinessAccess) {
-      return activeHospital?.role === 'marketing' ? "/business/marketing" : "/business";
+      return activeHospital?.role === 'marketing' ? "/business/funnels" : "/business";
     }
     if (hasAnesthesiaAccess) {
       return "/anesthesia/op";
@@ -142,11 +142,11 @@ export function ProtectedRoute({
     return <Redirect to={defaultRedirect} />;
   }
 
-  // Marketing role can only access /business/marketing
+  // Marketing role can only access /business/funnels
   if (requireBusiness && hasBusinessAccess && activeHospital?.role === 'marketing') {
     const currentPath = window.location.pathname;
-    if (currentPath !== '/business/marketing') {
-      return <Redirect to="/business/marketing" />;
+    if (currentPath !== '/business/funnels') {
+      return <Redirect to="/business/funnels" />;
     }
   }
 
