@@ -334,7 +334,7 @@ export default function ModuleDrawer() {
               )}
               {showChainCard && (
                 <button
-                  onClick={() => handleModuleClick("/chain/admin")}
+                  onClick={() => handleModuleClick("/chain")}
                   className="w-full p-5 rounded-lg border-2 border-blue-500 bg-gradient-to-br from-blue-500/10 to-blue-600/5 hover:from-blue-500/15 hover:to-blue-600/10 text-left transition-all"
                   data-testid="module-card-chain"
                 >

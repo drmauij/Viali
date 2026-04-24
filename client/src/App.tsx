@@ -94,6 +94,7 @@ const Flows = React.lazy(() => import("@/pages/business/Flows"));
 const FlowCreate = React.lazy(() => import("@/pages/business/FlowCreate"));
 const FlowMetrics = React.lazy(() => import("@/pages/business/FlowMetrics"));
 const BusinessGroup = React.lazy(() => import("@/pages/business/Group"));
+const ChainCockpit = React.lazy(() => import("@/pages/chain/Cockpit"));
 
 function PageLoader() {
   return (
@@ -324,7 +325,7 @@ function Router() {
               <Route path="/admin/cameras">{() => <Redirect to="/admin/integrations" />}</Route>
 
               {/* Chain Module — group-admin operator surface for a single chain. */}
-              <Route path="/chain">{() => <Redirect to="/chain/admin" />}</Route>
+              <Route path="/chain">{() => <ProtectedRoute requireChain><ChainCockpit /></ProtectedRoute>}</Route>
               <Route path="/chain/admin">{() => <ProtectedRoute requireChain><BusinessGroup /></ProtectedRoute>}</Route>
               {/* Legacy /admin/chain and /business/group paths — redirect into Chain
                   module. Phase A ships this component unchanged at its new home. */}
