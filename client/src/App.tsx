@@ -313,19 +313,23 @@ function Router() {
               <Route path="/admin/integrations">{() => <ProtectedRoute requireAdmin><AdminIntegrations /></ProtectedRoute>}</Route>
               <Route path="/admin/billing">{() => <ProtectedRoute requireAdmin><AdminBilling /></ProtectedRoute>}</Route>
               <Route path="/admin/postop-order-templates">{() => <ProtectedRoute requireAdmin><AdminPostopOrderTemplates /></ProtectedRoute>}</Route>
-              {/* Platform-admin: hospital groups (cross-tenant). Uses requirePlatformAdmin instead of requireAdmin — does not depend on active-hospital role. */}
-              <Route path="/admin/groups">{() => <ProtectedRoute requirePlatformAdmin><AdminGroups /></ProtectedRoute>}</Route>
-              <Route path="/admin/groups/:id">{() => <ProtectedRoute requirePlatformAdmin><AdminGroupDetail /></ProtectedRoute>}</Route>
+              {/* Platform Module — cross-tenant Viali operator surface. */}
+              <Route path="/platform">{() => <Redirect to="/platform/groups" />}</Route>
+              <Route path="/platform/groups">{() => <ProtectedRoute requirePlatform><AdminGroups /></ProtectedRoute>}</Route>
+              <Route path="/platform/groups/:id">{() => <ProtectedRoute requirePlatform><AdminGroupDetail /></ProtectedRoute>}</Route>
+              {/* Legacy /admin/groups paths — redirect to /platform/groups so in-flight
+                  bookmarks and existing links don't 404 while Platform module rolls out. */}
+              <Route path="/admin/groups/:id">{(params) => <Redirect to={`/platform/groups/${params.id}`} />}</Route>
+              <Route path="/admin/groups">{() => <Redirect to="/platform/groups" />}</Route>
               <Route path="/admin/cameras">{() => <Redirect to="/admin/integrations" />}</Route>
-              {/* Business Module - requires business unit access */}
-              {/* /business shows Dashboard (CostAnalytics) for managers, Administration (SimplifiedDashboard) for staff */}
-              {/* Group admin surface (Task 13). Listed before /business so wouter doesn't match the generic business route first. */}
-              {/* Chain admin surface: managing the chain IS administrative
-                  work, not business analytics. Lives under /admin/* to
-                  match that mental model. /business/group still resolves
-                  via a redirect so old bookmarks survive. */}
-              <Route path="/admin/chain">{() => <ProtectedRoute requireGroupAdmin><BusinessGroup /></ProtectedRoute>}</Route>
-              <Route path="/business/group">{() => <Redirect to="/admin/chain" />}</Route>
+
+              {/* Chain Module — group-admin operator surface for a single chain. */}
+              <Route path="/chain">{() => <Redirect to="/chain/admin" />}</Route>
+              <Route path="/chain/admin">{() => <ProtectedRoute requireChain><BusinessGroup /></ProtectedRoute>}</Route>
+              {/* Legacy /admin/chain and /business/group paths — redirect into Chain
+                  module. Phase A ships this component unchanged at its new home. */}
+              <Route path="/admin/chain">{() => <Redirect to="/chain/admin" />}</Route>
+              <Route path="/business/group">{() => <Redirect to="/chain/admin" />}</Route>
               {/* Funnels (conversion tracking / ad-funnel analytics). Previously
                   lived at /business/marketing; renamed for clarity since the
                   page shows funnels/ROI, not the generic "marketing" concept.
