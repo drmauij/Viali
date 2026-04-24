@@ -33,6 +33,7 @@ import TimelineWeekView from "./TimelineWeekView";
 import PlanStaffDialog from "./PlanStaffDialog";
 import PlannedStaffBox, { StaffPoolEntry, ROLE_CONFIG } from "./PlannedStaffBox";
 import DayNotesPanel, { useOpDayNotes } from "./DayNotesPanel";
+import OpAbsencesBanner from "./OpAbsencesBanner";
 import { cn } from "@/lib/utils";
 import { draggedRequest } from "@/components/surgery/useExternalRequestDrag";
 import CalendarSearch from "@/components/shared/CalendarSearch";
@@ -1722,28 +1723,42 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         </div>
       )}
 
-      {/* Day Notes Banner - shown below staff box when notes exist and not hidden */}
-      {surgeryRooms.length > 0 && activeHospital && currentView === "day" && dayNotesData?.notes?.trim() && !notesBannerHidden && (
-        <div
-          className="mx-4 mb-2 flex items-start gap-2 p-2 px-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
-          onClick={() => setDayNotesDialogOpen(true)}
-          data-testid="day-notes-card"
-        >
-          <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-sm text-amber-900 dark:text-amber-200 whitespace-pre-line flex-1 min-w-0">
-            {dayNotesData.notes.trim()}
-          </p>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setNotesBannerHidden(true);
-              sessionStorage.setItem('oplist_notes_banner_hidden', 'true');
-            }}
-            className="p-0.5 rounded hover:bg-amber-200 dark:hover:bg-amber-800 text-amber-600 dark:text-amber-400 shrink-0"
-            data-testid="day-notes-card-close"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
+      {/* Day metadata row — notes banner + absences banner side by side
+          (stack on mobile). Keeps both pieces of context glanceable above
+          the grid without eating horizontal space from the calendar. */}
+      {surgeryRooms.length > 0 && activeHospital && currentView === "day" && (
+        <div className="mx-4 mb-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+          {dayNotesData?.notes?.trim() && !notesBannerHidden ? (
+            <div
+              className="flex items-start gap-2 p-2 px-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
+              onClick={() => setDayNotesDialogOpen(true)}
+              data-testid="day-notes-card"
+            >
+              <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-900 dark:text-amber-200 whitespace-pre-line flex-1 min-w-0">
+                {dayNotesData.notes.trim()}
+              </p>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setNotesBannerHidden(true);
+                  sessionStorage.setItem('oplist_notes_banner_hidden', 'true');
+                }}
+                className="p-0.5 rounded hover:bg-amber-200 dark:hover:bg-amber-800 text-amber-600 dark:text-amber-400 shrink-0"
+                data-testid="day-notes-card-close"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            // Empty left column when no notes so the absences banner stays
+            // in its grid slot on desktop rather than taking full width.
+            <div className="hidden md:block" />
+          )}
+          <OpAbsencesBanner
+            hospitalId={activeHospital.id}
+            selectedDate={selectedDate}
+          />
         </div>
       )}
 
