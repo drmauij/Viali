@@ -197,20 +197,6 @@ export default function BusinessGroup() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold">Managing {group.name}</h1>
-        <div className="flex flex-wrap gap-2 mt-3">
-          {members.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => jumpToClinicAdmin(m.id)}
-              className="inline-flex items-center rounded-full border px-3 py-1 text-xs hover:bg-accent transition-colors"
-              title={`Switch to ${m.name} and open Admin`}
-              data-testid={`member-chip-${m.id}`}
-            >
-              {m.name}
-            </button>
-          ))}
-        </div>
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
@@ -234,6 +220,31 @@ export default function BusinessGroup() {
         </div>
 
         <TabsContent value="overview" className="mt-4 space-y-6">
+      {/* Quick Admin card — jump directly into any clinic's admin area. */}
+      <section className="border rounded p-4 space-y-3">
+        <div>
+          <h2 className="text-lg font-medium">Quick admin</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Jump into any clinic's admin area in one click — switches the
+            active location for you.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {members.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => jumpToClinicAdmin(m.id)}
+              className="inline-flex items-center rounded-full border px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+              title={`Switch to ${m.name} and open Admin`}
+              data-testid={`member-chip-${m.id}`}
+            >
+              {m.name}
+            </button>
+          ))}
+        </div>
+      </section>
+
       {/* Quick-link buttons. Programmatic navigate preserves ?scope=group. */}
       <div className="flex flex-wrap gap-3">
         <Button
