@@ -219,48 +219,76 @@ export default function BusinessGroup() {
           </TabsList>
         </div>
 
-        <TabsContent value="overview" className="mt-4 space-y-6">
-      {/* Quick Admin card — jump directly into any clinic's admin area. */}
-      <section className="border rounded p-4 space-y-3">
-        <div>
-          <h2 className="text-lg font-medium">Quick admin</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Jump into any clinic's admin area in one click — switches the
-            active location for you.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {members.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => jumpToClinicAdmin(m.id)}
-              className="inline-flex items-center rounded-full border px-3 py-1.5 text-sm hover:bg-accent transition-colors"
-              title={`Switch to ${m.name} and open Admin`}
-              data-testid={`member-chip-${m.id}`}
-            >
-              {m.name}
-            </button>
-          ))}
-        </div>
-      </section>
+        <TabsContent value="overview" className="mt-4">
+      {/* All three shortcut cards in one grid, same styling / padding /
+          border so they read as equal-weight peers. Quick admin spans both
+          columns on desktop because it holds N clinic pills; the two
+          link-out cards each take one column below. On mobile everything
+          stacks. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <section className="sm:col-span-2 border rounded p-4 space-y-3">
+          <div>
+            <h2 className="text-lg font-medium">Quick admin</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Jump into any clinic's admin area in one click — switches the
+              active location for you.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {members.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => jumpToClinicAdmin(m.id)}
+                className="inline-flex items-center rounded-full border px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+                title={`Switch to ${m.name} and open Admin`}
+                data-testid={`member-chip-${m.id}`}
+              >
+                {m.name}
+              </button>
+            ))}
+          </div>
+        </section>
 
-      {/* Quick-link buttons. Programmatic navigate preserves ?scope=group. */}
-      <div className="flex flex-wrap gap-3">
-        <Button
-          variant="outline"
+        <button
+          type="button"
           onClick={() => navigate("/clinic/services?scope=group")}
+          className="text-left border rounded p-4 hover:bg-accent transition-colors"
           data-testid="link-group-services"
         >
-          Group service catalog →
-        </Button>
-        <Button
-          variant="outline"
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-medium">Group service catalog</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Edit the service catalog shared across every clinic in the
+                chain. Prices apply everywhere.
+              </p>
+            </div>
+            <span className="text-muted-foreground text-xl shrink-0" aria-hidden>
+              →
+            </span>
+          </div>
+        </button>
+
+        <button
+          type="button"
           onClick={() => navigate("/business/flows?scope=group")}
+          className="text-left border rounded p-4 hover:bg-accent transition-colors"
           data-testid="link-chain-marketing"
         >
-          Chain marketing →
-        </Button>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-medium">Chain marketing</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Run newsletters and automations across every location at
+                once.
+              </p>
+            </div>
+            <span className="text-muted-foreground text-xl shrink-0" aria-hidden>
+              →
+            </span>
+          </div>
+        </button>
       </div>
         </TabsContent>
 
