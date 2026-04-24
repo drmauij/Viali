@@ -3,7 +3,6 @@ import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -58,18 +57,6 @@ type GroupUser = {
   hospitalId: string;
 };
 
-function Tile({ label, value }: { label: string; value: number | string }) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="text-sm text-muted-foreground">{label}</div>
-        <div className="text-2xl font-semibold mt-1" data-testid={`tile-${label}`}>
-          {value}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function BusinessGroup() {
   const qc = useQueryClient();
@@ -198,7 +185,7 @@ export default function BusinessGroup() {
     );
   }
 
-  const { group, members, counts } = overview;
+  const { group, members } = overview;
 
   // Build user picker options: unique users (by userId) from any group hospital.
   const uniqueUsers = Array.from(
@@ -247,20 +234,7 @@ export default function BusinessGroup() {
         </div>
 
         <TabsContent value="overview" className="mt-4 space-y-6">
-      {/* Three stat tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Tile label="Total patients" value={counts.patientCount} />
-        <Tile
-          label="Treatments this month"
-          value={counts.treatmentsThisMonth}
-        />
-        <Tile label="Bookings this week" value={counts.bookingsThisWeek} />
-      </div>
-
-      {/* Quick-link buttons. Use window.history + dispatchEvent so the
-          `?scope=group` query string reliably survives the navigation —
-          wouter's <Link href="...?..."/> drops the query on some route
-          setups, leaving the destination page without the scope hint. */}
+      {/* Quick-link buttons. Programmatic navigate preserves ?scope=group. */}
       <div className="flex flex-wrap gap-3">
         <Button
           variant="outline"
