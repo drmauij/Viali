@@ -346,20 +346,40 @@ export default function GroupDetail() {
       </div>
 
       <Tabs defaultValue="clinics" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
-          <TabsTrigger value="clinics" data-testid="tab-clinics">
-            Clinics ({members.length})
-          </TabsTrigger>
-          <TabsTrigger value="admins" data-testid="tab-admins">
-            Admins ({admins.length})
-          </TabsTrigger>
-          <TabsTrigger value="billing" data-testid="tab-billing">
-            Billing & Plan
-          </TabsTrigger>
-          <TabsTrigger value="booking" data-testid="tab-booking">
-            Booking
-          </TabsTrigger>
-        </TabsList>
+        {/* Horizontal scroll on small screens so long labels never clip.
+            Flex + overflow-x-auto beats grid-cols-4 on phones. */}
+        <div className="w-full overflow-x-auto -mx-1 px-1">
+          <TabsList className="inline-flex w-max min-w-full justify-start">
+            <TabsTrigger
+              value="clinics"
+              className="whitespace-nowrap flex-shrink-0"
+              data-testid="tab-clinics"
+            >
+              Clinics ({members.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="admins"
+              className="whitespace-nowrap flex-shrink-0"
+              data-testid="tab-admins"
+            >
+              Admins ({admins.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="billing"
+              className="whitespace-nowrap flex-shrink-0"
+              data-testid="tab-billing"
+            >
+              Billing & Plan
+            </TabsTrigger>
+            <TabsTrigger
+              value="booking"
+              className="whitespace-nowrap flex-shrink-0"
+              data-testid="tab-booking"
+            >
+              Booking
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="clinics" className="mt-4">
       <section className="border rounded p-4 space-y-3">
