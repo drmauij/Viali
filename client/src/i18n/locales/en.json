@@ -6018,6 +6018,31 @@
       }
     }
   },
+  "chain": {
+    "title": "Chain",
+    "description": "Chain-wide overview and tools",
+    "cockpit": {
+      "title": "Chain overview",
+      "noGroup": "This clinic is not part of a chain.",
+      "revenue": "Revenue",
+      "treatments": "Treatments",
+      "surgeries": "Surgeries",
+      "leads": "Leads",
+      "conversion": "Conversion",
+      "conversionShort": "Conv",
+      "noShow": "No-show",
+      "trend": "Trend",
+      "location": "Location",
+      "tx": "Tx",
+      "sx": "Sx",
+      "locationsRanked": "Locations — ranked by revenue",
+      "needsAttention": "Needs attention",
+      "allGood": "All locations performing within expected range.",
+      "topItems": "Top items",
+      "topTreatments": "Top treatments",
+      "topSurgeries": "Top surgeries"
+    }
+  },
   "leads": {
     "title": "Leads",
     "filterNew": "New",

@@ -6114,6 +6114,31 @@
       }
     }
   },
+  "chain": {
+    "title": "Kette",
+    "description": "Kettenweite Übersicht und Werkzeuge",
+    "cockpit": {
+      "title": "Ketten-Übersicht",
+      "noGroup": "Diese Klinik gehört zu keiner Kette.",
+      "revenue": "Umsatz",
+      "treatments": "Behandlungen",
+      "surgeries": "Operationen",
+      "leads": "Leads",
+      "conversion": "Konversion",
+      "conversionShort": "Konv",
+      "noShow": "No-Show",
+      "trend": "Trend",
+      "location": "Standort",
+      "tx": "Behdl.",
+      "sx": "OP",
+      "locationsRanked": "Standorte — nach Umsatz sortiert",
+      "needsAttention": "Benötigt Aufmerksamkeit",
+      "allGood": "Alle Standorte im erwarteten Bereich.",
+      "topItems": "Top-Posten",
+      "topTreatments": "Top-Behandlungen",
+      "topSurgeries": "Top-Operationen"
+    }
+  },
   "leads": {
     "title": "Leads",
     "filterNew": "Neu",
