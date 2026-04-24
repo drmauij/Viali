@@ -42,6 +42,7 @@ const updateHospitalSchema = z.object({
   defaultLanguage: z.enum(["de", "en"]).optional(),
   defaultAdmissionOffsetMinutes: z.number().int().min(0).max(1440).optional(),
   treatmentInventorySourceUnitType: z.enum(["clinic", "or"]).optional(),
+  clinicKind: z.enum(["aesthetic", "surgical", "mixed"]).optional(),
 });
 
 const updateUnitSchema = z.object({

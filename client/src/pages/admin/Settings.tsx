@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Settings, Download, Loader2, Clock, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatDateLong } from "@/lib/dateUtils";
 import { generateQuestionnairePosterPdf } from "@/lib/questionnairePosterPdf";
@@ -63,6 +64,7 @@ export default function SettingsPage() {
     hidePatientCancel: false,
     noShowFeeMessage: "" as string,
     addonPatientChat: false,
+    clinicKind: "mixed" as "aesthetic" | "surgical" | "mixed",
     currency: "CHF" as string,
     dateFormat: "european" as string,
     hourFormat: "24h" as string,
@@ -173,6 +175,7 @@ export default function SettingsPage() {
         hidePatientCancel: fullHospitalData.hidePatientCancel ?? false,
         noShowFeeMessage: fullHospitalData.noShowFeeMessage || "",
         addonPatientChat: fullHospitalData.addonPatientChat ?? false,
+        clinicKind: (fullHospitalData.clinicKind ?? "mixed") as "aesthetic" | "surgical" | "mixed",
         currency: fullHospitalData.currency || "CHF",
         dateFormat: fullHospitalData.dateFormat || "european",
         hourFormat: fullHospitalData.hourFormat || "24h",
@@ -979,6 +982,50 @@ export default function SettingsPage() {
                     </Select>
                     <p className="text-xs text-muted-foreground mt-1">{t("admin.defaultLanguageDescription", "Language used for automated emails and SMS notifications")}</p>
                   </div>
+                </div>
+
+                {/* Clinic Type */}
+                <div className="space-y-3 pt-4" data-testid="clinic-kind-section">
+                  <div>
+                    <Label className="text-base font-medium">
+                      {t("admin.clinicKindLabel", "Clinic type")}
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {t(
+                        "admin.clinicKindHelp",
+                        "Controls which KPIs and columns appear on the Business and Chain dashboards."
+                      )}
+                    </p>
+                  </div>
+                  <RadioGroup
+                    value={hospitalForm.clinicKind ?? "mixed"}
+                    onValueChange={(value) => {
+                      if (value === "aesthetic" || value === "surgical" || value === "mixed") {
+                        updateHospitalMutation.mutate({ ...hospitalForm, clinicKind: value });
+                      }
+                    }}
+                    disabled={!isAdmin || updateHospitalMutation.isPending}
+                    data-testid="clinic-kind-radio-group"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="aesthetic" id="clinic-kind-aesthetic" data-testid="radio-clinic-kind-aesthetic" />
+                      <Label htmlFor="clinic-kind-aesthetic" className="font-normal cursor-pointer">
+                        {t("admin.clinicKindAesthetic", "Aesthetic (treatments only)")}
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="surgical" id="clinic-kind-surgical" data-testid="radio-clinic-kind-surgical" />
+                      <Label htmlFor="clinic-kind-surgical" className="font-normal cursor-pointer">
+                        {t("admin.clinicKindSurgical", "Surgical (surgeries only)")}
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="mixed" id="clinic-kind-mixed" data-testid="radio-clinic-kind-mixed" />
+                      <Label htmlFor="clinic-kind-mixed" className="font-normal cursor-pointer">
+                        {t("admin.clinicKindMixed", "Mixed (both)")}
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
 
                 <div className="flex justify-end pt-4">
