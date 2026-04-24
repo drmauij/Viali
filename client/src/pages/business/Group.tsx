@@ -254,13 +254,6 @@ export default function BusinessGroup() {
         >
           Chain marketing →
         </Button>
-        <Button
-          variant="outline"
-          onClick={() => navigate("/business?scope=group")}
-          data-testid="link-cross-location-dashboard"
-        >
-          Cross-location dashboard →
-        </Button>
       </div>
 
       {/* Group admins section */}
