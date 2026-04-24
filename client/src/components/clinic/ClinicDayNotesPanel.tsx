@@ -1,10 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
 import { apiRequest } from '@/lib/queryClient';
-import { useDebouncedAutoSave, AutoSaveStatus } from '@/hooks/useDebouncedAutoSave';
 import { Loader2, Check, AlertCircle } from 'lucide-react';
+
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 interface ClinicDayNotesPanelProps {
   hospitalId: string;
@@ -32,66 +34,101 @@ export function useClinicDayNotes(hospitalId: string, selectedDate: Date) {
   });
 }
 
-function SaveStatusIndicator({ status }: { status: AutoSaveStatus }) {
+function SaveStatusIndicator({ status, dirty }: { status: SaveStatus; dirty: boolean }) {
   const { t } = useTranslation();
 
-  if (status === 'idle') return null;
-
-  return (
-    <div className="flex items-center gap-1 text-xs">
-      {status === 'pending' && (
-        <span className="text-muted-foreground">{t('dayNotes.pending', 'Unsaved...')}</span>
-      )}
-      {status === 'saving' && (
-        <>
-          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-          <span className="text-muted-foreground">{t('dayNotes.saving', 'Saving...')}</span>
-        </>
-      )}
-      {status === 'saved' && (
-        <>
-          <Check className="h-3 w-3 text-green-600" />
-          <span className="text-green-600">{t('dayNotes.saved', 'Saved')}</span>
-        </>
-      )}
-      {status === 'error' && (
-        <>
-          <AlertCircle className="h-3 w-3 text-destructive" />
-          <span className="text-destructive">{t('dayNotes.error', 'Error saving')}</span>
-        </>
-      )}
-    </div>
-  );
+  if (status === 'saving') {
+    return (
+      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        <span>{t('dayNotes.saving', 'Saving...')}</span>
+      </div>
+    );
+  }
+  if (status === 'error') {
+    return (
+      <div className="flex items-center gap-1 text-xs text-destructive">
+        <AlertCircle className="h-3 w-3" />
+        <span>{t('dayNotes.error', 'Error saving')}</span>
+      </div>
+    );
+  }
+  if (dirty) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        {t('dayNotes.unsaved', 'Unsaved changes')}
+      </span>
+    );
+  }
+  if (status === 'saved') {
+    return (
+      <div className="flex items-center gap-1 text-xs text-green-600">
+        <Check className="h-3 w-3" />
+        <span>{t('dayNotes.saved', 'Saved')}</span>
+      </div>
+    );
+  }
+  return null;
 }
 
 export default function ClinicDayNotesPanel({ hospitalId, selectedDate }: ClinicDayNotesPanelProps) {
   const { t } = useTranslation();
+  const qc = useQueryClient();
   const dateString = useMemo(() => formatDateKey(selectedDate), [selectedDate]);
   const { data, isLoading } = useClinicDayNotes(hospitalId, selectedDate);
   const [notes, setNotes] = useState('');
+  const [status, setStatus] = useState<SaveStatus>('idle');
+  const remoteRef = useRef('');
 
   useEffect(() => {
     if (data) {
-      setNotes(data.notes || '');
+      const remote = data.notes || '';
+      setNotes(remote);
+      remoteRef.current = remote;
+      setStatus('idle');
     }
-  }, [data]);
+  }, [data, dateString]);
 
-  const { mutate: saveNotes, flush, status } = useDebouncedAutoSave<unknown, { notes: string }>({
-    mutationFn: async ({ notes: notesValue }) => {
-      const res = await apiRequest('PUT', `/api/clinic/${hospitalId}/day-notes/${dateString}`, { notes: notesValue });
+  const dirty = notes !== remoteRef.current;
+
+  const saveMutation = useMutation({
+    mutationFn: async (value: string) => {
+      const res = await apiRequest(
+        'PUT',
+        `/api/clinic/${hospitalId}/day-notes/${dateString}`,
+        { notes: value },
+      );
       return res.json();
     },
-    queryKey: ['/api/clinic/day-notes', hospitalId, dateString],
+    onMutate: () => setStatus('saving'),
+    onSuccess: (_, value) => {
+      remoteRef.current = value;
+      setStatus('saved');
+      qc.invalidateQueries({
+        queryKey: ['/api/clinic/day-notes', hospitalId, dateString],
+      });
+    },
+    onError: () => setStatus('error'),
   });
 
-  const handleChange = (value: string) => {
-    setNotes(value);
-    saveNotes({ notes: value });
+  const save = () => {
+    if (!dirty || saveMutation.isPending) return;
+    saveMutation.mutate(notes);
   };
 
+  // Safety net: if the user navigates away (unmount) or switches to a
+  // different date while dirty, flush the save so nothing is lost.
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
   useEffect(() => {
-    return () => { flush(); };
-  }, [flush, dateString]);
+    return () => {
+      if (notesRef.current !== remoteRef.current) {
+        apiRequest('PUT', `/api/clinic/${hospitalId}/day-notes/${dateString}`, {
+          notes: notesRef.current,
+        }).catch(() => {/* best-effort; nothing to do on unmount */});
+      }
+    };
+  }, [hospitalId, dateString]);
 
   if (isLoading) {
     return (
@@ -105,12 +142,22 @@ export default function ClinicDayNotesPanel({ hospitalId, selectedDate }: Clinic
     <div className="p-3 space-y-2">
       <Textarea
         value={notes}
-        onChange={(e) => handleChange(e.target.value)}
+        onChange={(e) => setNotes(e.target.value)}
         placeholder={t('dayNotes.clinicPlaceholder', 'Add notes for this day...')}
         className="min-h-[80px] resize-y border-0 shadow-none focus-visible:ring-0 p-0 text-sm"
       />
-      <div className="flex justify-end">
-        <SaveStatusIndicator status={status} />
+      <div className="flex items-center justify-end gap-3">
+        <SaveStatusIndicator status={status} dirty={dirty} />
+        <Button
+          size="sm"
+          disabled={!dirty || saveMutation.isPending}
+          onClick={save}
+          data-testid="button-save-day-notes"
+        >
+          {saveMutation.isPending
+            ? t('dayNotes.saving', 'Saving...')
+            : t('common.save', 'Save')}
+        </Button>
       </div>
     </div>
   );
