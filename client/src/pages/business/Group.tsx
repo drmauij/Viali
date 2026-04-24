@@ -235,23 +235,32 @@ export default function BusinessGroup() {
         <Tile label="Bookings this week" value={counts.bookingsThisWeek} />
       </div>
 
-      {/* Quick-link buttons */}
+      {/* Quick-link buttons. Use window.history + dispatchEvent so the
+          `?scope=group` query string reliably survives the navigation —
+          wouter's <Link href="...?..."/> drops the query on some route
+          setups, leaving the destination page without the scope hint. */}
       <div className="flex flex-wrap gap-3">
-        <Link href="/clinic/services?scope=group">
-          <Button variant="outline" data-testid="link-group-services">
-            Group service catalog →
-          </Button>
-        </Link>
-        <Link href="/business/flows?scope=group">
-          <Button variant="outline" data-testid="link-chain-marketing">
-            Chain marketing →
-          </Button>
-        </Link>
-        <Link href="/business?scope=group">
-          <Button variant="outline" data-testid="link-cross-location-dashboard">
-            Cross-location dashboard →
-          </Button>
-        </Link>
+        <Button
+          variant="outline"
+          onClick={() => navigate("/clinic/services?scope=group")}
+          data-testid="link-group-services"
+        >
+          Group service catalog →
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => navigate("/business/flows?scope=group")}
+          data-testid="link-chain-marketing"
+        >
+          Chain marketing →
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => navigate("/business?scope=group")}
+          data-testid="link-cross-location-dashboard"
+        >
+          Cross-location dashboard →
+        </Button>
       </div>
 
       {/* Group admins section */}
