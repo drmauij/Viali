@@ -381,6 +381,13 @@
       "inventory": "Inventory",
       "orders": "Orders"
     },
+    "chain": {
+      "overview": "Overview",
+      "admin": "Settings"
+    },
+    "platform": {
+      "groups": "Groups"
+    },
     "services": "Services",
     "matches": "Matches"
   },

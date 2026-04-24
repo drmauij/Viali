@@ -462,6 +462,13 @@
       "inventory": "Inventar",
       "orders": "Bestellungen"
     },
+    "chain": {
+      "overview": "Übersicht",
+      "admin": "Einstellungen"
+    },
+    "platform": {
+      "groups": "Gruppen"
+    },
     "services": "Leistungen",
     "matches": "Zuordnungen"
   },

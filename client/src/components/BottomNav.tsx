@@ -234,7 +234,20 @@ export default function BottomNav() {
         { id: "logistic-matches", icon: "fas fa-link", label: t('bottomNav.matches', 'Matches'), path: "/logistic/matches" },
       ];
     }
-    
+
+    if (activeModule === "chain") {
+      return [
+        { id: "chain-overview", icon: "fas fa-chart-pie", label: t('bottomNav.chain.overview', 'Overview'), path: "/chain" },
+        { id: "chain-admin", icon: "fas fa-cog", label: t('bottomNav.chain.admin', 'Settings'), path: "/chain/admin" },
+      ];
+    }
+
+    if (activeModule === "platform") {
+      return [
+        { id: "platform-groups", icon: "fas fa-building", label: t('bottomNav.platform.groups', 'Groups'), path: "/platform/groups" },
+      ];
+    }
+
     // Inventory module nav items
     const inventoryItems: NavItem[] = [
       { id: "items", icon: "fas fa-boxes", label: t('bottomNav.items'), path: "/inventory/items" },
@@ -264,6 +277,11 @@ export default function BottomNav() {
     // Need exact match for "/business" to avoid matching "/business/costs" or "/business/time"
     if (path === "/business") {
       return location === "/business" || location === "/business/dashboard";
+    }
+    // Chain cockpit at "/chain"; the sibling "/chain/admin" tab is a separate sub-route.
+    // Exact match keeps the Overview tab from also lighting up when the user is on Settings.
+    if (path === "/chain") {
+      return location === "/chain";
     }
     // Clinic appointments tab should also light up on the bare /clinic root
     if (path === "/clinic/appointments") {

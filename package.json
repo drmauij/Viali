@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "seed:ab-demo": "tsx server/scripts/seedAbDemo.ts",
     "seed:beauty2go-demo": "tsx server/scripts/seedBeauty2goDemo.ts",
+    "seed:dummy-leads": "tsx server/scripts/seedDummyLeads.ts",
     "prepare": "husky"
   },
   "dependencies": {
