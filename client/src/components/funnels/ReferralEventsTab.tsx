@@ -263,8 +263,9 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
   const eventsBaseUrl = funnelsUrl("referral-events", scope, { limit: PAGE_SIZE });
   const { isLoading: referralEventsLoading } = useQuery<ReferralEvent[]>({
     queryKey: [eventsBaseUrl],
-    enabled: scope.hospitalIds.length > 0,
+    enabled: !!eventsBaseUrl,
     queryFn: async () => {
+      if (!eventsBaseUrl) throw new Error("scope not addressable");
       const res = await fetch(eventsBaseUrl, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch referral events");
       const data: ReferralEvent[] = await res.json();
@@ -285,6 +286,7 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
         limit: PAGE_SIZE,
         before: lastEvent.createdAt,
       });
+      if (!baseUrl) return;
       const res = await fetch(baseUrl, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch more referral events");
       const data: ReferralEvent[] = await res.json();

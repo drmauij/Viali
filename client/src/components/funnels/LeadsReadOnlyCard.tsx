@@ -108,6 +108,7 @@ export default function LeadsReadOnlyCard({ scope, from, to }: Props) {
         ...(to ? { to } : {}),
         before: last.createdAt,
       });
+      if (!moreUrl) return;
       const res = await fetch(moreUrl, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load more leads");
       const page: LeadRow[] = await res.json();

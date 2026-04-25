@@ -96,7 +96,11 @@ async function resolveHospitalIds(groupId: string, raw: unknown): Promise<{ ids:
   if (!rawStr) {
     return { ids: Array.from(groupIds), all: true };
   }
-  const requested = rawStr.split(",").map(s => s.trim()).filter(Boolean);
+  // Dedup: `?hospitalIds=h1,h1,h2` would otherwise inflate IN-list joins
+  // and inflate aggregation counts on raw-SQL paths.
+  const requested = Array.from(
+    new Set(rawStr.split(",").map(s => s.trim()).filter(Boolean)),
+  );
   for (const id of requested) {
     if (!groupIds.has(id)) {
       throw new ChainAuthError(`hospitalId ${id} is not in group ${groupId}`);

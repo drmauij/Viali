@@ -54,11 +54,9 @@ export default function MarketingAiInsights({ scope, startDate, endDate }: Props
 
   const generate = useMutation({
     mutationFn: async (force: boolean) => {
-      const res = await apiRequest(
-        "POST",
-        funnelsUrl("ai-analysis", scope),
-        { startDate, endDate, force },
-      );
+      const postUrl = funnelsUrl("ai-analysis", scope);
+      if (!postUrl) throw new Error("scope not addressable");
+      const res = await apiRequest("POST", postUrl, { startDate, endDate, force });
       if (!res.ok) throw new Error("generation failed");
       return (await res.json()) as AnalysisResponse;
     },

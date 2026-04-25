@@ -68,6 +68,19 @@ describe("chain endpoints — hospitalIds validation", () => {
       .get(`/api/chain/${groupId}/leads?hospitalIds=${hospOther}`);
     expect(res.status).toBe(403);
   });
+
+  it("dedups duplicate hospitalIds in the query string", async () => {
+    // Sentinel: a duplicated hospitalId would inflate IN-list joins on the
+    // raw-SQL paths (chain ad-performance, funnels-overview, etc.). Even a
+    // simple list endpoint should not 500 or double-count.
+    const res = await request(buildApp(chainAdminId))
+      .get(`/api/chain/${groupId}/leads?hospitalIds=${hosp1},${hosp1},${hosp1}&limit=100`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    // No row should appear more than once even though hosp1 was repeated.
+    const ids = res.body.map((l: any) => l.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
 });
 
 describe("GET /api/chain/:groupId/leads", () => {

@@ -5396,7 +5396,8 @@
       "providerOnlyNote": "Anbieteränderungen gelten nur für diese Klinik. Andere Einstellungen werden von Chain-Admins unter /chain/admin → Services verwaltet.",
       "saveProviders": "Anbieter speichern",
       "providersUpdated": "Anbieter aktualisiert",
-      "emptyProvidersConfirm": "Keine Anbieter ausgewählt. Dieser Service erscheint nicht in Ihrer Klinik. Fortfahren?"
+      "emptyProvidersConfirm": "Keine Anbieter ausgewählt. Dieser Service erscheint nicht in Ihrer Klinik. Fortfahren?",
+      "emptyProvidersTitle": "Keine Anbieter ausgewählt"
     },
     "appointments": {
       "provider": "Anbieter",

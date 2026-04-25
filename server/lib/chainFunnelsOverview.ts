@@ -397,7 +397,9 @@ export async function getChainFunnelsOverview(
   // 7. Heatmap
   // ---------------------------------------------------------------------------
 
-  // Map: hospitalId → source → {lead metrics + referrals}
+  // Nested map: hospitalId → source → cell. Avoids string-key encoding so a
+  // source name containing "::" (admittedly unlikely, but cheaper to be
+  // safe than to debug later) can't collide with the delimiter.
   interface CellAgg {
     leads: number;
     bookings: number;
@@ -405,13 +407,20 @@ export async function getChainFunnelsOverview(
     paidCount: number;
     referrals: number;
   }
-  // key: `${hospitalId}::${source}`
-  const cellMap = new Map<string, CellAgg>();
+  const cellMap = new Map<string, Map<string, CellAgg>>();
 
   function getOrInitCell(hospitalId: string, source: string): CellAgg {
-    const key = `${hospitalId}::${source}`;
-    if (!cellMap.has(key)) cellMap.set(key, { leads: 0, bookings: 0, firstVisits: 0, paidCount: 0, referrals: 0 });
-    return cellMap.get(key)!;
+    let bySource = cellMap.get(hospitalId);
+    if (!bySource) {
+      bySource = new Map();
+      cellMap.set(hospitalId, bySource);
+    }
+    let cell = bySource.get(source);
+    if (!cell) {
+      cell = { leads: 0, bookings: 0, firstVisits: 0, paidCount: 0, referrals: 0 };
+      bySource.set(source, cell);
+    }
+    return cell;
   }
 
   for (const r of leadsCurr) {
@@ -427,25 +436,23 @@ export async function getChainFunnelsOverview(
   }
 
   const sourceSet = new Set<string>();
-  for (const key of cellMap.keys()) {
-    const source = key.split("::").slice(1).join("::");
-    sourceSet.add(source);
+  for (const bySource of cellMap.values()) {
+    for (const source of bySource.keys()) sourceSet.add(source);
   }
 
   const cells: HeatmapCell[] = [];
-  for (const [key, c] of cellMap) {
-    const colonIdx = key.indexOf("::");
-    const hid = key.slice(0, colonIdx);
-    const source = key.slice(colonIdx + 2);
-    cells.push({
-      source,
-      hospitalId: hid,
-      leads: c.leads,
-      referrals: c.referrals,
-      bookingPct: pct(c.bookings, c.leads),
-      firstVisitPct: pct(c.firstVisits, c.leads),
-      paidPct: pct(c.paidCount, c.leads),
-    });
+  for (const [hid, bySource] of cellMap) {
+    for (const [source, c] of bySource) {
+      cells.push({
+        source,
+        hospitalId: hid,
+        leads: c.leads,
+        referrals: c.referrals,
+        bookingPct: pct(c.bookings, c.leads),
+        firstVisitPct: pct(c.firstVisits, c.leads),
+        paidPct: pct(c.paidCount, c.leads),
+      });
+    }
   }
 
   const heatmap: ChainFunnelsOverviewHeatmap = {

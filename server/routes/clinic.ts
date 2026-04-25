@@ -1523,7 +1523,12 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
       } catch (err: any) {
         return res.status(400).json({ message: err?.message ?? "Failed to update clinic providers" });
       }
-      return res.json({ id: serviceId, hospitalId, clinicProviderIds: reqBody.clinicProviderIds });
+      // Return the same shape as the full-edit path (`{...service, providerIds}`)
+      // so the client can refresh from the response without a separate fetch.
+      // `providerIds` is the GLOBAL post-write list; the client can intersect
+      // with its own roster to derive the per-clinic view if it needs to.
+      const providerIds = await storage.getProvidersByServiceId(serviceId);
+      return res.json({ ...existingRow, providerIds });
     }
 
     // For group-scoped services, only group_admin may write.

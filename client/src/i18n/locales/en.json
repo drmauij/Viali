@@ -5315,7 +5315,8 @@
       "providerOnlyNote": "Provider changes apply to this clinic only. Other settings are managed by chain admins on /chain/admin → Services.",
       "saveProviders": "Save providers",
       "providersUpdated": "Providers updated",
-      "emptyProvidersConfirm": "No providers selected. This service won't appear at your clinic. Continue?"
+      "emptyProvidersConfirm": "No providers selected. This service won't appear at your clinic. Continue?",
+      "emptyProvidersTitle": "No providers selected"
     },
     "appointments": {
       "provider": "Provider",

@@ -266,11 +266,12 @@ export default function ReferralFunnel({ scope, from, to, currency = "CHF", onEa
   const { data: rows = [], isLoading } = useQuery<FunnelRow[]>({
     queryKey: [funnelDataUrl],
     queryFn: async () => {
+      if (!funnelDataUrl) throw new Error("scope not addressable");
       const res = await fetch(funnelDataUrl, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch funnel data");
       return res.json();
     },
-    enabled: scope.hospitalIds.length > 0,
+    enabled: !!funnelDataUrl,
   });
 
   // Report earliest referral date to parent for auto-setting "From"
@@ -354,11 +355,12 @@ export default function ReferralFunnel({ scope, from, to, currency = "CHF", onEa
   const { data: adPerformance = [], isLoading: adPerfLoading } = useQuery<any[]>({
     queryKey: [adPerfUrl],
     queryFn: async () => {
+      if (!adPerfUrl) throw new Error("scope not addressable");
       const res = await fetch(adPerfUrl);
       if (!res.ok) throw new Error("Failed to fetch ad performance");
       return res.json();
     },
-    enabled: scope.hospitalIds.length > 0,
+    enabled: !!adPerfUrl,
   });
 
   // ── Derived data ───────────────────────────────────────────────────────

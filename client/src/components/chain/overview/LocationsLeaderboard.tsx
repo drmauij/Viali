@@ -153,9 +153,13 @@ export default function LocationsLeaderboard({ rows, currency }: Props) {
                   <TableCell className="text-right">
                     {r.paidPct.toFixed(0)}%
                   </TableCell>
-                  <TableCell className="text-right">
-                    {currency ? `${currency} ` : ""}
-                    {r.revenue.toLocaleString()}
+                  <TableCell
+                    className="text-right"
+                    title={currency ? undefined : t("chain.funnels.mixedCurrencies", "Mixed currencies")}
+                  >
+                    {currency
+                      ? `${currency} ${r.revenue.toLocaleString()}`
+                      : "—"}
                   </TableCell>
                   <TableCell
                     className={`text-right ${r.deltaLeadsPct >= 0 ? "text-emerald-600" : "text-rose-600"}`}

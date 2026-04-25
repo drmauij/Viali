@@ -1887,24 +1887,27 @@ export async function setServiceProvidersForClinic(
   hospitalId: string,
   clinicProviderIds: string[],
 ): Promise<void> {
-  // Validate every requested providerId is enrolled at this hospital.
-  if (clinicProviderIds.length > 0) {
-    const validRoster = await db
-      .select({ userId: userHospitalRoles.userId })
-      .from(userHospitalRoles)
-      .where(and(
-        eq(userHospitalRoles.hospitalId, hospitalId),
-        inArray(userHospitalRoles.userId, clinicProviderIds),
-      ));
-    const validIds = new Set(validRoster.map(r => r.userId));
-    for (const pid of clinicProviderIds) {
-      if (!validIds.has(pid)) {
-        throw new Error(`Provider ${pid} is not enrolled at hospital ${hospitalId}`);
+  await db.transaction(async (tx) => {
+    // Validate every requested providerId is enrolled at this hospital.
+    // Inside the transaction so a provider being rolled off mid-request
+    // can't slip through (the validation reads under the same snapshot
+    // as the writes below).
+    if (clinicProviderIds.length > 0) {
+      const validRoster = await tx
+        .select({ userId: userHospitalRoles.userId })
+        .from(userHospitalRoles)
+        .where(and(
+          eq(userHospitalRoles.hospitalId, hospitalId),
+          inArray(userHospitalRoles.userId, clinicProviderIds),
+        ));
+      const validIds = new Set(validRoster.map(r => r.userId));
+      for (const pid of clinicProviderIds) {
+        if (!validIds.has(pid)) {
+          throw new Error(`Provider ${pid} is not enrolled at hospital ${hospitalId}`);
+        }
       }
     }
-  }
 
-  await db.transaction(async (tx) => {
     // Find existing service-provider rows whose providerId is enrolled at this hospital.
     const toDrop = await tx
       .select({ providerId: clinicServiceProviders.providerId })

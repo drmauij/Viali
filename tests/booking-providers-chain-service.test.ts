@@ -135,4 +135,35 @@ describe("public booking endpoint — chain service providers", () => {
     // Provider B is only at hospital B — must NOT appear on clinic A's booking page
     expect(providerIds).not.toContain(providerBId);
   });
+
+  it("co-existing per-clinic services are unaffected by the chain-service intersection", async () => {
+    // Regression sentinel: when chain services ship in the same response as
+    // per-clinic services, the per-clinic ones must keep their own provider
+    // list. We seed a hospital-A-local service linking only providerA, then
+    // assert it appears on A's booking page with providerA listed.
+    const [perClinicSvc] = await db.insert(clinicServices).values({
+      name: `LocalSvc-${uniq()}`,
+      hospitalId: hospA,
+      unitId: unitA,
+      groupId: null,
+      price: "100.00",
+      durationMinutes: 30,
+    } as any).returning();
+    await db.insert(clinicServiceProviders).values({
+      serviceId: perClinicSvc.id,
+      providerId: providerAId,
+    });
+    try {
+      const res = await request(buildApp()).get(`/api/public/booking/${bookingTokenA}/services`);
+      expect(res.status).toBe(200);
+      const services: any[] = Array.isArray(res.body) ? res.body : res.body.services;
+      const local = services.find((s: any) => s.id === perClinicSvc.id);
+      expect(local).toBeDefined();
+      expect(local.providerIds).toContain(providerAId);
+      expect(local.providerIds).not.toContain(providerBId);
+    } finally {
+      await db.delete(clinicServiceProviders).where(eq(clinicServiceProviders.serviceId, perClinicSvc.id));
+      await db.delete(clinicServices).where(eq(clinicServices.id, perClinicSvc.id));
+    }
+  });
 });

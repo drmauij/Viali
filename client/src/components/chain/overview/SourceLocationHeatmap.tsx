@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -35,10 +35,14 @@ export default function SourceLocationHeatmap({ data }: Props) {
   const { t } = useTranslation();
   const [metric, setMetric] = useState<Metric>("leads");
 
-  const cellMap = new Map<string, Cell>(
-    data.cells.map((c) => [`${c.source}|${c.hospitalId}`, c]),
+  const cellMap = useMemo(
+    () => new Map<string, Cell>(data.cells.map((c) => [`${c.source}|${c.hospitalId}`, c])),
+    [data.cells],
   );
-  const max = Math.max(...data.cells.map((c) => Number(c[metric] ?? 0)), 1);
+  const max = useMemo(
+    () => Math.max(...data.cells.map((c) => Number(c[metric] ?? 0)), 1),
+    [data.cells, metric],
+  );
 
   const isCount = metric === "leads" || metric === "referrals";
   const fmt = (v: number) =>

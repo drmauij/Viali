@@ -73,8 +73,6 @@ interface ServiceWithUnit extends ClinicService {
 interface ServicesCatalogProps {
   /** When set, the Hospital/Group toggle is hidden and the catalog is locked to this scope. */
   forceCatalogScope?: "hospital" | "group";
-  /** When true, the unit-filter selector is hidden (chain services have no unit). */
-  hideUnitFilter?: boolean;
 }
 
 interface ServiceCardProps {
@@ -200,7 +198,7 @@ interface BookableProvider {
   user: { firstName: string; lastName: string };
 }
 
-export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesCatalogProps = {}) {
+export function ServicesCatalog({ forceCatalogScope }: ServicesCatalogProps = {}) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -209,6 +207,10 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
   const [editingService, setEditingService] = useState<ServiceWithUnit | null>(null);
   const [providerOnlyMode, setProviderOnlyMode] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  // Provider-only mode: when the user tries to save with zero providers
+  // selected, we open an AlertDialog rather than a native window.confirm
+  // (matches the rest of the app's destructive-action UX).
+  const [emptyProvidersConfirmOpen, setEmptyProvidersConfirmOpen] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<ServiceWithUnit | null>(null);
   
   // Bulk import state
@@ -319,7 +321,6 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
   const hospitalHasGroup = !!groupInfo?.groupId;
   const isGroupAdmin = !!groupInfo?.isGroupAdmin;
   const canUseGroupScope = hospitalHasGroup && isGroupAdmin;
-  const isChainAdmin = !!groupInfo?.isGroupAdmin;
 
   // Defensive: if the hospital isn't in a group or the user isn't group_admin,
   // force scope back to hospital (e.g. after a hospital switch).
@@ -713,7 +714,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
   const handleOpenEdit = (service: ServiceWithUnit) => {
     setEditingService(service);
     const isGroupSvc = !!(service as any).groupId;
-    setProviderOnlyMode(isGroupSvc && !isChainAdmin);
+    setProviderOnlyMode(isGroupSvc && !isGroupAdmin);
     setFormData({
       name: service.name,
       description: service.description || "",
@@ -730,6 +731,29 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
     setDialogOpen(true);
   };
 
+  const runProviderOnlySave = () => {
+    if (!editingService) return;
+    apiRequest(
+      "PATCH",
+      `/api/clinic/${hospitalId}/services/${editingService.id}`,
+      { clinicProviderIds: formData.providerIds },
+    )
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/clinic", hospitalId, "services", unitId] });
+        queryClient.invalidateQueries({ queryKey: ["/api/clinic", hospitalId, "services"] });
+        setDialogOpen(false);
+        setEditingService(null);
+        setProviderOnlyMode(false);
+        setEmptyProvidersConfirmOpen(false);
+        resetForm();
+        toast({ title: t("clinic.services.providersUpdated", "Providers updated") });
+      })
+      .catch(() => {
+        setEmptyProvidersConfirmOpen(false);
+        toast({ title: t("common.error"), variant: "destructive" });
+      });
+  };
+
   const handleSubmit = () => {
     if (!providerOnlyMode && !formData.name.trim()) {
       toast({ title: t('clinic.services.requiredFields'), variant: "destructive" });
@@ -743,31 +767,12 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
 
     if (editingService) {
       if (providerOnlyMode) {
-        // Empty-list confirmation
+        // Empty-list: surface a confirm dialog instead of saving silently.
         if (formData.providerIds.length === 0) {
-          const ok = window.confirm(
-            t("clinic.services.emptyProvidersConfirm", "No providers selected. This service won't appear at your clinic. Continue?"),
-          );
-          if (!ok) return;
+          setEmptyProvidersConfirmOpen(true);
+          return;
         }
-        // Per-clinic provider edit only — server expects clinicProviderIds and nothing else.
-        apiRequest(
-          "PATCH",
-          `/api/clinic/${hospitalId}/services/${editingService.id}`,
-          { clinicProviderIds: formData.providerIds },
-        )
-          .then(() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/clinic", hospitalId, "services", unitId] });
-            queryClient.invalidateQueries({ queryKey: ["/api/clinic", hospitalId, "services"] });
-            setDialogOpen(false);
-            setEditingService(null);
-            setProviderOnlyMode(false);
-            resetForm();
-            toast({ title: t("clinic.services.providersUpdated", "Providers updated") });
-          })
-          .catch(() => {
-            toast({ title: t("common.error"), variant: "destructive" });
-          });
+        runProviderOnlySave();
         return;
       }
       updateMutation.mutate({
@@ -1268,7 +1273,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
                         formatPrice={formatPrice}
                         t={t}
                         groupName={groupInfo?.groupName ?? null}
-                        hideDelete={!isChainAdmin && !!(service as any).groupId}
+                        hideDelete={!isGroupAdmin && !!(service as any).groupId}
                       />
                     </DraggableItem>
                   ))}
@@ -1292,7 +1297,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
                     formatPrice={formatPrice}
                     t={t}
                     groupName={groupInfo?.groupName ?? null}
-                    hideDelete={!isChainAdmin && !!(service as any).groupId}
+                    hideDelete={!isGroupAdmin && !!(service as any).groupId}
                   />
                 </DraggableItem>
               ))}
@@ -1590,6 +1595,31 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
               data-testid="button-confirm-delete-service"
             >
               {t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={emptyProvidersConfirmOpen} onOpenChange={setEmptyProvidersConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("clinic.services.emptyProvidersTitle", "No providers selected")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                "clinic.services.emptyProvidersConfirm",
+                "No providers selected. This service won't appear at your clinic. Continue?",
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={runProviderOnlySave}
+              data-testid="button-confirm-empty-providers"
+            >
+              {t("clinic.services.saveProviders", "Save providers")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -131,7 +131,7 @@ export default function BusinessGroup() {
         </TabsContent>
 
         <TabsContent value="services">
-          <ServicesCatalog forceCatalogScope="group" hideUnitFilter />
+          <ServicesCatalog forceCatalogScope="group" />
         </TabsContent>
       </Tabs>
     </div>
