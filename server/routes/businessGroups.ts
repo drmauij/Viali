@@ -110,6 +110,21 @@ router.patch("/api/business/group/settings", async (req: any, res) => {
   }
 });
 
+// POST /api/business/group/booking-token — chain admin regenerates the
+// chain-level booking token. Mirrors POST /api/admin/groups/:id/booking-token
+// (platform-admin), but scoped via the existing businessGroups middleware
+// (req._groupId is resolved from the caller's group_admin role).
+router.post("/api/business/group/booking-token", async (req: any, res) => {
+  try {
+    const groupId = req._groupId as string;
+    const token = await groupStorage.regenerateGroupBookingToken(groupId);
+    res.json({ bookingToken: token });
+  } catch (err) {
+    logger.error("Error regenerating chain booking token:", err);
+    res.status(500).json({ message: "Failed to regenerate token" });
+  }
+});
+
 // GET /api/business/group/admins — list of group admins within THIS group.
 router.get("/api/business/group/admins", async (req: any, res) => {
   try {

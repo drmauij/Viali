@@ -7,6 +7,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { uploadLogo } from "@/lib/uploadLogo";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ChainTeamSection } from "@/pages/chain/Team";
+import { useTranslation } from "react-i18next";
+import { Copy, Check, RefreshCw } from "lucide-react";
 
 /**
  * `/chain/admin` — chain settings page (chain name + logo).
@@ -102,11 +106,37 @@ export default function BusinessGroup() {
     <div className="p-4 md:p-6 space-y-6 pb-24" data-testid="business-group-page">
       <h1 className="text-2xl md:text-3xl font-bold">Settings</h1>
 
-      <ChainSettingsForm
-        group={group}
-        onSave={(patch) => saveSettings.mutate(patch)}
-        saving={saveSettings.isPending}
-      />
+      <Tabs defaultValue="settings" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="settings" data-testid="tab-chain-settings">Settings</TabsTrigger>
+          <TabsTrigger value="team" data-testid="tab-chain-team">Team</TabsTrigger>
+          <TabsTrigger value="services" data-testid="tab-chain-services">Services</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="settings" className="space-y-6">
+          <ChainSettingsForm
+            group={group}
+            onSave={(patch) => saveSettings.mutate(patch)}
+            saving={saveSettings.isPending}
+          />
+          <ChainBookingTokenCard
+            groupId={group.id}
+            bookingToken={group.bookingToken}
+          />
+        </TabsContent>
+
+        <TabsContent value="team">
+          <ChainTeamSection />
+        </TabsContent>
+
+        <TabsContent value="services">
+          <Card>
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">
+              Chain-wide Services management — coming soon.
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -262,6 +292,135 @@ function ChainSettingsForm({
           </Button>
         )}
       </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ----------------------------------------------------------------------
+// Chain booking link — shows the public /book/g/<token> URL, with
+// copy-to-clipboard and a regenerate button. Regenerating invalidates the
+// previous URL immediately, so we confirm before doing it.
+// ----------------------------------------------------------------------
+function ChainBookingTokenCard({
+  groupId,
+  bookingToken,
+}: {
+  groupId: string;
+  bookingToken: string | null;
+}) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [copied, setCopied] = useState(false);
+  const [confirmingRegen, setConfirmingRegen] = useState(false);
+
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const url = bookingToken ? `${baseUrl}/book/g/${bookingToken}` : null;
+
+  const regenerate = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", "/api/business/group/booking-token").then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/business/group/overview"] });
+      setConfirmingRegen(false);
+      toast({ title: t("chain.admin.bookingTokenRegenerated", "Booking link regenerated") });
+    },
+    onError: (err: Error) =>
+      toast({
+        title: t("common.error", "Error"),
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
+
+  const copy = async () => {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast({ title: t("common.error", "Error"), description: t("chain.admin.copyFailed", "Could not copy"), variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card data-testid="chain-booking-token-card">
+      <CardContent className="p-4 space-y-4">
+        <div>
+          <h2 className="text-lg font-medium">{t("chain.admin.bookingLinkTitle", "Chain booking link")}</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            {t(
+              "chain.admin.bookingLinkHelp",
+              "Public booking page that lists every clinic in the chain. Share this URL with patients or embed it on your website.",
+            )}
+          </p>
+        </div>
+
+        {url ? (
+          <div className="flex items-center gap-2">
+            <Input value={url} readOnly className="font-mono text-xs" data-testid="chain-booking-token-input" />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={copy}
+              title={t("common.copy", "Copy")}
+              data-testid="chain-booking-token-copy"
+            >
+              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {t("chain.admin.noBookingToken", "No booking link yet. Click Generate to create one.")}
+          </p>
+        )}
+
+        {!confirmingRegen ? (
+          <Button
+            variant={url ? "ghost" : "default"}
+            size="sm"
+            onClick={() => (url ? setConfirmingRegen(true) : regenerate.mutate())}
+            disabled={regenerate.isPending}
+            data-testid="chain-booking-token-regen"
+          >
+            <RefreshCw className="h-4 w-4 mr-1" />
+            {url
+              ? t("chain.admin.regenerateBookingToken", "Regenerate")
+              : t("chain.admin.generateBookingToken", "Generate")}
+          </Button>
+        ) : (
+          <div className="flex flex-col gap-2 border border-dashed rounded p-3">
+            <p className="text-xs">
+              {t(
+                "chain.admin.regenerateConfirm",
+                "Regenerating will break the existing URL immediately. Anyone with the old link will see a 'not found' page. Continue?",
+              )}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => regenerate.mutate()}
+                disabled={regenerate.isPending}
+                data-testid="chain-booking-token-regen-confirm"
+              >
+                {regenerate.isPending
+                  ? t("common.saving", "Saving…")
+                  : t("chain.admin.regenerateBookingToken", "Regenerate")}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmingRegen(false)}
+                disabled={regenerate.isPending}
+              >
+                {t("common.cancel", "Cancel")}
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

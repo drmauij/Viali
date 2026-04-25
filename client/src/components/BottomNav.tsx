@@ -241,7 +241,6 @@ export default function BottomNav() {
         { id: "chain-funnels", icon: "fas fa-bullhorn", label: t('bottomNav.chain.funnels', 'Funnels'), path: "/chain/funnels" },
         { id: "chain-flows", icon: "fas fa-paper-plane", label: t('bottomNav.chain.flows', 'Flows'), path: "/chain/flows" },
         { id: "chain-locations", icon: "fas fa-map-marker-alt", label: t('bottomNav.chain.locations', 'Locations'), path: "/chain/locations" },
-        { id: "chain-team", icon: "fas fa-users", label: t('bottomNav.chain.team', 'Team'), path: "/chain/team" },
         { id: "chain-admin", icon: "fas fa-cog", label: t('bottomNav.chain.admin', 'Settings'), path: "/chain/admin" },
       ];
     }

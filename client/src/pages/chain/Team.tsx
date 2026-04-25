@@ -47,7 +47,11 @@ interface UserSearchResult {
   email: string | null;
 }
 
-export default function ChainTeam() {
+/**
+ * Inner section (no page wrapper, no h1). Mounted both at the standalone
+ * /chain/team route and inside the Team tab of /chain/admin.
+ */
+export function ChainTeamSection() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
@@ -140,9 +144,7 @@ export default function ChainTeam() {
   }, [data?.staff]);
 
   return (
-    <div className="p-4 md:p-6 space-y-6 pb-24" data-testid="chain-team">
-      <h1 className="text-2xl md:text-3xl font-bold">{t("chain.team.title", "Team")}</h1>
-
+    <div className="space-y-6" data-testid="chain-team">
       {isLoading ? (
         <div className="p-8 text-center text-muted-foreground">{t("common.loading", "Loading...")}</div>
       ) : (
@@ -289,6 +291,20 @@ export default function ChainTeam() {
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/**
+ * Standalone /chain/team page. Wraps the section with the page-level header.
+ * The Team tab on /chain/admin renders ChainTeamSection directly.
+ */
+export default function ChainTeam() {
+  const { t } = useTranslation();
+  return (
+    <div className="p-4 md:p-6 space-y-6 pb-24">
+      <h1 className="text-2xl md:text-3xl font-bold">{t("chain.team.title", "Team")}</h1>
+      <ChainTeamSection />
     </div>
   );
 }
