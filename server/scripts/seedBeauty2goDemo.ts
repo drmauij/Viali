@@ -469,12 +469,19 @@ export async function seed(): Promise<SeedSummary> {
     `b2g-demo-${idx.toString().padStart(2, "0")}-${Date.now().toString(36)}`;
   for (let i = 0; i < LOCATIONS.length; i++) {
     const loc = LOCATIONS[i];
+    // Derive `companyStreet` from the full address by stripping the trailing
+    // ", <postal> <city>" segment. The /book page reads company* fields
+    // (not the legacy `address` text) for its Standort card.
+    const companyStreet = loc.address.split(",")[0]?.trim() ?? loc.address;
     const [h] = await db
       .insert(hospitals)
       .values({
         name: loc.name,
         address: loc.address,
         companyPhone: loc.phone,
+        companyStreet,
+        companyPostalCode: loc.postalCode,
+        companyCity: loc.city,
         bookingToken: hospitalBookingToken(i),
         groupId: group.id,
         timezone: "Europe/Zurich",
