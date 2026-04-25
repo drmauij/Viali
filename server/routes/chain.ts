@@ -11,6 +11,8 @@ import {
   clinicServices,
   flows,
   flowHospitals,
+  users,
+  userHospitalRoles,
 } from "@shared/schema";
 import { eq, sql, inArray, desc } from "drizzle-orm";
 import { isAuthenticated } from "../auth/google";
@@ -810,6 +812,58 @@ chainRouter.delete('/api/chain/:groupId/locations/:hospitalId', isAuthenticated,
   } catch (error) {
     logger.error("Error archiving chain location:", error);
     res.status(500).json({ message: "Failed to archive chain location" });
+  }
+});
+
+// GET /api/chain/:groupId/team — admins (group_admin role rows) + staff (all
+// other role rows) across every hospital in the group, joined to user details.
+chainRouter.get('/api/chain/:groupId/team', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+
+    const groupHospitals = await db
+      .select({ id: hospitals.id, name: hospitals.name })
+      .from(hospitals)
+      .where(eq(hospitals.groupId, groupId));
+    const hospitalIds = groupHospitals.map(h => h.id);
+    if (hospitalIds.length === 0) {
+      return res.json({ admins: [], staff: [] });
+    }
+    const hospitalNameById = new Map(groupHospitals.map(h => [h.id, h.name]));
+
+    const rows = await db
+      .select({
+        roleId: userHospitalRoles.id,
+        userId: userHospitalRoles.userId,
+        hospitalId: userHospitalRoles.hospitalId,
+        role: userHospitalRoles.role,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+      })
+      .from(userHospitalRoles)
+      .innerJoin(users, eq(users.id, userHospitalRoles.userId))
+      .where(inArray(userHospitalRoles.hospitalId, hospitalIds));
+
+    type Row = typeof rows[number];
+    const decorate = (r: Row) => ({
+      roleId: r.roleId,
+      userId: r.userId,
+      hospitalId: r.hospitalId,
+      hospitalName: hospitalNameById.get(r.hospitalId) ?? "Unknown",
+      role: r.role,
+      firstName: r.firstName,
+      lastName: r.lastName,
+      email: r.email,
+    });
+
+    const admins = rows.filter(r => r.role === "group_admin").map(decorate);
+    const staff = rows.filter(r => r.role !== "group_admin").map(decorate);
+
+    res.json({ admins, staff });
+  } catch (error) {
+    logger.error("Error fetching chain team:", error);
+    res.status(500).json({ message: "Failed to fetch chain team" });
   }
 });
 
