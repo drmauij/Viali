@@ -59,6 +59,42 @@ async function isChainAdminForGroup(req: any, res: Response, next: any) {
   }
 }
 
+/**
+ * Resolve and validate the `hospitalIds` query param for a chain endpoint.
+ *
+ * - If absent or empty → returns every hospital in the group.
+ * - If present → splits on comma, validates every requested ID belongs to the
+ *   group. Throws a `ChainAuthError` (caught by the caller as 403) if any
+ *   requested ID is not in the group.
+ *
+ * Defence-in-depth: even though `isChainAdminForGroup` already verified the
+ * caller is a chain admin for `groupId`, we never want a chain admin slipping
+ * a hospital from a different group into the query.
+ */
+class ChainAuthError extends Error {
+  status = 403;
+}
+
+async function resolveHospitalIds(groupId: string, raw: unknown): Promise<{ ids: string[]; all: boolean }> {
+  const groupHospitals = await db
+    .select({ id: hospitals.id })
+    .from(hospitals)
+    .where(eq(hospitals.groupId, groupId));
+  const groupIds = new Set(groupHospitals.map(h => h.id));
+
+  const rawStr = typeof raw === "string" ? raw.trim() : "";
+  if (!rawStr) {
+    return { ids: Array.from(groupIds), all: true };
+  }
+  const requested = rawStr.split(",").map(s => s.trim()).filter(Boolean);
+  for (const id of requested) {
+    if (!groupIds.has(id)) {
+      throw new ChainAuthError(`hospitalId ${id} is not in group ${groupId}`);
+    }
+  }
+  return { ids: requested, all: requested.length === groupIds.size };
+}
+
 chainRouter.get('/api/chain/:groupId/funnels', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
   try {
     const { groupId } = req.params;
