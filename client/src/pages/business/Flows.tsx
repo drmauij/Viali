@@ -15,6 +15,7 @@ import {
 import { formatCurrency } from "@/lib/dateUtils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AutomationsTab } from "@/components/flows/automations/AutomationsTab";
+import FlowsTable, { type FlowRow, type FlowsTableMetricsRow } from "@/components/flows/FlowsTable";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -30,11 +31,8 @@ export default function Flows() {
   const [, navigate] = useLocation();
   const hospitalId = activeHospital?.id;
 
-  // Task 12: Flows scope toggle — "This clinic" (default) vs. "All locations"
-  // (chain-wide). Only shown when the active hospital is in a group AND the
-  // current user is `group_admin` on that group; plain marketing/manager at
-  // one location stays single-location only. The server enforces the same
-  // gate — this UI hide is UX, not security.
+  // Flows scope toggle — "This clinic" (default) vs. "All locations" (chain-wide).
+  // Only shown for group_admins on a grouped hospital.
   const { data: groupInfo } = useQuery<{ groupId: string | null; groupName: string | null; isGroupAdmin: boolean }>({
     queryKey: ['/api/clinic', hospitalId, 'group-info'],
     queryFn: () =>
@@ -46,17 +44,7 @@ export default function Flows() {
 
   const { data: metricsSummary } = useQuery<{
     since: string;
-    rows: Array<{
-      flowId: string;
-      sent: number;
-      delivered: number;
-      opened: number;
-      clicked: number;
-      bounced: number;
-      complained: number;
-      bookings: number;
-      revenue: number;
-    }>;
+    rows: Array<FlowsTableMetricsRow & { flowId: string }>;
   }>({
     queryKey: ["flows-metrics-summary", hospitalId],
     queryFn: () =>
@@ -65,17 +53,7 @@ export default function Flows() {
   });
 
   const metricsByFlow = useMemo(() => {
-    const m: Record<string, {
-      flowId: string;
-      sent: number;
-      delivered: number;
-      opened: number;
-      clicked: number;
-      bounced: number;
-      complained: number;
-      bookings: number;
-      revenue: number;
-    }> = {};
+    const m: Record<string, FlowsTableMetricsRow> = {};
     (metricsSummary?.rows ?? []).forEach((r) => {
       m[r.flowId] = r;
     });
@@ -103,20 +81,7 @@ export default function Flows() {
     ];
   }, [metricsSummary, t]);
 
-  const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-    draft: { label: t("flows.status.draft", "Draft"), variant: "outline" },
-    sending: { label: t("flows.status.sending", "Sending..."), variant: "secondary" },
-    sent: { label: t("flows.status.sent", "Sent"), variant: "default" },
-    failed: { label: t("flows.status.failed", "Failed"), variant: "destructive" },
-  };
-
-  const CHANNEL_LABEL: Record<string, string> = {
-    sms: "SMS",
-    email: "Email",
-    html_email: t("flows.channel.newsletter", "Newsletter"),
-  };
-
-  const { data: campaigns = [], isLoading } = useQuery({
+  const { data: campaigns = [], isLoading } = useQuery<FlowRow[]>({
     queryKey: ["flows", hospitalId],
     queryFn: () => apiRequest("GET", `/api/business/${hospitalId}/flows`).then((r) => r.json()),
     enabled: !!hospitalId,
@@ -208,7 +173,7 @@ export default function Flows() {
           <TabsTrigger value="campaigns" className="gap-2">
             <Send className="h-4 w-4" />
             {t("flows.tabs.campaigns", "Campaigns")}
-            {(campaigns as any[]).length > 0 && <Badge variant="secondary" className="ml-1">{(campaigns as any[]).length}</Badge>}
+            {campaigns.length > 0 && <Badge variant="secondary" className="ml-1">{campaigns.length}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="promos" className="gap-2">
             <Tag className="h-4 w-4" />
@@ -228,7 +193,7 @@ export default function Flows() {
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : (campaigns as any[]).length === 0 ? (
+          ) : campaigns.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                 <Send className="h-12 w-12 opacity-20 mb-4" />
@@ -240,104 +205,56 @@ export default function Flows() {
               </CardContent>
             </Card>
           ) : (
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("common.name", "Name")}</TableHead>
-                    <TableHead>{t("common.status", "Status")}</TableHead>
-                    <TableHead>{t("flows.table.channel", "Channel")}</TableHead>
-                    <TableHead>{t("flows.table.recipients", "Recipients")}</TableHead>
-                    <TableHead>{t("flows.table.sent", "Sent")}</TableHead>
-                    <TableHead>{t("flows.table.opens", "Opens")}</TableHead>
-                    <TableHead>{t("flows.table.booked", "Booked")}</TableHead>
-                    <TableHead>{t("flows.table.revenue", "Revenue")}</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(campaigns as any[]).map((c: any) => (
-                    <TableRow
-                      key={c.id}
-                      className={c.status === "draft" ? "cursor-pointer hover:bg-muted/50" : ""}
-                      onClick={() => c.status === "draft" && navigate(`/business/flows/${c.id}`)}
-                    >
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          {c.name}
-                          {c.abTestEnabled && (
-                            <Badge variant="outline" className="text-xs border-purple-400 text-purple-600">
-                              A/B
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={STATUS_BADGE[c.status]?.variant || "outline"}>
-                          {STATUS_BADGE[c.status]?.label || c.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{CHANNEL_LABEL[c.channel] || c.channel || "—"}</TableCell>
-                      <TableCell>{c.recipientCount ?? "—"}</TableCell>
-                      <TableCell>
-                        {c.sentAt ? new Date(c.sentAt).toLocaleDateString("de-CH") : "—"}
-                      </TableCell>
-                      <TableCell>
-                        {metricsByFlow[c.id] && metricsByFlow[c.id].sent > 0 ? (
-                          <span>
-                            {metricsByFlow[c.id].opened}
-                            {" "}
-                            <span className="text-muted-foreground text-xs">
-                              ({Math.round((metricsByFlow[c.id].opened / metricsByFlow[c.id].sent) * 100)}%)
-                            </span>
-                          </span>
-                        ) : "—"}
-                      </TableCell>
-                      <TableCell>{metricsByFlow[c.id]?.bookings ?? "—"}</TableCell>
-                      <TableCell className="font-medium">
-                        {metricsByFlow[c.id]
-                          ? formatCurrency(metricsByFlow[c.id].revenue)
-                          : "—"}
-                      </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => navigate(`/business/flows/${c.id}/metrics`)}
-                          title={t("flows.actions.viewMetrics", "View metrics")}
-                        >
-                          <BarChart3 className="h-4 w-4" />
+            <FlowsTable
+              flows={campaigns}
+              metricsByFlow={metricsByFlow}
+              onRowClick={(c) => {
+                if (c.status === "draft") {
+                  navigate(`/business/flows/${c.id}`);
+                }
+              }}
+              actions={(c) => (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => navigate(`/business/flows/${c.id}/metrics`)}
+                    title={t("flows.actions.viewMetrics", "View metrics")}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                  </Button>
+                  {c.status === "draft" && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Trash2 className="h-4 w-4" />
                         </Button>
-                        {c.status === "draft" && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>{t("flows.delete.title", "Delete Campaign?")}</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  {t("flows.delete.description", "This action cannot be undone.")}
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>{t("common.cancel", "Cancel")}</AlertDialogCancel>
-                                <AlertDialogAction onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(c.id); }}>
-                                  {t("common.delete", "Delete")}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>{t("flows.delete.title", "Delete Campaign?")}</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            {t("flows.delete.description", "This action cannot be undone.")}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>{t("common.cancel", "Cancel")}</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteMutation.mutate(c.id);
+                            }}
+                          >
+                            {t("common.delete", "Delete")}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </>
+              )}
+            />
           )}
         </TabsContent>
 
