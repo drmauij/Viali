@@ -378,21 +378,62 @@ chainRouter.get(
         GROUP BY s.hospital_id
       `);
 
+      // Per-hospital REFERRAL metrics — referral_events count + referrals
+      // that converted to a paid surgery or signed treatment (loose match on
+      // patient_id + hospital_id + same-day-or-after referral). The
+      // appointment must have actually happened (status confirmed/completed)
+      // — a confirmed booking that never showed up isn't a conversion.
+      const referralsByHospital = await db.execute<{
+        hospital_id: string;
+        referrals: string;
+        conversions: string;
+      }>(sql`
+        SELECT
+          re.hospital_id,
+          COUNT(*) AS referrals,
+          COUNT(*) FILTER (
+            WHERE re.appointment_id IS NOT NULL
+              AND EXISTS (
+                SELECT 1 FROM clinic_appointments ca
+                WHERE ca.id = re.appointment_id
+                  AND ca.status IN ('completed', 'confirmed')
+              )
+              AND (
+                EXISTS (
+                  SELECT 1 FROM surgeries s
+                  WHERE s.patient_id = re.patient_id
+                    AND s.hospital_id = re.hospital_id
+                    AND s.planned_date >= re.created_at
+                    AND s.is_archived = false
+                    AND COALESCE(s.is_suspended, false) = false
+                    AND s.payment_status IN ('paid', 'partial')
+                )
+                OR EXISTS (
+                  SELECT 1 FROM treatments t
+                  WHERE t.hospital_id = re.hospital_id
+                    AND t.patient_id = re.patient_id
+                    AND t.status IN ('signed', 'invoiced')
+                    AND t.performed_at >= re.created_at
+                )
+              )
+          ) AS conversions
+        FROM referral_events re
+        WHERE re.hospital_id IN (${idList})
+          AND re.created_at >= ${startIso}
+        GROUP BY re.hospital_id
+      `);
+
+      // No-show / appointments still derive from the leads table (kept
+      // narrow scope: the user only asked to flip Leads/Conversion to
+      // referrals; no-show isn't surfaced on the cockpit cards but is used
+      // for the anomalies block).
       const leadsByHospital = await db.execute<{
         hospital_id: string;
-        leads: string;
-        first_visit: string;
         no_shows: string;
         appointments: string;
       }>(sql`
         SELECT
           l.hospital_id,
-          COUNT(*) AS leads,
-          COUNT(*) FILTER (
-            WHERE l.appointment_id IN (
-              SELECT id FROM clinic_appointments WHERE status IN ('completed', 'confirmed')
-            )
-          ) AS first_visit,
           COUNT(*) FILTER (
             WHERE l.appointment_id IN (
               SELECT id FROM clinic_appointments WHERE status = 'no_show'
@@ -439,6 +480,9 @@ chainRouter.get(
       const leadsMap = new Map(
         (leadsByHospital.rows as any[]).map(r => [r.hospital_id, r])
       );
+      const refMap = new Map(
+        (referralsByHospital.rows as any[]).map(r => [r.hospital_id, r])
+      );
       const prevMap = new Map(
         (prevRevByHospital.rows as any[]).map(r => [
           r.hospital_id,
@@ -451,6 +495,7 @@ chainRouter.get(
           const tx = txMap.get(h.id);
           const sx = sxMap.get(h.id);
           const l = leadsMap.get(h.id);
+          const ref = refMap.get(h.id);
           const txRev = tx ? parseFloat(tx.revenue) : 0;
           const sxRev = sx ? parseFloat(sx.revenue) : 0;
           const revenue = txRev + sxRev;
@@ -459,8 +504,8 @@ chainRouter.get(
             prev > 0
               ? Number((((revenue - prev) / prev) * 100).toFixed(1))
               : 0;
-          const leadsCount = l ? parseInt(l.leads) : 0;
-          const firstVisit = l ? parseInt(l.first_visit) : 0;
+          const referralsCount = ref ? parseInt(ref.referrals) : 0;
+          const referralConversions = ref ? parseInt(ref.conversions) : 0;
           const noShowsCount = l ? parseInt(l.no_shows) : 0;
           const appointments = l ? parseInt(l.appointments) : 0;
           return {
@@ -470,10 +515,10 @@ chainRouter.get(
             revenue,
             treatments: tx ? parseInt(tx.count) : 0,
             surgeries: sx ? parseInt(sx.count) : 0,
-            leads: leadsCount,
+            referrals: referralsCount,
             conversionPct:
-              leadsCount > 0
-                ? Number(((firstVisit / leadsCount) * 100).toFixed(1))
+              referralsCount > 0
+                ? Number(((referralConversions / referralsCount) * 100).toFixed(1))
                 : 0,
             noShowPct:
               appointments > 0
@@ -490,9 +535,9 @@ chainRouter.get(
         0
       );
       const totalsSurgeries = perLocation.reduce((s, l) => s + l.surgeries, 0);
-      const totalsLeads = perLocation.reduce((s, l) => s + l.leads, 0);
-      const totalsFirstVisits = (leadsByHospital.rows as any[]).reduce(
-        (s, r) => s + parseInt(r.first_visit || "0"),
+      const totalsReferrals = perLocation.reduce((s, l) => s + l.referrals, 0);
+      const totalsConversions = (referralsByHospital.rows as any[]).reduce(
+        (s, r) => s + parseInt(r.conversions || "0"),
         0
       );
       const totalsAppointments = (leadsByHospital.rows as any[]).reduce(
@@ -568,10 +613,10 @@ chainRouter.get(
           revenue: totalsRevenue,
           treatments: totalsTreatments,
           surgeries: totalsSurgeries,
-          leads: totalsLeads,
+          referrals: totalsReferrals,
           conversionPct:
-            totalsLeads > 0
-              ? Number(((totalsFirstVisits / totalsLeads) * 100).toFixed(1))
+            totalsReferrals > 0
+              ? Number(((totalsConversions / totalsReferrals) * 100).toFixed(1))
               : 0,
           noShowPct: Number(avgNoShow.toFixed(1)),
         },

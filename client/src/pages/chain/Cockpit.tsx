@@ -14,7 +14,7 @@ interface ChainOverviewResponse {
     revenue: number;
     treatments: number;
     surgeries: number;
-    leads: number;
+    referrals: number;
     conversionPct: number;
     noShowPct: number;
   };
@@ -25,7 +25,7 @@ interface ChainOverviewResponse {
     revenue: number;
     treatments: number;
     surgeries: number;
-    leads: number;
+    referrals: number;
     conversionPct: number;
     noShowPct: number;
     trendPct: number;
@@ -166,15 +166,15 @@ export default function ChainCockpit() {
         )}
         <Card>
           <CardContent className="pt-4">
-            <div className="text-xs uppercase text-muted-foreground">
-              {t("chain.cockpit.leads", "Leads")}
+            <div className="text-xs uppercase text-muted-foreground" title={t("chain.cockpit.referralsHelp", "Tracked referral events (utm-tagged or click-id-tagged visits to /book)")}>
+              {t("chain.cockpit.referrals", "Referrals")}
             </div>
-            <div className="text-2xl font-semibold mt-1">{data.totals.leads}</div>
+            <div className="text-2xl font-semibold mt-1">{data.totals.referrals}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <div className="text-xs uppercase text-muted-foreground">
+            <div className="text-xs uppercase text-muted-foreground" title={t("chain.cockpit.conversionHelp", "Share of referrals that resulted in a confirmed/completed appointment AND a paid surgery or signed treatment")}>
               {t("chain.cockpit.conversion", "Conversion")}
             </div>
             <div className="text-2xl font-semibold mt-1">
@@ -207,7 +207,7 @@ export default function ChainCockpit() {
                   <TableHead className="text-right">{t("chain.cockpit.sx", "Sx")}</TableHead>
                 )}
                 <TableHead className="text-right">
-                  {t("chain.cockpit.leads", "Leads")}
+                  {t("chain.cockpit.referrals", "Referrals")}
                 </TableHead>
                 <TableHead className="text-right">
                   {t("chain.cockpit.conversionShort", "Conv")}
@@ -248,7 +248,7 @@ export default function ChainCockpit() {
                         {loc.clinicKind === 'aesthetic' ? '—' : loc.surgeries}
                       </TableCell>
                     )}
-                    <TableCell className="text-right">{loc.leads}</TableCell>
+                    <TableCell className="text-right">{loc.referrals}</TableCell>
                     <TableCell className="text-right">{loc.conversionPct.toFixed(0)}%</TableCell>
                     <TableCell className="text-right">{loc.noShowPct.toFixed(1)}%</TableCell>
                     <TableCell className={`text-right ${loc.trendPct < 0 ? 'text-destructive' : loc.trendPct > 0 ? 'text-green-600' : 'text-muted-foreground'}`}>
