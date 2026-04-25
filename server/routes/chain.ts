@@ -2,6 +2,7 @@ import { Router, type Response } from "express";
 import { db } from "../db";
 import {
   hospitals,
+  hospitalGroups,
   treatments,
   treatmentLines,
   surgeries,
@@ -668,5 +669,180 @@ chainRouter.delete('/api/chain/:groupId/flows/:flowId', isAuthenticated, isChain
   } catch (error) {
     logger.error("Error deleting chain flow:", error);
     res.status(500).json({ message: "Failed to delete chain flow" });
+  }
+});
+
+// GET /api/chain/:groupId/locations — hospitals in the group + plan info + group defaults
+chainRouter.get('/api/chain/:groupId/locations', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const [group] = await db
+      .select()
+      .from(hospitalGroups)
+      .where(eq(hospitalGroups.id, groupId));
+    if (!group) return res.status(404).json({ message: "Group not found" });
+
+    const groupHospitals = await db
+      .select({
+        id: hospitals.id,
+        name: hospitals.name,
+        address: hospitals.address,
+        timezone: hospitals.timezone,
+        currency: hospitals.currency,
+        licenseType: hospitals.licenseType,
+        pricePerRecord: hospitals.pricePerRecord,
+        clinicKind: hospitals.clinicKind,
+      })
+      .from(hospitals)
+      .where(eq(hospitals.groupId, groupId));
+
+    res.json({
+      locations: groupHospitals.map(h => ({
+        hospitalId: h.id,
+        hospitalName: h.name,
+        address: h.address,
+        timezone: h.timezone,
+        currency: h.currency,
+        licenseType: h.licenseType,
+        pricePerRecord: h.pricePerRecord,
+        clinicKind: h.clinicKind,
+      })),
+      groupDefaults: {
+        defaultLicenseType: group.defaultLicenseType,
+        defaultPricePerRecord: group.defaultPricePerRecord,
+      },
+    });
+  } catch (error) {
+    logger.error("Error fetching chain locations:", error);
+    res.status(500).json({ message: "Failed to fetch chain locations" });
+  }
+});
+
+// POST /api/chain/:groupId/locations — create a new clinic in the group.
+// The URL groupId is authoritative; body.groupId is ignored.
+// Note: no auto-provisioning of userHospitalRoles for the creating user because
+// userHospitalRoles.unitId is NOT NULL — the new hospital has no units yet.
+// The chain admin retains access via their group_admin role on existing group hospitals.
+chainRouter.post('/api/chain/:groupId/locations', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const bodySchema = z.object({
+      name: z.string().min(1),
+      address: z.string().optional(),
+      timezone: z.string().optional(),
+      currency: z.string().optional(),
+      clinicKind: z.enum(["aesthetic", "surgical", "mixed"]).optional(),
+    });
+    const body = bodySchema.parse(req.body);
+
+    const [created] = await db.insert(hospitals).values({
+      name: body.name,
+      address: body.address ?? null,
+      timezone: body.timezone ?? "Europe/Zurich",
+      currency: body.currency ?? "CHF",
+      clinicKind: body.clinicKind ?? "mixed",
+      groupId,
+    } as any).returning();
+
+    res.status(201).json(created);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid payload", issues: error.issues });
+    }
+    logger.error("Error creating chain location:", error);
+    res.status(500).json({ message: "Failed to create chain location" });
+  }
+});
+
+// PATCH /api/chain/:groupId/locations/:hospitalId — edit clinic fields
+chainRouter.patch('/api/chain/:groupId/locations/:hospitalId', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId, hospitalId } = req.params;
+    const bodySchema = z.object({
+      name: z.string().min(1).optional(),
+      address: z.string().nullable().optional(),
+      timezone: z.string().optional(),
+      currency: z.string().optional(),
+      clinicKind: z.enum(["aesthetic", "surgical", "mixed"]).optional(),
+      licenseType: z.enum(["free", "basic", "test"]).optional(),
+      pricePerRecord: z.string().nullable().optional(),
+    });
+    const body = bodySchema.parse(req.body);
+
+    // Defence-in-depth: verify the hospital belongs to this group
+    const [h] = await db.select().from(hospitals).where(eq(hospitals.id, hospitalId));
+    if (!h || h.groupId !== groupId) {
+      return res.status(404).json({ message: "Hospital not found in this group" });
+    }
+
+    const updates: any = { updatedAt: new Date() };
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.address !== undefined) updates.address = body.address;
+    if (body.timezone !== undefined) updates.timezone = body.timezone;
+    if (body.currency !== undefined) updates.currency = body.currency;
+    if (body.clinicKind !== undefined) updates.clinicKind = body.clinicKind;
+    if (body.licenseType !== undefined) updates.licenseType = body.licenseType;
+    if (body.pricePerRecord !== undefined) updates.pricePerRecord = body.pricePerRecord;
+
+    await db.update(hospitals).set(updates).where(eq(hospitals.id, hospitalId));
+    res.json({ success: true, hospitalId });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid payload", issues: error.issues });
+    }
+    logger.error("Error updating chain location:", error);
+    res.status(500).json({ message: "Failed to update chain location" });
+  }
+});
+
+// DELETE /api/chain/:groupId/locations/:hospitalId — archive by detaching from the group.
+// There is no hospitals.archived column in the schema. Detaching (groupId = null) removes
+// the clinic from the chain admin's view while keeping all its data intact at platform level.
+chainRouter.delete('/api/chain/:groupId/locations/:hospitalId', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId, hospitalId } = req.params;
+    const [h] = await db.select().from(hospitals).where(eq(hospitals.id, hospitalId));
+    if (!h || h.groupId !== groupId) {
+      return res.status(404).json({ message: "Hospital not found in this group" });
+    }
+    await db.update(hospitals).set({ groupId: null }).where(eq(hospitals.id, hospitalId));
+    res.status(204).end();
+  } catch (error) {
+    logger.error("Error archiving chain location:", error);
+    res.status(500).json({ message: "Failed to archive chain location" });
+  }
+});
+
+// PATCH /api/chain/:groupId/billing — update group plan defaults.
+// If cascade=true, also overwrites licenseType/pricePerRecord on every current member.
+chainRouter.patch('/api/chain/:groupId/billing', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const bodySchema = z.object({
+      defaultLicenseType: z.enum(["free", "basic", "test"]).optional(),
+      defaultPricePerRecord: z.string().nullable().optional(),
+      cascade: z.boolean().optional(),
+    });
+    const body = bodySchema.parse(req.body);
+
+    const groupUpdates: any = { updatedAt: new Date() };
+    if (body.defaultLicenseType !== undefined) groupUpdates.defaultLicenseType = body.defaultLicenseType;
+    if (body.defaultPricePerRecord !== undefined) groupUpdates.defaultPricePerRecord = body.defaultPricePerRecord;
+    await db.update(hospitalGroups).set(groupUpdates).where(eq(hospitalGroups.id, groupId));
+
+    if (body.cascade) {
+      const memberUpdates: any = { updatedAt: new Date() };
+      if (body.defaultLicenseType !== undefined) memberUpdates.licenseType = body.defaultLicenseType;
+      if (body.defaultPricePerRecord !== undefined) memberUpdates.pricePerRecord = body.defaultPricePerRecord;
+      await db.update(hospitals).set(memberUpdates).where(eq(hospitals.groupId, groupId));
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid payload", issues: error.issues });
+    }
+    logger.error("Error updating chain billing:", error);
+    res.status(500).json({ message: "Failed to update chain billing" });
   }
 });
