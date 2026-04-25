@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { MapPin, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // Patient-facing chain-level location picker. Behavior:
 //   1. Fetch `/api/public/group-booking/:token`.
@@ -9,6 +10,11 @@ import { MapPin, Loader2 } from "lucide-react";
 //      which re-enters the existing per-hospital booking flow. The
 //      `group` query param is carried along so downstream attribution
 //      can see which group funnel brought the patient in.
+//
+// Theme: defaults to LIGHT mode regardless of the patient's system
+// preference (booking is a high-stakes flow; we don't want a stark dark
+// surface to surprise patients on prefers-color-scheme: dark machines).
+// A small floating toggle in the top-right lets them flip to dark.
 //
 // Copy is German-first (Viali's primary patient-facing language). We
 // don't know the hospital's preferred language yet at the group level —
@@ -20,10 +26,11 @@ type Hospital = {
   name: string;
   address: string | null;
   bookingToken: string | null;
+  logoUrl: string | null;
 };
 
 type GroupBookingData = {
-  group: { id: string; name: string };
+  group: { id: string; name: string; logoUrl: string | null };
   hospitals: Hospital[];
 };
 
@@ -34,6 +41,20 @@ export default function BookGroup() {
   const [state, setState] = useState<"loading" | "ready" | "not_found" | "error">(
     "loading",
   );
+  const [isDark, setIsDark] = useState(false);
+
+  // Override the global app theme so this page picks light/dark
+  // independent of any user preference set elsewhere.
+  useEffect(() => {
+    const prev = document.documentElement.getAttribute("data-theme");
+    document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+    document.body.style.background = isDark ? "#0c0c14" : "#f0f1f3";
+    return () => {
+      if (prev) document.documentElement.setAttribute("data-theme", prev);
+      else document.documentElement.removeAttribute("data-theme");
+      document.body.style.background = "";
+    };
+  }, [isDark]);
 
   useEffect(() => {
     if (!token) return;
@@ -61,20 +82,27 @@ export default function BookGroup() {
     };
   }, [token]);
 
+  const wrapClass = cn(
+    "min-h-screen transition-colors duration-500",
+    isDark ? "bg-[#0c0c14] text-white" : "bg-[#f0f1f3] text-gray-900",
+  );
+
   if (state === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className={cn(wrapClass, "flex items-center justify-center")}>
+        <ThemeToggleFab isDark={isDark} onToggle={() => setIsDark((d) => !d)} />
+        <Loader2 className={cn("h-6 w-6 animate-spin", isDark ? "text-white/60" : "text-gray-500")} />
       </div>
     );
   }
 
   if (state === "not_found") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
+      <div className={cn(wrapClass, "flex items-center justify-center p-6")}>
+        <ThemeToggleFab isDark={isDark} onToggle={() => setIsDark((d) => !d)} />
         <div className="max-w-md text-center space-y-2">
           <h1 className="text-xl font-semibold">Seite nicht gefunden</h1>
-          <p className="text-muted-foreground text-sm">
+          <p className={cn("text-sm", isDark ? "text-white/60" : "text-gray-500")}>
             Dieser Buchungslink ist nicht (mehr) gültig. Bitte kontaktieren Sie
             die Praxis für einen aktuellen Link.
           </p>
@@ -85,10 +113,11 @@ export default function BookGroup() {
 
   if (state === "error" || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
+      <div className={cn(wrapClass, "flex items-center justify-center p-6")}>
+        <ThemeToggleFab isDark={isDark} onToggle={() => setIsDark((d) => !d)} />
         <div className="max-w-md text-center space-y-2">
           <h1 className="text-xl font-semibold">Etwas ist schiefgelaufen</h1>
-          <p className="text-muted-foreground text-sm">
+          <p className={cn("text-sm", isDark ? "text-white/60" : "text-gray-500")}>
             Die Buchungsseite konnte nicht geladen werden. Bitte versuchen Sie
             es später erneut.
           </p>
@@ -101,19 +130,30 @@ export default function BookGroup() {
   const bookable = hospitals.filter((h) => h.bookingToken);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={wrapClass}>
+      <ThemeToggleFab isDark={isDark} onToggle={() => setIsDark((d) => !d)} />
       <div className="max-w-xl mx-auto px-4 py-10">
         <div className="mb-8 text-center">
+          {group.logoUrl && (
+            <div className="mx-auto mb-4 h-16 w-16 rounded-lg overflow-hidden flex items-center justify-center">
+              <img
+                src={group.logoUrl}
+                alt=""
+                className="w-full h-full object-contain"
+                data-testid="group-logo"
+              />
+            </div>
+          )}
           <h1 className="text-2xl font-semibold tracking-tight" data-testid="group-name">
             {group.name}
           </h1>
-          <p className="text-muted-foreground mt-2 text-sm">
+          <p className={cn("mt-2 text-sm", isDark ? "text-white/60" : "text-gray-500")}>
             Wählen Sie Ihren Wunschstandort, um einen Termin zu buchen.
           </p>
         </div>
 
         {bookable.length === 0 ? (
-          <p className="text-center text-muted-foreground text-sm">
+          <p className={cn("text-center text-sm", isDark ? "text-white/60" : "text-gray-500")}>
             Aktuell sind keine Standorte für die Online-Buchung verfügbar.
           </p>
         ) : (
@@ -127,15 +167,41 @@ export default function BookGroup() {
                       `/book/${h.bookingToken}?group=${encodeURIComponent(group.id)}`,
                     )
                   }
-                  className="w-full text-left rounded-lg border bg-card p-4 hover:bg-accent hover:border-accent-foreground/20 transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+                  className={cn(
+                    "w-full text-left rounded-lg border p-4 transition-colors focus:outline-none focus:ring-2",
+                    isDark
+                      ? "bg-white/5 border-white/10 hover:bg-white/10 focus:ring-white/30"
+                      : "bg-white border-gray-200 hover:bg-gray-50 focus:ring-gray-300",
+                  )}
                   data-testid={`location-${h.id}`}
                 >
                   <div className="flex items-start gap-3">
-                    <MapPin className="h-5 w-5 mt-0.5 text-muted-foreground shrink-0" />
-                    <div className="flex-1">
+                    <div
+                      className={cn(
+                        "h-12 w-12 shrink-0 rounded border overflow-hidden flex items-center justify-center",
+                        isDark ? "bg-white/5 border-white/10" : "bg-gray-50 border-gray-200",
+                      )}
+                    >
+                      {h.logoUrl ? (
+                        <img
+                          src={h.logoUrl}
+                          alt=""
+                          className="w-full h-full object-contain"
+                          data-testid={`location-logo-${h.id}`}
+                        />
+                      ) : (
+                        <MapPin className={cn("h-5 w-5", isDark ? "text-white/40" : "text-gray-400")} />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
                       <div className="font-medium leading-tight">{h.name}</div>
                       {h.address && (
-                        <div className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
+                        <div
+                          className={cn(
+                            "text-sm mt-1 whitespace-pre-line",
+                            isDark ? "text-white/60" : "text-gray-500",
+                          )}
+                        >
                           {h.address}
                         </div>
                       )}
@@ -148,5 +214,31 @@ export default function BookGroup() {
         )}
       </div>
     </div>
+  );
+}
+
+function ThemeToggleFab({ isDark, onToggle }: { isDark: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      aria-label={isDark ? "Zu Hell-Modus wechseln" : "Zu Dunkel-Modus wechseln"}
+      className={cn(
+        "fixed top-4 right-4 z-50 inline-flex items-center justify-center w-9 h-9 rounded-full transition-colors duration-300",
+        isDark
+          ? "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+          : "bg-white/90 text-gray-600 hover:bg-white hover:text-gray-900 shadow-sm border border-gray-200",
+      )}
+    >
+      {isDark ? (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="5" />
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+        </svg>
+      ) : (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+      )}
+    </button>
   );
 }

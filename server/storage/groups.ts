@@ -721,18 +721,20 @@ export async function revokeGroupAdmin(userId: string, hospitalId: string) {
  * so the picker renders deterministically.
  */
 export async function getGroupByBookingToken(token: string): Promise<{
-  group: { id: string; name: string };
+  group: { id: string; name: string; logoUrl: string | null };
   hospitals: Array<{
     id: string;
     name: string;
     address: string | null;
     bookingToken: string | null;
+    logoUrl: string | null;
   }>;
 } | null> {
   const [group] = await db
     .select({
       id: hospitalGroups.id,
       name: hospitalGroups.name,
+      logoUrl: hospitalGroups.logoUrl,
     })
     .from(hospitalGroups)
     .where(eq(hospitalGroups.bookingToken, token));
@@ -743,6 +745,7 @@ export async function getGroupByBookingToken(token: string): Promise<{
       name: hospitals.name,
       address: hospitals.address,
       bookingToken: hospitals.bookingToken,
+      logoUrl: hospitals.companyLogoUrl,
     })
     .from(hospitals)
     .where(eq(hospitals.groupId, group.id))
