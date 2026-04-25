@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import express from "express";
 import request from "supertest";
 import { db, pool } from "../server/db";
-import { hospitals, hospitalGroups, units, users, userHospitalRoles } from "@shared/schema";
+import { hospitals, hospitalGroups, units, users, userHospitalRoles, leads } from "@shared/schema";
 import { inArray, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
@@ -67,5 +67,50 @@ describe("chain endpoints — hospitalIds validation", () => {
     const res = await request(buildApp(chainAdminId))
       .get(`/api/chain/${groupId}/leads?hospitalIds=${hospOther}`);
     expect(res.status).toBe(403);
+  });
+});
+
+describe("GET /api/chain/:groupId/leads", () => {
+  beforeAll(async () => {
+    const now = new Date();
+    await db.insert(leads).values([
+      { hospitalId: hosp1, source: "instagram", firstName: "T", lastName: "T", status: "new", createdAt: now } as any,
+      { hospitalId: hosp1, source: "google", firstName: "T", lastName: "T", status: "new", createdAt: now } as any,
+      { hospitalId: hosp2, source: "instagram", firstName: "T", lastName: "T", status: "new", createdAt: now } as any,
+    ]);
+  });
+  afterAll(async () => {
+    await db.delete(leads).where(inArray(leads.hospitalId, [hosp1, hosp2]));
+  });
+
+  it("returns leads aggregated across all selected clinics", async () => {
+    const res = await request(buildApp(chainAdminId))
+      .get(`/api/chain/${groupId}/leads?hospitalIds=${hosp1},${hosp2}&limit=100`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBe(3);
+  });
+
+  it("filters when only one hospitalId is requested", async () => {
+    const res = await request(buildApp(chainAdminId))
+      .get(`/api/chain/${groupId}/leads?hospitalIds=${hosp1}&limit=100`);
+    expect(res.status).toBe(200);
+    expect(res.body.length).toBe(2);
+  });
+
+  it("defaults to all clinics in group when hospitalIds is empty", async () => {
+    const res = await request(buildApp(chainAdminId))
+      .get(`/api/chain/${groupId}/leads?limit=100`);
+    expect(res.status).toBe(200);
+    expect(res.body.length).toBe(3);
+  });
+});
+
+describe("GET /api/chain/:groupId/leads-stats", () => {
+  it("returns 200 with stats shape", async () => {
+    const res = await request(buildApp(chainAdminId))
+      .get(`/api/chain/${groupId}/leads-stats?hospitalIds=${hosp1},${hosp2}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("total");
   });
 });

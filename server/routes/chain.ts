@@ -15,11 +15,13 @@ import {
   userHospitalRoles,
   units,
 } from "@shared/schema";
-import { eq, sql, inArray, desc } from "drizzle-orm";
+import { eq, sql, inArray, desc, and } from "drizzle-orm";
 import { isAuthenticated } from "../auth/google";
 import { storage } from "../storage";
 import logger from "../logger";
 import { z } from "zod";
+import { buildLeadsListConditions } from "./leads";
+import { getLeadsStats } from "../services/leadsMetrics";
 
 export const chainRouter = Router();
 
@@ -202,6 +204,92 @@ chainRouter.get('/api/chain/:groupId/funnels', isAuthenticated, isChainAdminForG
   } catch (error) {
     logger.error("Error fetching chain funnels:", error);
     res.status(500).json({ message: "Failed to fetch chain funnels" });
+  }
+});
+
+// GET /api/chain/:groupId/leads — chain-side mirror of
+// /api/business/:hospitalId/leads. Same response shape; widened to the
+// validated hospital subset.
+chainRouter.get('/api/chain/:groupId/leads', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const { ids } = await resolveHospitalIds(groupId, req.query.hospitalIds);
+    if (ids.length === 0) return res.json([]);
+
+    const status = (req.query.status as string) || "all";
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 100);
+    const before = req.query.before as string | undefined;
+    const from = (req.query.from as string | undefined) || undefined;
+    const to = (req.query.to as string | undefined) || undefined;
+
+    const conditions = buildLeadsListConditions({ hospitalIds: ids, status, from, to, before });
+
+    const leadRows = await db
+      .select({
+        id: leads.id,
+        hospitalId: leads.hospitalId,
+        firstName: leads.firstName,
+        lastName: leads.lastName,
+        email: leads.email,
+        phone: leads.phone,
+        operation: leads.operation,
+        message: leads.message,
+        source: leads.source,
+        metaLeadId: leads.metaLeadId,
+        metaFormId: leads.metaFormId,
+        status: leads.status,
+        patientId: leads.patientId,
+        appointmentId: leads.appointmentId,
+        closedReason: leads.closedReason,
+        utmSource: leads.utmSource,
+        utmMedium: leads.utmMedium,
+        utmCampaign: leads.utmCampaign,
+        utmTerm: leads.utmTerm,
+        utmContent: leads.utmContent,
+        gclid: leads.gclid,
+        createdAt: leads.createdAt,
+        updatedAt: leads.updatedAt,
+        contactCount: sql<number>`(SELECT COUNT(*) FROM lead_contacts WHERE lead_id = "leads"."id")`.as("contact_count"),
+        lastContactOutcome: sql<string | null>`(SELECT outcome FROM lead_contacts WHERE lead_id = "leads"."id" ORDER BY created_at DESC LIMIT 1)`.as("last_contact_outcome"),
+        lastContactAt: sql<Date | null>`(SELECT created_at FROM lead_contacts WHERE lead_id = "leads"."id" ORDER BY created_at DESC LIMIT 1)`.as("last_contact_at"),
+      })
+      .from(leads)
+      .where(and(...conditions))
+      .orderBy(desc(leads.createdAt))
+      .limit(limit);
+
+    res.json(leadRows);
+  } catch (e: any) {
+    if (e instanceof ChainAuthError) return res.status(e.status).json({ message: e.message });
+    logger.error("Error fetching chain leads:", e);
+    res.status(500).json({ message: "Failed to fetch chain leads" });
+  }
+});
+
+// GET /api/chain/:groupId/leads-stats — chain-side mirror.
+chainRouter.get('/api/chain/:groupId/leads-stats', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const { ids } = await resolveHospitalIds(groupId, req.query.hospitalIds);
+    if (ids.length === 0) {
+      return res.json({
+        total: 0,
+        bySource: [],
+        conversionOverall: 0,
+        conversionBySource: [],
+        avgDaysToConversion: null,
+        timeseries: [],
+      });
+    }
+    const from = (req.query.from as string | undefined) || undefined;
+    const to = (req.query.to as string | undefined) || undefined;
+
+    const stats = await getLeadsStats(ids, { from, to });
+    res.json(stats);
+  } catch (e: any) {
+    if (e instanceof ChainAuthError) return res.status(e.status).json({ message: e.message });
+    logger.error("Error fetching chain leads-stats:", e);
+    res.status(500).json({ message: "Failed to fetch chain leads-stats" });
   }
 });
 
