@@ -6044,6 +6044,7 @@
     "description": "Chain-wide overview and tools",
     "cockpit": {
       "title": "Chain overview",
+      "subtitle": "Top-line KPIs and trends across every clinic in the chain",
       "noGroup": "This clinic is not part of a chain.",
       "revenue": "Revenue",
       "treatments": "Treatments",
@@ -6065,7 +6066,7 @@
     },
     "funnels": {
       "title": "Funnels",
-      "subtitle": "Referral sources, lead conversion, and ad performance — across the chain",
+      "subtitle": "Lead and referral performance, with comparisons across every clinic in the chain",
       "noGroup": "This clinic is not part of a chain.",
       "heatmap": "Source × Location",
       "source": "Source",
@@ -6130,6 +6131,7 @@
     },
     "locations": {
       "title": "Locations",
+      "subtitle": "All clinics in this chain — add, edit, or archive them here",
       "noGroup": "This clinic is not part of a chain.",
       "tableTitle": "Locations in this chain",
       "name": "Name",
@@ -6151,6 +6153,7 @@
     },
     "team": {
       "title": "Team",
+      "subtitle": "Chain administrators and staff across every clinic in the chain",
       "noGroup": "This clinic is not part of a chain.",
       "adminsTitle": "Chain administrators",
       "staffTitle": "Staff across the chain",
@@ -6169,6 +6172,10 @@
       "revoked": "Chain admin revoked",
       "searchPlaceholder": "Search user by name or email…",
       "staffEmpty": "No staff yet across the chain."
+    },
+    "admin": {
+      "title": "Settings",
+      "subtitle": "Chain-wide settings, booking link, team, and shared services"
     }
   },
   "leads": {

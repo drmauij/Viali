@@ -108,10 +108,18 @@ export default function ChainCockpit() {
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24" data-testid="chain-cockpit">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <h1 className="text-2xl md:text-3xl font-bold">
-          {t("chain.cockpit.title", "Chain overview")}
-        </h1>
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold">
+            {t("chain.cockpit.title", "Chain overview")}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {t(
+              "chain.cockpit.subtitle",
+              "Top-line KPIs and trends across every clinic in the chain",
+            )}
+          </p>
+        </div>
         <Select value={range} onValueChange={(v) => setRange(v as any)}>
           <SelectTrigger className="w-[180px]" data-testid="select-range">
             <SelectValue />

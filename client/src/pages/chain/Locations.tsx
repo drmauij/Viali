@@ -82,8 +82,16 @@ export default function ChainLocations() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24" data-testid="chain-locations">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl md:text-3xl font-bold">{t("chain.locations.title", "Locations")}</h1>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold">{t("chain.locations.title", "Locations")}</h1>
+          <p className="text-muted-foreground mt-1">
+            {t(
+              "chain.locations.subtitle",
+              "All clinics in this chain — add, edit, or archive them here",
+            )}
+          </p>
+        </div>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
             <Button data-testid="button-add-location">

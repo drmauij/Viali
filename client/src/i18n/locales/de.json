@@ -6140,6 +6140,7 @@
     "description": "Kettenweite Übersicht und Werkzeuge",
     "cockpit": {
       "title": "Ketten-Übersicht",
+      "subtitle": "Wichtigste KPIs und Trends über alle Kliniken der Kette",
       "noGroup": "Diese Klinik gehört zu keiner Kette.",
       "revenue": "Umsatz",
       "treatments": "Behandlungen",
@@ -6161,7 +6162,7 @@
     },
     "funnels": {
       "title": "Funnels",
-      "subtitle": "Verweisquellen, Lead-Konversion und Anzeigen-Performance — über die gesamte Kette",
+      "subtitle": "Lead- und Empfehlungsleistung mit Vergleichen über alle Kliniken der Kette",
       "noGroup": "Diese Klinik gehört zu keiner Kette.",
       "heatmap": "Quelle × Standort",
       "source": "Quelle",
@@ -6226,6 +6227,7 @@
     },
     "locations": {
       "title": "Standorte",
+      "subtitle": "Alle Kliniken dieser Kette — hinzufügen, bearbeiten oder archivieren",
       "noGroup": "Diese Klinik gehört zu keiner Kette.",
       "tableTitle": "Standorte in dieser Kette",
       "name": "Name",
@@ -6247,6 +6249,7 @@
     },
     "team": {
       "title": "Team",
+      "subtitle": "Ketten-Administratoren und Personal über alle Kliniken der Kette",
       "noGroup": "Diese Klinik gehört zu keiner Kette.",
       "adminsTitle": "Ketten-Administratoren",
       "staffTitle": "Personal in der gesamten Kette",
@@ -6265,6 +6268,10 @@
       "revoked": "Ketten-Admin widerrufen",
       "searchPlaceholder": "Benutzer nach Name oder E-Mail suchen…",
       "staffEmpty": "Noch kein Personal in der Kette."
+    },
+    "admin": {
+      "title": "Einstellungen",
+      "subtitle": "Ketten-Einstellungen, Buchungslink, Team und gemeinsame Services"
     }
   },
   "leads": {

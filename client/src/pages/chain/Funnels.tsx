@@ -171,10 +171,18 @@ export default function ChainFunnels() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24" data-testid="chain-funnels">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <h1 className="text-2xl md:text-3xl font-bold">
-          {t("chain.funnels.title", "Funnels")}
-        </h1>
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold">
+            {t("chain.funnels.title", "Funnels")}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {t(
+              "chain.funnels.subtitle",
+              "Lead and referral performance, with comparisons across every clinic in the chain",
+            )}
+          </p>
+        </div>
         <div className="flex items-center gap-3">
           <Select
             value={range}

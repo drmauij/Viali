@@ -43,6 +43,7 @@ type Overview = {
 
 
 export default function BusinessGroup() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
@@ -105,7 +106,15 @@ export default function BusinessGroup() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24" data-testid="business-group-page">
-      <h1 className="text-2xl md:text-3xl font-bold">Settings</h1>
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold">{t("chain.admin.title", "Settings")}</h1>
+        <p className="text-muted-foreground mt-1">
+          {t(
+            "chain.admin.subtitle",
+            "Chain-wide settings, booking link, team, and shared services",
+          )}
+        </p>
+      </div>
 
       <Tabs defaultValue="settings" className="space-y-4">
         <TabsList>

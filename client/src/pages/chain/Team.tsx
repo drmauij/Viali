@@ -303,7 +303,15 @@ export default function ChainTeam() {
   const { t } = useTranslation();
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24">
-      <h1 className="text-2xl md:text-3xl font-bold">{t("chain.team.title", "Team")}</h1>
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold">{t("chain.team.title", "Team")}</h1>
+        <p className="text-muted-foreground mt-1">
+          {t(
+            "chain.team.subtitle",
+            "Chain administrators and staff across every clinic in the chain",
+          )}
+        </p>
+      </div>
       <ChainTeamSection />
     </div>
   );
