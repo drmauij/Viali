@@ -4,10 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useState } from "react";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
-import { useScopeToggle } from "@/hooks/useScopeToggle";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -174,14 +172,6 @@ export default function BusinessDashboard() {
   const [period, setPeriod] = useState("month");
   const activeHospital = useActiveHospital();
 
-  // Task 11: dashboard scope toggle — "This clinic" (default) vs. "All
-  // locations" (chain-wide). Only surfaced when the active hospital belongs
-  // to a group. Scope is stored as a URL param so the toggle is
-  // link-shareable and survives refresh; `getQueryFn` reads the same
-  // `?scope=group` marker to attach `X-Active-Scope: group` on each query.
-  const hospitalHasGroup = !!(activeHospital && activeHospital.groupId);
-  const { scope, setScope } = useScopeToggle({ available: hospitalHasGroup });
-
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -194,25 +184,6 @@ export default function BusinessDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {hospitalHasGroup && (
-            <ToggleGroup
-              type="single"
-              value={scope}
-              onValueChange={(value) => {
-                if (value === "hospital" || value === "group") setScope(value);
-              }}
-              variant="outline"
-              size="sm"
-              data-testid="toggle-dashboard-scope"
-            >
-              <ToggleGroupItem value="hospital" aria-label="This clinic" data-testid="toggle-dashboard-scope-hospital">
-                {t('business.dashboard.scopeThisClinic', 'This clinic')}
-              </ToggleGroupItem>
-              <ToggleGroupItem value="group" aria-label="All locations" data-testid="toggle-dashboard-scope-group">
-                {t('business.dashboard.scopeAllLocations', 'All locations')}
-              </ToggleGroupItem>
-            </ToggleGroup>
-          )}
           <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="w-[180px]" data-testid="select-period">
               <SelectValue placeholder={t('business.dashboard.selectPeriod')} />

@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/lib/dateUtils";
+import { formatCurrency, formatDate } from "@/lib/dateUtils";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -128,7 +128,7 @@ export default function FlowsTable({
                 {audienceColumn && <TableCell>{audienceColumn.cell(c)}</TableCell>}
                 <TableCell>{c.recipientCount ?? "—"}</TableCell>
                 <TableCell>
-                  {c.sentAt ? new Date(c.sentAt as string).toLocaleDateString("de-CH") : "—"}
+                  {c.sentAt ? formatDate(c.sentAt as string | Date) : "—"}
                 </TableCell>
                 <TableCell>
                   {metrics && metrics.sent > 0 ? (

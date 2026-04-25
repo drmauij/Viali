@@ -319,7 +319,7 @@ export default function BusinessGroup() {
 
         <button
           type="button"
-          onClick={() => navigate("/business/funnels?scope=group")}
+          onClick={() => navigate("/chain/marketing")}
           className="text-left border rounded p-4 hover:bg-accent transition-colors"
           data-testid="link-chain-marketing"
         >
