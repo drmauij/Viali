@@ -1485,6 +1485,26 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
           message: "clinicProviderIds must be an array of provider IDs",
         });
       }
+      // Spec: admin/manager/group_admin only — marketing role must not be able to edit.
+      {
+        const callerId = req.user?.id;
+        const { userHospitalRoles: rolesTable } = await import("@shared/schema");
+        const [callerRoleRow] = await db
+          .select({ role: rolesTable.role })
+          .from(rolesTable)
+          .where(and(
+            eq(rolesTable.userId, callerId),
+            eq(rolesTable.hospitalId, hospitalId),
+          ))
+          .limit(1);
+        const callerRole = callerRoleRow?.role;
+        if (callerRole !== "admin" && callerRole !== "manager" && callerRole !== "group_admin") {
+          return res.status(403).json({
+            message: "Admin or manager role required to edit chain-service providers",
+            code: "INSUFFICIENT_ROLE",
+          });
+        }
+      }
       try {
         await storage.setServiceProvidersForClinic(serviceId, hospitalId, reqBody.clinicProviderIds);
       } catch (err: any) {

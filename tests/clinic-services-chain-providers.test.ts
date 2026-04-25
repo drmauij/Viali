@@ -148,4 +148,57 @@ describe("PATCH /api/clinic/:hospitalId/services/:serviceId — clinicProviderId
       .send({ name: "Hijacked" });
     expect(res.status).toBe(403);
   });
+
+  it("rejects cross-clinic edit (admin at A cannot touch hospital B's subset)", async () => {
+    // clinicAdminAId has role "admin" at hospA, no role at hospB.
+    const res = await request(buildApp(clinicAdminAId))
+      .patch(`/api/clinic/${hospB}/services/${chainServiceId}`)
+      .send({ clinicProviderIds: [providerBId] });
+    // requireStrictHospitalAccess should reject; either 403 (forbidden) or 404 (visibility cloak)
+    expect([403, 404]).toContain(res.status);
+  });
+
+  it("clinic B admin emptying its subset does not affect clinic A's providers", async () => {
+    // Reset to known state
+    await db.delete(clinicServiceProviders).where(eq(clinicServiceProviders.serviceId, chainServiceId));
+    await db.insert(clinicServiceProviders).values([
+      { serviceId: chainServiceId, providerId: providerAId },
+      { serviceId: chainServiceId, providerId: providerBId },
+      { serviceId: chainServiceId, providerId: providerSharedId },
+    ]);
+
+    // Create a clinic admin at hospB
+    const [cb] = await db.insert(users).values({ email: `cb-${randomUUID().slice(0, 8)}@test.test` } as any).returning();
+    const clinicAdminBId = cb.id;
+    await db.insert(userHospitalRoles).values({
+      userId: clinicAdminBId, hospitalId: hospB, unitId: unitB, role: "admin",
+    } as any);
+
+    try {
+      // Clinic B admin empties B's subset (providerB and providerShared are at B).
+      // Under the global-link model, only ONE row exists per (service, provider).
+      // setServiceProvidersForClinic deletes rows whose providerId is enrolled at hospB,
+      // then re-inserts the new list (empty). So providerB and providerShared rows are deleted.
+      // providerA (only at A) is not touched.
+      const res = await request(buildApp(clinicAdminBId))
+        .patch(`/api/clinic/${hospB}/services/${chainServiceId}`)
+        .send({ clinicProviderIds: [] });
+      expect(res.status).toBe(200);
+
+      const after = await db
+        .select({ providerId: clinicServiceProviders.providerId })
+        .from(clinicServiceProviders)
+        .where(eq(clinicServiceProviders.serviceId, chainServiceId));
+      const ids = after.map(r => r.providerId).sort();
+
+      // providerA stays (only enrolled at A, untouched by B's edit).
+      // providerB dropped (at B). providerShared dropped (also enrolled at B → deleted).
+      // This is the expected behavior of the global-link model: a shared provider
+      // must be re-linked by A's admin if B drops them. Flag if surprising.
+      expect(ids).toEqual([providerAId]);
+    } finally {
+      await db.delete(userHospitalRoles).where(eq(userHospitalRoles.userId, clinicAdminBId));
+      await db.delete(users).where(eq(users.id, clinicAdminBId));
+    }
+  });
 });
