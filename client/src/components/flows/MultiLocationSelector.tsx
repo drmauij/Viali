@@ -23,7 +23,7 @@ export default function MultiLocationSelector({ groupId, value, onChange }: Mult
   // (Phase D will add a dedicated /api/chain/:groupId/locations endpoint with
   // richer fields like recipient counts; until then, this is the cheapest source.)
   const { data: marketingData, isLoading } = useQuery<{ locations: LocationOption[] }>({
-    queryKey: [`/api/chain/${groupId}/marketing?range=30d`],
+    queryKey: [`/api/chain/${groupId}/funnels?range=30d`],
     enabled: !!groupId,
   });
 

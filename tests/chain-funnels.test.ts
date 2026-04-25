@@ -92,9 +92,9 @@ afterAll(async () => {
   await pool.end();
 });
 
-describe("GET /api/chain/:groupId/marketing", () => {
+describe("GET /api/chain/:groupId/funnels", () => {
   it("returns source × location matrix + source totals for chain admin", async () => {
-    const res = await request(buildApp(chainAdminId)).get(`/api/chain/${groupId}/marketing?range=30d`);
+    const res = await request(buildApp(chainAdminId)).get(`/api/chain/${groupId}/funnels?range=30d`);
     expect(res.status).toBe(200);
 
     expect(res.body.sources).toBeDefined();
@@ -119,7 +119,7 @@ describe("GET /api/chain/:groupId/marketing", () => {
   it("rejects non-chain-admin with 403", async () => {
     const [plain] = await db.insert(users).values({ email: `plain-${uniq()}@test.test` } as any).returning();
     await db.insert(userHospitalRoles).values({ userId: plain.id, hospitalId: hosp1, unitId: unit1, role: "admin" } as any);
-    const res = await request(buildApp(plain.id)).get(`/api/chain/${groupId}/marketing?range=30d`);
+    const res = await request(buildApp(plain.id)).get(`/api/chain/${groupId}/funnels?range=30d`);
     expect(res.status).toBe(403);
     await db.delete(userHospitalRoles).where(eq(userHospitalRoles.userId, plain.id));
     await db.delete(users).where(eq(users.id, plain.id));

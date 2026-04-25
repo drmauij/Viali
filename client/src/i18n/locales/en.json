@@ -383,8 +383,8 @@
     },
     "chain": {
       "overview": "Overview",
-      "marketing": "Marketing",
-      "campaigns": "Campaigns",
+      "funnels": "Funnels",
+      "flows": "Flows",
       "locations": "Locations",
       "team": "Team",
       "admin": "Settings"
@@ -6053,8 +6053,9 @@
       "topTreatments": "Top treatments",
       "topSurgeries": "Top surgeries"
     },
-    "marketing": {
-      "title": "Chain marketing",
+    "funnels": {
+      "title": "Funnels",
+      "subtitle": "Referral sources, lead conversion, and ad performance — across the chain",
       "noGroup": "This clinic is not part of a chain.",
       "heatmap": "Source × Location — leads",
       "source": "Source",
@@ -6064,8 +6065,9 @@
       "alertsTitle": "Alerts",
       "sourceDrop": "{{source}} leads dropped {{pct}}% ({{prev}} → {{current}})"
     },
-    "campaigns": {
-      "title": "Chain campaigns",
+    "flows": {
+      "title": "Flows",
+      "subtitle": "Outbound email and SMS campaigns — across the chain",
       "new": "New campaign",
       "edit": "Edit campaign",
       "noGroup": "This clinic is not part of a chain.",

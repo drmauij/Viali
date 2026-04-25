@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import FlowsTable from "@/components/flows/FlowsTable";
 
-export default function ChainCampaigns() {
+export default function ChainFlows() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
@@ -41,14 +41,14 @@ export default function ChainCampaigns() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/chain/${groupId}/flows`] });
       toast({
-        title: t("chain.campaigns.deleted", "Campaign deleted"),
+        title: t("chain.flows.deleted", "Campaign deleted"),
       });
       setPendingDelete(null);
     },
     onError: (e: any) => {
       toast({
         title: t("common.error", "Error"),
-        description: e?.message ?? t("chain.campaigns.deleteFailed", "Could not delete campaign."),
+        description: e?.message ?? t("chain.flows.deleteFailed", "Could not delete campaign."),
         variant: "destructive",
       });
     },
@@ -56,41 +56,46 @@ export default function ChainCampaigns() {
 
   if (!groupId) {
     return (
-      <div className="p-8 text-center text-muted-foreground" data-testid="chain-campaigns-no-group">
-        {t("chain.campaigns.noGroup", "This clinic is not part of a chain.")}
+      <div className="p-8 text-center text-muted-foreground" data-testid="chain-flows-no-group">
+        {t("chain.flows.noGroup", "This clinic is not part of a chain.")}
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 pb-24" data-testid="chain-campaigns">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl md:text-3xl font-bold">{t("chain.campaigns.title", "Chain campaigns")}</h1>
-        <Button onClick={() => navigate("/chain/campaigns/new")} data-testid="button-new-campaign">
+    <div className="p-4 md:p-6 space-y-6 pb-24" data-testid="chain-flows">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold">{t("chain.flows.title", "Flows")}</h1>
+          <p className="text-muted-foreground mt-1">
+            {t("chain.flows.subtitle", "Outbound email and SMS campaigns — across the chain")}
+          </p>
+        </div>
+        <Button onClick={() => navigate("/chain/flows/new")} data-testid="button-new-campaign">
           <Plus className="h-4 w-4 mr-2" />
-          {t("chain.campaigns.new", "New campaign")}
+          {t("chain.flows.new", "New campaign")}
         </Button>
       </div>
 
       {isLoading ? (
         <div className="p-8 text-center text-muted-foreground">{t("common.loading", "Loading...")}</div>
       ) : (data?.flows ?? []).length === 0 ? (
-        <div className="p-8 text-center text-muted-foreground" data-testid="chain-campaigns-empty">
-          {t("chain.campaigns.empty", "No campaigns yet.")}
+        <div className="p-8 text-center text-muted-foreground" data-testid="chain-flows-empty">
+          {t("chain.flows.empty", "No campaigns yet.")}
         </div>
       ) : (
         <FlowsTable
           flows={data?.flows ?? []}
-          onRowClick={(row) => navigate(`/chain/campaigns/${row.id}`)}
+          onRowClick={(row) => navigate(`/chain/flows/${row.id}`)}
           audienceColumn={{
-            header: t("chain.campaigns.audience", "Audience"),
+            header: t("chain.flows.audience", "Audience"),
             cell: (row) => {
               const list = (row as any).audienceHospitals ?? [];
               if (list.length === 0) return <Badge variant="outline">—</Badge>;
               if (list.length === 1) return <Badge variant="outline">{list[0].hospitalName}</Badge>;
               return (
                 <Badge variant="outline">
-                  {t("chain.campaigns.nLocations", "{{n}} locations", { n: list.length })}
+                  {t("chain.flows.nLocations", "{{n}} locations", { n: list.length })}
                 </Badge>
               );
             },
@@ -105,7 +110,7 @@ export default function ChainCampaigns() {
                 className="h-8 w-8 text-destructive hover:text-destructive"
                 onClick={() => setPendingDelete({ id: row.id, name: row.name })}
                 data-testid={`button-delete-campaign-${row.id}`}
-                title={t("chain.campaigns.delete", "Delete")}
+                title={t("chain.flows.delete", "Delete")}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -117,10 +122,10 @@ export default function ChainCampaigns() {
       <AlertDialog open={!!pendingDelete} onOpenChange={(o) => !o && setPendingDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("chain.campaigns.deleteTitle", "Delete campaign?")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("chain.flows.deleteTitle", "Delete campaign?")}</AlertDialogTitle>
             <AlertDialogDescription>
               {t(
-                "chain.campaigns.deleteBody",
+                "chain.flows.deleteBody",
                 "{{name}} will be permanently deleted. This action cannot be undone.",
                 { name: pendingDelete?.name ?? "" }
               )}

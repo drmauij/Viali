@@ -13,11 +13,11 @@ import FlowForm, {
 } from "@/components/flows/FlowForm";
 import MultiLocationSelector from "@/components/flows/MultiLocationSelector";
 
-interface CampaignCreateProps {
+interface ChainFlowCreateProps {
   editId?: string;
 }
 
-export default function CampaignCreate({ editId }: CampaignCreateProps) {
+export default function ChainFlowCreate({ editId }: ChainFlowCreateProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -73,7 +73,7 @@ export default function CampaignCreate({ editId }: CampaignCreateProps) {
           "You can continue editing later."
         ),
       });
-      navigate("/chain/campaigns");
+      navigate("/chain/flows");
     } catch (e: any) {
       toast({
         title: t("common.error", "Error"),
@@ -119,7 +119,7 @@ export default function CampaignCreate({ editId }: CampaignCreateProps) {
           { name: payload.name }
         ),
       });
-      navigate("/chain/campaigns");
+      navigate("/chain/flows");
     } catch (e: any) {
       toast({
         title: t("common.error", "Error"),
@@ -162,7 +162,7 @@ export default function CampaignCreate({ editId }: CampaignCreateProps) {
         className="p-8 text-center text-muted-foreground"
         data-testid="campaign-create-no-group"
       >
-        {t("chain.campaigns.noGroup", "This clinic is not part of a chain.")}
+        {t("chain.flows.noGroup", "This clinic is not part of a chain.")}
       </div>
     );
   }
@@ -176,15 +176,15 @@ export default function CampaignCreate({ editId }: CampaignCreateProps) {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate("/chain/campaigns")}
+          onClick={() => navigate("/chain/flows")}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
           <h1 className="text-xl font-bold">
             {editId
-              ? t("chain.campaigns.edit", "Edit campaign")
-              : t("chain.campaigns.new", "New campaign")}
+              ? t("chain.flows.edit", "Edit campaign")
+              : t("chain.flows.new", "New campaign")}
           </h1>
           <p className="text-xs text-muted-foreground">
             {t("flows.create.subtitle", "Configure step by step")}
@@ -207,7 +207,7 @@ export default function CampaignCreate({ editId }: CampaignCreateProps) {
         onSaveDraft={handleSaveDraft}
         onSend={handleSend}
         onSendTest={handleSendTest}
-        onCancel={() => navigate("/chain/campaigns")}
+        onCancel={() => navigate("/chain/flows")}
       />
     </div>
   );

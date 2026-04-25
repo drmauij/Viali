@@ -319,9 +319,9 @@ export default function BusinessGroup() {
 
         <button
           type="button"
-          onClick={() => navigate("/chain/marketing")}
+          onClick={() => navigate("/chain/funnels")}
           className="text-left border rounded p-4 hover:bg-accent transition-colors"
-          data-testid="link-chain-marketing"
+          data-testid="link-chain-funnels"
         >
           <div className="flex items-start justify-between gap-3">
             <div>

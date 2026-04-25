@@ -16,14 +16,14 @@ interface MarketingResponse {
   alerts: Array<{ kind: "source_drop"; source: string; currentLeads: number; prevLeads: number; deltaPct: number }>;
 }
 
-export default function ChainMarketing() {
+export default function ChainFunnels() {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const groupId = (activeHospital as any)?.groupId ?? null;
   const [range, setRange] = useState<"30d" | "90d" | "365d">("30d");
 
   const { data, isLoading, isError } = useQuery<MarketingResponse>({
-    queryKey: [`/api/chain/${groupId}/marketing?range=${range}`],
+    queryKey: [`/api/chain/${groupId}/funnels?range=${range}`],
     enabled: !!groupId,
   });
 
@@ -42,8 +42,8 @@ export default function ChainMarketing() {
 
   if (!groupId) {
     return (
-      <div className="p-8 text-center text-muted-foreground" data-testid="chain-marketing-no-group">
-        {t("chain.marketing.noGroup", "This clinic is not part of a chain.")}
+      <div className="p-8 text-center text-muted-foreground" data-testid="chain-funnels-no-group">
+        {t("chain.funnels.noGroup", "This clinic is not part of a chain.")}
       </div>
     );
   }
@@ -59,16 +59,21 @@ export default function ChainMarketing() {
   if (isError || !data) {
     return (
       <div className="p-8 text-center text-destructive">
-        {t("common.error", "Error loading chain marketing.")}
+        {t("common.error", "Error loading chain funnels.")}
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 pb-24" data-testid="chain-marketing">
+    <div className="p-4 md:p-6 space-y-6 pb-24" data-testid="chain-funnels">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <h1 className="text-2xl md:text-3xl font-bold">{t("chain.marketing.title", "Chain marketing")}</h1>
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold">{t("chain.funnels.title", "Funnels")}</h1>
+          <p className="text-muted-foreground mt-1">
+            {t("chain.funnels.subtitle", "Referral sources, lead conversion, and ad performance — across the chain")}
+          </p>
+        </div>
         <Select value={range} onValueChange={(v) => setRange(v as any)}>
           <SelectTrigger className="w-[180px]" data-testid="select-range">
             <SelectValue />
@@ -84,26 +89,26 @@ export default function ChainMarketing() {
       {/* Source × Location heatmap */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">{t("chain.marketing.heatmap", "Source × Location — leads")}</CardTitle>
+          <CardTitle className="text-base">{t("chain.funnels.heatmap", "Source × Location — leads")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("chain.marketing.source", "Source")}</TableHead>
+                  <TableHead>{t("chain.funnels.source", "Source")}</TableHead>
                   {data.locations.map(loc => (
                     <TableHead key={loc.hospitalId} className="text-right">{loc.hospitalName}</TableHead>
                   ))}
-                  <TableHead className="text-right">{t("chain.marketing.total", "Total")}</TableHead>
-                  <TableHead className="text-right">{t("chain.marketing.conv", "Conv")}</TableHead>
+                  <TableHead className="text-right">{t("chain.funnels.total", "Total")}</TableHead>
+                  <TableHead className="text-right">{t("chain.funnels.conv", "Conv")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {matrix.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={data.locations.length + 3} className="text-center text-muted-foreground py-4">
-                      {t("chain.marketing.empty", "No leads recorded in this period.")}
+                      {t("chain.funnels.empty", "No leads recorded in this period.")}
                     </TableCell>
                   </TableRow>
                 ) : matrix.map(row => {
@@ -139,13 +144,13 @@ export default function ChainMarketing() {
       {data.alerts.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{t("chain.marketing.alertsTitle", "Alerts")}</CardTitle>
+            <CardTitle className="text-base">{t("chain.funnels.alertsTitle", "Alerts")}</CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2 text-sm">
               {data.alerts.map(a => (
                 <li key={a.source} className="text-amber-600">
-                  ⚠ {t("chain.marketing.sourceDrop", "{{source}} leads dropped {{pct}}% ({{prev}} → {{current}})", {
+                  ⚠ {t("chain.funnels.sourceDrop", "{{source}} leads dropped {{pct}}% ({{prev}} → {{current}})", {
                     source: a.source,
                     pct: Math.abs(a.deltaPct).toFixed(0),
                     prev: a.prevLeads,

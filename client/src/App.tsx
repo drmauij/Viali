@@ -95,9 +95,9 @@ const FlowCreate = React.lazy(() => import("@/pages/business/FlowCreate"));
 const FlowMetrics = React.lazy(() => import("@/pages/business/FlowMetrics"));
 const BusinessGroup = React.lazy(() => import("@/pages/business/Group"));
 const ChainCockpit = React.lazy(() => import("@/pages/chain/Cockpit"));
-const ChainMarketing = React.lazy(() => import("@/pages/chain/Marketing"));
-const ChainCampaigns = React.lazy(() => import("@/pages/chain/Campaigns"));
-const CampaignCreate = React.lazy(() => import("@/pages/chain/CampaignCreate"));
+const ChainFunnels = React.lazy(() => import("@/pages/chain/Funnels"));
+const ChainFlows = React.lazy(() => import("@/pages/chain/Flows"));
+const ChainFlowCreate = React.lazy(() => import("@/pages/chain/FlowCreate"));
 const ChainLocations = React.lazy(() => import("@/pages/chain/Locations"));
 const ChainTeam = React.lazy(() => import("@/pages/chain/Team"));
 
@@ -331,10 +331,10 @@ function Router() {
 
               {/* Chain Module — group-admin operator surface for a single chain. */}
               <Route path="/chain">{() => <ProtectedRoute requireChain><ChainCockpit /></ProtectedRoute>}</Route>
-              <Route path="/chain/marketing">{() => <ProtectedRoute requireChain><ChainMarketing /></ProtectedRoute>}</Route>
-              <Route path="/chain/campaigns">{() => <ProtectedRoute requireChain><ChainCampaigns /></ProtectedRoute>}</Route>
-              <Route path="/chain/campaigns/new">{() => <ProtectedRoute requireChain><CampaignCreate /></ProtectedRoute>}</Route>
-              <Route path="/chain/campaigns/:id">{(params) => <ProtectedRoute requireChain><CampaignCreate editId={params.id} /></ProtectedRoute>}</Route>
+              <Route path="/chain/funnels">{() => <ProtectedRoute requireChain><ChainFunnels /></ProtectedRoute>}</Route>
+              <Route path="/chain/flows">{() => <ProtectedRoute requireChain><ChainFlows /></ProtectedRoute>}</Route>
+              <Route path="/chain/flows/new">{() => <ProtectedRoute requireChain><ChainFlowCreate /></ProtectedRoute>}</Route>
+              <Route path="/chain/flows/:id">{(params) => <ProtectedRoute requireChain><ChainFlowCreate editId={params.id} /></ProtectedRoute>}</Route>
               <Route path="/chain/locations">{() => <ProtectedRoute requireChain><ChainLocations /></ProtectedRoute>}</Route>
               <Route path="/chain/team">{() => <ProtectedRoute requireChain><ChainTeam /></ProtectedRoute>}</Route>
               <Route path="/chain/admin">{() => <ProtectedRoute requireChain><BusinessGroup /></ProtectedRoute>}</Route>

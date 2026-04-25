@@ -464,8 +464,8 @@
     },
     "chain": {
       "overview": "Übersicht",
-      "marketing": "Marketing",
-      "campaigns": "Kampagnen",
+      "funnels": "Funnels",
+      "flows": "Flows",
       "locations": "Standorte",
       "team": "Team",
       "admin": "Einstellungen"
@@ -6149,8 +6149,9 @@
       "topTreatments": "Top-Behandlungen",
       "topSurgeries": "Top-Operationen"
     },
-    "marketing": {
-      "title": "Ketten-Marketing",
+    "funnels": {
+      "title": "Funnels",
+      "subtitle": "Verweisquellen, Lead-Konversion und Anzeigen-Performance — über die gesamte Kette",
       "noGroup": "Diese Klinik gehört zu keiner Kette.",
       "heatmap": "Quelle × Standort — Leads",
       "source": "Quelle",
@@ -6160,8 +6161,9 @@
       "alertsTitle": "Warnungen",
       "sourceDrop": "{{source}} Leads gesunken um {{pct}}% ({{prev}} → {{current}})"
     },
-    "campaigns": {
-      "title": "Ketten-Kampagnen",
+    "flows": {
+      "title": "Flows",
+      "subtitle": "Ausgehende E-Mail- und SMS-Kampagnen — über die gesamte Kette",
       "new": "Neue Kampagne",
       "edit": "Kampagne bearbeiten",
       "noGroup": "Diese Klinik gehört zu keiner Kette.",

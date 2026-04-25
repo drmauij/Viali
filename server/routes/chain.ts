@@ -59,7 +59,7 @@ async function isChainAdminForGroup(req: any, res: Response, next: any) {
   }
 }
 
-chainRouter.get('/api/chain/:groupId/marketing', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+chainRouter.get('/api/chain/:groupId/funnels', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
   try {
     const { groupId } = req.params;
     const rangeDays = parseInt((req.query.range as string)?.replace('d', '') || '30', 10);
@@ -164,8 +164,8 @@ chainRouter.get('/api/chain/:groupId/marketing', isAuthenticated, isChainAdminFo
       alerts,
     });
   } catch (error) {
-    logger.error("Error fetching chain marketing:", error);
-    res.status(500).json({ message: "Failed to fetch chain marketing" });
+    logger.error("Error fetching chain funnels:", error);
+    res.status(500).json({ message: "Failed to fetch chain funnels" });
   }
 });
 
