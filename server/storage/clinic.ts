@@ -1870,6 +1870,68 @@ export async function setServiceProviders(serviceId: string, providerIds: string
 }
 
 /**
+ * Replace ONLY this clinic's subset of a chain service's provider list.
+ *
+ * - Existing `clinic_service_providers` rows whose `providerId` is enrolled
+ *   at `hospitalId` (via `userHospitalRoles`) get deleted.
+ * - Rows for providers enrolled at OTHER clinics in the chain are untouched.
+ * - Each new `providerId` in `clinicProviderIds` MUST be enrolled at
+ *   `hospitalId` — we throw otherwise (defence in depth on top of the route's
+ *   own validation).
+ *
+ * Used only by the per-clinic "Provider-only" PATCH branch on chain services.
+ * Per-clinic services use the existing `setServiceProviders` instead.
+ */
+export async function setServiceProvidersForClinic(
+  serviceId: string,
+  hospitalId: string,
+  clinicProviderIds: string[],
+): Promise<void> {
+  // Validate every requested providerId is enrolled at this hospital.
+  if (clinicProviderIds.length > 0) {
+    const validRoster = await db
+      .select({ userId: userHospitalRoles.userId })
+      .from(userHospitalRoles)
+      .where(and(
+        eq(userHospitalRoles.hospitalId, hospitalId),
+        inArray(userHospitalRoles.userId, clinicProviderIds),
+      ));
+    const validIds = new Set(validRoster.map(r => r.userId));
+    for (const pid of clinicProviderIds) {
+      if (!validIds.has(pid)) {
+        throw new Error(`Provider ${pid} is not enrolled at hospital ${hospitalId}`);
+      }
+    }
+  }
+
+  await db.transaction(async (tx) => {
+    // Find existing service-provider rows whose providerId is enrolled at this hospital.
+    const toDrop = await tx
+      .select({ providerId: clinicServiceProviders.providerId })
+      .from(clinicServiceProviders)
+      .innerJoin(userHospitalRoles, eq(userHospitalRoles.userId, clinicServiceProviders.providerId))
+      .where(and(
+        eq(clinicServiceProviders.serviceId, serviceId),
+        eq(userHospitalRoles.hospitalId, hospitalId),
+      ));
+    const dropIds = Array.from(new Set(toDrop.map(r => r.providerId)));
+
+    if (dropIds.length > 0) {
+      await tx.delete(clinicServiceProviders).where(and(
+        eq(clinicServiceProviders.serviceId, serviceId),
+        inArray(clinicServiceProviders.providerId, dropIds),
+      ));
+    }
+
+    if (clinicProviderIds.length > 0) {
+      await tx.insert(clinicServiceProviders).values(
+        clinicProviderIds.map(providerId => ({ serviceId, providerId }))
+      );
+    }
+  });
+}
+
+/**
  * Find the provider with the earliest next available slot.
  * Searches up to 2 months ahead across all candidate providers in parallel.
  */

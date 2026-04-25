@@ -1464,6 +1464,35 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
       return res.status(404).json({ message: "Service not found" });
     }
 
+    // New branch: per-clinic provider edit on a chain service.
+    // Allowed for any user with write access at hospitalId (the existing
+    // `requireWriteAccess` middleware already gates this), even if they are
+    // NOT a group admin. Body must contain ONLY `clinicProviderIds`.
+    const reqBody = req.body ?? {};
+    const onlyClinicProviderIds =
+      reqBody.clinicProviderIds !== undefined &&
+      Object.keys(reqBody).filter(k => k !== "clinicProviderIds").length === 0;
+
+    if (onlyClinicProviderIds) {
+      if (!isGroupService) {
+        return res.status(400).json({
+          message: "clinicProviderIds is only valid on chain (group-scoped) services",
+          code: "NOT_A_CHAIN_SERVICE",
+        });
+      }
+      if (!Array.isArray(reqBody.clinicProviderIds)) {
+        return res.status(400).json({
+          message: "clinicProviderIds must be an array of provider IDs",
+        });
+      }
+      try {
+        await storage.setServiceProvidersForClinic(serviceId, hospitalId, reqBody.clinicProviderIds);
+      } catch (err: any) {
+        return res.status(400).json({ message: err?.message ?? "Failed to update clinic providers" });
+      }
+      return res.json({ id: serviceId, hospitalId, clinicProviderIds: reqBody.clinicProviderIds });
+    }
+
     // For group-scoped services, only group_admin may write.
     if (isGroupService) {
       const userId = req.user?.id;

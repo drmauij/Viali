@@ -946,6 +946,7 @@ export interface IStorage {
   }>>;
   getProvidersByServiceId(serviceId: string): Promise<string[]>;
   setServiceProviders(serviceId: string, providerIds: string[]): Promise<void>;
+  setServiceProvidersForClinic(serviceId: string, hospitalId: string, clinicProviderIds: string[]): Promise<void>;
   getBestAvailableProvider(hospitalId: string, candidateProviderIds: string[], durationMinutes?: number): Promise<{ providerId: string; date: string; startTime: string } | null>;
   
   // ========== SCHEDULED JOBS ==========
@@ -1629,6 +1630,7 @@ export class DatabaseStorage implements IStorage {
   getPublicBookableServicesByHospital = clinicStorage.getPublicBookableServicesByHospital;
   getProvidersByServiceId = clinicStorage.getProvidersByServiceId;
   setServiceProviders = clinicStorage.setServiceProviders;
+  setServiceProvidersForClinic = clinicStorage.setServiceProvidersForClinic;
   getBestAvailableProvider = clinicStorage.getBestAvailableProvider;
   getNextScheduledJob = clinicStorage.getNextScheduledJob;
   createScheduledJob = clinicStorage.createScheduledJob;
