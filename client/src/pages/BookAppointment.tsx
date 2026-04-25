@@ -426,7 +426,15 @@ export default function BookAppointment() {
         // Parse YYYY-MM-DD as a local-tz date (no UTC drift) — same shape
         // the date picker uses when the user clicks a day.
         const [y, m, d] = result.nextSlot.date.split('-').map(Number);
-        setSelectedDate(new Date(y, m - 1, d));
+        const autoDate = new Date(y, m - 1, d);
+        // Move visibleMonth to the auto-picked date's month BEFORE setting
+        // selectedDate. Otherwise the available-dates fetch (keyed on
+        // visibleMonth) returns the OLD month's dates, the
+        // "clear-selectedDate-if-unavailable" effect fires, and the date
+        // card disappears while the time card still renders from stale
+        // slot state.
+        setVisibleMonth(new Date(y, m - 1, 1));
+        setSelectedDate(autoDate);
         // Defer slot selection until the slots-fetch effect resolves.
         pendingAutoSlotRef.current = result.nextSlot.startTime;
       })
