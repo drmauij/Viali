@@ -404,7 +404,8 @@
     "language": "Sprache",
     "english": "Englisch",
     "german": "Deutsch",
-    "workTime": "Arbeitszeit"
+    "workTime": "Arbeitszeit",
+    "chainShortcut": "Ketten-Übersicht"
   },
   "bottomNav": {
     "home": "Startseite",

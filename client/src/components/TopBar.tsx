@@ -86,6 +86,15 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const hospitalDropdownRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
+  // Chain quick-jump: when the user has a group_admin role anywhere, swap
+  // the static fa-hospital icon for fa-sitemap and make it a one-click
+  // shortcut to /chain. Saves them having to open the module drawer for
+  // every chain trip.
+  const isChainAdmin = useMemo(
+    () => (hospitals || []).some(h => h.role === "group_admin"),
+    [hospitals],
+  );
+
   // Group hospitals by hospital ID for multi-hospital users
   const groupedHospitals = useMemo(() => {
     const grouped = new Map<string, { hospitalName: string; hospitalId: string; roles: Hospital[] }>();
@@ -179,9 +188,21 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
             <i className="fas fa-bars text-lg text-foreground"></i>
           </button>
 
-          <div className="w-10 h-10 shrink-0 rounded-lg bg-primary flex items-center justify-center">
-            <i className="fas fa-hospital text-lg text-primary-foreground"></i>
-          </div>
+          {isChainAdmin ? (
+            <button
+              type="button"
+              onClick={() => setLocation("/chain")}
+              className="w-10 h-10 shrink-0 rounded-lg bg-primary flex items-center justify-center hover:opacity-90 transition-opacity"
+              title={t("topBar.chainShortcut", "Chain overview")}
+              data-testid="topbar-chain-shortcut"
+            >
+              <i className="fas fa-sitemap text-lg text-primary-foreground"></i>
+            </button>
+          ) : (
+            <div className="w-10 h-10 shrink-0 rounded-lg bg-primary flex items-center justify-center">
+              <i className="fas fa-hospital text-lg text-primary-foreground"></i>
+            </div>
+          )}
           <div className="relative min-w-0" ref={hospitalDropdownRef}>
             <button
               className="flex items-center gap-2 min-w-0"

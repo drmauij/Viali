@@ -323,7 +323,8 @@
     "language": "Language",
     "english": "English",
     "german": "German",
-    "workTime": "Work Time"
+    "workTime": "Work Time",
+    "chainShortcut": "Chain overview"
   },
   "bottomNav": {
     "home": "Home",
