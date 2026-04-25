@@ -5327,6 +5327,10 @@
     "absenceAbsent": "Absent"
   },
   "business": {
+    "funnels": {
+      "title": "Funnels",
+      "subtitle": "Referral sources, lead conversion, and ad performance"
+    },
     "backToChain": "Back to Chain overview",
     "tabs": {
       "overview": "Overview",

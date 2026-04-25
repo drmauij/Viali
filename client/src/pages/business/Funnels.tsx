@@ -686,10 +686,10 @@ export default function Funnels() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">
-            Marketing
+            {t("business.funnels.title", "Funnels")}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Referral sources, lead conversion, and marketing analytics
+            {t("business.funnels.subtitle", "Referral sources, lead conversion, and ad performance")}
           </p>
         </div>
       </div>
