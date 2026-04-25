@@ -6170,7 +6170,29 @@
       "noLocations": "Keine Standorte ausgewählt",
       "overviewComingSoon": "Übersichtsbereiche folgen in Kürze.",
       "placeholderTab": "Dieser Tab wird im nächsten Schritt verdrahtet.",
-      "selectAtLeastOne": "Wählen Sie mindestens eine Klinik aus, um Daten anzuzeigen."
+      "selectAtLeastOne": "Wählen Sie mindestens eine Klinik aus, um Daten anzuzeigen.",
+      "mixedCurrencies": "Gemischte Währungen",
+      "leaderboard": "Standort-Rangliste",
+      "leaderboardEmpty": "Keine Ranglistendaten für die ausgewählte Auswahl.",
+      "heatmapComingSoon": "Source × Location Heatmap, Quellenmix, Bewegungen und KI-Insights folgen in den nächsten Schritten.",
+      "kpi": {
+        "leads": "Leads",
+        "referrals": "Empfehlungen",
+        "bookings": "Buchungen",
+        "firstVisits": "Erstbesuche",
+        "paidRevenue": "Umsatz",
+        "conv": "Gesamtkonv.%"
+      },
+      "col": {
+        "clinic": "Klinik",
+        "leads": "Leads",
+        "referrals": "Empfehlungen",
+        "bookingPct": "Buchung%",
+        "firstVisitPct": "Erstbesuch%",
+        "paidPct": "Bezahlt%",
+        "revenue": "Umsatz",
+        "deltaLeads": "Δ Leads"
+      }
     },
     "flows": {
       "title": "Flows",

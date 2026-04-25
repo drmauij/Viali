@@ -6074,7 +6074,29 @@
       "noLocations": "No locations selected",
       "overviewComingSoon": "Overview panels coming next.",
       "placeholderTab": "This tab is wired in the next implementation step.",
-      "selectAtLeastOne": "Select at least one clinic to see data."
+      "selectAtLeastOne": "Select at least one clinic to see data.",
+      "mixedCurrencies": "Mixed currencies",
+      "leaderboard": "Locations leaderboard",
+      "leaderboardEmpty": "No leaderboard data for the selected scope.",
+      "heatmapComingSoon": "Source × Location heatmap, source mix, movers, and AI insights ship in the next steps.",
+      "kpi": {
+        "leads": "Leads",
+        "referrals": "Referrals",
+        "bookings": "Bookings",
+        "firstVisits": "First visits",
+        "paidRevenue": "Paid revenue",
+        "conv": "Blended conv%"
+      },
+      "col": {
+        "clinic": "Clinic",
+        "leads": "Leads",
+        "referrals": "Referrals",
+        "bookingPct": "Booking%",
+        "firstVisitPct": "First-visit%",
+        "paidPct": "Paid%",
+        "revenue": "Revenue",
+        "deltaLeads": "Δ leads"
+      }
     },
     "flows": {
       "title": "Flows",
