@@ -5,6 +5,7 @@ import inventoryRouter from "./inventory";
 import adminRouter from "./admin";
 import adminGroupsRouter from "./adminGroups";
 import businessGroupsRouter from "./businessGroups";
+import logosRouter from "./logos";
 import checklistsRouter from "./checklists";
 import anesthesiaRouter from "./anesthesia";
 import businessRouter from "./business";
@@ -58,6 +59,9 @@ export function registerDomainRoutes(app: Express) {
   // Mount before businessRouter since businessRouter uses /api/business/:hospitalId/*
   // and would otherwise consume `/api/business/group/*` paths.
   app.use(businessGroupsRouter);
+  // Logo upload + public download. Public route (`/api/public/logos/:path`)
+  // must beat any `:hospitalId` wildcards downstream.
+  app.use(logosRouter);
   // Chain-scoped endpoints (/api/chain/:groupId/*). Gate: group_admin or platform admin.
   // Mounted before adminRouter to avoid any :hospitalId wildcards swallowing /chain paths.
   app.use(chainRouter);

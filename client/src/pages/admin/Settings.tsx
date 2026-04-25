@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { uploadLogo } from "@/lib/uploadLogo";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Settings, Download, Loader2, Clock, X } from "lucide-react";
@@ -537,44 +538,6 @@ export default function SettingsPage() {
     updateHospitalMutation.mutate(hospitalForm);
   };
 
-  // Compress image for logo upload
-  const compressImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-
-          const maxSize = 400;
-          if (width > maxSize || height > maxSize) {
-            if (width > height) {
-              height = (height / width) * maxSize;
-              width = maxSize;
-            } else {
-              width = (width / height) * maxSize;
-              height = maxSize;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-          resolve(compressedDataUrl);
-        };
-        img.onerror = reject;
-        img.src = event.target?.result as string;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -586,8 +549,8 @@ export default function SettingsPage() {
 
     setIsUploadingLogo(true);
     try {
-      const compressedImage = await compressImage(file);
-      setHospitalForm(prev => ({ ...prev, companyLogoUrl: compressedImage }));
+      const url = await uploadLogo(file, "hospital");
+      setHospitalForm(prev => ({ ...prev, companyLogoUrl: url }));
     } catch {
       toast({ title: t("common.error"), description: t("admin.failedToUploadLogo"), variant: "destructive" });
     } finally {

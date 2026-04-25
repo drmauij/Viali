@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { uploadLogo } from "@/lib/uploadLogo";
 
 /**
  * `/chain/admin` — chain settings page (chain name + logo).
@@ -110,45 +111,9 @@ export default function BusinessGroup() {
   );
 }
 
-// ----------------------------------------------------------------------
-// Chain Settings form (Settings tab). Lets a group admin edit the chain's
-// name and upload/remove its logo. Logo handling mirrors the per-clinic
-// Settings flow (client/src/pages/admin/Settings.tsx): 400×400 JPEG
-// compression via canvas, stored as a data URL.
-// ----------------------------------------------------------------------
-async function compressChainLogo(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        let width = img.width;
-        let height = img.height;
-        const maxSize = 400;
-        if (width > maxSize || height > maxSize) {
-          if (width > height) {
-            height = (height / width) * maxSize;
-            width = maxSize;
-          } else {
-            width = (width / height) * maxSize;
-            height = maxSize;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return reject(new Error("canvas 2d unavailable"));
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/jpeg", 0.8));
-      };
-      img.onerror = reject;
-      img.src = event.target?.result as string;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
+// Chain Settings form (Settings tab). Compresses + uploads the logo to S3
+// (`/api/public/logos/group/<uuid>.jpg`) and stores the URL on the group;
+// existing data-URL logos in the DB still render fine.
 
 function ChainSettingsForm({
   group,
@@ -162,6 +127,7 @@ function ChainSettingsForm({
   const [name, setName] = useState(group.name);
   const [logoUrl, setLogoUrl] = useState<string | null>(group.logoUrl);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   // Re-sync if the parent refetches with new data (e.g. after save).
   useEffect(() => {
@@ -184,11 +150,14 @@ function ChainSettingsForm({
       setUploadError("Image too large (max 5 MB).");
       return;
     }
+    setUploading(true);
     try {
-      const dataUrl = await compressChainLogo(file);
-      setLogoUrl(dataUrl);
-    } catch {
-      setUploadError("Compression failed.");
+      const url = await uploadLogo(file, "group");
+      setLogoUrl(url);
+    } catch (err: any) {
+      setUploadError(err?.message ?? "Upload failed.");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -227,7 +196,7 @@ function ChainSettingsForm({
                   variant="outline"
                   data-testid="chain-logo-upload-btn"
                 >
-                  <span>{logoUrl ? "Replace" : "Upload"}</span>
+                  <span>{uploading ? "Uploading…" : logoUrl ? "Replace" : "Upload"}</span>
                 </Button>
               </label>
               {logoUrl && (
