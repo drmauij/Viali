@@ -9,6 +9,7 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { uploadLogo } from "@/lib/uploadLogo";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChainTeamSection } from "@/pages/chain/Team";
+import { ServicesCatalog } from "@/pages/clinic/Services";
 import { useTranslation } from "react-i18next";
 import { Copy, Check, RefreshCw } from "lucide-react";
 
@@ -130,11 +131,7 @@ export default function BusinessGroup() {
         </TabsContent>
 
         <TabsContent value="services">
-          <Card>
-            <CardContent className="p-6 text-center text-sm text-muted-foreground">
-              Chain-wide Services management — coming soon.
-            </CardContent>
-          </Card>
+          <ServicesCatalog forceCatalogScope="group" hideUnitFilter />
         </TabsContent>
       </Tabs>
     </div>
