@@ -29,6 +29,7 @@ import {
   getReferralFunnel,
 } from "../lib/referralAnalytics";
 import { getAdPerformance } from "../lib/adPerformance";
+import { getChainFunnelsOverview, emptyKpis } from "../lib/chainFunnelsOverview";
 
 export const chainRouter = Router();
 
@@ -1127,6 +1128,33 @@ chainRouter.get('/api/chain/:groupId/referral-funnel', isAuthenticated, isChainA
     if (e instanceof ChainAuthError) return res.status(e.status).json({ message: e.message });
     logger.error("Error fetching chain referral-funnel:", e);
     res.status(500).json({ message: "Failed to fetch chain referral-funnel" });
+  }
+});
+
+chainRouter.get('/api/chain/:groupId/funnels-overview', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const { ids } = await resolveHospitalIds(groupId, req.query.hospitalIds);
+    const range = (req.query.range as string) || "30d";
+    if (!["30d", "90d", "365d"].includes(range)) {
+      return res.status(400).json({ message: "range must be 30d, 90d, or 365d" });
+    }
+    if (ids.length === 0) {
+      return res.json({
+        kpis: emptyKpis(),
+        leaderboard: [],
+        heatmap: { sources: [], locations: [], cells: [] },
+        sourceMix: { leads: [], referrals: [] },
+        movers: { up: [], down: [] },
+        currency: null,
+      });
+    }
+    const overview = await getChainFunnelsOverview(groupId, ids, range as "30d" | "90d" | "365d");
+    res.json(overview);
+  } catch (e: any) {
+    if (e instanceof ChainAuthError) return res.status(e.status).json({ message: e.message });
+    logger.error("Error fetching chain funnels-overview:", e);
+    res.status(500).json({ message: "Failed to fetch chain funnels-overview" });
   }
 });
 
