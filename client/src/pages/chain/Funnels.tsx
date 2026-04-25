@@ -1,6 +1,8 @@
+import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -12,6 +14,11 @@ import {
 import { Activity, BarChart3, CheckCircle2, Inbox, Megaphone } from "lucide-react";
 import ChainLocationFilter from "@/components/chain/ChainLocationFilter";
 import ChainFunnelsOverview from "@/components/chain/ChainFunnelsOverview";
+import { LeadsStatsCards } from "@/pages/business/marketing/LeadsStatsCards";
+import LeadsReadOnlyCard from "@/components/funnels/LeadsReadOnlyCard";
+import ReferralEventsTab from "@/components/funnels/ReferralEventsTab";
+import ReferralFunnel from "@/pages/business/ReferralFunnel";
+import { type FunnelsScope } from "@/lib/funnelsApi";
 
 type Tab = "overview" | "leads" | "events" | "conversion" | "ads";
 type Range = "30d" | "90d" | "365d";
@@ -47,11 +54,60 @@ function useUrlState() {
   return { range, hospitalIds, tab, setQuery };
 }
 
+function rangeToDates(range: "30d" | "90d" | "365d"): { from: string; to: string } {
+  const days = range === "30d" ? 30 : range === "90d" ? 90 : 365;
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - days);
+  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+}
+
+function EmptyLocations() {
+  const { t } = useTranslation();
+  return (
+    <div
+      className="text-sm text-muted-foreground p-12 text-center"
+      data-testid="empty-no-locations"
+    >
+      {t("chain.funnels.selectAtLeastOne", "Select at least one clinic to see data.")}
+    </div>
+  );
+}
+
 export default function ChainFunnels() {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const groupId = (activeHospital as any)?.groupId ?? null;
   const { range, hospitalIds, tab, setQuery } = useUrlState();
+
+  // Fetch location list to support auto-populate on first load
+  const { data: locationsData } = useQuery<{
+    locations: Array<{ hospitalId: string; hospitalName: string }>;
+  }>({
+    queryKey: [`/api/chain/${groupId}/funnels?range=30d`],
+    enabled: !!groupId,
+  });
+
+  // Auto-populate hospitalIds on first load when URL has no hospitalIds param yet
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (
+      !params.has("hospitalIds") &&
+      locationsData?.locations &&
+      locationsData.locations.length > 0
+    ) {
+      setQuery({ hospitalIds: locationsData.locations.map((l) => l.hospitalId) });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationsData]);
+
+  const scope = useMemo<FunnelsScope>(
+    () => ({ hospitalIds, groupId }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hospitalIds.join(","), groupId],
+  );
+
+  const dateRange = useMemo(() => rangeToDates(range), [range]);
 
   if (!groupId) {
     return (
@@ -134,50 +190,59 @@ export default function ChainFunnels() {
           />
         </TabsContent>
 
-        {/* Tabs 2–5 wired in Task 8 */}
-        <TabsContent value="leads">
-          <div
-            className="text-sm text-muted-foreground p-12 text-center"
-            data-testid="placeholder-leads"
-          >
-            {t(
-              "chain.funnels.placeholderTab",
-              "This tab is wired in the next implementation step.",
-            )}
-          </div>
+        <TabsContent value="leads" className="space-y-4">
+          {hospitalIds.length === 0 ? (
+            <EmptyLocations />
+          ) : (
+            <>
+              <LeadsStatsCards scope={scope} from={dateRange.from} to={dateRange.to} />
+              <LeadsReadOnlyCard scope={scope} from={dateRange.from} to={dateRange.to} />
+            </>
+          )}
         </TabsContent>
-        <TabsContent value="events">
-          <div
-            className="text-sm text-muted-foreground p-12 text-center"
-            data-testid="placeholder-events"
-          >
-            {t(
-              "chain.funnels.placeholderTab",
-              "This tab is wired in the next implementation step.",
-            )}
-          </div>
+
+        <TabsContent value="events" className="space-y-4">
+          {hospitalIds.length === 0 ? (
+            <EmptyLocations />
+          ) : (
+            <ReferralEventsTab
+              scope={scope}
+              from={dateRange.from}
+              to={dateRange.to}
+              // TODO: derive from /funnels-overview response (Task 9)
+              currency="CHF"
+            />
+          )}
         </TabsContent>
+
         <TabsContent value="conversion">
-          <div
-            className="text-sm text-muted-foreground p-12 text-center"
-            data-testid="placeholder-conversion"
-          >
-            {t(
-              "chain.funnels.placeholderTab",
-              "This tab is wired in the next implementation step.",
-            )}
-          </div>
+          {hospitalIds.length === 0 ? (
+            <EmptyLocations />
+          ) : (
+            <ReferralFunnel
+              scope={scope}
+              from={dateRange.from}
+              to={dateRange.to}
+              // TODO: derive from /funnels-overview response (Task 9)
+              currency="CHF"
+              view="conversion"
+            />
+          )}
         </TabsContent>
+
         <TabsContent value="ads">
-          <div
-            className="text-sm text-muted-foreground p-12 text-center"
-            data-testid="placeholder-ads"
-          >
-            {t(
-              "chain.funnels.placeholderTab",
-              "This tab is wired in the next implementation step.",
-            )}
-          </div>
+          {hospitalIds.length === 0 ? (
+            <EmptyLocations />
+          ) : (
+            <ReferralFunnel
+              scope={scope}
+              from={dateRange.from}
+              to={dateRange.to}
+              // TODO: derive from /funnels-overview response (Task 9)
+              currency="CHF"
+              view="ads"
+            />
+          )}
         </TabsContent>
       </Tabs>
     </div>

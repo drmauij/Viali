@@ -115,6 +115,7 @@ export async function listReferralEvents(
   return db
     .select({
       id: referralEvents.id,
+      hospitalId: referralEvents.hospitalId,
       source: referralEvents.source,
       sourceDetail: referralEvents.sourceDetail,
       utmSource: referralEvents.utmSource,

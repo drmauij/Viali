@@ -6073,7 +6073,8 @@
       "kOfN": "{{k}} of {{n}} locations",
       "noLocations": "No locations selected",
       "overviewComingSoon": "Overview panels coming next.",
-      "placeholderTab": "This tab is wired in the next implementation step."
+      "placeholderTab": "This tab is wired in the next implementation step.",
+      "selectAtLeastOne": "Select at least one clinic to see data."
     },
     "flows": {
       "title": "Flows",

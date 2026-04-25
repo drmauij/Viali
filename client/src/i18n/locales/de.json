@@ -6169,7 +6169,8 @@
       "kOfN": "{{k}} von {{n}} Standorten",
       "noLocations": "Keine Standorte ausgewählt",
       "overviewComingSoon": "Übersichtsbereiche folgen in Kürze.",
-      "placeholderTab": "Dieser Tab wird im nächsten Schritt verdrahtet."
+      "placeholderTab": "Dieser Tab wird im nächsten Schritt verdrahtet.",
+      "selectAtLeastOne": "Wählen Sie mindestens eine Klinik aus, um Daten anzuzeigen."
     },
     "flows": {
       "title": "Flows",
