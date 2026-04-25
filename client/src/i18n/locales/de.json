@@ -6155,6 +6155,14 @@
       "empty": "Keine Leads in diesem Zeitraum.",
       "alertsTitle": "Warnungen",
       "sourceDrop": "{{source}} Leads gesunken um {{pct}}% ({{prev}} → {{current}})"
+    },
+    "campaigns": {
+      "title": "Ketten-Kampagnen",
+      "new": "Neue Kampagne",
+      "noGroup": "Diese Klinik gehört zu keiner Kette.",
+      "empty": "Noch keine Kampagnen.",
+      "audience": "Zielgruppe",
+      "nLocations": "{{n}} Standorte"
     }
   },
   "leads": {

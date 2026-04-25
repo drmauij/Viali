@@ -6059,6 +6059,14 @@
       "empty": "No leads recorded in this period.",
       "alertsTitle": "Alerts",
       "sourceDrop": "{{source}} leads dropped {{pct}}% ({{prev}} → {{current}})"
+    },
+    "campaigns": {
+      "title": "Chain campaigns",
+      "new": "New campaign",
+      "noGroup": "This clinic is not part of a chain.",
+      "empty": "No campaigns yet.",
+      "audience": "Audience",
+      "nLocations": "{{n}} locations"
     }
   },
   "leads": {
