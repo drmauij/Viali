@@ -24,9 +24,16 @@ interface Props {
   patientCount: number | null;
   onCountChange: (count: number | null) => void;
   channel?: string;
+  /**
+   * Optional explicit audience hospital list for chain campaigns. When
+   * provided, the segment-count preview pools recipients across these
+   * hospitals so the count matches the actual send. Omit on clinic flows —
+   * server defaults to the active hospital alone.
+   */
+  audienceHospitalIds?: string[];
 }
 
-export default function SegmentBuilder({ filters, onChange, patientCount, onCountChange, channel }: Props) {
+export default function SegmentBuilder({ filters, onChange, patientCount, onCountChange, channel, audienceHospitalIds }: Props) {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
@@ -89,7 +96,13 @@ export default function SegmentBuilder({ filters, onChange, patientCount, onCoun
       const res = await apiRequest(
         "POST",
         `/api/business/${hospitalId}/flows/segment-count`,
-        { filters, channel },
+        {
+          filters,
+          channel,
+          ...(audienceHospitalIds && audienceHospitalIds.length > 0
+            ? { audienceHospitalIds }
+            : {}),
+        },
       );
       const data = await res.json();
       onCountChange(data.count);
@@ -98,7 +111,7 @@ export default function SegmentBuilder({ filters, onChange, patientCount, onCoun
     } finally {
       setCounting(false);
     }
-  }, [hospitalId, filters, channel, onCountChange]);
+  }, [hospitalId, filters, channel, audienceHospitalIds, onCountChange]);
 
   useEffect(() => {
     const timer = setTimeout(fetchCount, 500);

@@ -65,10 +65,24 @@ export interface FlowFormProps {
   hospitalId: string;
   editFlowId?: string;
   /**
+   * Pre-fetched flow data for edit mode. Chain pages pass this so the form
+   * skips its internal `/api/business/:hospitalId/flows/:flowId` GET, which
+   * 404s when the active hospital differs from the flow's owning hospital.
+   * Clinic parent omits this; the form fetches via the clinic endpoint.
+   */
+  existingFlow?: any;
+  /**
    * Slot for chain pages to inject `<MultiLocationSelector />`. Clinic parent
    * passes `null`. Rendered between the Name input and the Segment section.
    */
   audienceSlot?: ReactNode;
+  /**
+   * Audience hospital IDs for segment-count preview. When provided, the
+   * server widens the count query across these hospitals (chain campaigns
+   * targeting N locations). Omit for clinic flows — defaults to the active
+   * hospital alone.
+   */
+  audienceHospitalIds?: string[];
   onSaveDraft: (payload: FlowFormSubmitPayload) => Promise<void> | void;
   onSend: (payload: FlowFormSubmitPayload) => Promise<void> | void;
   onSendTest: (payload: FlowFormTestSendPayload) => Promise<void> | void;
@@ -79,7 +93,9 @@ export interface FlowFormProps {
 export default function FlowForm({
   hospitalId,
   editFlowId,
+  existingFlow: existingFlowProp,
   audienceSlot,
+  audienceHospitalIds,
   onSaveDraft,
   onSend,
   onSendTest,
@@ -123,13 +139,16 @@ export default function FlowForm({
   const [sendingTest, setSendingTest] = useState(false);
   const [loaded, setLoaded] = useState(!editFlowId);
 
-  // Load existing draft if editing
-  const { data: existingFlow } = useQuery({
+  // Load existing draft if editing. Skip the internal fetch when the parent
+  // already supplied the flow (chain pages do this — the clinic GET endpoint
+  // 404s on flows owned by a sibling clinic).
+  const { data: fetchedExistingFlow } = useQuery({
     queryKey: ["flow", hospitalId, editFlowId],
     queryFn: () =>
       apiRequest("GET", `/api/business/${hospitalId}/flows/${editFlowId}`).then((r) => r.json()),
-    enabled: !!editFlowId && !!hospitalId,
+    enabled: !!editFlowId && !!hospitalId && !existingFlowProp,
   });
+  const existingFlow = existingFlowProp ?? fetchedExistingFlow;
 
   // Promo codes — used to resolve promoCodeId → code string when hydrating an edit
   const { data: promoCodes = [] } = useQuery({
@@ -452,6 +471,7 @@ export default function FlowForm({
             patientCount={patientCount}
             onCountChange={setPatientCount}
             channel={channel ?? undefined}
+            audienceHospitalIds={audienceHospitalIds}
           />
           <div className="flex justify-end">
             <Button onClick={() => completeAndGoTo("segment", "channel")}>

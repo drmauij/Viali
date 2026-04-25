@@ -195,6 +195,7 @@ export default function CampaignCreate({ editId }: CampaignCreateProps) {
       <FlowForm
         hospitalId={hospitalId}
         editFlowId={editId}
+        existingFlow={existingFlow}
         audienceSlot={
           <MultiLocationSelector
             groupId={groupId}
@@ -202,6 +203,7 @@ export default function CampaignCreate({ editId }: CampaignCreateProps) {
             onChange={setAudienceHospitalIds}
           />
         }
+        audienceHospitalIds={audienceHospitalIds}
         onSaveDraft={handleSaveDraft}
         onSend={handleSend}
         onSendTest={handleSendTest}
