@@ -827,6 +827,7 @@ chainRouter.get('/api/chain/:groupId/locations', isAuthenticated, isChainAdminFo
         licenseType: hospitals.licenseType,
         pricePerRecord: hospitals.pricePerRecord,
         clinicKind: hospitals.clinicKind,
+        companyLogoUrl: hospitals.companyLogoUrl,
       })
       .from(hospitals)
       .where(eq(hospitals.groupId, groupId));
@@ -841,6 +842,7 @@ chainRouter.get('/api/chain/:groupId/locations', isAuthenticated, isChainAdminFo
         licenseType: h.licenseType,
         pricePerRecord: h.pricePerRecord,
         clinicKind: h.clinicKind,
+        companyLogoUrl: h.companyLogoUrl,
       })),
       groupDefaults: {
         defaultLicenseType: group.defaultLicenseType,
@@ -924,6 +926,7 @@ chainRouter.patch('/api/chain/:groupId/locations/:hospitalId', isAuthenticated, 
       clinicKind: z.enum(["aesthetic", "surgical", "mixed"]).optional(),
       licenseType: z.enum(["free", "basic", "test"]).optional(),
       pricePerRecord: z.string().nullable().optional(),
+      companyLogoUrl: z.string().nullable().optional(),
     });
     const body = bodySchema.parse(req.body);
 
@@ -941,6 +944,7 @@ chainRouter.patch('/api/chain/:groupId/locations/:hospitalId', isAuthenticated, 
     if (body.clinicKind !== undefined) updates.clinicKind = body.clinicKind;
     if (body.licenseType !== undefined) updates.licenseType = body.licenseType;
     if (body.pricePerRecord !== undefined) updates.pricePerRecord = body.pricePerRecord;
+    if (body.companyLogoUrl !== undefined) updates.companyLogoUrl = body.companyLogoUrl;
 
     await db.update(hospitals).set(updates).where(eq(hospitals.id, hospitalId));
     res.json({ success: true, hospitalId });

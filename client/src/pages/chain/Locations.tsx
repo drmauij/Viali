@@ -20,6 +20,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Pencil, Archive } from "lucide-react";
+import { uploadLogo } from "@/lib/uploadLogo";
 
 type ClinicKind = "aesthetic" | "surgical" | "mixed";
 
@@ -30,6 +31,7 @@ interface Location {
   timezone: string | null;
   currency: string | null;
   clinicKind: ClinicKind;
+  companyLogoUrl: string | null;
 }
 
 interface LocationsResponse {
@@ -297,18 +299,45 @@ function EditLocationDialog({ groupId, location, onClose, onSuccess }: { groupId
     name: location.hospitalName,
     address: location.address ?? "",
     clinicKind: location.clinicKind,
+    companyLogoUrl: location.companyLogoUrl as string | null,
   });
+  const [uploading, setUploading] = useState(false);
   const mutation = useMutation({
     mutationFn: () =>
       apiRequest("PATCH", `/api/chain/${groupId}/locations/${location.hospitalId}`, {
         name: form.name,
         address: form.address || null,
         clinicKind: form.clinicKind,
+        companyLogoUrl: form.companyLogoUrl,
       }).then((r) => r.json()),
     onSuccess,
     onError: (e: any) =>
       toast({ title: t("common.error", "Error"), description: e?.message, variant: "destructive" }),
   });
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: t("common.error", "Error"), description: "Please pick an image file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: t("common.error", "Error"), description: "Image too large (max 5 MB).", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const url = await uploadLogo(file, "hospital");
+      setForm((prev) => ({ ...prev, companyLogoUrl: url }));
+    } catch (err: any) {
+      toast({ title: t("common.error", "Error"), description: err?.message ?? "Upload failed.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <DialogContent>
       <DialogHeader>
@@ -334,12 +363,65 @@ function EditLocationDialog({ groupId, location, onClose, onSuccess }: { groupId
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-2">
+          <Label>{t("chain.locations.logo", "Logo")}</Label>
+          <div className="flex items-center gap-4">
+            <div className="h-20 w-20 border rounded flex items-center justify-center bg-muted overflow-hidden flex-shrink-0">
+              {form.companyLogoUrl ? (
+                <img
+                  src={form.companyLogoUrl}
+                  alt="Clinic logo"
+                  className="w-full h-full object-contain"
+                  data-testid="edit-clinic-logo-thumb"
+                />
+              ) : (
+                <span className="text-xs text-muted-foreground">{t("chain.locations.noLogo", "No logo")}</span>
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2 items-center">
+                <input
+                  type="file"
+                  accept="image/*"
+                  id={`edit-clinic-logo-${location.hospitalId}`}
+                  className="hidden"
+                  onChange={handleFile}
+                  data-testid="edit-clinic-logo-input"
+                />
+                <label htmlFor={`edit-clinic-logo-${location.hospitalId}`}>
+                  <Button asChild size="sm" variant="outline" data-testid="edit-clinic-logo-upload-btn">
+                    <span>
+                      {uploading
+                        ? t("chain.locations.uploading", "Uploading…")
+                        : form.companyLogoUrl
+                          ? t("chain.locations.replace", "Replace")
+                          : t("chain.locations.upload", "Upload")}
+                    </span>
+                  </Button>
+                </label>
+                {form.companyLogoUrl && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setForm((prev) => ({ ...prev, companyLogoUrl: null }))}
+                    data-testid="edit-clinic-logo-remove-btn"
+                  >
+                    {t("common.remove", "Remove")}
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("chain.locations.logoHelp", "PNG or JPG, max 5 MB. Compressed to 400×400 before upload.")}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>{t("common.cancel", "Cancel")}</Button>
         <Button
           onClick={() => mutation.mutate()}
-          disabled={!form.name.trim() || mutation.isPending}
+          disabled={!form.name.trim() || mutation.isPending || uploading}
         >
           {t("common.save", "Save")}
         </Button>
