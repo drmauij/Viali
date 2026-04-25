@@ -209,6 +209,11 @@ export default function BookAppointment() {
   // (natural target would be "details" further down).
   const wasAutoPickedRef = useRef(false);
   const [wasAutoPicked, setWasAutoPicked] = useState(false);
+  // Slot-only auto-pick — set when the patient picked the provider manually
+  // but the system suggested the next free slot. Drives the Vorschlag badge
+  // on date + slot summaries WITHOUT also marking the provider summary as
+  // a system suggestion.
+  const [wasSlotAutoPicked, setWasSlotAutoPicked] = useState(false);
   const pendingAutoSlotRef = useRef<string | null>(null);
   const scrollOverrideRef = useRef<Step | null>(null);
 
@@ -316,6 +321,26 @@ export default function BookAppointment() {
           // If no match, fall back to all (don't break the page for mistyped groups)
         }
 
+        // Provider deep link (`?provider=<id>`): the patient came from a
+        // specific provider's detail page on the marketing site, so they
+        // should ONLY see treatments this provider can perform. Filter the
+        // catalog to services with that provider in their providerIds list.
+        // (`providerIds` was added to the public services payload alongside
+        // the chain-services rollout; treat absence as "no provider linkage
+        // info" and fall through to the unfiltered list rather than break.)
+        if (preselectedProviderId) {
+          const filtered = list.filter(s => {
+            const ids = (s as any).providerIds;
+            return Array.isArray(ids) && ids.includes(preselectedProviderId);
+          });
+          // Keep the filter even if empty — we'd rather show "no treatments"
+          // than mislead the patient with treatments the linked provider
+          // doesn't offer.
+          if ((list as any).some((s: any) => Array.isArray((s as any).providerIds))) {
+            list = filtered;
+          }
+        }
+
         setServices(list);
 
         // Priority 1: ?service= deep-link
@@ -384,11 +409,15 @@ export default function BookAppointment() {
   useEffect(() => {
     if (!token || !data) return;
     if (!selectedTreatment && !generalAppointment) { setSuggestedProviderId(null); return; }
-    if (preselectedProviderId) return;
-    const code = selectedTreatment?.code;
-    const url = code
-      ? `/api/public/booking/${token}/best-provider?service=${encodeURIComponent(code)}`
-      : `/api/public/booking/${token}/best-provider`;
+    // Build query string. When the patient came in via ?provider=<id>, pass
+    // it so the server constrains the search to that one provider — the
+    // booking page should auto-pick THAT provider's next slot, not the
+    // chain-wide "best" one.
+    const params = new URLSearchParams();
+    if (selectedTreatment?.code) params.set("service", selectedTreatment.code);
+    if (preselectedProviderId) params.set("provider", preselectedProviderId);
+    const qs = params.toString();
+    const url = `/api/public/booking/${token}/best-provider${qs ? `?${qs}` : ""}`;
     let cancelled = false;
     fetch(url)
       .then(async (res) => {
@@ -399,8 +428,16 @@ export default function BookAppointment() {
         if (providerId) setSuggestedProviderId(providerId);
         else setSuggestedProviderId(null);
 
-        // Eligible to auto-pick when nothing manual has been chosen yet.
-        const canAutoPick = !selectedProvider || wasAutoPickedRef.current;
+        // Eligible to auto-pick when nothing manual has been chosen yet, OR
+        // the current provider is the one the URL deep-linked to (in that
+        // case the patient hasn't really "chosen" — they followed a link).
+        const isDeepLinkedProvider = !!(
+          preselectedProviderId &&
+          selectedProvider &&
+          selectedProvider.id === preselectedProviderId
+        );
+        const canAutoPick =
+          !selectedProvider || wasAutoPickedRef.current || isDeepLinkedProvider;
         if (!canAutoPick) return;
         if (!result.provider || !result.nextSlot) return;
 
@@ -426,7 +463,15 @@ export default function BookAppointment() {
         // Parse YYYY-MM-DD as a local-tz date (no UTC drift) — same shape
         // the date picker uses when the user clicks a day.
         const [y, m, d] = result.nextSlot.date.split('-').map(Number);
-        setSelectedDate(new Date(y, m - 1, d));
+        const autoDate = new Date(y, m - 1, d);
+        // Move visibleMonth to the auto-picked date's month BEFORE setting
+        // selectedDate. Otherwise the available-dates fetch (keyed on
+        // visibleMonth) returns the OLD month's dates, the
+        // "clear-selectedDate-if-unavailable" effect fires, and the date
+        // card disappears while the time card still renders from stale
+        // slot state.
+        setVisibleMonth(new Date(y, m - 1, 1));
+        setSelectedDate(autoDate);
         // Defer slot selection until the slots-fetch effect resolves.
         pendingAutoSlotRef.current = result.nextSlot.startTime;
       })
@@ -625,12 +670,14 @@ export default function BookAppointment() {
 
   // ─── Handlers ─────────────────────────────────────────────────
 
-  const handleProviderSelect = useCallback((provider: Provider) => {
+  const handleProviderSelect = useCallback(async (provider: Provider) => {
     const changed = !selectedProvider || selectedProvider.id !== provider.id;
-    // Manual click — never auto-clobber this choice on subsequent treatment
-    // changes, and abort any in-flight auto-slot pick.
+    // Manual click on the provider — never auto-clobber this choice on
+    // subsequent treatment changes, and abort any in-flight auto-slot pick
+    // queued by the treatment-driven flow.
     wasAutoPickedRef.current = false;
     setWasAutoPicked(false);
+    setWasSlotAutoPicked(false);
     pendingAutoSlotRef.current = null;
     setSelectedProvider(provider);
     setStep('date');
@@ -643,13 +690,38 @@ export default function BookAppointment() {
       setAvailableDatesLoading(true);
       setSeekingAvailableMonth(true);
     }
-  }, [selectedProvider]);
+
+    // Conversion lift: if a treatment is already chosen (or the patient
+    // is on the general-appointment path), don't make them hunt for a
+    // date — auto-pick this provider's next free slot. The provider
+    // summary stays badge-less (it's a manual pick), but the date + slot
+    // summaries get the "Vorschlag" badge via wasSlotAutoPicked.
+    const code = selectedTreatment?.code;
+    if (!token || (!code && !generalAppointment)) return;
+    try {
+      const params = new URLSearchParams();
+      if (code) params.set("service", code);
+      params.set("provider", provider.id);
+      const res = await fetch(`/api/public/booking/${token}/best-provider?${params.toString()}`);
+      if (!res.ok) return;
+      const result = await res.json();
+      if (!result.nextSlot) return;
+      const [y, m, d] = result.nextSlot.date.split('-').map(Number);
+      setVisibleMonth(new Date(y, m - 1, 1));
+      setSelectedDate(new Date(y, m - 1, d));
+      pendingAutoSlotRef.current = result.nextSlot.startTime;
+      setWasSlotAutoPicked(true);
+    } catch {
+      // Network blip — leave the patient on the date picker manually.
+    }
+  }, [selectedProvider, selectedTreatment, generalAppointment, token]);
 
   const handleSlotSelect = useCallback((slot: Slot) => {
     // Manual slot click — promote to "user owns this selection" so further
     // auto-pick effects don't replace it.
     wasAutoPickedRef.current = false;
     setWasAutoPicked(false);
+    setWasSlotAutoPicked(false);
     pendingAutoSlotRef.current = null;
     setSelectedSlot(slot);
     setStep("details");
@@ -1107,7 +1179,7 @@ export default function BookAppointment() {
               label: 'Datum',
               value: formattedSelectedDate,
               onChange: () => setStep('date'),
-              badge: wasAutoPicked ? <BestChoiceBadge isDark={isDark} /> : undefined,
+              badge: (wasAutoPicked || wasSlotAutoPicked) ? <BestChoiceBadge isDark={isDark} /> : undefined,
             } : undefined}
           >
             <div>
@@ -1125,6 +1197,7 @@ export default function BookAppointment() {
                     if (!d) return;
                     // Manual date click — disable auto-pick clobber.
                     wasAutoPickedRef.current = false;
+                    setWasSlotAutoPicked(false);
                     pendingAutoSlotRef.current = null;
                                     setSelectedDate(d);
                     setStep('time');
@@ -1195,7 +1268,7 @@ export default function BookAppointment() {
               label: 'Uhrzeit',
               value: `${selectedSlot.startTime} Uhr`,
               onChange: () => setStep('time'),
-              badge: wasAutoPicked ? <BestChoiceBadge isDark={isDark} /> : undefined,
+              badge: (wasAutoPicked || wasSlotAutoPicked) ? <BestChoiceBadge isDark={isDark} /> : undefined,
             } : undefined}
           >
             <div>

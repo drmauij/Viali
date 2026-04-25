@@ -411,12 +411,21 @@ export default function ClinicAppointments() {
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize={25} minSize={18} maxSize={35}>
-              <LeadsPanel
-                mode="inline"
-                selectedLeadId={selectedLead?.id ?? null}
-                initialLeadId={urlLeadId}
-                onLeadTap={(lead) => setSelectedLead(p => p?.id === lead?.id ? null : lead)}
-              />
+              {/* Absolute-positioned wrapper: takes LeadsPanel out of flex
+                  alignment calc so its card list can't push the group
+                  taller than the calendar's natural height. The panel
+                  still fills the ResizablePanel via inset-0; ScrollArea
+                  inside LeadsPanel handles overflow. */}
+              <div className="relative h-full w-full">
+                <div className="absolute inset-0">
+                  <LeadsPanel
+                    mode="inline"
+                    selectedLeadId={selectedLead?.id ?? null}
+                    initialLeadId={urlLeadId}
+                    onLeadTap={(lead) => setSelectedLead(p => p?.id === lead?.id ? null : lead)}
+                  />
+                </div>
+              </div>
             </ResizablePanel>
           </ResizablePanelGroup>
         ) : (
