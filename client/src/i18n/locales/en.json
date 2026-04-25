@@ -8287,5 +8287,14 @@
       "copied": "Copied!",
       "learnMore": "Learn more"
     }
+  },
+  "flows": {
+    "audience": {
+      "label": "Target locations",
+      "all": "All locations",
+      "selected": "Selected locations",
+      "total": "Total: {{n}} location(s)",
+      "noLocations": "No locations available in this chain."
+    }
   }
 }

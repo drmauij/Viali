@@ -8305,5 +8305,14 @@
       "copied": "Kopiert!",
       "learnMore": "Mehr erfahren"
     }
+  },
+  "flows": {
+    "audience": {
+      "label": "Ziel-Standorte",
+      "all": "Alle Standorte",
+      "selected": "Ausgewählte Standorte",
+      "total": "Insgesamt: {{n}} Standort(e)",
+      "noLocations": "Keine Standorte in dieser Kette verfügbar."
+    }
   }
 }
