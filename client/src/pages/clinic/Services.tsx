@@ -87,9 +87,10 @@ interface ServiceCardProps {
   formatPrice: (price: string | null) => string;
   t: TFunction;
   groupName?: string | null;
+  hideDelete?: boolean;
 }
 
-function ServiceCard({ service, isBulkMode, isSelected, onToggleSelect, onEdit, onDelete, formatPrice, t, groupName }: ServiceCardProps) {
+function ServiceCard({ service, isBulkMode, isSelected, onToggleSelect, onEdit, onDelete, formatPrice, t, groupName, hideDelete }: ServiceCardProps) {
   const groups: string[] = (service as any).serviceGroups ??
     ((service as any).serviceGroup ? [(service as any).serviceGroup] : []);
   // Hybrid service catalog: each service carries EITHER hospitalId OR groupId.
@@ -176,14 +177,16 @@ function ServiceCard({ service, isBulkMode, isSelected, onToggleSelect, onEdit, 
               >
                 <Pencil className="h-4 w-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onDelete(service)}
-                data-testid={`button-delete-service-${service.id}`}
-              >
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
+              {!hideDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onDelete(service)}
+                  data-testid={`button-delete-service-${service.id}`}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -204,6 +207,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<ServiceWithUnit | null>(null);
+  const [providerOnlyMode, setProviderOnlyMode] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<ServiceWithUnit | null>(null);
   
@@ -315,6 +319,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
   const hospitalHasGroup = !!groupInfo?.groupId;
   const isGroupAdmin = !!groupInfo?.isGroupAdmin;
   const canUseGroupScope = hospitalHasGroup && isGroupAdmin;
+  const isChainAdmin = !!groupInfo?.isGroupAdmin;
 
   // Defensive: if the hospital isn't in a group or the user isn't group_admin,
   // force scope back to hospital (e.g. after a hospital switch).
@@ -696,6 +701,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
       // When forceCatalogScope is set, honour it so new dialogs default correctly.
       scope: forceCatalogScope ?? catalogScope,
     });
+    setProviderOnlyMode(false);
   };
 
   const handleOpenCreate = () => {
@@ -706,6 +712,8 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
 
   const handleOpenEdit = (service: ServiceWithUnit) => {
     setEditingService(service);
+    const isGroupSvc = !!(service as any).groupId;
+    setProviderOnlyMode(isGroupSvc && !isChainAdmin);
     setFormData({
       name: service.name,
       description: service.description || "",
@@ -723,7 +731,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
   };
 
   const handleSubmit = () => {
-    if (!formData.name.trim()) {
+    if (!providerOnlyMode && !formData.name.trim()) {
       toast({ title: t('clinic.services.requiredFields'), variant: "destructive" });
       return;
     }
@@ -734,6 +742,34 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
     const code = formData.code.trim() || null;
 
     if (editingService) {
+      if (providerOnlyMode) {
+        // Empty-list confirmation
+        if (formData.providerIds.length === 0) {
+          const ok = window.confirm(
+            t("clinic.services.emptyProvidersConfirm", "No providers selected. This service won't appear at your clinic. Continue?"),
+          );
+          if (!ok) return;
+        }
+        // Per-clinic provider edit only — server expects clinicProviderIds and nothing else.
+        apiRequest(
+          "PATCH",
+          `/api/clinic/${hospitalId}/services/${editingService.id}`,
+          { clinicProviderIds: formData.providerIds },
+        )
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/clinic", hospitalId, "services", unitId] });
+            queryClient.invalidateQueries({ queryKey: ["/api/clinic", hospitalId, "services"] });
+            setDialogOpen(false);
+            setEditingService(null);
+            setProviderOnlyMode(false);
+            resetForm();
+            toast({ title: t("clinic.services.providersUpdated", "Providers updated") });
+          })
+          .catch(() => {
+            toast({ title: t("common.error"), variant: "destructive" });
+          });
+        return;
+      }
       updateMutation.mutate({
         id: editingService.id,
         name: formData.name,
@@ -1232,6 +1268,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
                         formatPrice={formatPrice}
                         t={t}
                         groupName={groupInfo?.groupName ?? null}
+                        hideDelete={!isChainAdmin && !!(service as any).groupId}
                       />
                     </DraggableItem>
                   ))}
@@ -1255,6 +1292,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
                     formatPrice={formatPrice}
                     t={t}
                     groupName={groupInfo?.groupName ?? null}
+                    hideDelete={!isChainAdmin && !!(service as any).groupId}
                   />
                 </DraggableItem>
               ))}
@@ -1278,10 +1316,19 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
         <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader className="shrink-0">
             <DialogTitle>
-              {editingService ? t('clinic.services.edit') : t('clinic.services.create')}
+              {providerOnlyMode
+                ? t("clinic.services.editProvidersTitle", "Edit providers for chain service")
+                : editingService
+                  ? t('clinic.services.edit')
+                  : t('clinic.services.create')}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4 overflow-y-auto min-h-0 flex-1 pr-2">
+            {providerOnlyMode && (
+              <div className="rounded border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-950/20 p-3 mb-3 text-xs">
+                {t("clinic.services.providerOnlyNote", "Provider changes apply to this clinic only. Other settings are managed by chain admins on /chain/admin → Services.")}
+              </div>
+            )}
             {/* Scope selector. Only shown when the hospital belongs to a group
                 AND the user is group_admin (the two conditions mapped to the
                 `scope=group` write path). For edits the radio is disabled with
@@ -1364,6 +1411,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder={t('clinic.services.namePlaceholder')}
+                disabled={providerOnlyMode}
                 data-testid="input-service-name"
               />
             </div>
@@ -1375,6 +1423,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder={t('clinic.services.descriptionPlaceholder')}
                 rows={3}
+                disabled={providerOnlyMode}
                 data-testid="input-service-description"
               />
             </div>
@@ -1389,6 +1438,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                   placeholder="0.00"
+                  disabled={providerOnlyMode}
                   data-testid="input-service-price"
                 />
               </div>
@@ -1401,6 +1451,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
                   value={formData.durationMinutes}
                   onChange={(e) => setFormData({ ...formData, durationMinutes: e.target.value })}
                   placeholder={t('clinic.services.durationPlaceholder', 'Optional')}
+                  disabled={providerOnlyMode}
                   data-testid="input-service-duration"
                 />
               </div>
@@ -1413,6 +1464,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
                 onChange={(e) => setFormData({ ...formData, code: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
                 placeholder={t('clinic.services.bookingCodePlaceholder', 'e.g. breast-augmentation')}
                 maxLength={50}
+                disabled={providerOnlyMode}
                 data-testid="input-service-code"
               />
               {formData.code && bookingTokenData?.bookingToken ? (
@@ -1450,6 +1502,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
                 hospitalId={hospitalId!}
                 value={formData.serviceGroups}
                 onChange={(v) => setFormData({ ...formData, serviceGroups: v })}
+                disabled={providerOnlyMode}
               />
               <p className="text-xs text-muted-foreground">
                 Used to filter treatments on the booking page via <code>?service_group=</code> URL param.
@@ -1466,6 +1519,7 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
                 id="isInvoiceable"
                 checked={formData.isInvoiceable}
                 onCheckedChange={(checked) => setFormData({ ...formData, isInvoiceable: checked })}
+                disabled={providerOnlyMode}
                 data-testid="switch-service-invoiceable"
               />
             </div>
@@ -1510,7 +1564,11 @@ export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesC
               disabled={createMutation.isPending || updateMutation.isPending}
               data-testid="button-submit-service"
             >
-              {editingService ? t('common.save') : t('common.create')}
+              {providerOnlyMode
+                ? t("clinic.services.saveProviders", "Save providers")
+                : editingService
+                  ? t('common.save')
+                  : t('common.create')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -5310,7 +5310,12 @@
       "bulkMoveToFolderSuccess": "{{count}} service(s) moved",
       "bulkMoveToFolderFailed": "Failed to move services to folder",
       "folderFilterAll": "All services",
-      "folderFilterNone": "No folder"
+      "folderFilterNone": "No folder",
+      "editProvidersTitle": "Edit providers for chain service",
+      "providerOnlyNote": "Provider changes apply to this clinic only. Other settings are managed by chain admins on /chain/admin → Services.",
+      "saveProviders": "Save providers",
+      "providersUpdated": "Providers updated",
+      "emptyProvidersConfirm": "No providers selected. This service won't appear at your clinic. Continue?"
     },
     "appointments": {
       "provider": "Provider",

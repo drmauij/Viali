@@ -5391,7 +5391,12 @@
       "bulkMoveToFolderSuccess": "{{count}} Dienstleistung(en) verschoben",
       "bulkMoveToFolderFailed": "Verschieben in Ordner fehlgeschlagen",
       "folderFilterAll": "Alle Dienstleistungen",
-      "folderFilterNone": "Kein Ordner"
+      "folderFilterNone": "Kein Ordner",
+      "editProvidersTitle": "Anbieter für Chain-Service bearbeiten",
+      "providerOnlyNote": "Anbieteränderungen gelten nur für diese Klinik. Andere Einstellungen werden von Chain-Admins unter /chain/admin → Services verwaltet.",
+      "saveProviders": "Anbieter speichern",
+      "providersUpdated": "Anbieter aktualisiert",
+      "emptyProvidersConfirm": "Keine Anbieter ausgewählt. Dieser Service erscheint nicht in Ihrer Klinik. Fortfahren?"
     },
     "appointments": {
       "provider": "Anbieter",
