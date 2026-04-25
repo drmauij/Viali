@@ -69,11 +69,6 @@ export interface FlowFormProps {
    * passes `null`. Rendered between the Name input and the Segment section.
    */
   audienceSlot?: ReactNode;
-  /**
-   * Optional scope override threaded into segment-count + send for clinic
-   * pages with the "All locations" toggle. Chain pages don't pass this.
-   */
-  scope?: "hospital" | "group";
   onSaveDraft: (payload: FlowFormSubmitPayload) => Promise<void> | void;
   onSend: (payload: FlowFormSubmitPayload) => Promise<void> | void;
   onSendTest: (payload: FlowFormTestSendPayload) => Promise<void> | void;
@@ -85,7 +80,6 @@ export default function FlowForm({
   hospitalId,
   editFlowId,
   audienceSlot,
-  scope,
   onSaveDraft,
   onSend,
   onSendTest,
@@ -128,11 +122,6 @@ export default function FlowForm({
   const [savingDraft, setSavingDraft] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
   const [loaded, setLoaded] = useState(!editFlowId);
-
-  // Re-run patientCount preview when scope changes — the audience widens.
-  useEffect(() => {
-    setPatientCount(null);
-  }, [scope]);
 
   // Load existing draft if editing
   const { data: existingFlow } = useQuery({
@@ -463,7 +452,6 @@ export default function FlowForm({
             patientCount={patientCount}
             onCountChange={setPatientCount}
             channel={channel ?? undefined}
-            scope={scope}
           />
           <div className="flex justify-end">
             <Button onClick={() => completeAndGoTo("segment", "channel")}>

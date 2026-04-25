@@ -24,13 +24,9 @@ interface Props {
   patientCount: number | null;
   onCountChange: (count: number | null) => void;
   channel?: string;
-  // Task 12: "group" widens segment-count audience across the active
-  // hospital's group (gated server-side by group_admin). Defaults to
-  // "hospital" — today's single-location behaviour.
-  scope?: "hospital" | "group";
 }
 
-export default function SegmentBuilder({ filters, onChange, patientCount, onCountChange, channel, scope }: Props) {
+export default function SegmentBuilder({ filters, onChange, patientCount, onCountChange, channel }: Props) {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
@@ -94,7 +90,6 @@ export default function SegmentBuilder({ filters, onChange, patientCount, onCoun
         "POST",
         `/api/business/${hospitalId}/flows/segment-count`,
         { filters, channel },
-        scope === "group" ? { scope: "group" } : undefined,
       );
       const data = await res.json();
       onCountChange(data.count);
@@ -103,7 +98,7 @@ export default function SegmentBuilder({ filters, onChange, patientCount, onCoun
     } finally {
       setCounting(false);
     }
-  }, [hospitalId, filters, channel, scope, onCountChange]);
+  }, [hospitalId, filters, channel, onCountChange]);
 
   useEffect(() => {
     const timer = setTimeout(fetchCount, 500);

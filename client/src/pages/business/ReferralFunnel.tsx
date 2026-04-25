@@ -70,14 +70,6 @@ interface ReferralFunnelProps {
    * data fetching and filter state centralized here.
    */
   view?: "all" | "conversion" | "ads";
-  /**
-   * Task 13: Funnels scope toggle. When "group", the referral-funnel query
-   * widens to every hospital in the active group (requires group_admin /
-   * platform admin on the server). Ad budgets and ad-performance are
-   * per-hospital (campaign spend is owned by the hospital that ran the ads)
-   * so those queries stay single-location.
-   */
-  scope?: "hospital" | "group";
 }
 
 type FunnelMetrics = {
@@ -240,7 +232,7 @@ function classifyFunnel(r: FunnelRow): string {
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF", onEarliestDate, view = "all", scope = "hospital" }: ReferralFunnelProps) {
+export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF", onEarliestDate, view = "all" }: ReferralFunnelProps) {
   const showConversion = view === "all" || view === "conversion";
   const showAds = view === "all" || view === "ads";
   const { t } = useTranslation();
@@ -270,16 +262,11 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
   // ── Data fetching ──────────────────────────────────────────────────────
 
   const { data: rows = [], isLoading } = useQuery<FunnelRow[]>({
-    queryKey: ["referral-funnel", hospitalId, from, to, scope],
+    queryKey: ["referral-funnel", hospitalId, from, to],
     queryFn: async () => {
-      // Task 13: send the scope header on the raw `fetch` (react-query's
-      // default query fn reads `?scope=group` from the URL, but this query
-      // uses a custom `queryFn` so the header has to be set explicitly).
-      const headers: Record<string, string> = {};
-      if (scope === "group") headers["X-Active-Scope"] = "group";
       const res = await fetch(
         `/api/business/${hospitalId}/referral-funnel?from=${from}&to=${to}`,
-        { credentials: "include", headers },
+        { credentials: "include" },
       );
       if (!res.ok) throw new Error("Failed to fetch funnel data");
       return res.json();

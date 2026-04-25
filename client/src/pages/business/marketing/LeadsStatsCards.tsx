@@ -46,21 +46,16 @@ export function LeadsStatsCards({
   hospitalId,
   from,
   to,
-  scope = "hospital",
 }: {
   hospitalId: string;
   from: string;
   to: string;
-  scope?: "hospital" | "group";
 }) {
   const { t } = useTranslation();
 
   const params = new URLSearchParams();
   if (from) params.set("from", from);
   if (to) params.set("to", to);
-  // Task 13: scope rides in the URL so `getQueryFn` attaches the
-  // `X-Active-Scope: group` header and the cache key stays unique per scope.
-  if (scope === "group") params.set("scope", "group");
   const qs = params.toString();
   const url = `/api/business/${hospitalId}/leads-stats${qs ? `?${qs}` : ""}`;
 

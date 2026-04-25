@@ -6,13 +6,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DateInput } from "@/components/ui/date-input";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
-import { useAuth } from "@/hooks/useAuth";
-import { useScopeToggle } from "@/hooks/useScopeToggle";
 import MarketingAiInsights from "./MarketingAiInsights";
 import { Redirect } from "wouter";
 import {
@@ -171,12 +168,10 @@ function LeadsReadOnlyCard({
   hospitalId,
   from,
   to,
-  scope,
 }: {
   hospitalId: string;
   from: string;
   to: string;
-  scope: "hospital" | "group";
 }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<"all" | LeadStatus>("all");
@@ -189,10 +184,6 @@ function LeadsReadOnlyCard({
   if (status !== "all") params.set("status", status);
   if (from) params.set("from", from);
   if (to) params.set("to", to);
-  // Task 13: scope flows through the URL itself so the `getQueryFn` fetcher
-  // picks it up as `X-Active-Scope: group` and the react-query cache keys
-  // don't collide between single/group views.
-  if (scope === "group") params.set("scope", "group");
   const listUrl = `/api/business/${hospitalId}/leads?${params.toString()}`;
 
   useEffect(() => {
@@ -221,14 +212,9 @@ function LeadsReadOnlyCard({
     try {
       const more = new URLSearchParams(params);
       more.set("before", last.createdAt);
-      // `?scope=group` already lives in `params`, so re-send it as the header
-      // too — the raw fetch here bypasses the react-query client, so we set
-      // the header explicitly to match the same server behaviour.
-      const headers: Record<string, string> = {};
-      if (scope === "group") headers["X-Active-Scope"] = "group";
       const res = await fetch(
         `/api/business/${hospitalId}/leads?${more.toString()}`,
-        { credentials: "include", headers },
+        { credentials: "include" },
       );
       if (!res.ok) throw new Error("Failed to load more leads");
       const page: LeadRow[] = await res.json();
@@ -237,16 +223,12 @@ function LeadsReadOnlyCard({
     } finally {
       setLoadingMore(false);
     }
-  }, [hospitalId, leadsList, hasMore, loadingMore, status, from, to, scope, params]);
+  }, [hospitalId, leadsList, hasMore, loadingMore, status, from, to, params]);
 
   const exportParams = new URLSearchParams();
   if (status !== "all") exportParams.set("status", status);
   if (from) exportParams.set("from", from);
   if (to) exportParams.set("to", to);
-  // Task 13: the CSV export link is an `<a href>` which cannot set the
-  // `X-Active-Scope` header, so the server accepts `?scope=group` as an
-  // equivalent opt-in signal.
-  if (scope === "group") exportParams.set("scope", "group");
   const exportUrl = `/api/business/${hospitalId}/leads-export.csv${
     exportParams.toString() ? `?${exportParams.toString()}` : ""
   }`;
@@ -458,34 +440,10 @@ type ReferralEvent = {
 export default function Funnels() {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
-  const { user } = useAuth();
   const [referralFrom, setReferralFrom] = useState("");
   const [referralTo, setReferralTo] = useState(new Date().toISOString().slice(0, 10));
   const [selectedReferralSource, setSelectedReferralSource] = useState<string | null>(null);
 
-  // Task 13: Funnels scope toggle — "This clinic" (default) vs. "All locations".
-  // Only shown when the active hospital is part of a group AND the current
-  // user is group_admin on that group. Plain marketing/manager at a single
-  // location stays scoped to their clinic. The server enforces the same gate —
-  // this UI hide is UX, not security.
-  const { data: groupInfo } = useQuery<{ groupId: string | null; groupName: string | null; isGroupAdmin: boolean }>({
-    queryKey: ['/api/clinic', activeHospital?.id, 'group-info'],
-    queryFn: () =>
-      apiRequest("GET", `/api/clinic/${activeHospital?.id}/group-info`).then((r) => r.json()),
-    enabled: !!activeHospital?.id,
-  });
-  // Compute synchronously from data we already have — doing this via the
-  // groupInfo fetch caused a race where useScopeToggle collapsed to
-  // "hospital" (and stripped ?scope=group from the URL) before the query
-  // returned, making direct links to /business/funnels?scope=group fail
-  // to land in group view.
-  const userHospitals = (user as any)?.hospitals ?? [];
-  const isGroupAdminClient =
-    (user as any)?.isPlatformAdmin ||
-    userHospitals.some((h: any) => h.role === "group_admin");
-  const canUseGroupScope =
-    !!activeHospital?.groupId && isGroupAdminClient;
-  const { scope, setScope } = useScopeToggle({ available: canUseGroupScope });
   const [sourceInsightsOpen, setSourceInsightsOpen] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem("marketing.verweise.sourceInsights.open");
@@ -536,11 +494,6 @@ export default function Funnels() {
   const [editSource, setEditSource] = useState('');
   const [editSourceDetail, setEditSourceDetail] = useState('');
 
-  // Task 13: invalidate BOTH scope variants so editing/deleting a referral
-  // while in one scope refreshes the other on the next switch. Predicate-
-  // based invalidation walks the cache and matches any query whose URL path
-  // includes the affected endpoint, regardless of `?scope=group` suffix or
-  // date-filter query string.
   const invalidateReferralQueries = () => {
     queryClient.invalidateQueries({
       predicate: (q) =>
@@ -597,7 +550,6 @@ export default function Funnels() {
   const referralParams = new URLSearchParams();
   if (referralFrom) referralParams.set("from", referralFrom);
   if (referralTo) referralParams.set("to", referralTo);
-  if (scope === "group") referralParams.set("scope", "group");
 
   const [selectedDetail, setSelectedDetail] = useState<string | null>(null);
 
@@ -610,9 +562,7 @@ export default function Funnels() {
   });
 
   // Fetch referral time-series (full history, no date filter)
-  const timeseriesUrl = `/api/business/${activeHospital?.id}/referral-timeseries${
-    scope === "group" ? "?scope=group" : ""
-  }`;
+  const timeseriesUrl = `/api/business/${activeHospital?.id}/referral-timeseries`;
   const { data: referralTimeseries, isLoading: referralTimeseriesLoading } = useQuery<
     Array<{ month: string; referralSource: string; count: number }>
   >({
@@ -628,20 +578,12 @@ export default function Funnels() {
   const [referralEventsLoadingMore, setReferralEventsLoadingMore] = useState(false);
   const PAGE_SIZE = 50;
 
-  // Task 13: scope is included in the URL so the cache key differs between
-  // "This clinic" and "All locations". The raw fetch below also sends the
-  // header explicitly since we use a custom queryFn (which bypasses
-  // `getQueryFn`'s URL-sniffing of `?scope=group`).
-  const referralEventsUrl = `/api/business/${activeHospital?.id}/referral-events?limit=${PAGE_SIZE}${
-    scope === "group" ? "&scope=group" : ""
-  }`;
+  const referralEventsUrl = `/api/business/${activeHospital?.id}/referral-events?limit=${PAGE_SIZE}`;
   const { isLoading: referralEventsLoading } = useQuery<ReferralEvent[]>({
     queryKey: [referralEventsUrl],
     enabled: !!activeHospital?.id,
     queryFn: async () => {
-      const headers: Record<string, string> = {};
-      if (scope === "group") headers["X-Active-Scope"] = "group";
-      const res = await fetch(referralEventsUrl, { credentials: 'include', headers });
+      const res = await fetch(referralEventsUrl, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch referral events');
       const data: ReferralEvent[] = await res.json();
       setReferralEvents(data);
@@ -656,13 +598,9 @@ export default function Funnels() {
     try {
       const lastEvent = referralEvents[referralEvents.length - 1];
       if (!lastEvent) return;
-      const headers: Record<string, string> = {};
-      if (scope === "group") headers["X-Active-Scope"] = "group";
       const res = await fetch(
-        `/api/business/${activeHospital.id}/referral-events?limit=${PAGE_SIZE}&before=${encodeURIComponent(lastEvent.createdAt)}${
-          scope === "group" ? "&scope=group" : ""
-        }`,
-        { credentials: 'include', headers }
+        `/api/business/${activeHospital.id}/referral-events?limit=${PAGE_SIZE}&before=${encodeURIComponent(lastEvent.createdAt)}`,
+        { credentials: 'include' }
       );
       if (!res.ok) throw new Error('Failed to fetch more referral events');
       const data: ReferralEvent[] = await res.json();
@@ -671,7 +609,7 @@ export default function Funnels() {
     } finally {
       setReferralEventsLoadingMore(false);
     }
-  }, [activeHospital?.id, referralEvents, referralEventsLoadingMore, referralEventsHasMore, scope]);
+  }, [activeHospital?.id, referralEvents, referralEventsLoadingMore, referralEventsHasMore]);
 
   // Transform time-series into line chart format: [{ month, social: N, search_engine: N, ... }]
   const referralLineData = useMemo(() => {
@@ -754,25 +692,6 @@ export default function Funnels() {
             Referral sources, lead conversion, and marketing analytics
           </p>
         </div>
-        {canUseGroupScope && (
-          <ToggleGroup
-            type="single"
-            value={scope}
-            onValueChange={(value) => {
-              if (value === "hospital" || value === "group") setScope(value);
-            }}
-            variant="outline"
-            size="sm"
-            data-testid="toggle-funnels-scope"
-          >
-            <ToggleGroupItem value="hospital" aria-label="This clinic" data-testid="toggle-funnels-scope-hospital">
-              {t('funnels.scope.thisClinic', 'This clinic')}
-            </ToggleGroupItem>
-            <ToggleGroupItem value="group" aria-label="All locations" data-testid="toggle-funnels-scope-group">
-              {t('funnels.scope.allLocations', 'All locations')}
-            </ToggleGroupItem>
-          </ToggleGroup>
-        )}
       </div>
 
       <div className="space-y-4">
@@ -849,7 +768,6 @@ export default function Funnels() {
                       hospitalId={activeHospital?.id ?? ""}
                       from={referralFrom}
                       to={referralTo}
-                      scope={scope}
                     />
                   </CardContent>
                 )}
@@ -858,7 +776,6 @@ export default function Funnels() {
                 hospitalId={activeHospital?.id ?? ""}
                 from={referralFrom}
                 to={referralTo}
-                scope={scope}
               />
             </TabsContent>
 
@@ -1300,7 +1217,6 @@ export default function Funnels() {
                 currency={activeHospital?.currency || "CHF"}
                 onEarliestDate={(d) => { if (!referralFrom) setReferralFrom(d); }}
                 view="conversion"
-                scope={scope}
               />
             </TabsContent>
 
@@ -1312,7 +1228,6 @@ export default function Funnels() {
                 currency={activeHospital?.currency || "CHF"}
                 onEarliestDate={(d) => { if (!referralFrom) setReferralFrom(d); }}
                 view="ads"
-                scope={scope}
               />
             </TabsContent>
           </Tabs>
