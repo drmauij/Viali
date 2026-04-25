@@ -238,3 +238,12 @@ describe("chain referral analytics endpoints", () => {
     });
   });
 });
+
+describe("GET /api/chain/:groupId/ad-performance", () => {
+  it("returns 200 with an array (empty when no budgets seeded)", async () => {
+    const res = await request(buildApp(chainAdminId))
+      .get(`/api/chain/${groupId}/ad-performance?hospitalIds=${hosp1},${hosp2}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+});

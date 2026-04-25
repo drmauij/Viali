@@ -28,6 +28,7 @@ import {
   listReferralEvents,
   getReferralFunnel,
 } from "../lib/referralAnalytics";
+import { getAdPerformance } from "../lib/adPerformance";
 
 export const chainRouter = Router();
 
@@ -1126,5 +1127,19 @@ chainRouter.get('/api/chain/:groupId/referral-funnel', isAuthenticated, isChainA
     if (e instanceof ChainAuthError) return res.status(e.status).json({ message: e.message });
     logger.error("Error fetching chain referral-funnel:", e);
     res.status(500).json({ message: "Failed to fetch chain referral-funnel" });
+  }
+});
+
+chainRouter.get('/api/chain/:groupId/ad-performance', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const { ids } = await resolveHospitalIds(groupId, req.query.hospitalIds);
+    if (ids.length === 0) return res.json([]);
+    const rows = await getAdPerformance(ids);
+    res.json(rows);
+  } catch (e: any) {
+    if (e instanceof ChainAuthError) return res.status(e.status).json({ message: e.message });
+    logger.error("Error fetching chain ad-performance:", e);
+    res.status(500).json({ message: "Failed to fetch chain ad-performance" });
   }
 });
