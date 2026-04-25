@@ -38,6 +38,8 @@ type BookingData = {
     postalCode?: string | null;
     city?: string | null;
   };
+  /** Present when the hospital belongs to a chain. */
+  group?: { id: string; name: string; logoUrl: string | null } | null;
   bookingSettings: {
     slotDurationMinutes?: number;
     maxAdvanceDays?: number;
@@ -1635,6 +1637,13 @@ export default function BookAppointment() {
 // ─── Sub-components ────────────────────────────────────────────────
 
 function ClinicInfoPanel({ data, isDark }: { data: BookingData; isDark: boolean }) {
+  // When the hospital belongs to a chain, the header card splits in two:
+  //   LEFT  — chain logo + chain name (the brand the patient came from)
+  //   RIGHT — clinic name + street/postal (the specific location)
+  // When there's no chain, the original single-column clinic header
+  // (logo + clinic name + street + city) is preserved.
+  const hasChain = !!data.group;
+
   return (
     <div className={cn(
       "rounded-2xl p-4 lg:p-0 lg:bg-transparent lg:border-0 lg:shadow-none border",
@@ -1643,51 +1652,94 @@ function ClinicInfoPanel({ data, isDark }: { data: BookingData; isDark: boolean 
         : "bg-white/60 border-gray-200/70 shadow-sm",
     )}>
       <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col items-start gap-2 min-w-0">
-          {data.hospital.logoUrl && (
-            <img
-              src={data.hospital.logoUrl}
-              alt={data.hospital.name}
-              className="h-8 w-auto object-contain"
-            />
-          )}
-          <h1 className={cn(
-            "text-sm font-semibold truncate",
-            isDark ? "text-white" : "text-gray-900"
-          )}>
-            {data.hospital.name}
-          </h1>
-          {data.hospital.street && (
-            <div className={cn(
-              "flex items-start gap-1.5 text-xs",
-              isDark ? "text-white/50" : "text-gray-500"
+        {hasChain ? (
+          <div className="flex items-center gap-3 min-w-0">
+            {data.group!.logoUrl && (
+              <img
+                src={data.group!.logoUrl}
+                alt={data.group!.name}
+                className="h-10 w-10 rounded object-contain shrink-0"
+              />
+            )}
+            <h1 className={cn(
+              "text-sm font-semibold truncate",
+              isDark ? "text-white" : "text-gray-900",
             )}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 mt-0.5">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-              <div className="leading-tight">
-                <div>{data.hospital.street}</div>
-                {data.hospital.postalCode && (
-                  <div>{data.hospital.postalCode}</div>
-                )}
+              {data.group!.name}
+            </h1>
+          </div>
+        ) : (
+          <div className="flex flex-col items-start gap-2 min-w-0">
+            {data.hospital.logoUrl && (
+              <img
+                src={data.hospital.logoUrl}
+                alt={data.hospital.name}
+                className="h-8 w-auto object-contain"
+              />
+            )}
+            <h1 className={cn(
+              "text-sm font-semibold truncate",
+              isDark ? "text-white" : "text-gray-900"
+            )}>
+              {data.hospital.name}
+            </h1>
+            {data.hospital.street && (
+              <div className={cn(
+                "flex items-start gap-1.5 text-xs",
+                isDark ? "text-white/50" : "text-gray-500"
+              )}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 mt-0.5">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                <div className="leading-tight">
+                  <div>{data.hospital.street}</div>
+                  {data.hospital.postalCode && (
+                    <div>{data.hospital.postalCode}</div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-        {data.hospital.city && (
+            )}
+          </div>
+        )}
+        {hasChain ? (
           <div className={cn(
-            "text-right shrink-0",
-            isDark ? "text-white" : "text-gray-900"
+            "text-right shrink-0 min-w-0",
+            isDark ? "text-white" : "text-gray-900",
           )}>
             <div className={cn(
               "text-[9px] uppercase tracking-wider font-semibold",
-              isDark ? "text-white/40" : "text-gray-400"
+              isDark ? "text-white/40" : "text-gray-400",
             )}>
               Standort
             </div>
-            <div className="text-lg font-bold leading-tight">{data.hospital.city}</div>
+            <div className="text-sm font-semibold leading-tight truncate">
+              {data.hospital.name}
+            </div>
+            {(data.hospital.street || data.hospital.postalCode) && (
+              <div className={cn(
+                "text-xs leading-tight mt-0.5",
+                isDark ? "text-white/50" : "text-gray-500",
+              )}>
+                {[data.hospital.street, data.hospital.postalCode].filter(Boolean).join(", ")}
+              </div>
+            )}
           </div>
+        ) : (
+          data.hospital.city && (
+            <div className={cn(
+              "text-right shrink-0",
+              isDark ? "text-white" : "text-gray-900"
+            )}>
+              <div className={cn(
+                "text-[9px] uppercase tracking-wider font-semibold",
+                isDark ? "text-white/40" : "text-gray-400"
+              )}>
+                Standort
+              </div>
+              <div className="text-lg font-bold leading-tight">{data.hospital.city}</div>
+            </div>
+          )
         )}
       </div>
     </div>

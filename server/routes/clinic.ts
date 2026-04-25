@@ -402,6 +402,20 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
 
     const providers = await storage.getPublicBookableProvidersByHospital(hospital.id);
 
+    // If this hospital belongs to a chain, surface the chain on the booking
+    // page so we can show "Chain logo + name" on the left of the header
+    // card alongside the per-clinic info on the right.
+    let group: { id: string; name: string; logoUrl: string | null } | null = null;
+    if (hospital.groupId) {
+      const { hospitalGroups: hgTable } = await import("@shared/schema");
+      const [g] = await db
+        .select({ id: hgTable.id, name: hgTable.name, logoUrl: hgTable.logoUrl })
+        .from(hgTable)
+        .where(eq(hgTable.id, hospital.groupId))
+        .limit(1);
+      if (g) group = g;
+    }
+
     res.json({
       hospital: {
         name: hospital.name,
@@ -414,6 +428,7 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
         postalCode: hospital.companyPostalCode || null,
         city: hospital.companyCity || null,
       },
+      group,
       bookingSettings: hospital.bookingSettings || {},
       providers: providers.map(p => ({
         id: p.userId,

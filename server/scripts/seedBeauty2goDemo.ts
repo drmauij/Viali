@@ -76,7 +76,7 @@ const GROUP_NAME = "beauty2go (Demo)";
 // (https://beauty2go.ch/standort/<slug>/ — 2026-04).
 const LOCATIONS = [
   {
-    name: "beauty2go Zürich",
+    name: "Zürich",
     address: "Bahnhofstrasse 78, 8001 Zürich",
     phone: "+41 44 440 34 34",
     city: "Zürich",
@@ -90,7 +90,7 @@ const LOCATIONS = [
     ],
   },
   {
-    name: "beauty2go Basel",
+    name: "Basel",
     address: "Schifflände 2, 4051 Basel",
     phone: "+41 61 261 66 00",
     city: "Basel",
@@ -98,7 +98,7 @@ const LOCATIONS = [
     doctors: [{ firstName: "Jürgen", lastName: "Kalnitski", titlePrefix: "Dr." }],
   },
   {
-    name: "beauty2go Bern",
+    name: "Bern",
     address: "Kramgasse 61, 3011 Bern",
     phone: "+41 31 311 77 77",
     city: "Bern",
@@ -112,7 +112,7 @@ const LOCATIONS = [
     ],
   },
   {
-    name: "beauty2go Genf",
+    name: "Genf",
     address: "Rue de la Confédération 15, 1204 Genf",
     phone: "+41 21 331 51 00",
     city: "Genf",
@@ -120,7 +120,7 @@ const LOCATIONS = [
     doctors: [{ firstName: "Natalia", lastName: "Smyla" }],
   },
   {
-    name: "beauty2go Lausanne",
+    name: "Lausanne",
     address: "Rue de Bourg 1, 1003 Lausanne",
     phone: "+41 21 711 21 21",
     city: "Lausanne",
@@ -132,7 +132,7 @@ const LOCATIONS = [
     ],
   },
   {
-    name: "beauty2go Luzern",
+    name: "Luzern",
     address: "Mühlenplatz 4, 6004 Luzern",
     phone: "+41 41 211 11 22",
     city: "Luzern",
@@ -140,7 +140,7 @@ const LOCATIONS = [
     doctors: [{ firstName: "Patricia", lastName: "Möhl" }],
   },
   {
-    name: "beauty2go St. Gallen",
+    name: "St. Gallen",
     address: "Marktgasse 14, 9000 St. Gallen",
     phone: "+41 71 770 02 02",
     city: "St. Gallen",
@@ -151,7 +151,7 @@ const LOCATIONS = [
     ],
   },
   {
-    name: "beauty2go Winterthur",
+    name: "Winterthur",
     address: "Stadthausstrasse 39, 8400 Winterthur",
     phone: "+41 52 202 92 92",
     city: "Winterthur",
