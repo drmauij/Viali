@@ -8,11 +8,14 @@ import {
   leads,
   clinicAppointments,
   clinicServices,
+  flows,
+  flowHospitals,
 } from "@shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, inArray, desc } from "drizzle-orm";
 import { isAuthenticated } from "../auth/google";
 import { storage } from "../storage";
 import logger from "../logger";
+import { z } from "zod";
 
 export const chainRouter = Router();
 
@@ -453,3 +456,179 @@ chainRouter.get(
     }
   }
 );
+
+// GET /api/chain/:groupId/flows — list chain-wide flows + audience arrays
+chainRouter.get('/api/chain/:groupId/flows', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+
+    const groupHospitals = await db
+      .select({ id: hospitals.id, name: hospitals.name })
+      .from(hospitals)
+      .where(eq(hospitals.groupId, groupId));
+    const hospitalIds = groupHospitals.map(h => h.id);
+    if (hospitalIds.length === 0) {
+      return res.json({ flows: [] });
+    }
+    const hospitalNameById = new Map(groupHospitals.map(h => [h.id, h.name]));
+
+    // Distinct flow IDs that touch any hospital in the group
+    const flowIdsRes = await db
+      .selectDistinct({ flowId: flowHospitals.flowId })
+      .from(flowHospitals)
+      .where(inArray(flowHospitals.hospitalId, hospitalIds));
+    const flowIds = flowIdsRes.map(r => r.flowId);
+    if (flowIds.length === 0) {
+      return res.json({ flows: [] });
+    }
+
+    const [flowRows, audienceRows] = await Promise.all([
+      db.select().from(flows).where(inArray(flows.id, flowIds)).orderBy(desc(flows.createdAt)),
+      db.select().from(flowHospitals).where(inArray(flowHospitals.flowId, flowIds)),
+    ]);
+
+    const audienceByFlow = new Map<string, Array<{ hospitalId: string; hospitalName: string }>>();
+    for (const r of audienceRows) {
+      const arr = audienceByFlow.get(r.flowId) ?? [];
+      arr.push({ hospitalId: r.hospitalId, hospitalName: hospitalNameById.get(r.hospitalId) ?? "Unknown" });
+      audienceByFlow.set(r.flowId, arr);
+    }
+
+    res.json({
+      flows: flowRows.map(f => ({
+        ...f,
+        audienceHospitals: audienceByFlow.get(f.id) ?? [],
+      })),
+    });
+  } catch (error) {
+    logger.error("Error fetching chain flows:", error);
+    res.status(500).json({ message: "Failed to fetch chain flows" });
+  }
+});
+
+// POST /api/chain/:groupId/flows — create a chain flow with explicit audience
+chainRouter.post('/api/chain/:groupId/flows', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const bodySchema = z.object({
+      hospitalId: z.string(),
+      audienceHospitalIds: z.array(z.string()).min(1),
+      name: z.string().min(1),
+      status: z.enum(["draft", "active", "paused", "archived"]).default("draft"),
+      channel: z.string().optional(),
+      messageSubject: z.string().optional(),
+      messageTemplate: z.string().optional(),
+      triggerType: z.string().default("manual"),
+      segmentFilters: z.any().optional(),
+      campaignTreatmentId: z.string().optional(),
+      promoCodeId: z.string().optional(),
+    });
+    const body = bodySchema.parse(req.body);
+
+    // Validate every audience hospital belongs to the group
+    const groupHospitals = await db
+      .select({ id: hospitals.id })
+      .from(hospitals)
+      .where(eq(hospitals.groupId, groupId));
+    const groupHospitalIds = new Set(groupHospitals.map(h => h.id));
+    const invalid = body.audienceHospitalIds.filter(h => !groupHospitalIds.has(h));
+    if (invalid.length > 0) {
+      return res.status(400).json({ message: "audience includes hospital(s) outside this group", invalid });
+    }
+    if (!groupHospitalIds.has(body.hospitalId)) {
+      return res.status(400).json({ message: "owning hospitalId must belong to this group" });
+    }
+
+    const [created] = await db.insert(flows).values({
+      hospitalId: body.hospitalId,
+      name: body.name,
+      status: body.status,
+      channel: body.channel ?? null,
+      messageSubject: body.messageSubject ?? null,
+      messageTemplate: body.messageTemplate ?? null,
+      triggerType: body.triggerType,
+      segmentFilters: body.segmentFilters ?? null,
+      campaignTreatmentId: body.campaignTreatmentId ?? null,
+      promoCodeId: body.promoCodeId ?? null,
+      createdBy: req.user.id,
+    } as any).returning();
+
+    await db.insert(flowHospitals).values(
+      body.audienceHospitalIds.map(hid => ({ flowId: created.id, hospitalId: hid }))
+    );
+
+    res.status(201).json({ ...created, audienceHospitalIds: body.audienceHospitalIds });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid payload", issues: error.issues });
+    }
+    logger.error("Error creating chain flow:", error);
+    res.status(500).json({ message: "Failed to create chain flow" });
+  }
+});
+
+// PATCH /api/chain/:groupId/flows/:flowId — update a chain flow (audience + fields)
+chainRouter.patch('/api/chain/:groupId/flows/:flowId', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId, flowId } = req.params;
+    const bodySchema = z.object({
+      audienceHospitalIds: z.array(z.string()).min(1).optional(),
+      name: z.string().optional(),
+      status: z.enum(["draft", "active", "paused", "archived"]).optional(),
+      channel: z.string().optional(),
+      messageSubject: z.string().optional(),
+      messageTemplate: z.string().optional(),
+      segmentFilters: z.any().optional(),
+    });
+    const body = bodySchema.parse(req.body);
+
+    // Verify flow exists and belongs to this group
+    const groupHospitalIds = (await db
+      .select({ id: hospitals.id })
+      .from(hospitals)
+      .where(eq(hospitals.groupId, groupId))
+    ).map(h => h.id);
+    const groupHospitalIdsSet = new Set(groupHospitalIds);
+
+    const existingAudience = await db
+      .select()
+      .from(flowHospitals)
+      .where(eq(flowHospitals.flowId, flowId));
+    if (existingAudience.length === 0 || !existingAudience.some(r => groupHospitalIdsSet.has(r.hospitalId))) {
+      return res.status(404).json({ message: "Flow not found in this group" });
+    }
+
+    if (body.audienceHospitalIds) {
+      const invalid = body.audienceHospitalIds.filter(h => !groupHospitalIdsSet.has(h));
+      if (invalid.length > 0) {
+        return res.status(400).json({ message: "audience includes hospital(s) outside this group", invalid });
+      }
+      await db.transaction(async tx => {
+        await tx.delete(flowHospitals).where(eq(flowHospitals.flowId, flowId));
+        if (body.audienceHospitalIds!.length > 0) {
+          await tx.insert(flowHospitals).values(
+            body.audienceHospitalIds!.map(hid => ({ flowId, hospitalId: hid }))
+          );
+        }
+      });
+    }
+
+    const updateFields: any = { updatedAt: new Date() };
+    if (body.name !== undefined) updateFields.name = body.name;
+    if (body.status !== undefined) updateFields.status = body.status;
+    if (body.channel !== undefined) updateFields.channel = body.channel;
+    if (body.messageSubject !== undefined) updateFields.messageSubject = body.messageSubject;
+    if (body.messageTemplate !== undefined) updateFields.messageTemplate = body.messageTemplate;
+    if (body.segmentFilters !== undefined) updateFields.segmentFilters = body.segmentFilters;
+
+    await db.update(flows).set(updateFields).where(eq(flows.id, flowId));
+
+    res.json({ success: true, flowId });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid payload", issues: error.issues });
+    }
+    logger.error("Error updating chain flow:", error);
+    res.status(500).json({ message: "Failed to update chain flow" });
+  }
+});
