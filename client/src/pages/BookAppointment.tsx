@@ -1683,23 +1683,6 @@ function ClinicInfoPanel({ data, isDark }: { data: BookingData; isDark: boolean 
             )}>
               {data.hospital.name}
             </h1>
-            {data.hospital.street && (
-              <div className={cn(
-                "flex items-start gap-1.5 text-xs",
-                isDark ? "text-white/50" : "text-gray-500"
-              )}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 mt-0.5">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                <div className="leading-tight">
-                  <div>{data.hospital.street}</div>
-                  {data.hospital.postalCode && (
-                    <div>{data.hospital.postalCode}</div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         )}
         {hasChain ? (
@@ -1726,7 +1709,7 @@ function ClinicInfoPanel({ data, isDark }: { data: BookingData; isDark: boolean 
             )}
           </div>
         ) : (
-          data.hospital.city && (
+          (data.hospital.city || data.hospital.street) && (
             <div className={cn(
               "text-right shrink-0",
               isDark ? "text-white" : "text-gray-900"
@@ -1737,7 +1720,18 @@ function ClinicInfoPanel({ data, isDark }: { data: BookingData; isDark: boolean 
               )}>
                 Standort
               </div>
-              <div className="text-lg font-bold leading-tight">{data.hospital.city}</div>
+              {data.hospital.city && (
+                <div className="text-lg font-bold leading-tight">{data.hospital.city}</div>
+              )}
+              {(data.hospital.street || data.hospital.postalCode) && (
+                <div className={cn(
+                  "text-xs leading-tight mt-0.5",
+                  isDark ? "text-white/50" : "text-gray-500",
+                )}>
+                  {data.hospital.street && <div>{data.hospital.street}</div>}
+                  {data.hospital.postalCode && <div>{data.hospital.postalCode}</div>}
+                </div>
+              )}
             </div>
           )
         )}
