@@ -632,3 +632,41 @@ chainRouter.patch('/api/chain/:groupId/flows/:flowId', isAuthenticated, isChainA
     res.status(500).json({ message: "Failed to update chain flow" });
   }
 });
+
+// DELETE /api/chain/:groupId/flows/:flowId — remove a chain flow + its
+// flow_hospitals rows (cascade) + any execution/event rows that reference it.
+chainRouter.delete('/api/chain/:groupId/flows/:flowId', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId, flowId } = req.params;
+
+    // Verify the flow belongs to this group via flow_hospitals intersection
+    const groupHospitalIds = (await db
+      .select({ id: hospitals.id })
+      .from(hospitals)
+      .where(eq(hospitals.groupId, groupId))
+    ).map(h => h.id);
+
+    const audience = await db
+      .select()
+      .from(flowHospitals)
+      .where(eq(flowHospitals.flowId, flowId));
+    if (audience.length === 0 || !audience.some(r => groupHospitalIds.includes(r.hospitalId))) {
+      return res.status(404).json({ message: "Flow not found in this group" });
+    }
+
+    // Refuse delete on already-sent flows so we don't lose attribution.
+    const [flow] = await db.select().from(flows).where(eq(flows.id, flowId));
+    if (flow?.sentAt) {
+      return res.status(400).json({ message: "Cannot delete a flow that has already been sent" });
+    }
+
+    // Delete the flow row. flow_hospitals cascades; flow_variants and any
+    // referencing rows that have ON DELETE CASCADE go with it.
+    await db.delete(flows).where(eq(flows.id, flowId));
+
+    res.json({ success: true, flowId });
+  } catch (error) {
+    logger.error("Error deleting chain flow:", error);
+    res.status(500).json({ message: "Failed to delete chain flow" });
+  }
+});

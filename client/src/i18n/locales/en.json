@@ -6069,7 +6069,12 @@
       "noGroup": "This clinic is not part of a chain.",
       "empty": "No campaigns yet.",
       "audience": "Audience",
-      "nLocations": "{{n}} locations"
+      "nLocations": "{{n}} locations",
+      "delete": "Delete",
+      "deleteTitle": "Delete campaign?",
+      "deleteBody": "{{name}} will be permanently deleted. This action cannot be undone.",
+      "deleted": "Campaign deleted",
+      "deleteFailed": "Could not delete campaign."
     }
   },
   "leads": {

@@ -1404,6 +1404,34 @@ router.post(
         throw e;
       }
 
+      // Phase C.1 defence-in-depth: a chain campaign may target hospitals
+      // beyond the calling user's active one. The audience was set when a
+      // group_admin created the flow via /api/chain/:groupId/flows, but the
+      // /send endpoint accepts any user with marketing access on the active
+      // hospital. Re-verify chain authority before fanning out across
+      // siblings — otherwise a marketer at one location could trigger sends
+      // across the chain by hitting the right flow_id.
+      const widensBeyondActive =
+        audienceHospitalIds.length > 1 ||
+        (audienceHospitalIds.length === 1 && audienceHospitalIds[0] !== hospitalId);
+      if (widensBeyondActive) {
+        const [u] = await db
+          .select({ isPlatformAdmin: users.isPlatformAdmin })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+        const isPlatformAdmin = u?.isPlatformAdmin === true;
+        if (!isPlatformAdmin) {
+          const isGroupAdmin = await userIsGroupAdminForHospital(userId, hospitalId, req);
+          if (!isGroupAdmin) {
+            return res.status(403).json({
+              message: "Chain campaign send requires group_admin authority",
+              code: "GROUP_SCOPE_FORBIDDEN",
+            });
+          }
+        }
+      }
+
       // Query segment patients (inline — matching the same logic as segment-count)
       const segmentFilters = flow.segmentFilters as Array<{
         field: string;

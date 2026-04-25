@@ -6165,7 +6165,12 @@
       "noGroup": "Diese Klinik gehört zu keiner Kette.",
       "empty": "Noch keine Kampagnen.",
       "audience": "Zielgruppe",
-      "nLocations": "{{n}} Standorte"
+      "nLocations": "{{n}} Standorte",
+      "delete": "Löschen",
+      "deleteTitle": "Kampagne löschen?",
+      "deleteBody": "{{name}} wird dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "deleted": "Kampagne gelöscht",
+      "deleteFailed": "Kampagne konnte nicht gelöscht werden."
     }
   },
   "leads": {
