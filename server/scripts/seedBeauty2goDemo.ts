@@ -366,6 +366,25 @@ export async function wipeExistingGroup(groupId: string): Promise<void> {
   }
 
   // 11. Orphan demo provider users (same email pattern as we always create).
+  //     First clean up any rows still referencing them. A previous run may
+  //     have left rows at hospitals that aren't in the current group
+  //     (auto-provisioned admin rows + treatments survive group restructure),
+  //     so the hospital-scoped deletes above don't catch them.
+  const orphanedProviderRows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(like(users.email, PROVIDER_EMAIL_PATTERN));
+  const orphanedProviderIds = orphanedProviderRows.map((u) => u.id);
+  if (orphanedProviderIds.length > 0) {
+    // Treatments reference provider_id with no cascade — blast any leftover
+    // treatments authored by demo providers at unrelated hospitals.
+    await db
+      .delete(treatments)
+      .where(inArray(treatments.providerId, orphanedProviderIds));
+    await db
+      .delete(userHospitalRoles)
+      .where(inArray(userHospitalRoles.userId, orphanedProviderIds));
+  }
   await db.delete(users).where(like(users.email, PROVIDER_EMAIL_PATTERN));
 
   // 12. Finally, the group itself.

@@ -521,17 +521,35 @@ describe("admin groups routes — group admin promote", () => {
       .where(eq(hospitals.id, memberA));
   });
 
-  it("POST /:id/admins rejects users without a role at the target hospital", async () => {
+  it("POST /:id/admins promotes a user with no pre-existing role at the target hospital (auto-provisioning)", async () => {
+    // Phase A: platform admins can promote an external user straight into a
+    // chain — promoteGroupAdmin no longer requires a pre-existing role row,
+    // and provisionAdminAtAllGroupHospitals auto-provisions admin rows at
+    // every member clinic. Verify both happened.
     const g = await freshGroup([memberB]);
     const app = buildApp(PLATFORM_USER_ID);
-    // ASPIRANT has no role at memberB.
     const res = await request(app)
       .post(`/api/admin/groups/${g.id}/admins`)
       .send({ userId: ASPIRANT_USER_ID, hospitalId: memberB });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/no role/i);
+    expect(res.status).toBe(204);
 
-    // Clean up.
+    const rows = await db
+      .select()
+      .from(userHospitalRoles)
+      .where(eq(userHospitalRoles.userId, ASPIRANT_USER_ID));
+    expect(rows.some((r) => r.hospitalId === memberB && r.role === "group_admin")).toBe(true);
+
+    // Clean up: revoke the group_admin row this test added (and any
+    // auto-provisioned admin rows at sibling clinics) without touching the
+    // pre-existing memberA admin role from beforeAll.
+    await db
+      .delete(userHospitalRoles)
+      .where(
+        and(
+          eq(userHospitalRoles.userId, ASPIRANT_USER_ID),
+          eq(userHospitalRoles.role, "group_admin"),
+        ),
+      );
     await db
       .update(hospitals)
       .set({ groupId: null })

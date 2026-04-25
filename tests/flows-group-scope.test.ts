@@ -17,18 +17,18 @@ import { randomUUID } from "crypto";
 import { ensurePatientHospitalLink } from "../server/utils/patientHospitalLink";
 
 /**
- * Task 12: marketing Flows scope toggle ("This clinic" / "All locations").
- *
- * We mount the real flows router with auth stubbed to a configurable user id.
- * Scope resolution, group look-up, and the segment-count WHERE clause all run
- * for real against the DB, so this is an integration test of the full path:
- * route + auth + scope helper + segment audience.
+ * Phase C: Flows audience resolution. The legacy X-Active-Scope header
+ * is gone; chain campaigns now declare audience explicitly via the body
+ * `audienceHospitalIds` array (or, at send time, the flow_hospitals join
+ * table). The same access-control invariants survive — only group_admin /
+ * platform admin can target hospitals beyond the active one.
  *
  * Covered:
- *   - scope=hospital at active=A returns only A's patients.
- *   - scope=group as group_admin returns A+B combined.
- *   - scope=group as marketing-only (non-group-admin) is 403.
- *   - scope=group as un-grouped tenant silently falls back to hospital scope.
+ *   - No audience field at active=A returns only A's patients (default path).
+ *   - audienceHospitalIds=[A,B] as group_admin returns A+B combined.
+ *   - audienceHospitalIds=[A,B] as marketing-only (non-group-admin) is 403.
+ *   - audienceHospitalIds=[A,B] at un-grouped tenant silently falls back to
+ *     [active] only.
  *   - Promo codes: groupWide flag + cross-hospital redemption check.
  */
 
@@ -265,7 +265,7 @@ function countOurs(body: any) {
   return samples.filter((s) => createdPatientIds.includes(s.id));
 }
 
-describe("POST /api/business/:hospitalId/flows/segment-count — scope toggle", () => {
+describe("POST /api/business/:hospitalId/flows/segment-count — audience resolution", () => {
   it("scope=hospital at active=A returns only P (home A)", async () => {
     const app = buildApp(userGroupAdmin);
     const res = await request(app)
@@ -292,13 +292,12 @@ describe("POST /api/business/:hospitalId/flows/segment-count — scope toggle", 
     expect(ids).not.toContain(patientQ);
   });
 
-  it("scope=group as group_admin returns BOTH P (home A) and Q (home B)", async () => {
+  it("audienceHospitalIds=[A,B] as group_admin returns BOTH P (home A) and Q (home B)", async () => {
     const app = buildApp(userGroupAdmin);
     const res = await request(app)
       .post(`/api/business/${hospA}/flows/segment-count`)
       .set("X-Active-Hospital-Id", hospA)
-      .set("X-Active-Scope", "group")
-      .send({ channel: "sms", filters: [] });
+      .send({ channel: "sms", filters: [], audienceHospitalIds: [hospA, hospB] });
     expect(res.status).toBe(200);
     const ours = countOurs(res.body);
     const ids = ours.map((r) => r.id);
@@ -306,26 +305,24 @@ describe("POST /api/business/:hospitalId/flows/segment-count — scope toggle", 
     expect(ids).toContain(patientQ);
   });
 
-  it("scope=group as plain marketing role (non-group-admin): 403", async () => {
+  it("audienceHospitalIds=[A,B] as plain marketing role (non-group-admin): 403", async () => {
     const app = buildApp(userMarketingInA);
     const res = await request(app)
       .post(`/api/business/${hospA}/flows/segment-count`)
       .set("X-Active-Hospital-Id", hospA)
-      .set("X-Active-Scope", "group")
-      .send({ channel: "sms", filters: [] });
+      .send({ channel: "sms", filters: [], audienceHospitalIds: [hospA, hospB] });
     expect(res.status).toBe(403);
     expect(res.body.code).toBe("GROUP_SCOPE_FORBIDDEN");
   });
 
-  it("scope=group at un-grouped tenant silently falls back to hospital scope", async () => {
+  it("audienceHospitalIds at un-grouped tenant silently falls back to hospital scope", async () => {
     const app = buildApp(userMarketingInSolo);
     const res = await request(app)
       .post(`/api/business/${hospSolo}/flows/segment-count`)
       .set("X-Active-Hospital-Id", hospSolo)
-      .set("X-Active-Scope", "group")
-      .send({ channel: "sms", filters: [] });
-    // Hospital has no group → collapse to [hospSolo], don't 403. Matches
-    // Task 5 and Task 11 silent-fallback contract.
+      .send({ channel: "sms", filters: [], audienceHospitalIds: [hospSolo, hospA] });
+    // Hospital has no group → collapse to [hospSolo], don't 403. resolveFlowsAudienceScope
+    // path 2: groupId is null, return [activeHospitalId] silently.
     expect(res.status).toBe(200);
     const ours = countOurs(res.body);
     const ids = ours.map((r) => r.id);
@@ -335,14 +332,13 @@ describe("POST /api/business/:hospitalId/flows/segment-count — scope toggle", 
     expect(ids).not.toContain(patientQ);
   });
 
-  it("scope=group as user with no marketing role at active hospital: 403 from middleware", async () => {
+  it("audienceHospitalIds as user with no marketing role at active hospital: 403 from middleware", async () => {
     // userMarketingInAltGroup has no role at hospA → isMarketingAccess rejects.
     const app = buildApp(userMarketingInAltGroup);
     const res = await request(app)
       .post(`/api/business/${hospA}/flows/segment-count`)
       .set("X-Active-Hospital-Id", hospA)
-      .set("X-Active-Scope", "group")
-      .send({ channel: "sms", filters: [] });
+      .send({ channel: "sms", filters: [], audienceHospitalIds: [hospA, hospB] });
     expect(res.status).toBe(403);
   });
 });

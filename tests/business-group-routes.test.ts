@@ -392,14 +392,30 @@ describe("business group routes — promote", () => {
     expect(res.body.code).toBe("HOSPITAL_NOT_IN_GROUP");
   });
 
-  it("POST /admins rejects a user who has no role at the target hospital (400)", async () => {
+  it("POST /admins promotes a user with no pre-existing role and auto-provisions admin rows at every group hospital", async () => {
+    // Phase A intentionally removed the "must have a pre-existing role" gate
+    // so platform admins can promote a fresh external user straight into a
+    // chain. promoteGroupAdmin auto-provisions an admin role at every member
+    // clinic — verify both the group_admin row AND the admin row at memberB.
     const app = buildApp(GROUP_ADMIN_USER_ID, memberA);
-    // PLAIN_USER_ID has no role at memberA — promoteGroupAdmin will refuse.
     const res = await request(app)
       .post("/api/business/group/admins")
       .send({ userId: PLAIN_USER_ID, hospitalId: memberA });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/no role/i);
+    expect(res.status).toBe(204);
+
+    const rows = await db
+      .select()
+      .from(userHospitalRoles)
+      .where(eq(userHospitalRoles.userId, PLAIN_USER_ID));
+    const roleAtA = rows.find((r) => r.hospitalId === memberA && r.role === "group_admin");
+    const adminAtB = rows.find((r) => r.hospitalId === memberB && r.role === "admin");
+    expect(roleAtA).toBeDefined();
+    expect(adminAtB).toBeDefined();
+
+    // Cleanup: roles for next tests' isolation
+    await db
+      .delete(userHospitalRoles)
+      .where(eq(userHospitalRoles.userId, PLAIN_USER_ID));
   });
 });
 
