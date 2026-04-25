@@ -316,6 +316,26 @@ export default function BookAppointment() {
           // If no match, fall back to all (don't break the page for mistyped groups)
         }
 
+        // Provider deep link (`?provider=<id>`): the patient came from a
+        // specific provider's detail page on the marketing site, so they
+        // should ONLY see treatments this provider can perform. Filter the
+        // catalog to services with that provider in their providerIds list.
+        // (`providerIds` was added to the public services payload alongside
+        // the chain-services rollout; treat absence as "no provider linkage
+        // info" and fall through to the unfiltered list rather than break.)
+        if (preselectedProviderId) {
+          const filtered = list.filter(s => {
+            const ids = (s as any).providerIds;
+            return Array.isArray(ids) && ids.includes(preselectedProviderId);
+          });
+          // Keep the filter even if empty — we'd rather show "no treatments"
+          // than mislead the patient with treatments the linked provider
+          // doesn't offer.
+          if ((list as any).some((s: any) => Array.isArray((s as any).providerIds))) {
+            list = filtered;
+          }
+        }
+
         setServices(list);
 
         // Priority 1: ?service= deep-link
@@ -384,11 +404,15 @@ export default function BookAppointment() {
   useEffect(() => {
     if (!token || !data) return;
     if (!selectedTreatment && !generalAppointment) { setSuggestedProviderId(null); return; }
-    if (preselectedProviderId) return;
-    const code = selectedTreatment?.code;
-    const url = code
-      ? `/api/public/booking/${token}/best-provider?service=${encodeURIComponent(code)}`
-      : `/api/public/booking/${token}/best-provider`;
+    // Build query string. When the patient came in via ?provider=<id>, pass
+    // it so the server constrains the search to that one provider — the
+    // booking page should auto-pick THAT provider's next slot, not the
+    // chain-wide "best" one.
+    const params = new URLSearchParams();
+    if (selectedTreatment?.code) params.set("service", selectedTreatment.code);
+    if (preselectedProviderId) params.set("provider", preselectedProviderId);
+    const qs = params.toString();
+    const url = `/api/public/booking/${token}/best-provider${qs ? `?${qs}` : ""}`;
     let cancelled = false;
     fetch(url)
       .then(async (res) => {
@@ -399,8 +423,16 @@ export default function BookAppointment() {
         if (providerId) setSuggestedProviderId(providerId);
         else setSuggestedProviderId(null);
 
-        // Eligible to auto-pick when nothing manual has been chosen yet.
-        const canAutoPick = !selectedProvider || wasAutoPickedRef.current;
+        // Eligible to auto-pick when nothing manual has been chosen yet, OR
+        // the current provider is the one the URL deep-linked to (in that
+        // case the patient hasn't really "chosen" — they followed a link).
+        const isDeepLinkedProvider = !!(
+          preselectedProviderId &&
+          selectedProvider &&
+          selectedProvider.id === preselectedProviderId
+        );
+        const canAutoPick =
+          !selectedProvider || wasAutoPickedRef.current || isDeepLinkedProvider;
         if (!canAutoPick) return;
         if (!result.provider || !result.nextSlot) return;
 

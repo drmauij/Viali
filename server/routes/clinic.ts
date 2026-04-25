@@ -496,6 +496,12 @@ router.get('/api/public/booking/:bookingToken/best-provider', async (req, res) =
     }
 
     const serviceCode = req.query.service as string | undefined;
+    // Optional provider constraint: when the patient lands via a
+    // ?provider=<id> deep link, the booking page wants the next slot for
+    // THIS provider (not the chain-wide "best" provider). Constrains the
+    // candidate pool to the single ID; if the ID isn't bookable at this
+    // hospital we treat the constraint as "no candidates" and fall through.
+    const providerParam = req.query.provider as string | undefined;
     let service: any = null;
     const settings = hospital.bookingSettings as { slotDurationMinutes?: number } | null;
     const allBookable = await storage.getPublicBookableProvidersByHospital(hospital.id);
@@ -505,6 +511,9 @@ router.get('/api/public/booking/:bookingToken/best-provider', async (req, res) =
       return res.json({ provider: null, service: null });
     }
 
+    const constrain = (ids: string[]): string[] =>
+      providerParam ? ids.filter(id => id === providerParam) : ids;
+
     let best: { providerId: string; date: string; startTime: string } | null = null;
 
     // Step 1: If service code passed, try service-specific providers first
@@ -512,8 +521,8 @@ router.get('/api/public/booking/:bookingToken/best-provider', async (req, res) =
       service = await storage.getServiceByCode(hospital.id, serviceCode);
       if (service) {
         const serviceProviderIds = await storage.getProvidersByServiceId(service.id);
-        const bookableServiceProviders = serviceProviderIds.filter(id =>
-          allBookableIds.includes(id)
+        const bookableServiceProviders = constrain(
+          serviceProviderIds.filter(id => allBookableIds.includes(id))
         );
         if (bookableServiceProviders.length > 0) {
           const slotDuration = service.durationMinutes || settings?.slotDurationMinutes || 30;
@@ -523,10 +532,14 @@ router.get('/api/public/booking/:bookingToken/best-provider', async (req, res) =
       // If service not found, no providers assigned, or no slots → fall through
     }
 
-    // Step 2: Fallback to ALL bookable providers
+    // Step 2: Fallback to ALL bookable providers (still respects the
+    // ?provider= constraint when present).
     if (!best) {
       const slotDuration = settings?.slotDurationMinutes || 30;
-      best = await storage.getBestAvailableProvider(hospital.id, allBookableIds, slotDuration);
+      const candidateIds = constrain(allBookableIds);
+      if (candidateIds.length > 0) {
+        best = await storage.getBestAvailableProvider(hospital.id, candidateIds, slotDuration);
+      }
     }
 
     if (!best) {
