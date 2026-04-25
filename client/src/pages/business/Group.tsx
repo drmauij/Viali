@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 
@@ -98,30 +99,13 @@ export default function BusinessGroup() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24" data-testid="business-group-page">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground mt-1">
-          Chain name and logo for {group.name}.
-        </p>
-      </div>
+      <h1 className="text-2xl md:text-3xl font-bold">Settings</h1>
 
       <ChainSettingsForm
         group={group}
         onSave={(patch) => saveSettings.mutate(patch)}
         saving={saveSettings.isPending}
       />
-
-      <section className="border border-dashed rounded p-4 text-xs text-muted-foreground space-y-1">
-        <div className="font-medium text-foreground">Looking for something else?</div>
-        <ul className="list-disc pl-5 space-y-0.5">
-          <li>Add, edit, or archive clinics → <span className="font-mono">/chain/locations</span></li>
-          <li>Manage chain admins and view staff → <span className="font-mono">/chain/team</span></li>
-          <li>
-            Renaming the group or regenerating the booking token are platform-admin
-            actions; contact Viali support if you need those.
-          </li>
-        </ul>
-      </section>
     </div>
   );
 }
@@ -209,15 +193,8 @@ function ChainSettingsForm({
   };
 
   return (
-    <section className="border rounded p-4 space-y-5 max-w-2xl">
-      <div>
-        <h2 className="text-lg font-medium">Chain settings</h2>
-        <p className="text-xs text-muted-foreground mt-1">
-          Edit your chain's name and logo. Changes apply to every clinic
-          in the chain.
-        </p>
-      </div>
-
+    <Card className="max-w-2xl">
+      <CardContent className="p-4 space-y-5">
       <div className="space-y-2">
         <label className="text-sm font-medium block">Logo</label>
         <div className="flex items-center gap-4">
@@ -316,6 +293,7 @@ function ChainSettingsForm({
           </Button>
         )}
       </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }
