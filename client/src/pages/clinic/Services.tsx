@@ -70,6 +70,13 @@ interface ServiceWithUnit extends ClinicService {
   providerIds?: string[];
 }
 
+interface ServicesCatalogProps {
+  /** When set, the Hospital/Group toggle is hidden and the catalog is locked to this scope. */
+  forceCatalogScope?: "hospital" | "group";
+  /** When true, the unit-filter selector is hidden (chain services have no unit). */
+  hideUnitFilter?: boolean;
+}
+
 interface ServiceCardProps {
   service: ServiceWithUnit;
   isBulkMode: boolean;
@@ -190,7 +197,7 @@ interface BookableProvider {
   user: { firstName: string; lastName: string };
 }
 
-export default function ClinicServices() {
+export function ServicesCatalog({ forceCatalogScope, hideUnitFilter }: ServicesCatalogProps = {}) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -220,12 +227,22 @@ export default function ClinicServices() {
 
   // Catalog scope: "hospital" (local + group union, default) or "group"
   // (group-only view, group_admins only). The scope is URL-backed so the view
-  // is shareable/refresh-safe.
-  const [catalogScope, setCatalogScope] = useState<"hospital" | "group">(() => {
+  // is shareable/refresh-safe. When forceCatalogScope is provided the toggle
+  // is hidden and the scope is locked to that value.
+  const [catalogScopeState, setCatalogScopeState] = useState<"hospital" | "group">(() => {
+    if (forceCatalogScope) return forceCatalogScope;
     const params = new URLSearchParams(window.location.search);
     return params.get("scope") === "group" ? "group" : "hospital";
   });
+  const catalogScope = forceCatalogScope ?? catalogScopeState;
+  // When forced, ignore any external call to setCatalogScope (e.g. the
+  // defensive useEffect below). Cast to keep call-sites typed correctly.
+  const setCatalogScope: typeof setCatalogScopeState = forceCatalogScope
+    ? (() => {}) as typeof setCatalogScopeState
+    : setCatalogScopeState;
   useEffect(() => {
+    // Skip URL sync when scope is externally forced (embedded catalog).
+    if (forceCatalogScope) return;
     const params = new URLSearchParams(window.location.search);
     const current = params.get("scope");
     if (catalogScope === "group" && current !== "group") {
@@ -236,7 +253,7 @@ export default function ClinicServices() {
       const qs = params.toString();
       window.history.replaceState({}, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
     }
-  }, [catalogScope]);
+  }, [catalogScope, forceCatalogScope]);
 
   // Folder UI state (inline vertical pattern, like /inventory)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -390,9 +407,11 @@ export default function ClinicServices() {
     mutationFn: async (data: { name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean; code: string | null; serviceGroups: string[]; providerIds: string[]; scope: "hospital" | "group" }) => {
       // For group-scope creates, skip unitId — the server rejects/strips it
       // anyway since group services aren't unit-bound.
-      const payload = data.scope === "group"
-        ? { ...data }
-        : { ...data, unitId };
+      // When forceCatalogScope is set, override whatever the form says.
+      const effectiveScope = forceCatalogScope ?? data.scope;
+      const payload = effectiveScope === "group"
+        ? { ...data, scope: "group" as const }
+        : { ...data, scope: "hospital" as const, unitId };
       return apiRequest('POST', `/api/clinic/${hospitalId}/services`, payload);
     },
     onSuccess: () => {
@@ -674,7 +693,8 @@ export default function ClinicServices() {
       providerIds: [],
       // Default scope mirrors the current view — if the user is looking at
       // the group catalog they almost certainly want to create a group service.
-      scope: catalogScope,
+      // When forceCatalogScope is set, honour it so new dialogs default correctly.
+      scope: forceCatalogScope ?? catalogScope,
     });
   };
 
@@ -929,7 +949,7 @@ export default function ClinicServices() {
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-    <div className="p-4 pb-24">
+    <div className="space-y-6" data-testid="services-catalog">
       <div className="space-y-4">
       {/* Title + primary actions */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1054,8 +1074,9 @@ export default function ClinicServices() {
       {/* Catalog scope selector — only visible to group_admins of a grouped
           hospital. Hospital admins still SEE group services inline on the
           "Hospital catalog" view; this toggle just lets chain-level admins
-          drill into the group-only management view. */}
-      {canUseGroupScope && (
+          drill into the group-only management view.
+          Hidden when forceCatalogScope is set (scope is externally locked). */}
+      {!forceCatalogScope && canUseGroupScope && (
         <div>
           <ToggleGroup
             type="single"
@@ -1297,9 +1318,9 @@ export default function ClinicServices() {
                   </TooltipProvider>
                 ) : (
                   <RadioGroup
-                    value={formData.scope}
+                    value={forceCatalogScope ?? formData.scope}
                     onValueChange={(v) => {
-                      if (v === "hospital" || v === "group") {
+                      if (!forceCatalogScope && (v === "hospital" || v === "group")) {
                         setFormData({ ...formData, scope: v });
                       }
                     }}
@@ -1307,7 +1328,7 @@ export default function ClinicServices() {
                     data-testid="radio-service-scope"
                   >
                     <div className="flex items-center gap-2">
-                      <RadioGroupItem value="hospital" id="scope-hospital" data-testid="radio-scope-hospital" />
+                      <RadioGroupItem value="hospital" id="scope-hospital" disabled={!!forceCatalogScope} data-testid="radio-scope-hospital" />
                       <Label htmlFor="scope-hospital" className="text-sm cursor-pointer">
                         {t('clinic.services.scopeThisClinic', 'This clinic')}
                       </Label>
@@ -1316,12 +1337,12 @@ export default function ClinicServices() {
                       <RadioGroupItem
                         value="group"
                         id="scope-group"
-                        disabled={!canUseGroupScope}
+                        disabled={!!forceCatalogScope || !canUseGroupScope}
                         data-testid="radio-scope-group"
                       />
                       <Label
                         htmlFor="scope-group"
-                        className={`text-sm cursor-pointer ${!canUseGroupScope ? 'text-muted-foreground' : ''}`}
+                        className={`text-sm cursor-pointer ${(!forceCatalogScope && !canUseGroupScope) ? 'text-muted-foreground' : ''}`}
                       >
                         {t('clinic.services.scopeGroupCatalog', 'Group catalog')}
                         {groupInfo?.groupName ? ` (${groupInfo.groupName})` : ''}
@@ -1759,5 +1780,13 @@ export default function ClinicServices() {
       ) : null}
     </DragOverlay>
     </DndContext>
+  );
+}
+
+export default function ServicesPage() {
+  return (
+    <div className="p-4 md:p-6 space-y-6 pb-24" data-testid="services-page">
+      <ServicesCatalog />
+    </div>
   );
 }
