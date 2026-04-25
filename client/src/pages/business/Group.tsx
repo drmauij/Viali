@@ -193,7 +193,7 @@ function ChainSettingsForm({
   };
 
   return (
-    <Card className="max-w-2xl">
+    <Card>
       <CardContent className="p-4 space-y-5">
       <div className="space-y-2">
         <label className="text-sm font-medium block">Logo</label>
