@@ -22,7 +22,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Pencil, Archive } from "lucide-react";
 
 type ClinicKind = "aesthetic" | "surgical" | "mixed";
-type LicenseType = "free" | "basic" | "test";
 
 interface Location {
   hospitalId: string;
@@ -30,17 +29,11 @@ interface Location {
   address: string | null;
   timezone: string | null;
   currency: string | null;
-  licenseType: LicenseType;
-  pricePerRecord: string | null;
   clinicKind: ClinicKind;
 }
 
 interface LocationsResponse {
   locations: Location[];
-  groupDefaults: {
-    defaultLicenseType: LicenseType | null;
-    defaultPricePerRecord: string | null;
-  };
 }
 
 export default function ChainLocations() {
@@ -113,70 +106,58 @@ export default function ChainLocations() {
       {isLoading ? (
         <div className="p-8 text-center text-muted-foreground">{t("common.loading", "Loading...")}</div>
       ) : (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{t("chain.locations.tableTitle", "Locations in this chain")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("chain.locations.name", "Name")}</TableHead>
-                    <TableHead>{t("chain.locations.address", "Address")}</TableHead>
-                    <TableHead>{t("chain.locations.kind", "Kind")}</TableHead>
-                    <TableHead>{t("chain.locations.plan", "Plan")}</TableHead>
-                    <TableHead>{t("chain.locations.pricePerRecord", "Price / record")}</TableHead>
-                    <TableHead className="text-right"></TableHead>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t("chain.locations.tableTitle", "Locations in this chain")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("chain.locations.name", "Name")}</TableHead>
+                  <TableHead>{t("chain.locations.address", "Address")}</TableHead>
+                  <TableHead>{t("chain.locations.kind", "Kind")}</TableHead>
+                  <TableHead className="text-right"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(data?.locations ?? []).map((loc) => (
+                  <TableRow
+                    key={loc.hospitalId}
+                    className="cursor-pointer hover:bg-muted/50"
+                    data-testid={`row-location-${loc.hospitalId}`}
+                  >
+                    <TableCell className="font-medium" onClick={() => drillInto(loc.hospitalId)}>{loc.hospitalName}</TableCell>
+                    <TableCell className="text-muted-foreground" onClick={() => drillInto(loc.hospitalId)}>{loc.address ?? "—"}</TableCell>
+                    <TableCell onClick={() => drillInto(loc.hospitalId)}>{loc.clinicKind}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => { e.stopPropagation(); setEditing(loc); }}
+                        data-testid={`edit-location-${loc.hospitalId}`}
+                        title={t("common.edit", "Edit")}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={(e) => { e.stopPropagation(); setArchiving(loc); }}
+                        data-testid={`archive-location-${loc.hospitalId}`}
+                        title={t("chain.locations.archive", "Archive")}
+                      >
+                        <Archive className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(data?.locations ?? []).map((loc) => (
-                    <TableRow
-                      key={loc.hospitalId}
-                      className="cursor-pointer hover:bg-muted/50"
-                      data-testid={`row-location-${loc.hospitalId}`}
-                    >
-                      <TableCell className="font-medium" onClick={() => drillInto(loc.hospitalId)}>{loc.hospitalName}</TableCell>
-                      <TableCell className="text-muted-foreground" onClick={() => drillInto(loc.hospitalId)}>{loc.address ?? "—"}</TableCell>
-                      <TableCell onClick={() => drillInto(loc.hospitalId)}>{loc.clinicKind}</TableCell>
-                      <TableCell onClick={() => drillInto(loc.hospitalId)}>{loc.licenseType}</TableCell>
-                      <TableCell onClick={() => drillInto(loc.hospitalId)}>{loc.pricePerRecord ?? "—"}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={(e) => { e.stopPropagation(); setEditing(loc); }}
-                          data-testid={`edit-location-${loc.hospitalId}`}
-                          title={t("common.edit", "Edit")}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          onClick={(e) => { e.stopPropagation(); setArchiving(loc); }}
-                          data-testid={`archive-location-${loc.hospitalId}`}
-                          title={t("chain.locations.archive", "Archive")}
-                        >
-                          <Archive className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          <GroupPlanPanel
-            groupId={groupId}
-            defaults={data?.groupDefaults ?? { defaultLicenseType: null, defaultPricePerRecord: null }}
-            onSaved={invalidate}
-          />
-        </>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
 
       {editing && (
@@ -316,8 +297,6 @@ function EditLocationDialog({ groupId, location, onClose, onSuccess }: { groupId
     name: location.hospitalName,
     address: location.address ?? "",
     clinicKind: location.clinicKind,
-    licenseType: location.licenseType,
-    pricePerRecord: location.pricePerRecord ?? "",
   });
   const mutation = useMutation({
     mutationFn: () =>
@@ -325,8 +304,6 @@ function EditLocationDialog({ groupId, location, onClose, onSuccess }: { groupId
         name: form.name,
         address: form.address || null,
         clinicKind: form.clinicKind,
-        licenseType: form.licenseType,
-        pricePerRecord: form.pricePerRecord || null,
       }).then((r) => r.json()),
     onSuccess,
     onError: (e: any) =>
@@ -357,21 +334,6 @@ function EditLocationDialog({ groupId, location, onClose, onSuccess }: { groupId
             </SelectContent>
           </Select>
         </div>
-        <div>
-          <Label>{t("chain.locations.plan", "Plan")}</Label>
-          <Select value={form.licenseType} onValueChange={(v) => setForm({ ...form, licenseType: v as LicenseType })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="free">free</SelectItem>
-              <SelectItem value="basic">basic</SelectItem>
-              <SelectItem value="test">test</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>{t("chain.locations.pricePerRecord", "Price / record")}</Label>
-          <Input value={form.pricePerRecord} onChange={(e) => setForm({ ...form, pricePerRecord: e.target.value })} placeholder="e.g. 5.00" />
-        </div>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>{t("common.cancel", "Cancel")}</Button>
@@ -383,77 +345,5 @@ function EditLocationDialog({ groupId, location, onClose, onSuccess }: { groupId
         </Button>
       </DialogFooter>
     </DialogContent>
-  );
-}
-
-function GroupPlanPanel({
-  groupId,
-  defaults,
-  onSaved,
-}: {
-  groupId: string;
-  defaults: LocationsResponse["groupDefaults"];
-  onSaved: () => void;
-}) {
-  const { t } = useTranslation();
-  const { toast } = useToast();
-  const [licenseType, setLicenseType] = useState<LicenseType>(defaults.defaultLicenseType ?? "test");
-  const [pricePerRecord, setPricePerRecord] = useState(defaults.defaultPricePerRecord ?? "");
-  const [cascade, setCascade] = useState(false);
-  const mutation = useMutation({
-    mutationFn: () =>
-      apiRequest("PATCH", `/api/chain/${groupId}/billing`, {
-        defaultLicenseType: licenseType,
-        defaultPricePerRecord: pricePerRecord || null,
-        cascade,
-      }),
-    onSuccess: () => {
-      onSaved();
-      toast({ title: t("chain.locations.planSavedToast", "Plan defaults saved") });
-    },
-    onError: (e: any) =>
-      toast({ title: t("common.error", "Error"), description: e?.message, variant: "destructive" }),
-  });
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{t("chain.locations.groupPlanTitle", "Group plan defaults")}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          {t("chain.locations.groupPlanHelp", "Defaults used for new clinics. Toggle Cascade to also overwrite all existing members.")}
-        </p>
-        <div className="flex items-end gap-3 flex-wrap">
-          <div>
-            <Label>{t("chain.locations.defaultPlan", "Default plan")}</Label>
-            <Select value={licenseType} onValueChange={(v) => setLicenseType(v as LicenseType)}>
-              <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="free">free</SelectItem>
-                <SelectItem value="basic">basic</SelectItem>
-                <SelectItem value="test">test</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>{t("chain.locations.defaultPrice", "Default price / record")}</Label>
-            <Input className="w-[160px]" value={pricePerRecord} onChange={(e) => setPricePerRecord(e.target.value)} />
-          </div>
-          <div className="flex items-center gap-2 mb-1">
-            <input
-              type="checkbox"
-              id="cascade"
-              checked={cascade}
-              onChange={(e) => setCascade(e.target.checked)}
-              data-testid="checkbox-cascade"
-            />
-            <Label htmlFor="cascade" className="cursor-pointer">{t("chain.locations.cascade", "Cascade to existing clinics")}</Label>
-          </div>
-          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending} data-testid="button-save-plan">
-            {t("common.save", "Save")}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
   );
 }

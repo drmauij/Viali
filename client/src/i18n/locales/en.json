@@ -6091,8 +6091,6 @@
       "name": "Name",
       "address": "Address",
       "kind": "Kind",
-      "plan": "Plan",
-      "pricePerRecord": "Price / record",
       "add": "Add clinic",
       "addTitle": "Add clinic",
       "addDescription": "Create a new clinic in this chain.",
@@ -6105,13 +6103,7 @@
       "archive": "Archive",
       "archiveTitle": "Archive clinic?",
       "archiveBody": "{{name}} will be detached from the chain. The clinic data stays intact but you'll lose chain admin access there.",
-      "archivedToast": "Clinic archived",
-      "groupPlanTitle": "Group plan defaults",
-      "groupPlanHelp": "Defaults used for new clinics. Toggle Cascade to also overwrite all existing members.",
-      "defaultPlan": "Default plan",
-      "defaultPrice": "Default price / record",
-      "cascade": "Cascade to existing clinics",
-      "planSavedToast": "Plan defaults saved"
+      "archivedToast": "Clinic archived"
     },
     "team": {
       "title": "Team",

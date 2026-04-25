@@ -6187,8 +6187,6 @@
       "name": "Name",
       "address": "Adresse",
       "kind": "Typ",
-      "plan": "Plan",
-      "pricePerRecord": "Preis / Record",
       "add": "Klinik hinzufügen",
       "addTitle": "Klinik hinzufügen",
       "addDescription": "Eine neue Klinik in dieser Kette erstellen.",
@@ -6201,13 +6199,7 @@
       "archive": "Archivieren",
       "archiveTitle": "Klinik archivieren?",
       "archiveBody": "{{name}} wird von der Kette getrennt. Klinikdaten bleiben erhalten, aber Sie verlieren den Ketten-Admin-Zugriff dort.",
-      "archivedToast": "Klinik archiviert",
-      "groupPlanTitle": "Gruppen-Plan-Vorgaben",
-      "groupPlanHelp": "Vorgaben für neue Kliniken. Aktivieren Sie Kaskade, um auch bestehende Mitglieder zu überschreiben.",
-      "defaultPlan": "Standardplan",
-      "defaultPrice": "Standardpreis / Record",
-      "cascade": "Auf bestehende Kliniken anwenden",
-      "planSavedToast": "Plan-Vorgaben gespeichert"
+      "archivedToast": "Klinik archiviert"
     },
     "team": {
       "title": "Team",
