@@ -238,6 +238,8 @@ export default function BottomNav() {
     if (activeModule === "chain") {
       return [
         { id: "chain-overview", icon: "fas fa-chart-pie", label: t('bottomNav.chain.overview', 'Overview'), path: "/chain" },
+        { id: "chain-marketing", icon: "fas fa-bullhorn", label: t('bottomNav.chain.marketing', 'Marketing'), path: "/chain/marketing" },
+        { id: "chain-campaigns", icon: "fas fa-paper-plane", label: t('bottomNav.chain.campaigns', 'Campaigns'), path: "/chain/campaigns" },
         { id: "chain-admin", icon: "fas fa-cog", label: t('bottomNav.chain.admin', 'Settings'), path: "/chain/admin" },
       ];
     }

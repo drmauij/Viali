@@ -95,6 +95,9 @@ const FlowCreate = React.lazy(() => import("@/pages/business/FlowCreate"));
 const FlowMetrics = React.lazy(() => import("@/pages/business/FlowMetrics"));
 const BusinessGroup = React.lazy(() => import("@/pages/business/Group"));
 const ChainCockpit = React.lazy(() => import("@/pages/chain/Cockpit"));
+const ChainMarketing = React.lazy(() => import("@/pages/chain/Marketing"));
+const ChainCampaigns = React.lazy(() => import("@/pages/chain/Campaigns"));
+const CampaignCreate = React.lazy(() => import("@/pages/chain/CampaignCreate"));
 
 function PageLoader() {
   return (
@@ -326,6 +329,10 @@ function Router() {
 
               {/* Chain Module — group-admin operator surface for a single chain. */}
               <Route path="/chain">{() => <ProtectedRoute requireChain><ChainCockpit /></ProtectedRoute>}</Route>
+              <Route path="/chain/marketing">{() => <ProtectedRoute requireChain><ChainMarketing /></ProtectedRoute>}</Route>
+              <Route path="/chain/campaigns">{() => <ProtectedRoute requireChain><ChainCampaigns /></ProtectedRoute>}</Route>
+              <Route path="/chain/campaigns/new">{() => <ProtectedRoute requireChain><CampaignCreate /></ProtectedRoute>}</Route>
+              <Route path="/chain/campaigns/:id">{(params) => <ProtectedRoute requireChain><CampaignCreate editId={params.id} /></ProtectedRoute>}</Route>
               <Route path="/chain/admin">{() => <ProtectedRoute requireChain><BusinessGroup /></ProtectedRoute>}</Route>
               {/* Legacy /admin/chain and /business/group paths — redirect into Chain
                   module. Phase A ships this component unchanged at its new home. */}

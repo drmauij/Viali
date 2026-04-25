@@ -383,6 +383,8 @@
     },
     "chain": {
       "overview": "Overview",
+      "marketing": "Marketing",
+      "campaigns": "Campaigns",
       "admin": "Settings"
     },
     "platform": {

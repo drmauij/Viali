@@ -464,6 +464,8 @@
     },
     "chain": {
       "overview": "Übersicht",
+      "marketing": "Marketing",
+      "campaigns": "Kampagnen",
       "admin": "Einstellungen"
     },
     "platform": {
