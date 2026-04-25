@@ -2,6 +2,8 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import KpiStrip from "./overview/KpiStrip";
 import LocationsLeaderboard from "./overview/LocationsLeaderboard";
+import SourceLocationHeatmap from "./overview/SourceLocationHeatmap";
+import SourceMixDonut from "./overview/SourceMixDonut";
 
 interface OverviewResponse {
   kpis: any;
@@ -57,11 +59,13 @@ export default function ChainFunnelsOverview({ groupId, hospitalIds, range }: Pr
     <div className="space-y-6" data-testid="chain-funnels-overview">
       <KpiStrip kpis={data.kpis} currency={data.currency} />
       <LocationsLeaderboard rows={data.leaderboard} currency={data.currency} />
-      {/* Source × Location heatmap, source mix donuts (Task 10) */}
+      <SourceLocationHeatmap data={data.heatmap} />
+      <SourceMixDonut leads={data.sourceMix.leads} referrals={data.sourceMix.referrals} />
+      {/* Movers + AI insights — Task 11 */}
       <div className="text-xs text-muted-foreground p-6 text-center border border-dashed rounded">
         {t(
-          "chain.funnels.heatmapComingSoon",
-          "Source × Location heatmap, source mix, movers, and AI insights ship in the next steps.",
+          "chain.funnels.moversComingSoon",
+          "Movers and AI insights ship in the next step.",
         )}
       </div>
     </div>
