@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -24,34 +24,69 @@ type Tab = "overview" | "leads" | "events" | "conversion" | "ads";
 type Range = "30d" | "90d" | "365d";
 
 /**
- * Reads filter state (range, hospitalIds, tab) from the URL query string and
- * exposes a setter that updates the URL via wouter's `navigate(..., { replace })`.
+ * Filter state lives in React state (so toggling re-renders) and is mirrored
+ * to the URL as a side effect for refresh/share. Initial state is read once
+ * from the URL on mount; subsequent URL writes are fire-and-forget — wouter's
+ * `useLocation()` only tracks pathname changes, so we'd never re-render if
+ * URL were the source of truth.
  */
 function useUrlState() {
   const [location, navigate] = useLocation();
-  // wouter doesn't surface the query string directly; read from window.
-  const search = typeof window !== "undefined" ? window.location.search : "";
-  const params = new URLSearchParams(search);
-  const range = (params.get("range") as Range) || "30d";
-  const hospitalIdsRaw = params.get("hospitalIds") || "";
-  const hospitalIds = hospitalIdsRaw === "" ? [] : hospitalIdsRaw.split(",").filter(Boolean);
-  const tab = (params.get("tab") as Tab) || "overview";
+
+  const initial = useMemo(() => {
+    const search = typeof window !== "undefined" ? window.location.search : "";
+    const params = new URLSearchParams(search);
+    const range = (params.get("range") as Range) || "30d";
+    const tab = (params.get("tab") as Tab) || "overview";
+    const raw = params.get("hospitalIds");
+    return {
+      range,
+      tab,
+      hospitalIds: raw === null ? null : raw === "" ? [] : raw.split(",").filter(Boolean),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [range, setRange] = useState<Range>(initial.range);
+  const [tab, setTab] = useState<Tab>(initial.tab);
+  // null = "no hospitalIds param yet" (i.e. first load, awaiting auto-populate);
+  // [] = user deliberately picked zero; [...ids] = explicit selection.
+  const [hospitalIdsState, setHospitalIdsState] = useState<string[] | null>(initial.hospitalIds);
+  const hospitalIds = hospitalIdsState ?? [];
+
+  // Mirror state → URL (replace, no scroll). Skipped on first run when initial
+  // state already matched the URL.
+  const isFirstSync = useRef(true);
+  useEffect(() => {
+    if (isFirstSync.current) {
+      isFirstSync.current = false;
+      return;
+    }
+    const merged = new URLSearchParams(window.location.search);
+    merged.set("range", range);
+    merged.set("tab", tab);
+    if (hospitalIdsState === null) merged.delete("hospitalIds");
+    else if (hospitalIdsState.length === 0) merged.set("hospitalIds", "");
+    else merged.set("hospitalIds", hospitalIdsState.join(","));
+    const path = location.split("?")[0];
+    navigate(`${path}?${merged.toString()}`, { replace: true });
+  }, [range, tab, hospitalIdsState, location, navigate]);
 
   const setQuery = (
     next: Partial<{ range: Range; hospitalIds: string[]; tab: Tab }>,
   ) => {
-    const merged = new URLSearchParams(window.location.search);
-    if (next.range !== undefined) merged.set("range", next.range);
-    if (next.hospitalIds !== undefined) {
-      if (next.hospitalIds.length === 0) merged.delete("hospitalIds");
-      else merged.set("hospitalIds", next.hospitalIds.join(","));
-    }
-    if (next.tab !== undefined) merged.set("tab", next.tab);
-    const path = location.split("?")[0];
-    navigate(`${path}?${merged.toString()}`, { replace: true });
+    if (next.range !== undefined) setRange(next.range);
+    if (next.tab !== undefined) setTab(next.tab);
+    if (next.hospitalIds !== undefined) setHospitalIdsState(next.hospitalIds);
   };
 
-  return { range, hospitalIds, tab, setQuery };
+  return {
+    range,
+    hospitalIds,
+    tab,
+    setQuery,
+    isHospitalIdsUnset: hospitalIdsState === null,
+  };
 }
 
 function rangeToDates(range: "30d" | "90d" | "365d"): { from: string; to: string } {
@@ -78,7 +113,7 @@ export default function ChainFunnels() {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const groupId = (activeHospital as any)?.groupId ?? null;
-  const { range, hospitalIds, tab, setQuery } = useUrlState();
+  const { range, hospitalIds, tab, setQuery, isHospitalIdsUnset } = useUrlState();
 
   // Fetch location list to support auto-populate on first load
   const { data: locationsData } = useQuery<{
@@ -100,18 +135,16 @@ export default function ChainFunnels() {
   });
   const currency = overviewData?.currency || "CHF";
 
-  // Auto-populate hospitalIds exactly once on first locations-data arrival.
-  // Using a ref so this never re-fires after the user deliberately clears the selection.
+  // Auto-populate hospitalIds exactly once on first locations-data arrival,
+  // ONLY if the URL had no hospitalIds param at all on mount. The
+  // `isHospitalIdsUnset` sentinel from useUrlState distinguishes "no param
+  // yet" (auto-populate) from "explicit zero" (user deselected, respect it).
   const bootstrappedRef = useRef(false);
   useEffect(() => {
     if (bootstrappedRef.current) return;
     if (!locationsData?.locations) return;
     bootstrappedRef.current = true;
-
-    // Only auto-select when the URL had no hospitalIds at all (first-load default).
-    // Subsequent zero-states are user-deliberate and must not be overridden.
-    const params = new URLSearchParams(window.location.search);
-    if (!params.has("hospitalIds") && locationsData.locations.length > 0) {
+    if (isHospitalIdsUnset && locationsData.locations.length > 0) {
       setQuery({ hospitalIds: locationsData.locations.map((l) => l.hospitalId) });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
