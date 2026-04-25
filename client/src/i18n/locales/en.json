@@ -6063,6 +6063,7 @@
     "campaigns": {
       "title": "Chain campaigns",
       "new": "New campaign",
+      "edit": "Edit campaign",
       "noGroup": "This clinic is not part of a chain.",
       "empty": "No campaigns yet.",
       "audience": "Audience",

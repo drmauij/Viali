@@ -6159,6 +6159,7 @@
     "campaigns": {
       "title": "Ketten-Kampagnen",
       "new": "Neue Kampagne",
+      "edit": "Kampagne bearbeiten",
       "noGroup": "Diese Klinik gehört zu keiner Kette.",
       "empty": "Noch keine Kampagnen.",
       "audience": "Zielgruppe",
