@@ -52,6 +52,116 @@ async function isChainAdminForGroup(req: any, res: Response, next: any) {
   }
 }
 
+chainRouter.get('/api/chain/:groupId/marketing', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const rangeDays = parseInt((req.query.range as string)?.replace('d', '') || '30', 10);
+    const start = new Date();
+    start.setDate(start.getDate() - rangeDays);
+    const startIso = start.toISOString();
+
+    // Hospitals in the group
+    const groupHospitals = await db
+      .select({ id: hospitals.id, name: hospitals.name })
+      .from(hospitals)
+      .where(eq(hospitals.groupId, groupId));
+    const hospitalIds = groupHospitals.map(h => h.id);
+    if (hospitalIds.length === 0) {
+      return res.json({ sources: [], locations: [], alerts: [] });
+    }
+    const idList = sql.join(hospitalIds.map(id => sql`${id}`), sql`, `);
+
+    // Source × Location cells + conversion (first-visit = appointment with status completed|confirmed)
+    const cells = await db.execute<{
+      hospital_id: string;
+      source: string;
+      leads: string;
+      first_visits: string;
+    }>(sql`
+      SELECT
+        l.hospital_id,
+        COALESCE(l.source, 'unknown') AS source,
+        COUNT(*) AS leads,
+        COUNT(*) FILTER (
+          WHERE l.appointment_id IN (
+            SELECT id FROM clinic_appointments WHERE status IN ('completed', 'confirmed')
+          )
+        ) AS first_visits
+      FROM leads l
+      WHERE l.hospital_id IN (${idList})
+        AND l.created_at >= ${startIso}
+      GROUP BY l.hospital_id, source
+    `);
+
+    // Reshape: sources[].byLocation[] with per-source totals
+    type Cell = { hospitalId: string; hospitalName: string; leads: number; firstVisits: number };
+    const sourceMap = new Map<string, { name: string; byLocation: Cell[]; totals: { leads: number; firstVisits: number; conversionPct: number } }>();
+    const hospitalById = new Map(groupHospitals.map(h => [h.id, h.name]));
+
+    for (const r of cells.rows as any[]) {
+      const source = r.source as string;
+      const cell: Cell = {
+        hospitalId: r.hospital_id,
+        hospitalName: hospitalById.get(r.hospital_id) ?? "Unknown",
+        leads: parseInt(r.leads) || 0,
+        firstVisits: parseInt(r.first_visits) || 0,
+      };
+      if (!sourceMap.has(source)) {
+        sourceMap.set(source, { name: source, byLocation: [], totals: { leads: 0, firstVisits: 0, conversionPct: 0 } });
+      }
+      const entry = sourceMap.get(source)!;
+      entry.byLocation.push(cell);
+      entry.totals.leads += cell.leads;
+      entry.totals.firstVisits += cell.firstVisits;
+    }
+
+    // Compute conversion per source
+    for (const entry of sourceMap.values()) {
+      entry.totals.conversionPct = entry.totals.leads > 0
+        ? Number(((entry.totals.firstVisits / entry.totals.leads) * 100).toFixed(1))
+        : 0;
+    }
+
+    // Alerts: flag sources with lead volume dropping ≥ 20% vs prior period
+    const prevStart = new Date();
+    prevStart.setDate(prevStart.getDate() - rangeDays * 2);
+    const prevStartIso = prevStart.toISOString();
+    const prevCells = await db.execute<{ source: string; leads: string }>(sql`
+      SELECT COALESCE(l.source, 'unknown') AS source, COUNT(*) AS leads
+      FROM leads l
+      WHERE l.hospital_id IN (${idList})
+        AND l.created_at >= ${prevStartIso}
+        AND l.created_at < ${startIso}
+      GROUP BY source
+    `);
+    const prevBySource = new Map((prevCells.rows as any[]).map(r => [r.source, parseInt(r.leads) || 0]));
+    const alerts: Array<{ kind: "source_drop"; source: string; currentLeads: number; prevLeads: number; deltaPct: number }> = [];
+    for (const entry of sourceMap.values()) {
+      const prev = prevBySource.get(entry.name) || 0;
+      if (prev === 0) continue;
+      const deltaPct = ((entry.totals.leads - prev) / prev) * 100;
+      if (deltaPct <= -20) {
+        alerts.push({
+          kind: "source_drop",
+          source: entry.name,
+          currentLeads: entry.totals.leads,
+          prevLeads: prev,
+          deltaPct: Number(deltaPct.toFixed(1)),
+        });
+      }
+    }
+
+    res.json({
+      sources: Array.from(sourceMap.values()).sort((a, b) => b.totals.leads - a.totals.leads),
+      locations: groupHospitals.map(h => ({ hospitalId: h.id, hospitalName: h.name })),
+      alerts,
+    });
+  } catch (error) {
+    logger.error("Error fetching chain marketing:", error);
+    res.status(500).json({ message: "Failed to fetch chain marketing" });
+  }
+});
+
 chainRouter.get(
   "/api/chain/:groupId/overview",
   isAuthenticated,
