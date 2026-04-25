@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Users, Radio, MessageSquare, Tag, Send, Maximize2, Minimize2, Sparkles,
-  FileText, Columns2, Loader2,
+  FileText, Columns2, Loader2, MapPin,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import SegmentBuilder, { type SegmentFilter } from "@/components/flows/SegmentBuilder";
@@ -19,8 +19,8 @@ import VariantTabs, { type Variant } from "@/components/flows/VariantTabs";
 import AbConfigSection from "@/components/flows/AbConfigSection";
 import { BookingSection, type SectionStatus } from "@/components/booking/BookingSection";
 
-type Section = "segment" | "channel" | "compose" | "offer" | "review";
-const SECTION_ORDER: Section[] = ["segment", "channel", "compose", "offer", "review"];
+type Section = "audience" | "segment" | "channel" | "compose" | "offer" | "review";
+const SECTION_ORDER: Section[] = ["audience", "segment", "channel", "compose", "offer", "review"];
 
 /**
  * Payload shared by save-draft and send. Audience (hospital scope) is NOT
@@ -106,10 +106,11 @@ export default function FlowForm({
   const isDark = theme === "dark";
 
   const [name, setName] = useState(t("flows.newCampaign", "New Campaign"));
-  const [activeSection, setActiveSection] = useState<Section>("segment");
+  const [activeSection, setActiveSection] = useState<Section>(audienceSlot ? "audience" : "segment");
   const [completedSections, setCompletedSections] = useState<Set<Section>>(new Set());
 
   const sectionRefs = useRef<Record<Section, HTMLDivElement | null>>({
+    audience: null,
     segment: null,
     channel: null,
     compose: null,
@@ -199,6 +200,10 @@ export default function FlowForm({
 
       const done = new Set<Section>();
       let nextStep: Section = "channel";
+      // Edit mode: every step before "channel" is implicitly complete (the
+      // flow already has a name, audience, and segment filters from when it
+      // was first created).
+      if (audienceSlot) done.add("audience");
       done.add("segment");
       if (ef.channel) {
         done.add("channel");
@@ -444,9 +449,39 @@ export default function FlowForm({
         />
       </div>
 
-      {/* Audience slot — chain pages inject MultiLocationSelector here.
-          Clinic pages pass null and this collapses. */}
-      {audienceSlot && <div data-testid="flow-form-audience-slot">{audienceSlot}</div>}
+      {/* 0 — Audience (chain pages only). The slot content is rendered as a
+          proper BookingSection step with summary + Next button so it lines
+          up visually with Segment / Channel / Compose / etc. Clinic pages
+          pass `audienceSlot={null}` and the whole step is hidden. */}
+      {audienceSlot && (
+        <BookingSection
+          ref={(el) => { sectionRefs.current.audience = el; }}
+          status={sectionStatus("audience")}
+          isDark={isDark}
+          summary={{
+            icon: <MapPin className="h-4 w-4 text-muted-foreground" />,
+            label: t("flows.audience.label", "Target locations"),
+            value: audienceHospitalIds && audienceHospitalIds.length > 0
+              ? t("flows.audience.summaryCount", "{{n}} location(s) selected", { n: audienceHospitalIds.length })
+              : t("flows.audience.summaryNone", "No locations selected"),
+            onChange: () => goTo("audience"),
+          }}
+        >
+          <div className="space-y-4" data-testid="flow-form-audience-slot">
+            <h3 className="font-semibold">{t("flows.audience.stepTitle", "Choose target locations")}</h3>
+            {audienceSlot}
+            <div className="flex justify-end">
+              <Button
+                onClick={() => completeAndGoTo("audience", "segment")}
+                disabled={!audienceHospitalIds || audienceHospitalIds.length === 0}
+                data-testid="button-audience-next"
+              >
+                {t("common.next", "Next")}
+              </Button>
+            </div>
+          </div>
+        </BookingSection>
+      )}
 
       {/* 1 — Segment */}
       <BookingSection

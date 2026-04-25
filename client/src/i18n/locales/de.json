@@ -8392,7 +8392,10 @@
       "all": "Alle Standorte",
       "selected": "Ausgewählte Standorte",
       "total": "Insgesamt: {{n}} Standort(e)",
-      "noLocations": "Keine Standorte in dieser Kette verfügbar."
+      "noLocations": "Keine Standorte in dieser Kette verfügbar.",
+      "stepTitle": "Ziel-Standorte auswählen",
+      "summaryCount": "{{n}} Standort(e) ausgewählt",
+      "summaryNone": "Keine Standorte ausgewählt"
     }
   }
 }
