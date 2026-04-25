@@ -8363,13 +8363,13 @@
   "flows": {
     "audience": {
       "label": "Target locations",
-      "all": "All locations",
-      "selected": "Selected locations",
       "total": "Total: {{n}} location(s)",
       "noLocations": "No locations available in this chain.",
       "stepTitle": "Choose target locations",
       "summaryCount": "{{n}} location(s) selected",
-      "summaryNone": "No locations selected"
+      "summaryNone": "No locations selected",
+      "selectAll": "Select all",
+      "deselectAll": "Deselect all"
     }
   }
 }
