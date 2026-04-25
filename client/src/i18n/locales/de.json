@@ -6144,6 +6144,17 @@
       "topItems": "Top-Posten",
       "topTreatments": "Top-Behandlungen",
       "topSurgeries": "Top-Operationen"
+    },
+    "marketing": {
+      "title": "Ketten-Marketing",
+      "noGroup": "Diese Klinik gehört zu keiner Kette.",
+      "heatmap": "Quelle × Standort — Leads",
+      "source": "Quelle",
+      "total": "Gesamt",
+      "conv": "Konv",
+      "empty": "Keine Leads in diesem Zeitraum.",
+      "alertsTitle": "Warnungen",
+      "sourceDrop": "{{source}} Leads gesunken um {{pct}}% ({{prev}} → {{current}})"
     }
   },
   "leads": {

@@ -6048,6 +6048,17 @@
       "topItems": "Top items",
       "topTreatments": "Top treatments",
       "topSurgeries": "Top surgeries"
+    },
+    "marketing": {
+      "title": "Chain marketing",
+      "noGroup": "This clinic is not part of a chain.",
+      "heatmap": "Source × Location — leads",
+      "source": "Source",
+      "total": "Total",
+      "conv": "Conv",
+      "empty": "No leads recorded in this period.",
+      "alertsTitle": "Alerts",
+      "sourceDrop": "{{source}} leads dropped {{pct}}% ({{prev}} → {{current}})"
     }
   },
   "leads": {
