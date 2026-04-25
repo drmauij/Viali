@@ -59,6 +59,8 @@ import {
 import { funnelsUrl, type FunnelsScope } from "@/lib/funnelsApi";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -190,6 +192,11 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const activeHospital = useActiveHospital();
+  const userRole = (user as any)?.hospitals?.find((h: any) => h.id === activeHospital?.id)?.role;
+  const isAdmin = userRole === "admin" || userRole === "group_admin";
+  const isAdminOrManager = isAdmin || userRole === "manager";
 
   // ── Collapsible source insights ────────────────────────────────────────────
   const [sourceInsightsOpen, setSourceInsightsOpen] = useState<boolean>(() => {
@@ -690,7 +697,7 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                       <TableHead>{t("business.referrals.campaign", "Campaign")}</TableHead>
                       <TableHead>{t("business.referrals.keyword", "Keyword")}</TableHead>
                       <TableHead>{t("business.referrals.clickIds", "Click IDs")}</TableHead>
-                      <TableHead className="w-20"></TableHead>
+                      {isAdminOrManager && <TableHead className="w-20">{t("common.edit", "Edit")}</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -825,8 +832,10 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                               <span className="text-muted-foreground text-sm">—</span>
                             )}
                           </TableCell>
+                          {isAdminOrManager && (
                           <TableCell>
                             <div className="flex gap-1">
+                              {isAdminOrManager && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -836,6 +845,8 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                               >
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
+                              )}
+                              {isAdmin && (
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button
@@ -880,8 +891,10 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
+                              )}
                             </div>
                           </TableCell>
+                          )}
                         </TableRow>
                       );
                     })}

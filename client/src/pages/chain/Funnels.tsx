@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -88,18 +88,34 @@ export default function ChainFunnels() {
     enabled: !!groupId,
   });
 
-  // Auto-populate hospitalIds on first load when URL has no hospitalIds param yet
+  // Derive currency from funnels-overview — shares the same React Query cache key
+  // as ChainFunnelsOverview, so no extra network request.
+  const overviewUrl =
+    groupId && hospitalIds.length > 0
+      ? `/api/chain/${groupId}/funnels-overview?hospitalIds=${hospitalIds.join(",")}&range=${range}`
+      : null;
+  const { data: overviewData } = useQuery<{ currency: string | null }>({
+    queryKey: [overviewUrl],
+    enabled: !!overviewUrl,
+  });
+  const currency = overviewData?.currency || "CHF";
+
+  // Auto-populate hospitalIds exactly once on first locations-data arrival.
+  // Using a ref so this never re-fires after the user deliberately clears the selection.
+  const bootstrappedRef = useRef(false);
   useEffect(() => {
+    if (bootstrappedRef.current) return;
+    if (!locationsData?.locations) return;
+    bootstrappedRef.current = true;
+
+    // Only auto-select when the URL had no hospitalIds at all (first-load default).
+    // Subsequent zero-states are user-deliberate and must not be overridden.
     const params = new URLSearchParams(window.location.search);
-    if (
-      !params.has("hospitalIds") &&
-      locationsData?.locations &&
-      locationsData.locations.length > 0
-    ) {
+    if (!params.has("hospitalIds") && locationsData.locations.length > 0) {
       setQuery({ hospitalIds: locationsData.locations.map((l) => l.hospitalId) });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationsData]);
+  }, [locationsData?.locations]);
 
   const scope = useMemo<FunnelsScope>(
     () => ({ hospitalIds, groupId }),
@@ -209,8 +225,7 @@ export default function ChainFunnels() {
               scope={scope}
               from={dateRange.from}
               to={dateRange.to}
-              // TODO: derive from /funnels-overview response (Task 9)
-              currency="CHF"
+              currency={currency}
             />
           )}
         </TabsContent>
@@ -223,8 +238,7 @@ export default function ChainFunnels() {
               scope={scope}
               from={dateRange.from}
               to={dateRange.to}
-              // TODO: derive from /funnels-overview response (Task 9)
-              currency="CHF"
+              currency={currency}
               view="conversion"
             />
           )}
@@ -238,8 +252,7 @@ export default function ChainFunnels() {
               scope={scope}
               from={dateRange.from}
               to={dateRange.to}
-              // TODO: derive from /funnels-overview response (Task 9)
-              currency="CHF"
+              currency={currency}
               view="ads"
             />
           )}

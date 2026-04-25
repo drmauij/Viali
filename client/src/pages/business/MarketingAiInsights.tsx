@@ -34,27 +34,20 @@ export default function MarketingAiInsights({ scope, startDate, endDate }: Props
   const activeHospital = useActiveHospital();
   const isAdmin = activeHospital?.role === "admin";
 
-  // Until the chain /ai-analysis endpoint exists (Task 11), bail out at chain scope.
-  if (scope.groupId) {
-    return (
-      <div className="text-xs text-muted-foreground" data-testid="marketing-ai-chain-placeholder">
-        Chain AI insights coming soon.
-      </div>
-    );
-  }
-
-  const hospitalId = scope.hospitalIds[0] ?? "";
-  const url = funnelsUrl("ai-analysis", scope, { startDate, endDate });
+  // All hooks must be called unconditionally (Rules of Hooks).
+  // For chain scope, we skip network calls via `enabled: false` and gate via JSX below.
+  const hospitalId = scope.groupId ? "" : (scope.hospitalIds[0] ?? "");
+  const url = scope.groupId ? null : funnelsUrl("ai-analysis", scope, { startDate, endDate });
   const key = ["marketing-ai-analysis", hospitalId, startDate, endDate];
 
   const { data, isLoading: loadingCache } = useQuery<AnalysisResponse | null>({
     queryKey: key,
     queryFn: async () => {
-      const res = await fetch(url, { credentials: "include" });
+      const res = await fetch(url!, { credentials: "include" });
       if (!res.ok) throw new Error(`fetch failed (${res.status})`);
       return (await res.json()) as AnalysisResponse | null;
     },
-    enabled: !!hospitalId && !!startDate && !!endDate,
+    enabled: !!url && !!hospitalId && !!startDate && !!endDate,
   });
 
   const [expanded, setExpanded] = useState(false);
@@ -89,6 +82,17 @@ export default function MarketingAiInsights({ scope, startDate, endDate }: Props
   const current = generate.data ?? data;
 
   const hasResult = !!current && !generate.isPending;
+
+  // JSX-level gate: chain scope has no AI endpoint yet (Task 11).
+  // All hooks above have already been called unconditionally.
+  if (scope.groupId) {
+    return (
+      <div className="text-xs text-muted-foreground" data-testid="marketing-ai-chain-placeholder">
+        Chain AI insights coming soon.
+      </div>
+    );
+  }
+  if (scope.hospitalIds.length === 0) return null;
 
   return (
     <Card className="mb-6" data-testid="marketing-ai-insights">
