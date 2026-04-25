@@ -6200,6 +6200,22 @@
       "defaultPrice": "Standardpreis / Record",
       "cascade": "Auf bestehende Kliniken anwenden",
       "planSavedToast": "Plan-Vorgaben gespeichert"
+    },
+    "team": {
+      "title": "Team",
+      "noGroup": "Diese Klinik gehört zu keiner Kette.",
+      "adminsTitle": "Ketten-Administratoren",
+      "staffTitle": "Personal in der gesamten Kette",
+      "name": "Name",
+      "email": "E-Mail",
+      "role": "Rolle",
+      "atHospital": "An Klinik",
+      "promote": "Befördern",
+      "promoted": "Benutzer zum Ketten-Admin befördert",
+      "revoke": "Widerrufen",
+      "revoked": "Ketten-Admin widerrufen",
+      "searchPlaceholder": "Benutzer nach Name oder E-Mail suchen…",
+      "staffEmpty": "Noch kein Personal in der Kette."
     }
   },
   "leads": {

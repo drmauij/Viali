@@ -6104,6 +6104,22 @@
       "defaultPrice": "Default price / record",
       "cascade": "Cascade to existing clinics",
       "planSavedToast": "Plan defaults saved"
+    },
+    "team": {
+      "title": "Team",
+      "noGroup": "This clinic is not part of a chain.",
+      "adminsTitle": "Chain administrators",
+      "staffTitle": "Staff across the chain",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "atHospital": "At hospital",
+      "promote": "Promote",
+      "promoted": "User promoted to chain admin",
+      "revoke": "Revoke",
+      "revoked": "Chain admin revoked",
+      "searchPlaceholder": "Search user by name or email…",
+      "staffEmpty": "No staff yet across the chain."
     }
   },
   "leads": {
