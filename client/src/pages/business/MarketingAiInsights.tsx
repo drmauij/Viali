@@ -7,9 +7,10 @@ import { Loader2, Sparkles, RefreshCw, ChevronDown, ChevronUp } from "lucide-rea
 import { apiRequest } from "@/lib/queryClient";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { formatDistanceToNow } from "date-fns";
+import { funnelsUrl, type FunnelsScope } from "@/lib/funnelsApi";
 
 interface Props {
-  hospitalId: string;
+  scope: FunnelsScope;
   startDate: string;
   endDate: string;
 }
@@ -27,21 +28,29 @@ interface AnalysisResponse {
   stale: boolean;
 }
 
-export default function MarketingAiInsights({ hospitalId, startDate, endDate }: Props) {
+export default function MarketingAiInsights({ scope, startDate, endDate }: Props) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const activeHospital = useActiveHospital();
   const isAdmin = activeHospital?.role === "admin";
 
+  // Until the chain /ai-analysis endpoint exists (Task 11), bail out at chain scope.
+  if (scope.groupId) {
+    return (
+      <div className="text-xs text-muted-foreground" data-testid="marketing-ai-chain-placeholder">
+        Chain AI insights coming soon.
+      </div>
+    );
+  }
+
+  const hospitalId = scope.hospitalIds[0] ?? "";
+  const url = funnelsUrl("ai-analysis", scope, { startDate, endDate });
   const key = ["marketing-ai-analysis", hospitalId, startDate, endDate];
 
   const { data, isLoading: loadingCache } = useQuery<AnalysisResponse | null>({
     queryKey: key,
     queryFn: async () => {
-      const res = await fetch(
-        `/api/business/${hospitalId}/ai-analysis?startDate=${startDate}&endDate=${endDate}`,
-        { credentials: "include" },
-      );
+      const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error(`fetch failed (${res.status})`);
       return (await res.json()) as AnalysisResponse | null;
     },
@@ -54,7 +63,7 @@ export default function MarketingAiInsights({ hospitalId, startDate, endDate }: 
     mutationFn: async (force: boolean) => {
       const res = await apiRequest(
         "POST",
-        `/api/business/${hospitalId}/ai-analysis`,
+        funnelsUrl("ai-analysis", scope),
         { startDate, endDate, force },
       );
       if (!res.ok) throw new Error("generation failed");

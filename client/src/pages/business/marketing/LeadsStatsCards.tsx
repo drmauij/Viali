@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { sourceLabel } from "@/components/leads/sourceIcon";
+import { funnelsUrl, type FunnelsScope } from "@/lib/funnelsApi";
 
 interface LeadsStatsResponse {
   total: number;
@@ -43,25 +44,21 @@ function formatPct(value: number): string {
 }
 
 export function LeadsStatsCards({
-  hospitalId,
+  scope,
   from,
   to,
 }: {
-  hospitalId: string;
+  scope: FunnelsScope;
   from: string;
   to: string;
 }) {
   const { t } = useTranslation();
 
-  const params = new URLSearchParams();
-  if (from) params.set("from", from);
-  if (to) params.set("to", to);
-  const qs = params.toString();
-  const url = `/api/business/${hospitalId}/leads-stats${qs ? `?${qs}` : ""}`;
+  const url = funnelsUrl("leads-stats", scope, { from, to });
 
   const { data, isLoading, isError } = useQuery<LeadsStatsResponse>({
     queryKey: [url],
-    enabled: !!hospitalId,
+    enabled: scope.hospitalIds.length > 0,
   });
 
   if (isLoading) {

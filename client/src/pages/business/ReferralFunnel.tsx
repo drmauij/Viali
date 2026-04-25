@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { funnelsUrl, type FunnelsScope } from "@/lib/funnelsApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -54,7 +55,7 @@ import {
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface ReferralFunnelProps {
-  hospitalId: string | undefined;
+  scope: FunnelsScope;
   from: string;
   to: string;
   currency?: string;
@@ -232,7 +233,7 @@ function classifyFunnel(r: FunnelRow): string {
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF", onEarliestDate, view = "all" }: ReferralFunnelProps) {
+export default function ReferralFunnel({ scope, from, to, currency = "CHF", onEarliestDate, view = "all" }: ReferralFunnelProps) {
   const showConversion = view === "all" || view === "conversion";
   const showAds = view === "all" || view === "ads";
   const { t } = useTranslation();
@@ -261,17 +262,15 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
 
   // ── Data fetching ──────────────────────────────────────────────────────
 
+  const funnelDataUrl = funnelsUrl("referral-funnel", scope, { from, to });
   const { data: rows = [], isLoading } = useQuery<FunnelRow[]>({
-    queryKey: ["referral-funnel", hospitalId, from, to],
+    queryKey: [funnelDataUrl],
     queryFn: async () => {
-      const res = await fetch(
-        `/api/business/${hospitalId}/referral-funnel?from=${from}&to=${to}`,
-        { credentials: "include" },
-      );
+      const res = await fetch(funnelDataUrl, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch funnel data");
       return res.json();
     },
-    enabled: !!hospitalId,
+    enabled: scope.hospitalIds.length > 0,
   });
 
   // Report earliest referral date to parent for auto-setting "From"
@@ -285,6 +284,8 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
     }
   }, [rows, onEarliestDate]);
 
+  // ad-budgets only available in clinic scope (no chain mirror)
+  const hospitalId = scope.hospitalIds[0] ?? "";
   const { data: allBudgets = [] } = useQuery<any[]>({
     queryKey: ["ad-budgets", hospitalId],
     queryFn: async () => {
@@ -292,7 +293,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
       if (!res.ok) throw new Error("Failed to fetch budgets");
       return res.json();
     },
-    enabled: !!hospitalId,
+    enabled: !scope.groupId && !!hospitalId,
   });
 
   const saveBudgetMutation = useMutation({
@@ -349,14 +350,15 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
       .map(([month, funnels]) => ({ month, ...funnels }));
   }, [allBudgets]);
 
+  const adPerfUrl = funnelsUrl("ad-performance", scope);
   const { data: adPerformance = [], isLoading: adPerfLoading } = useQuery<any[]>({
-    queryKey: ["ad-performance", hospitalId],
+    queryKey: [adPerfUrl],
     queryFn: async () => {
-      const res = await fetch(`/api/business/${hospitalId}/ad-performance`);
+      const res = await fetch(adPerfUrl);
       if (!res.ok) throw new Error("Failed to fetch ad performance");
       return res.json();
     },
-    enabled: !!hospitalId,
+    enabled: scope.hospitalIds.length > 0,
   });
 
   // ── Derived data ───────────────────────────────────────────────────────
@@ -503,7 +505,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
 
   // ── Guard ──────────────────────────────────────────────────────────────
 
-  if (!hospitalId) return null;
+  if (scope.hospitalIds.length === 0) return null;
 
   if (isLoading) {
     return (
@@ -850,22 +852,24 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
                     {t("business.adBudgets.help", "Monthly advertising spend per channel. Click any value to edit. Total is auto-calculated.")}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="month"
-                    value={newMonth}
-                    onChange={(e) => setNewMonth(e.target.value)}
-                    className="w-40"
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={addMonthMutation.isPending || budgetsByMonth.some(b => b.month === newMonth)}
-                    onClick={() => addMonthMutation.mutate(newMonth)}
-                  >
-                    {t("business.adBudgets.addMonth", "+ Add Month")}
-                  </Button>
-                </div>
+                {!scope.groupId && (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="month"
+                      value={newMonth}
+                      onChange={(e) => setNewMonth(e.target.value)}
+                      className="w-40"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={addMonthMutation.isPending || budgetsByMonth.some(b => b.month === newMonth)}
+                      onClick={() => addMonthMutation.mutate(newMonth)}
+                    >
+                      {t("business.adBudgets.addMonth", "+ Add Month")}
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardHeader>
             <CardContent>
@@ -893,7 +897,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
                           <TableRow key={row.month}>
                             <TableCell className="font-medium">{row.month}</TableCell>
                             {(['google_ads', 'meta_ads', 'meta_forms'] as const).map((funnel) => {
-                              const isEditing = editingBudget?.month === row.month && editingBudget?.funnel === funnel;
+                              const isEditing = !scope.groupId && editingBudget?.month === row.month && editingBudget?.funnel === funnel;
                               return (
                                 <TableCell key={funnel} className="text-right">
                                   {isEditing ? (
@@ -917,8 +921,8 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
                                     />
                                   ) : (
                                     <span
-                                      className="cursor-pointer hover:underline"
-                                      onClick={() => setEditingBudget({ month: row.month, funnel, value: String(row[funnel] || 0) })}
+                                      className={scope.groupId ? undefined : "cursor-pointer hover:underline"}
+                                      onClick={scope.groupId ? undefined : () => setEditingBudget({ month: row.month, funnel, value: String(row[funnel] || 0) })}
                                     >
                                       {CHF.format(row[funnel] || 0)}
                                     </span>
@@ -928,14 +932,16 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
                             })}
                             <TableCell className="text-right font-medium">{CHF.format(total)}</TableCell>
                             <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                                onClick={() => deleteMonthMutation.mutate(row.month)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                              {!scope.groupId && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                                  onClick={() => deleteMonthMutation.mutate(row.month)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         );
