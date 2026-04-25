@@ -22,6 +22,12 @@ import logger from "../logger";
 import { z } from "zod";
 import { buildLeadsListConditions } from "./leads";
 import { getLeadsStats } from "../services/leadsMetrics";
+import {
+  getReferralStats,
+  getReferralTimeseries,
+  listReferralEvents,
+  getReferralFunnel,
+} from "../lib/referralAnalytics";
 
 export const chainRouter = Router();
 
@@ -1051,5 +1057,74 @@ chainRouter.patch('/api/chain/:groupId/billing', isAuthenticated, isChainAdminFo
     }
     logger.error("Error updating chain billing:", error);
     res.status(500).json({ message: "Failed to update chain billing" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Chain referral analytics — mirrors of the clinic /api/business/:hospitalId/
+// referral-* endpoints, but scoped to validated cross-clinic hospital sets.
+// ---------------------------------------------------------------------------
+
+chainRouter.get('/api/chain/:groupId/referral-stats', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const { ids } = await resolveHospitalIds(groupId, req.query.hospitalIds);
+    if (ids.length === 0) return res.json({ breakdown: [], totalReferrals: 0 });
+    const result = await getReferralStats(ids, {
+      from: req.query.from as string | undefined,
+      to: req.query.to as string | undefined,
+    });
+    res.json(result);
+  } catch (e: any) {
+    if (e instanceof ChainAuthError) return res.status(e.status).json({ message: e.message });
+    logger.error("Error fetching chain referral-stats:", e);
+    res.status(500).json({ message: "Failed to fetch chain referral-stats" });
+  }
+});
+
+chainRouter.get('/api/chain/:groupId/referral-timeseries', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const { ids } = await resolveHospitalIds(groupId, req.query.hospitalIds);
+    if (ids.length === 0) return res.json([]);
+    const rows = await getReferralTimeseries(ids);
+    res.json(rows);
+  } catch (e: any) {
+    if (e instanceof ChainAuthError) return res.status(e.status).json({ message: e.message });
+    logger.error("Error fetching chain referral-timeseries:", e);
+    res.status(500).json({ message: "Failed to fetch chain referral-timeseries" });
+  }
+});
+
+chainRouter.get('/api/chain/:groupId/referral-events', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const { ids } = await resolveHospitalIds(groupId, req.query.hospitalIds);
+    if (ids.length === 0) return res.json([]);
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+    const before = req.query.before ? new Date(req.query.before as string) : undefined;
+    const rows = await listReferralEvents(ids, { limit, before });
+    res.json(rows);
+  } catch (e: any) {
+    if (e instanceof ChainAuthError) return res.status(e.status).json({ message: e.message });
+    logger.error("Error fetching chain referral-events:", e);
+    res.status(500).json({ message: "Failed to fetch chain referral-events" });
+  }
+});
+
+chainRouter.get('/api/chain/:groupId/referral-funnel', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const { ids } = await resolveHospitalIds(groupId, req.query.hospitalIds);
+    if (ids.length === 0) return res.json([]);
+    const rows = await getReferralFunnel(ids, {
+      from: req.query.from as string | undefined,
+      to: req.query.to as string | undefined,
+    });
+    res.json(rows);
+  } catch (e: any) {
+    if (e instanceof ChainAuthError) return res.status(e.status).json({ message: e.message });
+    logger.error("Error fetching chain referral-funnel:", e);
+    res.status(500).json({ message: "Failed to fetch chain referral-funnel" });
   }
 });
