@@ -55,9 +55,12 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db.delete(userHospitalRoles).where(inArray(userHospitalRoles.userId, [chainAdminId, plainAdminId]));
+  // POST /locations auto-provisions a default 'business' unit + admin role
+  // for the creator (Phase D.1). Clean those up first so hospital deletes
+  // don't fail on the FK to units.
+  await db.delete(userHospitalRoles).where(inArray(userHospitalRoles.hospitalId, createdHospitalIds));
+  await db.delete(units).where(inArray(units.hospitalId, createdHospitalIds));
   await db.delete(users).where(inArray(users.id, [chainAdminId, plainAdminId]));
-  await db.delete(units).where(eq(units.id, unit1));
   await db.update(hospitals).set({ groupId: null }).where(inArray(hospitals.id, createdHospitalIds));
   await db.delete(hospitals).where(inArray(hospitals.id, createdHospitalIds));
   await db.delete(hospitalGroups).where(eq(hospitalGroups.id, groupId));

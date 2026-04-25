@@ -50,7 +50,7 @@ export default function ChainLocations() {
   const activeHospital = useActiveHospital();
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
-  const groupId = (activeHospital as any)?.groupId ?? null;
+  const groupId = activeHospital?.groupId ?? null;
 
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Location | null>(null);
@@ -98,6 +98,8 @@ export default function ChainLocations() {
           </DialogTrigger>
           <AddLocationDialog
             groupId={groupId}
+            defaultTimezone={activeHospital?.timezone ?? "Europe/Zurich"}
+            defaultCurrency={activeHospital?.currency ?? "CHF"}
             onClose={() => setAddOpen(false)}
             onSuccess={() => {
               setAddOpen(false);
@@ -230,14 +232,26 @@ export default function ChainLocations() {
   );
 }
 
-function AddLocationDialog({ groupId, onClose, onSuccess }: { groupId: string; onClose: () => void; onSuccess: () => void }) {
+function AddLocationDialog({
+  groupId,
+  defaultTimezone,
+  defaultCurrency,
+  onClose,
+  onSuccess,
+}: {
+  groupId: string;
+  defaultTimezone: string;
+  defaultCurrency: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [form, setForm] = useState({
     name: "",
     address: "",
-    timezone: "Europe/Zurich",
-    currency: "CHF",
+    timezone: defaultTimezone,
+    currency: defaultCurrency,
     clinicKind: "mixed" as ClinicKind,
   });
   const mutation = useMutation({

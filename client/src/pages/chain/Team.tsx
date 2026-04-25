@@ -38,7 +38,7 @@ export default function ChainTeam() {
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
   const queryClient = useQueryClient();
-  const groupId = (activeHospital as any)?.groupId ?? null;
+  const groupId = activeHospital?.groupId ?? null;
   const activeHospitalId = activeHospital?.id;
   const [promoteSearch, setPromoteSearch] = useState("");
 
@@ -53,6 +53,12 @@ export default function ChainTeam() {
       apiRequest("GET", `/api/business/group/users?q=${encodeURIComponent(promoteSearch)}`).then((r) => r.json()),
     enabled: !!groupId && promoteSearch.length >= 2,
   });
+
+  // Hide users who are already chain admins from promote-candidate results.
+  // Server can do this too; doing it client-side avoids double round-trips
+  // and keeps the search endpoint general-purpose.
+  const adminUserIds = new Set((data?.admins ?? []).map((a) => a.userId));
+  const promotableResults = (searchResults ?? []).filter((u) => !adminUserIds.has(u.id));
 
   const promote = useMutation({
     mutationFn: (userId: string) =>
@@ -146,9 +152,9 @@ export default function ChainTeam() {
                     data-testid="input-promote-search"
                   />
                 </div>
-                {(searchResults ?? []).length > 0 && (
+                {promotableResults.length > 0 && (
                   <div className="border rounded-md divide-y">
-                    {searchResults!.slice(0, 8).map((u) => (
+                    {promotableResults.slice(0, 8).map((u) => (
                       <div key={u.id} className="flex items-center justify-between px-3 py-2 text-sm">
                         <span>{fullName(u)}</span>
                         <Button

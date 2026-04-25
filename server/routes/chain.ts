@@ -13,6 +13,7 @@ import {
   flowHospitals,
   users,
   userHospitalRoles,
+  units,
 } from "@shared/schema";
 import { eq, sql, inArray, desc } from "drizzle-orm";
 import { isAuthenticated } from "../auth/google";
@@ -721,13 +722,15 @@ chainRouter.get('/api/chain/:groupId/locations', isAuthenticated, isChainAdminFo
 });
 
 // POST /api/chain/:groupId/locations — create a new clinic in the group.
-// The URL groupId is authoritative; body.groupId is ignored.
-// Note: no auto-provisioning of userHospitalRoles for the creating user because
-// userHospitalRoles.unitId is NOT NULL — the new hospital has no units yet.
-// The chain admin retains access via their group_admin role on existing group hospitals.
+// The URL groupId is authoritative; body.groupId is ignored. We also
+// provision a default `business` unit + admin role row for the calling
+// chain admin so they can drill into the brand-new clinic immediately
+// (the Locations page UI uses an active-hospital-style switch + reload to
+// drill, which needs a real unitId on the role row).
 chainRouter.post('/api/chain/:groupId/locations', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
   try {
     const { groupId } = req.params;
+    const userId = req.user.id;
     const bodySchema = z.object({
       name: z.string().min(1),
       address: z.string().optional(),
@@ -737,16 +740,37 @@ chainRouter.post('/api/chain/:groupId/locations', isAuthenticated, isChainAdminF
     });
     const body = bodySchema.parse(req.body);
 
-    const [created] = await db.insert(hospitals).values({
-      name: body.name,
-      address: body.address ?? null,
-      timezone: body.timezone ?? "Europe/Zurich",
-      currency: body.currency ?? "CHF",
-      clinicKind: body.clinicKind ?? "mixed",
-      groupId,
-    } as any).returning();
+    const result = await db.transaction(async (tx) => {
+      const [hospital] = await tx.insert(hospitals).values({
+        name: body.name,
+        address: body.address ?? null,
+        timezone: body.timezone ?? "Europe/Zurich",
+        currency: body.currency ?? "CHF",
+        clinicKind: body.clinicKind ?? "mixed",
+        groupId,
+      } as any).returning();
 
-    res.status(201).json(created);
+      // Default "business" unit so the chain admin lands in /business after
+      // drill-through. Other units (clinic / anesthesia / surgery / logistic)
+      // can be added later via /admin/settings.
+      const [unit] = await tx.insert(units).values({
+        hospitalId: hospital.id,
+        name: "Business",
+        type: "business",
+      } as any).returning();
+
+      // Admin role row for the creator at the new hospital.
+      await tx.insert(userHospitalRoles).values({
+        userId,
+        hospitalId: hospital.id,
+        unitId: unit.id,
+        role: "admin",
+      } as any).onConflictDoNothing();
+
+      return hospital;
+    });
+
+    res.status(201).json(result);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid payload", issues: error.issues });
