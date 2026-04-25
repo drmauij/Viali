@@ -6178,7 +6178,12 @@
       "sourceMix": "Quellenmix",
       "leadsBySource": "Leads nach Quelle",
       "referralsBySource": "Empfehlungen nach Quelle",
-      "moversComingSoon": "Bewegungen und KI-Insights folgen im nächsten Schritt.",
+      "movers": "Bewegungen",
+      "topUp": "Top auf (≥ +20% ggü. Vorperiode)",
+      "topDown": "Top ab (≤ −20% ggü. Vorperiode)",
+      "noMovers": "—",
+      "aiInsights": "KI-Insights",
+      "aiPlaceholder": "Ketten-KI-Insights kommen in einem Folgeprojekt. Die KI-Insights-Karte auf /business/funnels funktioniert weiterhin pro Klinik.",
       "kpi": {
         "leads": "Leads",
         "referrals": "Empfehlungen",

@@ -4,6 +4,8 @@ import KpiStrip from "./overview/KpiStrip";
 import LocationsLeaderboard from "./overview/LocationsLeaderboard";
 import SourceLocationHeatmap from "./overview/SourceLocationHeatmap";
 import SourceMixDonut from "./overview/SourceMixDonut";
+import MoversPanel from "./overview/MoversPanel";
+import AiInsightsPlaceholder from "./overview/AiInsightsPlaceholder";
 
 interface OverviewResponse {
   kpis: any;
@@ -61,13 +63,8 @@ export default function ChainFunnelsOverview({ groupId, hospitalIds, range }: Pr
       <LocationsLeaderboard rows={data.leaderboard} currency={data.currency} />
       <SourceLocationHeatmap data={data.heatmap} />
       <SourceMixDonut leads={data.sourceMix.leads} referrals={data.sourceMix.referrals} />
-      {/* Movers + AI insights — Task 11 */}
-      <div className="text-xs text-muted-foreground p-6 text-center border border-dashed rounded">
-        {t(
-          "chain.funnels.moversComingSoon",
-          "Movers and AI insights ship in the next step.",
-        )}
-      </div>
+      <MoversPanel up={data.movers.up} down={data.movers.down} />
+      <AiInsightsPlaceholder />
     </div>
   );
 }

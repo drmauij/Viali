@@ -6082,7 +6082,12 @@
       "sourceMix": "Source mix",
       "leadsBySource": "Leads by source",
       "referralsBySource": "Referrals by source",
-      "moversComingSoon": "Movers and AI insights ship in the next step.",
+      "movers": "Movers",
+      "topUp": "Top up (≥ +20% vs prior period)",
+      "topDown": "Top down (≤ −20% vs prior period)",
+      "noMovers": "—",
+      "aiInsights": "AI insights",
+      "aiPlaceholder": "Chain-level AI insights are coming in a follow-up. The single-clinic AI Insights card on /business/funnels still works for each clinic individually.",
       "kpi": {
         "leads": "Leads",
         "referrals": "Referrals",
