@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -9,6 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 import { UserPlus, X } from "lucide-react";
 
 interface TeamMember {
@@ -16,10 +19,21 @@ interface TeamMember {
   userId: string;
   hospitalId: string;
   hospitalName: string;
+  unitId: string | null;
+  unitName: string | null;
   role: string;
   firstName: string | null;
   lastName: string | null;
   email: string | null;
+}
+
+interface StaffGroup {
+  userId: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  rows: TeamMember[];
+  hospitalCount: number;
 }
 interface TeamResponse {
   admins: TeamMember[];
@@ -41,6 +55,7 @@ export default function ChainTeam() {
   const groupId = activeHospital?.groupId ?? null;
   const activeHospitalId = activeHospital?.id;
   const [promoteSearch, setPromoteSearch] = useState("");
+  const [openStaff, setOpenStaff] = useState<StaffGroup | null>(null);
 
   const { data, isLoading } = useQuery<TeamResponse>({
     queryKey: [`/api/chain/${groupId}/team`],
@@ -96,6 +111,33 @@ export default function ChainTeam() {
 
   const fullName = (m: { firstName: string | null; lastName: string | null; email: string | null; userId?: string; id?: string }) =>
     [m.firstName, m.lastName].filter(Boolean).join(" ") || m.email || (m.userId ?? m.id ?? "—");
+
+  // Collapse the flat staff list (one row per user×hospital×unit×role) into one
+  // entry per user, keeping all assignments in `rows` for the dialog.
+  const staffGroups = useMemo<StaffGroup[]>(() => {
+    const map = new Map<string, StaffGroup>();
+    for (const m of data?.staff ?? []) {
+      const existing = map.get(m.userId);
+      if (existing) {
+        existing.rows.push(m);
+      } else {
+        map.set(m.userId, {
+          userId: m.userId,
+          firstName: m.firstName,
+          lastName: m.lastName,
+          email: m.email,
+          rows: [m],
+          hospitalCount: 0,
+        });
+      }
+    }
+    for (const g of map.values()) {
+      g.hospitalCount = new Set(g.rows.map(r => r.hospitalId)).size;
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      fullName(a).localeCompare(fullName(b))
+    );
+  }, [data?.staff]);
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24" data-testid="chain-team">
@@ -183,22 +225,31 @@ export default function ChainTeam() {
                   <TableRow>
                     <TableHead>{t("chain.team.name", "Name")}</TableHead>
                     <TableHead>{t("chain.team.email", "Email")}</TableHead>
-                    <TableHead>{t("chain.team.role", "Role")}</TableHead>
-                    <TableHead>{t("chain.team.atHospital", "At hospital")}</TableHead>
+                    <TableHead>{t("chain.team.assignments", "Assignments")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(data?.staff ?? []).map((m) => (
-                    <TableRow key={m.roleId} data-testid={`row-staff-${m.roleId}`}>
-                      <TableCell className="font-medium">{fullName(m)}</TableCell>
-                      <TableCell className="text-muted-foreground">{m.email ?? "—"}</TableCell>
-                      <TableCell><Badge variant="outline">{m.role}</Badge></TableCell>
-                      <TableCell>{m.hospitalName}</TableCell>
+                  {staffGroups.map((g) => (
+                    <TableRow
+                      key={g.userId}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setOpenStaff(g)}
+                      data-testid={`row-staff-${g.userId}`}
+                    >
+                      <TableCell className="font-medium">{fullName(g)}</TableCell>
+                      <TableCell className="text-muted-foreground">{g.email ?? "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {g.hospitalCount === 1
+                            ? t("chain.team.oneLocation", "1 location")
+                            : t("chain.team.nLocations", "{{n}} locations", { n: g.hospitalCount })}
+                        </Badge>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-              {(data?.staff ?? []).length === 0 && (
+              {staffGroups.length === 0 && (
                 <div className="text-center text-muted-foreground p-6 text-sm">
                   {t("chain.team.staffEmpty", "No staff yet across the chain.")}
                 </div>
@@ -207,6 +258,37 @@ export default function ChainTeam() {
           </Card>
         </>
       )}
+
+      <Dialog open={!!openStaff} onOpenChange={(o) => !o && setOpenStaff(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{openStaff ? fullName(openStaff) : ""}</DialogTitle>
+            <DialogDescription>
+              {openStaff?.email ?? t("chain.team.assignmentsDescription", "Per-location roles and units")}
+            </DialogDescription>
+          </DialogHeader>
+          {openStaff && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("chain.team.atHospital", "Location")}</TableHead>
+                  <TableHead>{t("chain.team.unit", "Unit")}</TableHead>
+                  <TableHead>{t("chain.team.role", "Role")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {openStaff.rows.map((r) => (
+                  <TableRow key={r.roleId} data-testid={`assignment-${r.roleId}`}>
+                    <TableCell className="font-medium">{r.hospitalName}</TableCell>
+                    <TableCell className="text-muted-foreground">{r.unitName ?? "—"}</TableCell>
+                    <TableCell><Badge variant="outline">{r.role}</Badge></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

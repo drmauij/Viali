@@ -860,6 +860,8 @@ chainRouter.get('/api/chain/:groupId/team', isAuthenticated, isChainAdminForGrou
         roleId: userHospitalRoles.id,
         userId: userHospitalRoles.userId,
         hospitalId: userHospitalRoles.hospitalId,
+        unitId: userHospitalRoles.unitId,
+        unitName: units.name,
         role: userHospitalRoles.role,
         firstName: users.firstName,
         lastName: users.lastName,
@@ -867,6 +869,7 @@ chainRouter.get('/api/chain/:groupId/team', isAuthenticated, isChainAdminForGrou
       })
       .from(userHospitalRoles)
       .innerJoin(users, eq(users.id, userHospitalRoles.userId))
+      .leftJoin(units, eq(units.id, userHospitalRoles.unitId))
       .where(inArray(userHospitalRoles.hospitalId, hospitalIds));
 
     type Row = typeof rows[number];
@@ -875,6 +878,8 @@ chainRouter.get('/api/chain/:groupId/team', isAuthenticated, isChainAdminForGrou
       userId: r.userId,
       hospitalId: r.hospitalId,
       hospitalName: hospitalNameById.get(r.hospitalId) ?? "Unknown",
+      unitId: r.unitId,
+      unitName: r.unitName,
       role: r.role,
       firstName: r.firstName,
       lastName: r.lastName,
