@@ -101,19 +101,14 @@ export default function LeadsReadOnlyCard({ scope, from, to }: Props) {
     if (!last) return;
     setLoadingMore(true);
     try {
-      // For load-more pagination, always hit the per-hospital endpoint using
-      // the row's hospitalId if available, falling back to scope.hospitalIds[0].
-      const hospitalId = scope.hospitalIds[0] ?? "";
-      const more = new URLSearchParams();
-      more.set("limit", String(LEAD_PAGE_SIZE));
-      if (status !== "all") more.set("status", status);
-      if (from) more.set("from", from);
-      if (to) more.set("to", to);
-      more.set("before", last.createdAt);
-      const res = await fetch(
-        `/api/business/${hospitalId}/leads?${more.toString()}`,
-        { credentials: "include" },
-      );
+      const moreUrl = funnelsUrl("leads", scope, {
+        limit: LEAD_PAGE_SIZE,
+        ...(status !== "all" ? { status } : {}),
+        ...(from ? { from } : {}),
+        ...(to ? { to } : {}),
+        before: last.createdAt,
+      });
+      const res = await fetch(moreUrl, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load more leads");
       const page: LeadRow[] = await res.json();
       setLeadsList((prev) => [...prev, ...page]);
