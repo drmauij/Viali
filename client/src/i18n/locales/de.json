@@ -6163,7 +6163,13 @@
       "conv": "Konv",
       "empty": "Keine Leads in diesem Zeitraum.",
       "alertsTitle": "Warnungen",
-      "sourceDrop": "{{source}} Leads gesunken um {{pct}}% ({{prev}} → {{current}})"
+      "sourceDrop": "{{source}} Leads gesunken um {{pct}}% ({{prev}} → {{current}})",
+      "overview": "Übersicht",
+      "allLocations": "Alle Standorte ({{n}})",
+      "kOfN": "{{k}} von {{n}} Standorten",
+      "noLocations": "Keine Standorte ausgewählt",
+      "overviewComingSoon": "Übersichtsbereiche folgen in Kürze.",
+      "placeholderTab": "Dieser Tab wird im nächsten Schritt verdrahtet."
     },
     "flows": {
       "title": "Flows",

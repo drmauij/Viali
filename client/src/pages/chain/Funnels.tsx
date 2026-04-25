@@ -1,167 +1,185 @@
-import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Activity, BarChart3, CheckCircle2, Inbox, Megaphone } from "lucide-react";
+import ChainLocationFilter from "@/components/chain/ChainLocationFilter";
+import ChainFunnelsOverview from "@/components/chain/ChainFunnelsOverview";
 
-interface MarketingResponse {
-  sources: Array<{
-    name: string;
-    byLocation: Array<{ hospitalId: string; hospitalName: string; leads: number; firstVisits: number }>;
-    totals: { leads: number; firstVisits: number; conversionPct: number };
-  }>;
-  locations: Array<{ hospitalId: string; hospitalName: string }>;
-  alerts: Array<{ kind: "source_drop"; source: string; currentLeads: number; prevLeads: number; deltaPct: number }>;
+type Tab = "overview" | "leads" | "events" | "conversion" | "ads";
+type Range = "30d" | "90d" | "365d";
+
+/**
+ * Reads filter state (range, hospitalIds, tab) from the URL query string and
+ * exposes a setter that updates the URL via wouter's `navigate(..., { replace })`.
+ */
+function useUrlState() {
+  const [location, navigate] = useLocation();
+  // wouter doesn't surface the query string directly; read from window.
+  const search = typeof window !== "undefined" ? window.location.search : "";
+  const params = new URLSearchParams(search);
+  const range = (params.get("range") as Range) || "30d";
+  const hospitalIdsRaw = params.get("hospitalIds") || "";
+  const hospitalIds = hospitalIdsRaw === "" ? [] : hospitalIdsRaw.split(",").filter(Boolean);
+  const tab = (params.get("tab") as Tab) || "overview";
+
+  const setQuery = (
+    next: Partial<{ range: Range; hospitalIds: string[]; tab: Tab }>,
+  ) => {
+    const merged = new URLSearchParams(window.location.search);
+    if (next.range !== undefined) merged.set("range", next.range);
+    if (next.hospitalIds !== undefined) {
+      if (next.hospitalIds.length === 0) merged.delete("hospitalIds");
+      else merged.set("hospitalIds", next.hospitalIds.join(","));
+    }
+    if (next.tab !== undefined) merged.set("tab", next.tab);
+    const path = location.split("?")[0];
+    navigate(`${path}?${merged.toString()}`, { replace: true });
+  };
+
+  return { range, hospitalIds, tab, setQuery };
 }
 
 export default function ChainFunnels() {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const groupId = (activeHospital as any)?.groupId ?? null;
-  const [range, setRange] = useState<"30d" | "90d" | "365d">("30d");
-
-  const { data, isLoading, isError } = useQuery<MarketingResponse>({
-    queryKey: [`/api/chain/${groupId}/funnels?range=${range}`],
-    enabled: !!groupId,
-  });
-
-  // Build the heatmap matrix: rows = sources, cols = locations (filling gaps with zeros)
-  const matrix = useMemo(() => {
-    if (!data) return [] as Array<{ source: string; totals: MarketingResponse["sources"][number]["totals"]; cells: Array<{ hospitalId: string; hospitalName: string; leads: number; firstVisits: number }> }>;
-    return data.sources.map(src => ({
-      source: src.name,
-      totals: src.totals,
-      cells: data.locations.map(loc => {
-        const found = src.byLocation.find(c => c.hospitalId === loc.hospitalId);
-        return found ?? { hospitalId: loc.hospitalId, hospitalName: loc.hospitalName, leads: 0, firstVisits: 0 };
-      }),
-    }));
-  }, [data]);
+  const { range, hospitalIds, tab, setQuery } = useUrlState();
 
   if (!groupId) {
     return (
-      <div className="p-8 text-center text-muted-foreground" data-testid="chain-funnels-no-group">
+      <div
+        className="p-8 text-center text-muted-foreground"
+        data-testid="chain-funnels-no-group"
+      >
         {t("chain.funnels.noGroup", "This clinic is not part of a chain.")}
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="p-8 text-center text-muted-foreground">
-        {t("common.loading", "Loading...")}
-      </div>
-    );
-  }
-
-  if (isError || !data) {
-    return (
-      <div className="p-8 text-center text-destructive">
-        {t("common.error", "Error loading chain funnels.")}
       </div>
     );
   }
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24" data-testid="chain-funnels">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">{t("chain.funnels.title", "Funnels")}</h1>
-          <p className="text-muted-foreground mt-1">
-            {t("chain.funnels.subtitle", "Referral sources, lead conversion, and ad performance — across the chain")}
-          </p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <h1 className="text-2xl md:text-3xl font-bold">
+          {t("chain.funnels.title", "Funnels")}
+        </h1>
+        <div className="flex items-center gap-3">
+          <Select
+            value={range}
+            onValueChange={(v) => setQuery({ range: v as Range })}
+          >
+            <SelectTrigger className="w-[180px]" data-testid="select-range">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="30d">
+                {t("business.range.30d", "Last 30 days")}
+              </SelectItem>
+              <SelectItem value="90d">
+                {t("business.range.90d", "Last 90 days")}
+              </SelectItem>
+              <SelectItem value="365d">
+                {t("business.range.365d", "Last year")}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <ChainLocationFilter
+            groupId={groupId}
+            value={hospitalIds}
+            onChange={(ids) => setQuery({ hospitalIds: ids })}
+          />
         </div>
-        <Select value={range} onValueChange={(v) => setRange(v as any)}>
-          <SelectTrigger className="w-[180px]" data-testid="select-range">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="30d">{t("business.range.30d", "Last 30 days")}</SelectItem>
-            <SelectItem value="90d">{t("business.range.90d", "Last 90 days")}</SelectItem>
-            <SelectItem value="365d">{t("business.range.365d", "Last year")}</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
-      {/* Source × Location heatmap */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("chain.funnels.heatmap", "Source × Location — leads")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("chain.funnels.source", "Source")}</TableHead>
-                  {data.locations.map(loc => (
-                    <TableHead key={loc.hospitalId} className="text-right">{loc.hospitalName}</TableHead>
-                  ))}
-                  <TableHead className="text-right">{t("chain.funnels.total", "Total")}</TableHead>
-                  <TableHead className="text-right">{t("chain.funnels.conv", "Conv")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {matrix.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={data.locations.length + 3} className="text-center text-muted-foreground py-4">
-                      {t("chain.funnels.empty", "No leads recorded in this period.")}
-                    </TableCell>
-                  </TableRow>
-                ) : matrix.map(row => {
-                  const max = Math.max(...row.cells.map(c => c.leads), 1);
-                  return (
-                    <TableRow key={row.source}>
-                      <TableCell className="font-medium">{row.source}</TableCell>
-                      {row.cells.map(c => {
-                        const intensity = Math.min(c.leads / max, 1);
-                        const bg = `rgba(61, 139, 253, ${0.08 + intensity * 0.25})`;
-                        return (
-                          <TableCell
-                            key={c.hospitalId}
-                            className="text-right"
-                            style={{ backgroundColor: c.leads > 0 ? bg : undefined }}
-                          >
-                            {c.leads}
-                          </TableCell>
-                        );
-                      })}
-                      <TableCell className="text-right font-semibold">{row.totals.leads}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">{row.totals.conversionPct.toFixed(0)}%</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setQuery({ tab: v as Tab })}
+        className="space-y-4"
+      >
+        <TabsList>
+          <TabsTrigger value="overview" data-testid="tab-overview">
+            <BarChart3 className="h-4 w-4 mr-1" />
+            {t("chain.funnels.overview", "Overview")}
+          </TabsTrigger>
+          <TabsTrigger value="leads" data-testid="tab-leads">
+            <Inbox className="h-4 w-4 mr-1" />
+            {t("business.referrals.leadsTab", "Leads")}
+          </TabsTrigger>
+          <TabsTrigger value="events" data-testid="tab-events">
+            <Activity className="h-4 w-4 mr-1" />
+            {t("business.referrals.eventsTab", "Referrals")}
+          </TabsTrigger>
+          <TabsTrigger value="conversion" data-testid="tab-conversion">
+            <CheckCircle2 className="h-4 w-4 mr-1" />
+            {t("business.referrals.conversionTab", "Conversion")}
+          </TabsTrigger>
+          <TabsTrigger value="ads" data-testid="tab-ads">
+            <Megaphone className="h-4 w-4 mr-1" />
+            {t("business.referrals.adsTab", "Ad performance")}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Alerts */}
-      {data.alerts.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t("chain.funnels.alertsTitle", "Alerts")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm">
-              {data.alerts.map(a => (
-                <li key={a.source} className="text-amber-600">
-                  ⚠ {t("chain.funnels.sourceDrop", "{{source}} leads dropped {{pct}}% ({{prev}} → {{current}})", {
-                    source: a.source,
-                    pct: Math.abs(a.deltaPct).toFixed(0),
-                    prev: a.prevLeads,
-                    current: a.currentLeads,
-                  })}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
+        <TabsContent value="overview">
+          <ChainFunnelsOverview
+            groupId={groupId}
+            hospitalIds={hospitalIds}
+            range={range}
+          />
+        </TabsContent>
+
+        {/* Tabs 2–5 wired in Task 8 */}
+        <TabsContent value="leads">
+          <div
+            className="text-sm text-muted-foreground p-12 text-center"
+            data-testid="placeholder-leads"
+          >
+            {t(
+              "chain.funnels.placeholderTab",
+              "This tab is wired in the next implementation step.",
+            )}
+          </div>
+        </TabsContent>
+        <TabsContent value="events">
+          <div
+            className="text-sm text-muted-foreground p-12 text-center"
+            data-testid="placeholder-events"
+          >
+            {t(
+              "chain.funnels.placeholderTab",
+              "This tab is wired in the next implementation step.",
+            )}
+          </div>
+        </TabsContent>
+        <TabsContent value="conversion">
+          <div
+            className="text-sm text-muted-foreground p-12 text-center"
+            data-testid="placeholder-conversion"
+          >
+            {t(
+              "chain.funnels.placeholderTab",
+              "This tab is wired in the next implementation step.",
+            )}
+          </div>
+        </TabsContent>
+        <TabsContent value="ads">
+          <div
+            className="text-sm text-muted-foreground p-12 text-center"
+            data-testid="placeholder-ads"
+          >
+            {t(
+              "chain.funnels.placeholderTab",
+              "This tab is wired in the next implementation step.",
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

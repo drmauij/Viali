@@ -6067,7 +6067,13 @@
       "conv": "Conv",
       "empty": "No leads recorded in this period.",
       "alertsTitle": "Alerts",
-      "sourceDrop": "{{source}} leads dropped {{pct}}% ({{prev}} → {{current}})"
+      "sourceDrop": "{{source}} leads dropped {{pct}}% ({{prev}} → {{current}})",
+      "overview": "Overview",
+      "allLocations": "All locations ({{n}})",
+      "kOfN": "{{k}} of {{n}} locations",
+      "noLocations": "No locations selected",
+      "overviewComingSoon": "Overview panels coming next.",
+      "placeholderTab": "This tab is wired in the next implementation step."
     },
     "flows": {
       "title": "Flows",
