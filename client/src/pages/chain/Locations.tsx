@@ -137,7 +137,23 @@ export default function ChainLocations() {
                     className="cursor-pointer hover:bg-muted/50"
                     data-testid={`row-location-${loc.hospitalId}`}
                   >
-                    <TableCell className="font-medium" onClick={() => drillInto(loc.hospitalId)}>{loc.hospitalName}</TableCell>
+                    <TableCell className="font-medium" onClick={() => drillInto(loc.hospitalId)}>
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 shrink-0 rounded border bg-muted overflow-hidden flex items-center justify-center">
+                          {loc.companyLogoUrl ? (
+                            <img
+                              src={loc.companyLogoUrl}
+                              alt=""
+                              className="w-full h-full object-contain"
+                              data-testid={`location-logo-${loc.hospitalId}`}
+                            />
+                          ) : (
+                            <i className="fas fa-hospital text-xs text-muted-foreground" aria-hidden="true" />
+                          )}
+                        </div>
+                        <span className="truncate">{loc.hospitalName}</span>
+                      </div>
+                    </TableCell>
                     <TableCell className="text-muted-foreground" onClick={() => drillInto(loc.hospitalId)}>{loc.address ?? "—"}</TableCell>
                     <TableCell onClick={() => drillInto(loc.hospitalId)}>{loc.clinicKind}</TableCell>
                     <TableCell className="text-right">
