@@ -8,6 +8,7 @@ import { hospitalGroups, hospitals, users } from "@shared/schema";
 import { isAuthenticated } from "../auth/google";
 import { userIsGroupAdminForHospital, getGroupHospitalIdsCached } from "../utils";
 import logger from "../logger";
+import { extractThemeFromUrl } from "../services/brandingExtractor";
 
 /**
  * Booking-theme save endpoints. Spec:
@@ -170,6 +171,47 @@ router.patch(
     } catch (err) {
       logger.error("Error saving hospital booking theme:", err);
       res.status(500).json({ message: "Failed to save hospital booking theme" });
+    }
+  },
+);
+
+// Naive in-memory rate limit: 5 calls per user per hour. Fine for a single
+// process; if we ever scale to multiple workers this needs a shared store.
+const rateBuckets = new Map<string, number[]>();
+function rateLimit(key: string): boolean {
+  const now = Date.now();
+  const bucket = (rateBuckets.get(key) ?? []).filter((t) => now - t < 60 * 60 * 1000);
+  if (bucket.length >= 5) return false;
+  bucket.push(now);
+  rateBuckets.set(key, bucket);
+  return true;
+}
+
+router.post(
+  "/api/branding/extract-from-url",
+  isAuthenticated,
+  async (req: any, res: Response) => {
+    const url = z.string().url().max(2048).safeParse(req.body?.url);
+    if (!url.success) return res.status(400).json({ error: "invalid url" });
+
+    if (!rateLimit((req as any).user?.id ?? "anon")) {
+      return res
+        .status(429)
+        .json({ error: "Too many extractions; try again in an hour." });
+    }
+
+    try {
+      const result = await extractThemeFromUrl(url.data);
+      res.json(result);
+    } catch (err: any) {
+      logger.warn(
+        { err: err?.message, url: url.data },
+        "branding extract failed",
+      );
+      res.status(502).json({
+        error:
+          "Couldn't load that page. Try a direct URL or fill the fields manually.",
+      });
     }
   },
 );
