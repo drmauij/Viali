@@ -57,7 +57,9 @@ export default function ModuleDrawer() {
   const hasBusinessAccess = activeHospital?.unitType === 'business';
   const hasClinicAccess = activeHospital?.unitType === 'clinic';
   const hasLogisticAccess = activeHospital?.unitType === 'logistic';
-  const isAdmin = activeHospital?.role === "admin";
+  // group_admin is the chain-level role that always implies admin rights
+  // at every member clinic — show the Administrator module for them too.
+  const isAdmin = activeHospital?.role === "admin" || activeHospital?.role === "group_admin";
   const canAccessPreOp = isAdmin || activeHospital?.role === "doctor";
 
   // Top-card visibility: Chain card shows when the user has a group_admin

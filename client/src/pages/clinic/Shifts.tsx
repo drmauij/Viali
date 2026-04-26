@@ -54,7 +54,7 @@ export default function ClinicShifts() {
 
   const hospitalId: string | undefined = activeHospital?.id;
   const unitId: string | undefined = activeHospital?.unitId;
-  const isAdmin = activeHospital?.role === 'admin';
+  const isAdmin = activeHospital?.role === 'admin' || activeHospital?.role === 'group_admin';
 
   const [anchor, setAnchor] = useState<Date>(() => new Date());
   const [view, setView] = useState<ViewType>(getStoredView);

@@ -121,7 +121,7 @@ export default function ClinicAppointments() {
   const unitId = activeHospital?.unitId;
   const dateLocale = i18n.language === 'de' ? de : enUS;
   const canPlanSurgery = useCanPlanSurgery();
-  const showLeads = activeHospital?.role === 'admin' || activeHospital?.role === 'manager' || activeHospital?.role === 'marketing' || activeHospital?.role === 'nurse';
+  const showLeads = activeHospital?.role === 'admin' || activeHospital?.role === 'group_admin' || activeHospital?.role === 'manager' || activeHospital?.role === 'marketing' || activeHospital?.role === 'nurse';
 
   const { data: providers = [] } = useQuery<{ id: string; firstName: string | null; lastName: string | null }[]>({
     queryKey: ['bookable-providers', hospitalId, unitId],

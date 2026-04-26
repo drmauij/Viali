@@ -83,5 +83,10 @@ export function useActiveHospital(): Hospital | null {
 export function useHasPermission(permission: 'canConfigure' | 'canChat' | 'canPlanOps' | 'canManageControlled'): boolean {
   const activeHospital = useActiveHospital();
   if (!activeHospital) return false;
-  return activeHospital.role === 'admin' || activeHospital[permission] === true;
+  // group_admin = full admin at every clinic in the chain.
+  return (
+    activeHospital.role === 'admin' ||
+    activeHospital.role === 'group_admin' ||
+    activeHospital[permission] === true
+  );
 }

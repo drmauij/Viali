@@ -40,9 +40,8 @@ export default function BottomNav() {
     return userHospitals[0];
   }, [user]);
 
-  // A chain admin reaches the Admin nav via their auto-provisioned admin
-  // role row at every member clinic, so no widening is needed here.
-  const isAdmin = activeHospital?.role === "admin";
+  // group_admin gets full admin rights at every member clinic in the chain.
+  const isAdmin = activeHospital?.role === "admin" || activeHospital?.role === "group_admin";
 
   // Fetch pending checklist count for the active unit
   const { data: pendingCountData } = useQuery<{ total: number; overdue: number }>({
@@ -259,7 +258,7 @@ export default function BottomNav() {
       { id: "matches", icon: "fas fa-link", label: t('bottomNav.matches'), path: "/inventory/matches" },
     ];
     // Show controlled medications tab if enabled for this unit AND user has permission (admin or canManageControlled)
-    if (activeHospital?.showControlledMedications && (activeHospital?.role === 'admin' || activeHospital?.canManageControlled)) {
+    if (activeHospital?.showControlledMedications && (activeHospital?.role === 'admin' || activeHospital?.role === 'group_admin' || activeHospital?.canManageControlled)) {
       inventoryItems.push({ id: "controlled", icon: "fas fa-pills", label: t('bottomNav.controlled', 'BTM'), path: "/inventory/controlled" });
     }
     // Show checklists tab if there are pending checklists for this unit/role

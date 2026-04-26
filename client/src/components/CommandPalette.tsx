@@ -160,7 +160,7 @@ function CommandPalette({
     const role = activeHospital?.role;
     return COMMAND_PALETTE_ITEMS.filter((item) => {
       if (!item.requiredRole) return true;
-      if (role === "admin") return true;
+      if (role === "admin" || role === "group_admin") return true;
       return role === item.requiredRole;
     });
   }, [activeHospital?.role]);

@@ -68,7 +68,7 @@ export default function Patients() {
   const [birthdayInput, setBirthdayInput] = useState("");
   const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
   const [selectedPatientForForm, setSelectedPatientForForm] = useState<Patient | null>(null);
-  const isAdmin = activeHospital?.role === "admin";
+  const isAdmin = activeHospital?.role === "admin" || activeHospital?.role === "group_admin";
   const canPlanOps = isAdmin || activeHospital?.canPlanOps === true;
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [mergePatients, setMergePatients] = useState<{ p1: string; p2: string } | null>(null);
