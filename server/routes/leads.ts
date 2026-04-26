@@ -1197,7 +1197,7 @@ async function isAdmin(req: any, res: Response, next: NextFunction) {
     const { hospitalId } = req.params;
 
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
 
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });

@@ -90,7 +90,7 @@ router.post('/api/admin/:hospitalId/import-tardoc', isAuthenticated, requireStri
 
     // Check if user is admin of this hospital
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some((h: any) => h.id === req.params.hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some((h: any) => h.id === req.params.hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -151,7 +151,7 @@ router.post('/api/admin/:hospitalId/import-tardoc-remote', isAuthenticated, requ
   try {
     const userId = req.user.id;
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some((h: any) => h.id === req.params.hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some((h: any) => h.id === req.params.hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -269,7 +269,7 @@ router.post('/api/admin/:hospitalId/import-ambulante-pauschalen', isAuthenticate
   try {
     const userId = req.user.id;
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some((h: any) => h.id === req.params.hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some((h: any) => h.id === req.params.hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -317,7 +317,7 @@ router.post('/api/admin/:hospitalId/import-ap-remote', isAuthenticated, requireS
   try {
     const userId = req.user.id;
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some((h: any) => h.id === req.params.hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some((h: any) => h.id === req.params.hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -387,7 +387,7 @@ router.post('/api/admin/:hospitalId/import-cumulation-rules', isAuthenticated, r
   try {
     const userId = req.user.id;
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some((h: any) => h.id === req.params.hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some((h: any) => h.id === req.params.hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }

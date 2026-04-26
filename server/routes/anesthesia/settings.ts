@@ -531,7 +531,7 @@ router.patch('/api/anesthesia/settings/:hospitalId', isAuthenticated, requireWri
     const userId = req.user.id;
 
     const userHospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = userHospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = userHospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
