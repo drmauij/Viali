@@ -121,7 +121,21 @@ export const LOCATIONS = [
   },
 ] as const;
 
-// Prices in CHF. Rough Swiss aesthetic-clinic ballpark; not the real prices.
+// The single chain-wide service exposed on /book. Linked to every provider
+// in the chain so the public booking flow has exactly one option, the way
+// beauty2go's real /book works (consultations only, real procedures are
+// scheduled internally after the consultation).
+export const BOOKABLE_GROUP_SERVICE = {
+  name: "Kostenlose Beratung",
+  price: "0",
+  durationMinutes: 30,
+} as const;
+
+// Documentation-only services. Inserted as group-shared services but NOT
+// linked to any provider via clinic_service_providers, so /book never lists
+// them. They still appear in the admin treatment-form picker (treatment_lines)
+// and are used by the funnel/patient seed to populate realistic treatments.
+// Prices in CHF — Swiss aesthetic-clinic ballpark, not the real prices.
 export const GROUP_SERVICES = [
   { name: "Botox Glabella", price: "380", durationMinutes: 30 },
   { name: "Botox Zornesfalte", price: "320", durationMinutes: 30 },

@@ -1,16 +1,18 @@
 /* eslint-disable no-console */
 //
-// 5 group-shared services + 1 hospital-local service (Laser CO2 at Zürich)
-// + provider links wiring every provider to every group service. Zürich
-// providers additionally linked to the laser service.
+// One chain-wide bookable service ("Kostenlose Beratung") + 5 documentation-
+// only group services + 1 hospital-local laser. Only the bookable service
+// is linked to providers via clinic_service_providers — the rest stay
+// invisible to /book but selectable in admin treatment forms / treatment_lines.
 //
 import { db } from "../../db";
 import { clinicServices, clinicServiceProviders } from "../../../shared/schema";
-import { GROUP_SERVICES } from "./skew";
+import { GROUP_SERVICES, BOOKABLE_GROUP_SERVICE } from "./skew";
 import type { Location } from "./locations";
 import type { ProviderRow } from "./providers";
 
 export type SeededServices = {
+  bookableService: typeof clinicServices.$inferSelect;
   groupServices: Array<typeof clinicServices.$inferSelect>;
   localServices: Array<typeof clinicServices.$inferSelect>;
 };
@@ -22,7 +24,24 @@ export async function seedServices(args: {
 }): Promise<SeededServices> {
   const { groupId, locationRows, providers } = args;
 
-  console.log(`Seeding ${GROUP_SERVICES.length} group services…`);
+  console.log(`Seeding 1 bookable group service ("${BOOKABLE_GROUP_SERVICE.name}") + ${GROUP_SERVICES.length} documentation-only group services…`);
+
+  // 1. The single chain-wide bookable service.
+  const [bookableService] = await db
+    .insert(clinicServices)
+    .values({
+      groupId,
+      hospitalId: null,
+      unitId: null,
+      name: BOOKABLE_GROUP_SERVICE.name,
+      price: BOOKABLE_GROUP_SERVICE.price,
+      durationMinutes: BOOKABLE_GROUP_SERVICE.durationMinutes,
+      isInvoiceable: true,
+    } as any)
+    .returning();
+
+  // 2. Documentation-only group services. NOT linked to providers, so they
+  //    don't appear on /book — only in admin treatment forms.
   const groupServices: SeededServices["groupServices"] = [];
   for (const s of GROUP_SERVICES) {
     const [row] = await db
@@ -40,6 +59,7 @@ export async function seedServices(args: {
     groupServices.push(row);
   }
 
+  // 3. Hospital-local laser at Zürich. Documentation-only too.
   console.log("Seeding 1 hospital-local service (Laser CO2 Resurfacing, Zürich)…");
   const [laser] = await db
     .insert(clinicServices)
@@ -54,20 +74,15 @@ export async function seedServices(args: {
     } as any)
     .returning();
 
-  console.log("Linking every provider to every group service…");
+  // 4. Provider links — ONLY for the bookable service. Every provider in
+  //    the chain gets a link so the consultation can be booked at any
+  //    location. The other services intentionally stay unlinked.
+  console.log(`Linking every provider to the bookable consultation…`);
   for (const p of providers) {
-    for (const s of groupServices) {
-      await db
-        .insert(clinicServiceProviders)
-        .values({ serviceId: s.id, providerId: p.user.id });
-    }
-  }
-  // Laser is Zürich-only.
-  for (const p of providers.filter((x) => x.hospitalIdx === 0)) {
     await db
       .insert(clinicServiceProviders)
-      .values({ serviceId: laser.id, providerId: p.user.id });
+      .values({ serviceId: bookableService.id, providerId: p.user.id });
   }
 
-  return { groupServices, localServices: [laser] };
+  return { bookableService, groupServices, localServices: [laser] };
 }
