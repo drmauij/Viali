@@ -156,7 +156,7 @@ export default function Branding({ scope, initialTheme }: Props) {
         <div className="flex items-center gap-2">
           <Label className="w-32">Heading font</Label>
           <select
-            className="border rounded px-2 py-1 flex-1"
+            className="border rounded px-2 py-2 flex-1 bg-background text-foreground border-input"
             value={theme.headingFont || ""}
             onChange={(e) => setTheme({ ...theme, headingFont: e.target.value })}
           >
@@ -168,7 +168,7 @@ export default function Branding({ scope, initialTheme }: Props) {
         <div className="flex items-center gap-2">
           <Label className="w-32">Body font</Label>
           <select
-            className="border rounded px-2 py-1 flex-1"
+            className="border rounded px-2 py-2 flex-1 bg-background text-foreground border-input"
             value={theme.bodyFont || ""}
             onChange={(e) => setTheme({ ...theme, bodyFont: e.target.value })}
           >
