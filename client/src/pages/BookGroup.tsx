@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { MapPin, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BookingThemeStyle } from "@/components/booking/BookingThemeStyle";
+import type { BookingTheme } from "@shared/schema";
 
 // Patient-facing chain-level location picker. Behavior:
 //   1. Fetch `/api/public/group-booking/:token`.
@@ -32,6 +34,11 @@ type Hospital = {
 type GroupBookingData = {
   group: { id: string; name: string; logoUrl: string | null };
   hospitals: Hospital[];
+  /**
+   * Resolved booking theme for the group. May be null when no theme has been
+   * configured. See BookingThemeStyle.
+   */
+  bookingTheme?: BookingTheme | null;
 };
 
 export default function BookGroup() {
@@ -87,9 +94,21 @@ export default function BookGroup() {
     isDark ? "bg-[#0c0c14] text-white" : "bg-[#f0f1f3] text-gray-900",
   );
 
+  const theme = data?.bookingTheme ?? null;
+  // Apply var(--book-bg) only when not in dark mode and a bg is configured —
+  // dark mode keeps its fixed near-black surface. var() with no fallback
+  // resolves to invalid when undefined, so the className background wins.
+  const themedRootStyle: React.CSSProperties | undefined =
+    !isDark && theme?.bgColor
+      ? { background: "var(--book-bg)", fontFamily: theme.bodyFont ? "var(--book-body-font)" : undefined }
+      : theme?.bodyFont
+        ? { fontFamily: "var(--book-body-font)" }
+        : undefined;
+
   if (state === "loading") {
     return (
-      <div className={cn(wrapClass, "flex items-center justify-center")}>
+      <div data-booking-root className={cn(wrapClass, "flex items-center justify-center")} style={themedRootStyle}>
+        <BookingThemeStyle theme={theme} />
         <ThemeToggleFab isDark={isDark} onToggle={() => setIsDark((d) => !d)} />
         <Loader2 className={cn("h-6 w-6 animate-spin", isDark ? "text-white/60" : "text-gray-500")} />
       </div>
@@ -98,7 +117,8 @@ export default function BookGroup() {
 
   if (state === "not_found") {
     return (
-      <div className={cn(wrapClass, "flex items-center justify-center p-6")}>
+      <div data-booking-root className={cn(wrapClass, "flex items-center justify-center p-6")} style={themedRootStyle}>
+        <BookingThemeStyle theme={theme} />
         <ThemeToggleFab isDark={isDark} onToggle={() => setIsDark((d) => !d)} />
         <div className="max-w-md text-center space-y-2">
           <h1 className="text-xl font-semibold">Seite nicht gefunden</h1>
@@ -113,7 +133,8 @@ export default function BookGroup() {
 
   if (state === "error" || !data) {
     return (
-      <div className={cn(wrapClass, "flex items-center justify-center p-6")}>
+      <div data-booking-root className={cn(wrapClass, "flex items-center justify-center p-6")} style={themedRootStyle}>
+        <BookingThemeStyle theme={theme} />
         <ThemeToggleFab isDark={isDark} onToggle={() => setIsDark((d) => !d)} />
         <div className="max-w-md text-center space-y-2">
           <h1 className="text-xl font-semibold">Etwas ist schiefgelaufen</h1>
@@ -130,7 +151,8 @@ export default function BookGroup() {
   const bookable = hospitals.filter((h) => h.bookingToken);
 
   return (
-    <div className={wrapClass}>
+    <div data-booking-root className={wrapClass} style={themedRootStyle}>
+      <BookingThemeStyle theme={theme} />
       <ThemeToggleFab isDark={isDark} onToggle={() => setIsDark((d) => !d)} />
       <div className="max-w-xl mx-auto px-4 py-10">
         <div className="mb-8 text-center">
@@ -144,7 +166,11 @@ export default function BookGroup() {
               />
             </div>
           )}
-          <h1 className="text-2xl font-semibold tracking-tight" data-testid="group-name">
+          <h1
+            className="text-2xl font-semibold tracking-tight"
+            data-testid="group-name"
+            style={theme?.headingFont ? { fontFamily: "var(--book-heading-font)" } : undefined}
+          >
             {group.name}
           </h1>
           <p className={cn("mt-2 text-sm", isDark ? "text-white/60" : "text-gray-500")}>
@@ -173,6 +199,13 @@ export default function BookGroup() {
                       ? "bg-white/5 border-white/10 hover:bg-white/10 focus:ring-white/30"
                       : "bg-white border-gray-200 hover:bg-gray-50 focus:ring-gray-300",
                   )}
+                  // When themed, swap the per-clinic CTA's hairline border to
+                  // the brand primary so the picker reflects the chain palette.
+                  style={
+                    !isDark && theme?.primaryColor
+                      ? { borderColor: "var(--book-primary)" }
+                      : undefined
+                  }
                   data-testid={`location-${h.id}`}
                 >
                   <div className="flex items-start gap-3">
