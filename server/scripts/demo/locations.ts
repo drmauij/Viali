@@ -54,7 +54,13 @@ export async function seedLocationsAndUnits(args: {
         name: "Clinic",
         type: "clinic",
         isClinicModule: true,
-      })
+        // Without `hasOwnCalendar: true`, getAvailableSlots() rewrites
+        // effectiveUnitId to NULL and looks for provider_availability rows
+        // with unit_id IS NULL — but the seed inserts those rows with
+        // unitId set, so /book finds zero slots. Keep this aligned with
+        // the unit-scoped clinic_appointments / treatments inserts.
+        hasOwnCalendar: true,
+      } as any)
       .returning();
     out.push({ hospital: h, unit: u });
   }

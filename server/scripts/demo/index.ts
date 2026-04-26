@@ -162,8 +162,11 @@ export async function seed(): Promise<SeedSummary> {
   await seedFlows({ locationRows });
 
   // 9. Demo admin promotion. Preserved from the original monolith.
+  //    Insert a group_admin role at EVERY location so the user can switch
+  //    between clinics from the top-bar selector — a single role at one
+  //    hospital leaves the chain admin stuck on that one clinic.
   console.log(
-    `Promoting demo admin to platform admin + group_admin at ${locationRows[0].hospital.name}…`,
+    `Promoting demo admin to platform admin + group_admin at all ${locationRows.length} locations…`,
   );
   const demoAdminEmail = process.env.DEMO_ADMIN_EMAIL ?? "m.betti80@gmail.com";
   let demoAdminPromoted = false;
@@ -176,12 +179,14 @@ export async function seed(): Promise<SeedSummary> {
       .update(users)
       .set({ isPlatformAdmin: true } as any)
       .where(eq(users.id, admin.id));
-    await db.insert(userHospitalRoles).values({
-      userId: admin.id,
-      hospitalId: locationRows[0].hospital.id,
-      unitId: locationRows[0].unit.id,
-      role: "group_admin",
-    });
+    await db.insert(userHospitalRoles).values(
+      locationRows.map((loc) => ({
+        userId: admin.id,
+        hospitalId: loc.hospital.id,
+        unitId: loc.unit.id,
+        role: "group_admin" as const,
+      })),
+    );
     demoAdminPromoted = true;
     console.log(`  > promoted ${demoAdminEmail}`);
   } else {
