@@ -124,7 +124,7 @@ export default function BusinessGroup() {
           <TabsTrigger value="settings" data-testid="tab-chain-settings">Settings</TabsTrigger>
           <TabsTrigger value="team" data-testid="tab-chain-team">Team</TabsTrigger>
           <TabsTrigger value="services" data-testid="tab-chain-services">Services</TabsTrigger>
-          <TabsTrigger value="branding" data-testid="tab-chain-branding">Branding</TabsTrigger>
+          <TabsTrigger value="booking" data-testid="tab-chain-booking">Booking</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings" className="space-y-6">
@@ -132,10 +132,6 @@ export default function BusinessGroup() {
             group={group}
             onSave={(patch) => saveSettings.mutate(patch)}
             saving={saveSettings.isPending}
-          />
-          <ChainBookingTokenCard
-            groupId={group.id}
-            bookingToken={group.bookingToken}
           />
         </TabsContent>
 
@@ -147,7 +143,11 @@ export default function BusinessGroup() {
           <ServicesCatalog forceCatalogScope="group" />
         </TabsContent>
 
-        <TabsContent value="branding">
+        <TabsContent value="booking" className="space-y-6">
+          <ChainBookingTokenCard
+            groupId={group.id}
+            bookingToken={group.bookingToken}
+          />
           <Branding scope={{ kind: "group", id: group.id }} initialTheme={group.bookingTheme ?? null} />
         </TabsContent>
       </Tabs>
