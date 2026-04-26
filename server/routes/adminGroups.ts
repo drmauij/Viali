@@ -1,8 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { isAuthenticated } from "../auth/google";
 import { requirePlatformAdmin } from "../utils/accessControl";
 import * as groupStorage from "../storage/groups";
+import { db } from "../db";
+import { hospitalGroups } from "../../shared/schema";
 import logger from "../logger";
 
 const router = Router();
@@ -291,6 +294,39 @@ router.post("/api/admin/groups/:id/users", async (req, res) => {
       req.params.id,
       parsed.data,
     );
+
+    // Send welcome email so the user gets the temp password by email
+    // instead of out-of-band. Same pattern as the per-clinic create-user
+    // flow (server/routes/admin.ts:740). Skip .local addresses and never
+    // fail the request because the email send failed — the user is
+    // already created in DB.
+    const emailDomain = created.email?.toLowerCase().split("@")[1] || "";
+    if (!emailDomain.endsWith(".local") && emailDomain !== "local") {
+      try {
+        const [group] = await db
+          .select({ name: hospitalGroups.name })
+          .from(hospitalGroups)
+          .where(eq(hospitalGroups.id, req.params.id));
+        const loginUrl =
+          process.env.PRODUCTION_URL ||
+          (process.env.REPLIT_DOMAINS?.split(",")?.[0]
+            ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}/`
+            : "https://use.viali.app/");
+        const { sendWelcomeEmail } = await import("../resend");
+        await sendWelcomeEmail(
+          created.email!,
+          created.firstName!,
+          group?.name || "Viali",
+          parsed.data.password,
+          loginUrl,
+          "de",
+        );
+        logger.info("[Group User Creation] welcome email sent to", created.email);
+      } catch (emailError) {
+        logger.warn("[Group User Creation] welcome email failed:", emailError);
+      }
+    }
+
     const { passwordHash: _ph, ...safe } = created;
     res.status(201).json(safe);
   } catch (err: any) {

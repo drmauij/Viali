@@ -157,6 +157,18 @@ function HomeRedirect() {
       return;
     }
 
+    // Chain admin default landing: if the user holds a group_admin role
+    // anywhere and there's no saved module from a previous session, send
+    // them straight to /chain. Patrik logs in → cockpit, no clinic detour.
+    const isGroupAdmin = (user as any)?.hospitals?.some?.(
+      (h: any) => h.role === "group_admin",
+    );
+    const isPlatformAdmin = !!(user as any)?.isPlatformAdmin;
+    if ((isGroupAdmin || isPlatformAdmin) && !savedModule) {
+      navigate("/chain", { replace: true });
+      return;
+    }
+
     const userHospitals = (user as any)?.hospitals;
     if (userHospitals && userHospitals.length > 0) {
       const savedHospitalKey = localStorage.getItem('activeHospital');
