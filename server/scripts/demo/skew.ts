@@ -4,18 +4,21 @@
 // No DB access, no side effects — safe to import anywhere.
 //
 
-export const GROUP_NAME = "beauty2go (Demo)";
+export const GROUP_NAME = "CHAIN DEMO";
 
 // Test fixtures from worktree vitest runs (e.g. chain-funnels-endpoints.test.ts)
 // create chain hospitals named like "H1-4f4b070e" / "H-1776952446983".
 // They leak into the dev DB when an `afterAll` cleanup aborts.
 export const DEMO_FIXTURE_NAME_PATTERN = "^H[0-9]?-";
 
-// Chain GROUP names that the wipe scrubs. Conservative pattern — only
-// catches the literal demo group name and obvious test-fixture patterns
-// from worktree vitest runs. Crucially does NOT match a bare "beauty2go"
-// (that's a plausible real customer name and we must never wipe it):
-//   "beauty2go (Demo)"      the seeded demo group
+// Chain GROUP names that the wipe scrubs. Conservative pattern — ONLY
+// matches the literal name "CHAIN DEMO" plus obvious test-fixture
+// patterns from worktree vitest runs. The user's stated workflow is:
+// run the seed once, optionally rename the group to keep the data as a
+// base for further customization, and never lose that data even if the
+// seed is re-run by mistake. As long as the renamed group's name is
+// anything other than "CHAIN DEMO" or a test-fixture, it's untouchable.
+//   "CHAIN DEMO"            the seeded demo group
 //   svc-g-<hex>             chain-services-tab tests
 //   t-group-only-<hex>      chain-services-tab tests
 //   t-xor-<hex>             chain-services-tab tests
@@ -24,11 +27,8 @@ export const DEMO_FIXTURE_NAME_PATTERN = "^H[0-9]?-";
 //   G-<hex>  /  OG-<hex>    chain-funnels-endpoints tests
 //   H-<hex>                 hospital-fixture-shaped group names
 //   Test-<hex>              legacy
-//
-// Production safety: any group whose name doesn't fit this pattern is
-// left strictly alone, even if it has demo-shaped child rows.
 export const DEMO_GROUP_NAME_PATTERN =
-  "^(svc-g-|t-(group-only-|xor-|link-)|test-group-|G-|OG-|H-|Test-)[0-9a-f-]+$|^beauty2go \\(Demo\\)$";
+  "^(svc-g-|t-(group-only-|xor-|link-)|test-group-|G-|OG-|H-|Test-)[0-9a-f-]+$|^CHAIN DEMO$";
 
 export const DEMO_BOOKING_TOKEN_PREFIX = "beauty2go-demo-";
 

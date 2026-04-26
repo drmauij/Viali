@@ -42,7 +42,7 @@ import {
   providerTimeOff,
   inventorySnapshots,
 } from "../../../shared/schema";
-import { and, eq, inArray, like, sql } from "drizzle-orm";
+import { and, eq, inArray, like, notInArray, sql } from "drizzle-orm";
 import {
   DEMO_FIXTURE_NAME_PATTERN,
   DEMO_GROUP_NAME_PATTERN,
@@ -171,24 +171,55 @@ export async function wipeExistingGroup(groupId: string): Promise<void> {
       .where(inArray(clinicServices.id, groupServiceIds));
   }
 
-  // Orphan demo provider users. A previous run may have left rows at
-  // hospitals that aren't in the current group (auto-provisioned admin
-  // rows + treatments survive group restructure), so the hospital-scoped
-  // deletes above don't catch them.
-  const orphanedProviderRows = await db
+  // Orphan demo provider users — but ONLY those whose every userHospitalRoles
+  // row is at a hospital being wiped right now. If a provider has any role at
+  // a hospital outside `memberHospitalIds`, leave the user (and their data)
+  // strictly alone — they belong to a renamed/preserved group that the user
+  // wants protected.
+  const memberHospitalIds = memberHospitals.map((h) => h.id);
+  const demoProviderRows = await db
     .select({ id: users.id })
     .from(users)
     .where(like(users.email, PROVIDER_EMAIL_PATTERN));
-  const orphanedProviderIds = orphanedProviderRows.map((u) => u.id);
-  if (orphanedProviderIds.length > 0) {
+  const demoProviderIds = demoProviderRows.map((u) => u.id);
+
+  if (demoProviderIds.length > 0 && memberHospitalIds.length > 0) {
+    // Find providers with at least one role at a hospital outside the wipe
+    // scope — these are protected.
+    const protectedRoleRows = await db
+      .select({ userId: userHospitalRoles.userId })
+      .from(userHospitalRoles)
+      .where(
+        and(
+          inArray(userHospitalRoles.userId, demoProviderIds),
+          notInArray(userHospitalRoles.hospitalId, memberHospitalIds),
+        ),
+      );
+    const protectedProviderIds = new Set(protectedRoleRows.map((r) => r.userId));
+    const wipeableProviderIds = demoProviderIds.filter(
+      (id) => !protectedProviderIds.has(id),
+    );
+
+    if (wipeableProviderIds.length > 0) {
+      await db
+        .delete(treatments)
+        .where(inArray(treatments.providerId, wipeableProviderIds));
+      await db
+        .delete(userHospitalRoles)
+        .where(inArray(userHospitalRoles.userId, wipeableProviderIds));
+      await db.delete(users).where(inArray(users.id, wipeableProviderIds));
+    }
+  } else if (demoProviderIds.length > 0) {
+    // No member hospitals (childless group) — safe to fully wipe demo
+    // providers since they can't be tied to any preserved group.
     await db
       .delete(treatments)
-      .where(inArray(treatments.providerId, orphanedProviderIds));
+      .where(inArray(treatments.providerId, demoProviderIds));
     await db
       .delete(userHospitalRoles)
-      .where(inArray(userHospitalRoles.userId, orphanedProviderIds));
+      .where(inArray(userHospitalRoles.userId, demoProviderIds));
+    await db.delete(users).where(inArray(users.id, demoProviderIds));
   }
-  await db.delete(users).where(like(users.email, PROVIDER_EMAIL_PATTERN));
 
   // Finally, the group row itself.
   await db.delete(hospitalGroups).where(eq(hospitalGroups.id, groupId));
@@ -210,32 +241,14 @@ async function wipeHospitalsAndDependents(hospitalIds: string[]): Promise<void> 
     .where(inArray(units.hospitalId, hospitalIds));
   const unitIds = unitRows.map((u) => u.id);
 
-  // Demo patients (across the whole DB by email pattern). Their treatments
-  // may be authored at hospitals outside the current demo group — typical
-  // when a prior run failed mid-way and left orphans. Wipe both sets.
-  const demoPatientRows = await db
-    .select({ id: patients.id })
-    .from(patients)
-    .where(like(patients.email, PATIENT_EMAIL_PATTERN));
-  const demoPatientIds = demoPatientRows.map((p) => p.id);
-
+  // Treatments at hospitals being wiped. We deliberately do NOT widen to
+  // "every treatment by a demo-email patient" — if the user renamed the
+  // group to keep it as a base, that group's treatments are protected.
   const hospitalScopedTreatments = await db
     .select({ id: treatments.id })
     .from(treatments)
     .where(inArray(treatments.hospitalId, hospitalIds));
-  const orphanPatientTreatments =
-    demoPatientIds.length > 0
-      ? await db
-          .select({ id: treatments.id })
-          .from(treatments)
-          .where(inArray(treatments.patientId, demoPatientIds))
-      : [];
-  const treatmentIds = Array.from(
-    new Set([
-      ...hospitalScopedTreatments.map((t) => t.id),
-      ...orphanPatientTreatments.map((t) => t.id),
-    ]),
-  );
+  const treatmentIds = hospitalScopedTreatments.map((t) => t.id);
 
   const invoiceRows = await db
     .select({ id: clinicInvoices.id })
@@ -274,18 +287,10 @@ async function wipeHospitalsAndDependents(hospitalIds: string[]): Promise<void> 
   }
   await db.delete(flowHospitals).where(inArray(flowHospitals.hospitalId, hospitalIds));
 
-  // 2. Hospital-scoped tables (most of them). For tables that reference
-  //    patients (referral_events, clinic_appointments) we also catch rows
-  //    that point at demo patients but live at non-demo hospitals — same
-  //    orphan pattern as treatments above.
-  if (demoPatientIds.length > 0) {
-    await db
-      .delete(referralEvents)
-      .where(inArray(referralEvents.patientId, demoPatientIds));
-    await db
-      .delete(clinicAppointments)
-      .where(inArray(clinicAppointments.patientId, demoPatientIds));
-  }
+  // 2. Hospital-scoped tables. We deliberately do NOT do a cross-hospital
+  //    sweep on demoPatientIds — if a renamed/preserved group has demo
+  //    patients with referrals or appointments at its own hospitals, those
+  //    rows must survive. Hospital-scope match is the only safe check.
   await db.delete(referralEvents).where(inArray(referralEvents.hospitalId, hospitalIds));
   await db.delete(leads).where(inArray(leads.hospitalId, hospitalIds));
   await db.delete(clinicAppointments).where(inArray(clinicAppointments.hospitalId, hospitalIds));
