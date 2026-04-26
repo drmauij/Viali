@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -116,6 +117,37 @@ export function ChainTeamSection() {
   const fullName = (m: { firstName: string | null; lastName: string | null; email: string | null; userId?: string; id?: string }) =>
     [m.firstName, m.lastName].filter(Boolean).join(" ") || m.email || (m.userId ?? m.id ?? "—");
 
+  // Same idea for chain admins — server returns one row per (userId, hospitalId)
+  // group_admin assignment. A user with admin rights at every member clinic
+  // appears N times. Group by user so the table shows one row per person with
+  // the list of hospitals as compact badges.
+  type AdminGroup = {
+    userId: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+    hospitals: Array<{ hospitalId: string; hospitalName: string; roleId: string }>;
+  };
+  const adminGroups = useMemo<AdminGroup[]>(() => {
+    const map = new Map<string, AdminGroup>();
+    for (const m of data?.admins ?? []) {
+      const existing = map.get(m.userId);
+      const entry = { hospitalId: m.hospitalId, hospitalName: m.hospitalName, roleId: m.roleId };
+      if (existing) {
+        existing.hospitals.push(entry);
+      } else {
+        map.set(m.userId, {
+          userId: m.userId,
+          firstName: m.firstName,
+          lastName: m.lastName,
+          email: m.email,
+          hospitals: [entry],
+        });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => fullName(a).localeCompare(fullName(b)));
+  }, [data?.admins]);
+
   // Collapse the flat staff list (one row per user×hospital×unit×role) into one
   // entry per user, keeping all assignments in `rows` for the dialog.
   const staffGroups = useMemo<StaffGroup[]>(() => {
@@ -164,19 +196,45 @@ export function ChainTeamSection() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(data?.admins ?? []).map((m) => (
-                    <TableRow key={m.roleId} data-testid={`row-admin-${m.userId}`}>
-                      <TableCell className="font-medium">{fullName(m)}</TableCell>
-                      <TableCell className="text-muted-foreground">{m.email ?? "—"}</TableCell>
-                      <TableCell><Badge variant="outline">{m.hospitalName}</Badge></TableCell>
+                  {adminGroups.map((g) => (
+                    <TableRow key={g.userId} data-testid={`row-admin-${g.userId}`}>
+                      <TableCell className="font-medium">{fullName(g)}</TableCell>
+                      <TableCell className="text-muted-foreground">{g.email ?? "—"}</TableCell>
+                      <TableCell>
+                        {g.hospitals.length === 1 ? (
+                          <Badge variant="outline">{g.hospitals[0].hospitalName}</Badge>
+                        ) : (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="cursor-help">
+                                {t("chain.team.nLocations", "{{n}} locations", { n: g.hospitals.length })}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <div className="flex flex-col gap-1">
+                                {g.hospitals.map((h) => (
+                                  <span key={h.hospitalId}>{h.hospitalName}</span>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive"
-                          onClick={() => revoke.mutate({ userId: m.userId, hospitalId: m.hospitalId })}
+                          onClick={() => {
+                            // Revoke at every member hospital — chain admin
+                            // status is conceptually one assignment, even when
+                            // it's stored as N rows in user_hospital_roles.
+                            for (const h of g.hospitals) {
+                              revoke.mutate({ userId: g.userId, hospitalId: h.hospitalId });
+                            }
+                          }}
                           title={t("chain.team.revoke", "Revoke")}
-                          data-testid={`revoke-admin-${m.userId}`}
+                          data-testid={`revoke-admin-${g.userId}`}
                         >
                           <X className="h-4 w-4" />
                         </Button>
