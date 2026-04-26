@@ -60,9 +60,9 @@ import {
  *      (test-fixture leftovers with group_id set).
  */
 export async function wipeAllDemoGroups(): Promise<void> {
-  // 1. Multi-group wipe by name pattern (catches "beauty2go (Demo)",
-  //    plus a renamed-to-"beauty2go" copy if someone touched it via
-  //    /admin/groups, plus test-fixture group names).
+  // 1. Multi-group wipe by name pattern (catches "beauty2go (Demo)" plus
+  //    test-fixture group names). Conservative pattern — never matches a
+  //    bare "beauty2go" or any real customer-shaped name.
   const groupsByName = await db
     .select({ id: hospitalGroups.id, name: hospitalGroups.name })
     .from(hospitalGroups)
@@ -77,41 +77,66 @@ export async function wipeAllDemoGroups(): Promise<void> {
       sql`${hospitalGroups.bookingToken} LIKE ${DEMO_BOOKING_TOKEN_PREFIX + "%"}`,
     );
 
-  const groupIds = Array.from(
-    new Set([...groupsByName.map((g) => g.id), ...groupsByToken.map((g) => g.id)]),
-  );
-  for (const id of groupIds) {
-    const name = [...groupsByName, ...groupsByToken].find((g) => g.id === id)?.name;
-    console.log(`  > wiping group ${id} (${name ?? "?"})`);
-    await wipeExistingGroup(id);
-  }
-  if (groupIds.length === 0) {
-    console.log("  > no existing demo groups, nothing to wipe");
-  }
+  const groups = [...groupsByName, ...groupsByToken];
+  const groupIds = Array.from(new Set(groups.map((g) => g.id)));
 
-  // 3. Orphan test-fixture hospitals. These have group_id set but their
-  //    parent group may already be gone. Catch them by name pattern.
-  const orphanIdRows = await db
-    .select({ id: hospitals.id })
+  // 3. Orphan test-fixture hospitals — group_id set but name matches the
+  //    H-prefix pattern from worktree vitest seeds.
+  const orphanHospitalRows = await db
+    .select({ id: hospitals.id, name: hospitals.name })
     .from(hospitals)
     .where(sql`${hospitals.name} ~ ${DEMO_FIXTURE_NAME_PATTERN} AND ${hospitals.groupId} IS NOT NULL`);
-  if (orphanIdRows.length > 0) {
-    console.log(`  > wiping ${orphanIdRows.length} orphan test-fixture hospitals`);
-    await wipeHospitalsAndDependents(orphanIdRows.map((h) => h.id));
-  }
 
-  // 4. Childless chain groups. After steps 1-3 these are orphan group rows
-  //    whose hospitals were already deleted by an earlier abort. Safe to
-  //    drop — no children means no real data.
+  // 4. Childless GROUPS that ALSO match the demo/test pattern. Restricted
+  //    to those names so a real customer's empty group (e.g. a brand-new
+  //    chain set up via /admin/groups but no clinics yet) is left alone.
   const childlessRows = await db.execute<{ id: string; name: string }>(sql`
     SELECT g.id, g.name FROM hospital_groups g
     LEFT JOIN hospitals h ON h.group_id = g.id
     WHERE h.id IS NULL
+      AND g.name ~ ${DEMO_GROUP_NAME_PATTERN}
   `);
-  const childlessIds = (childlessRows.rows as any[]).map((r) => r.id);
-  if (childlessIds.length > 0) {
-    console.log(`  > dropping ${childlessIds.length} childless chain group(s)`);
-    await db.delete(hospitalGroups).where(inArray(hospitalGroups.id, childlessIds));
+  const childlessGroupIds = (childlessRows.rows as any[]).map((r) => r.id);
+
+  // Pre-wipe preview. Print everything we're about to delete so the user
+  // can Ctrl-C if anything unexpected appears, especially in production.
+  if (
+    groupIds.length === 0 &&
+    orphanHospitalRows.length === 0 &&
+    childlessGroupIds.length === 0
+  ) {
+    console.log("  > no existing demo groups / orphan fixtures, nothing to wipe");
+    return;
+  }
+  console.log("  > wipe plan:");
+  if (groupIds.length > 0) {
+    console.log(`     - ${groupIds.length} demo/test group(s):`);
+    for (const id of groupIds) {
+      const name = groups.find((g) => g.id === id)?.name ?? "?";
+      console.log(`         · ${id}  ${name}`);
+    }
+  }
+  if (orphanHospitalRows.length > 0) {
+    console.log(`     - ${orphanHospitalRows.length} orphan test-fixture hospital(s):`);
+    for (const h of orphanHospitalRows) {
+      console.log(`         · ${h.id}  ${h.name}`);
+    }
+  }
+  if (childlessGroupIds.length > 0) {
+    console.log(`     - ${childlessGroupIds.length} childless demo/test group(s) to drop`);
+  }
+
+  // Now actually do the wipe.
+  for (const id of groupIds) {
+    const name = groups.find((g) => g.id === id)?.name;
+    console.log(`  > wiping group ${id} (${name ?? "?"})`);
+    await wipeExistingGroup(id);
+  }
+  if (orphanHospitalRows.length > 0) {
+    await wipeHospitalsAndDependents(orphanHospitalRows.map((h) => h.id));
+  }
+  if (childlessGroupIds.length > 0) {
+    await db.delete(hospitalGroups).where(inArray(hospitalGroups.id, childlessGroupIds));
   }
 }
 

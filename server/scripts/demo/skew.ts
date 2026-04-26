@@ -11,18 +11,24 @@ export const GROUP_NAME = "beauty2go (Demo)";
 // They leak into the dev DB when an `afterAll` cleanup aborts.
 export const DEMO_FIXTURE_NAME_PATTERN = "^H[0-9]?-";
 
-// Chain GROUP names (and a booking-token prefix) that the wipe also
-// scrubs. Catches:
-//   - prior demo runs renamed via /admin/groups (so "(Demo)" was stripped)
-//   - test-fixture groups left by aborted vitest runs:
-//       svc-g-…             (chain-services-tab tests)
-//       t-group-only-…      (chain-services-tab tests)
-//       t-xor-…             (chain-services-tab tests)
-//       t-link-…            (chain-services-tab tests)
-//       test-group-…        (legacy test fixtures)
-//       G-…  /  OG-…        (chain-funnels-endpoints tests)
+// Chain GROUP names that the wipe scrubs. Conservative pattern — only
+// catches the literal demo group name and obvious test-fixture patterns
+// from worktree vitest runs. Crucially does NOT match a bare "beauty2go"
+// (that's a plausible real customer name and we must never wipe it):
+//   "beauty2go (Demo)"      the seeded demo group
+//   svc-g-<hex>             chain-services-tab tests
+//   t-group-only-<hex>      chain-services-tab tests
+//   t-xor-<hex>             chain-services-tab tests
+//   t-link-<hex>            chain-services-tab tests
+//   test-group-<hex>        legacy test fixtures
+//   G-<hex>  /  OG-<hex>    chain-funnels-endpoints tests
+//   H-<hex>                 hospital-fixture-shaped group names
+//   Test-<hex>              legacy
+//
+// Production safety: any group whose name doesn't fit this pattern is
+// left strictly alone, even if it has demo-shaped child rows.
 export const DEMO_GROUP_NAME_PATTERN =
-  "^(svc-g-|t-(group-only-|xor-|link-)|test-group-|G-|OG-|H-)[0-9a-f-]+$|^beauty2go( \\(Demo\\))?$";
+  "^(svc-g-|t-(group-only-|xor-|link-)|test-group-|G-|OG-|H-|Test-)[0-9a-f-]+$|^beauty2go \\(Demo\\)$";
 
 export const DEMO_BOOKING_TOKEN_PREFIX = "beauty2go-demo-";
 
