@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { uploadLogo } from "@/lib/uploadLogo";
@@ -148,7 +148,17 @@ export default function BusinessGroup() {
             groupId={group.id}
             bookingToken={group.bookingToken}
           />
-          <Branding scope={{ kind: "group", id: group.id }} initialTheme={group.bookingTheme ?? null} />
+          <Card>
+            <CardHeader>
+              <CardTitle>Customize booking page theme</CardTitle>
+              <CardDescription>
+                Colors, fonts, and corner styling applied to your /book page. Import from a public URL or set tokens manually.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Branding scope={{ kind: "group", id: group.id }} initialTheme={group.bookingTheme ?? null} />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
