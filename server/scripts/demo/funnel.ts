@@ -156,6 +156,11 @@ async function seedReferralsForClinic(args: {
     const startTime = `${String(startHour).padStart(2, "0")}:00`;
     const endTime = `${String(startHour).padStart(2, "0")}:30`;
 
+    // The (provider, date, start_time) unique partial index can reject an
+    // insert when the random PRNG output happens to collide with a slot
+    // already booked by the referral OR cross-location patient passes.
+    // Skip that referral's appointment+treatment branch instead of
+    // crashing the whole seed.
     const [appt] = await db
       .insert(clinicAppointments)
       .values({
@@ -169,7 +174,9 @@ async function seedReferralsForClinic(args: {
         durationMinutes: 30,
         status: status.status,
       } as any)
+      .onConflictDoNothing()
       .returning();
+    if (!appt) continue;
     appointmentsCount++;
 
     // Link the referral to the appointment.
@@ -247,6 +254,8 @@ async function seedLeadsForClinic(args: {
       const startTime = `${String(startHour).padStart(2, "0")}:00`;
       const endTime = `${String(startHour).padStart(2, "0")}:30`;
 
+      // Skip on (provider, date, time) collision — same partial-unique
+      // index as the referral path above.
       const [appt] = await db
         .insert(clinicAppointments)
         .values({
@@ -260,13 +269,19 @@ async function seedLeadsForClinic(args: {
           durationMinutes: 30,
           status: status.status,
         } as any)
+        .onConflictDoNothing()
         .returning();
-      appointmentId = appt.id;
-      appointmentsCount++;
+      if (!appt) {
+        // Lead row is still inserted below (just without appointment_id).
+        // Skip the treatment branch entirely.
+      } else {
+        appointmentId = appt.id;
+        appointmentsCount++;
+      }
 
       // Completed appointments → maybe a signed treatment so the chain
       // funnel "paid_count" / revenue KPI is non-zero for converting leads.
-      if (status.status === "completed" && prng.next() < TREATMENT_RATE) {
+      if (appt && status.status === "completed" && prng.next() < TREATMENT_RATE) {
         const service = prng.pick(allServices);
         const [tx] = await db
           .insert(treatments)
