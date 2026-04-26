@@ -405,15 +405,30 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
     // If this hospital belongs to a chain, surface the chain on the booking
     // page so we can show "Chain logo + name" on the left of the header
     // card alongside the per-clinic info on the right.
+    //
+    // Resolve effective `bookingTheme` along the way: chain group always wins
+    // for member hospitals; standalone hospitals fall back to their own theme.
+    // See spec: docs/superpowers/specs/2026-04-26-booking-page-theming-design.md
     let group: { id: string; name: string; logoUrl: string | null } | null = null;
+    let bookingTheme: unknown = null;
     if (hospital.groupId) {
       const { hospitalGroups: hgTable } = await import("@shared/schema");
       const [g] = await db
-        .select({ id: hgTable.id, name: hgTable.name, logoUrl: hgTable.logoUrl })
+        .select({
+          id: hgTable.id,
+          name: hgTable.name,
+          logoUrl: hgTable.logoUrl,
+          bookingTheme: hgTable.bookingTheme,
+        })
         .from(hgTable)
         .where(eq(hgTable.id, hospital.groupId))
         .limit(1);
-      if (g) group = g;
+      if (g) {
+        group = { id: g.id, name: g.name, logoUrl: g.logoUrl };
+        bookingTheme = g.bookingTheme ?? null;
+      }
+    } else {
+      bookingTheme = hospital.bookingTheme ?? null;
     }
 
     res.json({
@@ -429,6 +444,7 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
         city: hospital.companyCity || null,
       },
       group,
+      bookingTheme,
       bookingSettings: hospital.bookingSettings || {},
       providers: providers.map(p => ({
         id: p.userId,

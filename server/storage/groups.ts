@@ -715,10 +715,15 @@ export async function revokeGroupAdmin(userId: string, hospitalId: string) {
 }
 
 /**
- * Resolve a group booking token to `{ group, hospitals }`. Used by the
- * public `/book/g/:token` location picker. Returns `null` if the token
- * doesn't match any group. `hospitals` are listed in alphabetical order
- * so the picker renders deterministically.
+ * Resolve a group booking token to `{ group, hospitals, bookingTheme }`.
+ * Used by the public `/book/g/:token` location picker. Returns `null` if
+ * the token doesn't match any group. `hospitals` are listed in alphabetical
+ * order so the picker renders deterministically.
+ *
+ * `bookingTheme` is surfaced at the top level (not nested under `group`)
+ * because the public booking endpoint contract treats it as the resolved
+ * effective theme — for a group page it's always the group's theme. See
+ * docs/superpowers/specs/2026-04-26-booking-page-theming-design.md.
  */
 export async function getGroupByBookingToken(token: string): Promise<{
   group: { id: string; name: string; logoUrl: string | null };
@@ -729,12 +734,14 @@ export async function getGroupByBookingToken(token: string): Promise<{
     bookingToken: string | null;
     logoUrl: string | null;
   }>;
+  bookingTheme: unknown;
 } | null> {
   const [group] = await db
     .select({
       id: hospitalGroups.id,
       name: hospitalGroups.name,
       logoUrl: hospitalGroups.logoUrl,
+      bookingTheme: hospitalGroups.bookingTheme,
     })
     .from(hospitalGroups)
     .where(eq(hospitalGroups.bookingToken, token));
@@ -750,7 +757,11 @@ export async function getGroupByBookingToken(token: string): Promise<{
     .from(hospitals)
     .where(eq(hospitals.groupId, group.id))
     .orderBy(hospitals.name);
-  return { group, hospitals: members };
+  return {
+    group: { id: group.id, name: group.name, logoUrl: group.logoUrl },
+    hospitals: members,
+    bookingTheme: group.bookingTheme ?? null,
+  };
 }
 
 export async function regenerateGroupBookingToken(id: string): Promise<string> {
