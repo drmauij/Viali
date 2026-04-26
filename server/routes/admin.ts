@@ -99,7 +99,7 @@ async function isAdmin(req: any, res: Response, next: NextFunction) {
     const { hospitalId } = req.params;
     
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
@@ -432,7 +432,7 @@ router.get('/api/admin/users/search', isAuthenticated, async (req: any, res) => 
     
     const userId = req.user.id;
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminAccess = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminAccess = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     
     if (!hasAdminAccess) {
       return res.status(403).json({ message: "Admin access required for this hospital" });
@@ -782,7 +782,7 @@ router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAc
 
     const currentUserId = req.user.id;
     const hospitals = await storage.getUserHospitals(currentUserId);
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -836,7 +836,7 @@ router.patch('/api/admin/users/:userId/notes', isAuthenticated, requireWriteAcce
 
     const currentUserId = req.user.id;
     const hospitals = await storage.getUserHospitals(currentUserId);
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -880,7 +880,7 @@ router.patch('/api/admin/users/:userId/email', isAuthenticated, requireWriteAcce
 
     const currentUserId = req.user.id;
     const hospitals = await storage.getUserHospitals(currentUserId);
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -933,7 +933,7 @@ router.post('/api/admin/users/:userId/reset-password', isAuthenticated, requireW
 
     const currentUserId = req.user.id;
     const hospitals = await storage.getUserHospitals(currentUserId);
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -973,7 +973,7 @@ router.patch('/api/admin/users/:userId/access', isAuthenticated, requireWriteAcc
     // Check admin access
     const currentUserId = req.user.id;
     const hospitals = await storage.getUserHospitals(currentUserId);
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -1031,7 +1031,7 @@ router.patch('/api/admin/user-roles/:roleId/bookable', isAuthenticated, requireW
     // Check admin access
     const currentUserId = req.user.id;
     const hospitals = await storage.getUserHospitals(currentUserId);
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -1101,7 +1101,7 @@ router.patch('/api/admin/user-roles/:roleId/default-login', isAuthenticated, req
     // Check admin access
     const currentUserId = req.user.id;
     const hospitals = await storage.getUserHospitals(currentUserId);
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -1193,7 +1193,7 @@ router.delete('/api/admin/users/:userId/delete', isAuthenticated, requireWriteAc
     const hospitals = await storage.getUserHospitals(currentUserId);
     logger.info('[Archive User] User hospitals:', hospitals.map(h => ({ id: h.id, role: h.role })));
     
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       logger.info('[Archive User] Admin check failed - no admin role found for hospital:', hospitalId);
       return res.status(403).json({ message: "Admin access required" });
@@ -1524,7 +1524,7 @@ router.post('/api/admin/users/:userId/set-kiosk-pin', isAuthenticated, requireWr
 
     const currentUserId = req.user.id;
     const hospitals = await storage.getUserHospitals(currentUserId);
-    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -1556,7 +1556,7 @@ router.delete('/api/admin/users/:userId/kiosk-pin', isAuthenticated, requireWrit
 
     const currentUserId = req.user.id;
     const hospitals = await storage.getUserHospitals(currentUserId);
-    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -1692,7 +1692,7 @@ router.post('/api/admin/import-chop', isAuthenticated, async (req: any, res) => 
     
     // Check if user is admin of any hospital
     const hospitals = await storage.getUserHospitals(userId);
-    const isAnyAdmin = hospitals.some(h => h.role === 'admin');
+    const isAnyAdmin = hospitals.some(h => (h.role === 'admin' || h.role === 'group_admin'));
     
     if (!isAnyAdmin) {
       return res.status(403).json({ message: "Admin access required" });
@@ -1753,7 +1753,7 @@ router.post('/api/admin/catalog/preview', isAuthenticated, async (req: any, res)
   try {
     const userId = req.user.id;
     const hospitals = await storage.getUserHospitals(userId);
-    const isAnyAdmin = hospitals.some(h => h.role === 'admin');
+    const isAnyAdmin = hospitals.some(h => (h.role === 'admin' || h.role === 'group_admin'));
     if (!isAnyAdmin) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -1797,7 +1797,7 @@ router.post('/api/admin/catalog/import', isAuthenticated, async (req: any, res) 
   try {
     const userId = req.user.id;
     const hospitals = await storage.getUserHospitals(userId);
-    const isAnyAdmin = hospitals.some(h => h.role === 'admin');
+    const isAnyAdmin = hospitals.some(h => (h.role === 'admin' || h.role === 'group_admin'));
     if (!isAnyAdmin) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -1909,7 +1909,7 @@ router.get('/api/admin/catalog/status', isAuthenticated, async (req: any, res) =
   try {
     const userId = req.user.id;
     const hospitals = await storage.getUserHospitals(userId);
-    const isAnyAdmin = hospitals.some(h => h.role === 'admin');
+    const isAnyAdmin = hospitals.some(h => (h.role === 'admin' || h.role === 'group_admin'));
     if (!isAnyAdmin) {
       return res.status(403).json({ message: "Admin access required" });
     }
