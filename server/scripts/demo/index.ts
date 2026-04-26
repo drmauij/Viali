@@ -42,6 +42,7 @@ import { seedServices } from "./services";
 import { seedPatientsAndCrossLocation } from "./patients";
 import { seedFlows } from "./flows";
 import { seedFunnelData } from "./funnel";
+import { seedProviderAvailability } from "./availability";
 
 export type SeedSummary = {
   groupId: string;
@@ -136,6 +137,10 @@ export async function seed(): Promise<SeedSummary> {
     locationRows,
     providers,
   });
+
+  // 5b. Provider availability — Mon-Fri 09:00-12:00 + 14:00-17:00 so the
+  //     /book page actually shows slots when the patient picks a provider.
+  await seedProviderAvailability({ locationRows, providers });
 
   // 6. Patients + cross-location treatments.
   const patientRows = await seedPatientsAndCrossLocation({
