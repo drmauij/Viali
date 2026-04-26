@@ -45,6 +45,9 @@ export async function seedLocationsAndUnits(args: {
         timezone: "Europe/Zurich",
         currency: "CHF",
         defaultLanguage: "de",
+        // Default is "test", which expires after the trial and shows
+        // "payment required" on the dashboard. Demo runs forever.
+        licenseType: "free",
       } as any)
       .returning();
     const [u] = await db
