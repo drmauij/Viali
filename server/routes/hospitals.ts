@@ -90,7 +90,7 @@ router.patch('/api/hospitals/:hospitalId', isAuthenticated, requireStrictHospita
     const { hospitalId } = req.params;
     const userId = req.user.id;
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -127,7 +127,7 @@ router.post('/api/hospitals/:id/seed', isAuthenticated, requireStrictHospitalAcc
     const { id: hospitalId } = req.params;
     const userId = req.user.id;
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -153,7 +153,7 @@ router.post('/api/hospitals/:id/reset-lists', isAuthenticated, requireStrictHosp
     const { id: hospitalId } = req.params;
     const userId = req.user.id;
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -171,7 +171,7 @@ router.post('/api/hospitals/:id/normalize-phones', isAuthenticated, requireStric
     const { id: hospitalId } = req.params;
     const userId = req.user.id;
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }

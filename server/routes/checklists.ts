@@ -44,7 +44,7 @@ router.post('/api/checklists/templates', isAuthenticated, requireWriteAccess, as
     }
     
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some(h => h.id === templateData.hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === templateData.hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -107,7 +107,7 @@ router.patch('/api/checklists/templates/:id', isAuthenticated, requireWriteAcces
     }
     
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some(h => h.id === template.hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === template.hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -146,7 +146,7 @@ router.delete('/api/checklists/templates/:id', isAuthenticated, requireWriteAcce
     }
     
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some(h => h.id === template.hospitalId && h.role === 'admin');
+    const hasAdminRole = hospitals.some(h => h.id === template.hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!hasAdminRole) {
       return res.status(403).json({ message: "Admin access required" });
     }

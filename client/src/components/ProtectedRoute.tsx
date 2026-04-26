@@ -51,7 +51,8 @@ export function ProtectedRoute({
   // /admin mix-up required.
   const hasAnesthesiaAccess = activeHospital?.unitType === 'anesthesia';
   const hasSurgeryAccess = activeHospital?.unitType === 'or';
-  const hasAdminAccess = activeHospital?.role === "admin";
+  // group_admin = full admin rights at every member clinic in the chain.
+  const hasAdminAccess = activeHospital?.role === "admin" || activeHospital?.role === "group_admin";
   const hasDoctorAccess = activeHospital?.role === "doctor";
   const hasBusinessAccess = activeHospital?.unitType === 'business';
   const hasClinicAccess = activeHospital?.unitType === 'clinic';
