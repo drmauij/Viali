@@ -13,7 +13,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { uploadLogo } from "@/lib/uploadLogo";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Settings, Download, Loader2, Clock, X } from "lucide-react";
+import { Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Settings, Download, Loader2, Clock, X, Palette } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -22,6 +22,7 @@ import { generateQuestionnairePosterPdf } from "@/lib/questionnairePosterPdf";
 import QRCode from "qrcode";
 import { LoginAuditLogTab } from "./LoginAuditLog";
 import { BookingTokenSection } from "./components/BookingTokenSection";
+import Branding from "./Branding";
 
 export default function SettingsPage() {
   const { t } = useTranslation();
@@ -32,8 +33,8 @@ export default function SettingsPage() {
 
   // Internal tab state
   const urlTab = new URLSearchParams(window.location.search).get('tab');
-  const validTabs = ["settings", "links", "data", "security", "experimental"];
-  const [activeTab, setActiveTab] = useState<"settings" | "links" | "data" | "security" | "experimental">(
+  const validTabs = ["settings", "links", "data", "security", "experimental", "branding"];
+  const [activeTab, setActiveTab] = useState<"settings" | "links" | "data" | "security" | "experimental" | "branding">(
     urlTab && validTabs.includes(urlTab) ? urlTab as any : "settings"
   );
 
@@ -715,6 +716,10 @@ export default function SettingsPage() {
             <TabsTrigger value="experimental" data-testid="tab-experimental" className="justify-start md:w-full">
               <i className="fas fa-flask mr-2 shrink-0"></i>
               <span className="truncate">{t("admin.experimental", "Experimental")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="branding" data-testid="tab-branding" className="justify-start md:w-full">
+              <Palette className="h-4 w-4 mr-2 shrink-0" />
+              <span className="truncate">{t("admin.branding", "Branding")}</span>
             </TabsTrigger>
           </TabsList>
 
@@ -2012,6 +2017,23 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="branding">
+          {fullHospitalData?.groupId ? (
+            <div className="rounded border p-6 text-sm text-muted-foreground">
+              {t(
+                "admin.brandingChainNotice",
+                "This clinic is part of a chain. Booking page branding is managed by the chain admin under",
+              )}{" "}
+              <span className="font-medium">/chain/admin → Branding</span>.
+            </div>
+          ) : fullHospitalData?.id ? (
+            <Branding
+              scope={{ kind: "hospital", id: fullHospitalData.id }}
+              initialTheme={fullHospitalData.bookingTheme ?? null}
+            />
+          ) : null}
         </TabsContent>
           </div>{/* end tab content area */}
         </div>{/* end flex container */}

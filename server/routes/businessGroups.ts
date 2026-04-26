@@ -52,6 +52,7 @@ router.get("/api/business/group/overview", async (req: any, res) => {
         name: group.name,
         bookingToken: group.bookingToken,
         logoUrl: group.logoUrl,
+        bookingTheme: group.bookingTheme ?? null,
       },
       members: members.map((m) => ({
         id: m.id,

@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import * as Sentry from "@sentry/react";
 import { useParams, useSearch } from "wouter";
 import { BookingSection } from '@/components/booking/BookingSection';
+import { BookingThemeStyle } from '@/components/booking/BookingThemeStyle';
 import { useBookingScrollOnStep } from '@/components/booking/useBookingScrollOnStep';
+import type { BookingTheme } from '@shared/schema';
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +42,12 @@ type BookingData = {
   };
   /** Present when the hospital belongs to a chain. */
   group?: { id: string; name: string; logoUrl: string | null } | null;
+  /**
+   * Resolved booking theme: chain group wins for member hospitals; standalone
+   * hospitals fall back to their own theme. May be null when no theme has
+   * been configured. See BookingThemeStyle.
+   */
+  bookingTheme?: BookingTheme | null;
   bookingSettings: {
     slotDurationMinutes?: number;
     maxAdvanceDays?: number;
@@ -971,7 +979,7 @@ export default function BookAppointment() {
   }
 
   return (
-    <PageShell isDark={isDark} isEmbed={isEmbed}>
+    <PageShell isDark={isDark} isEmbed={isEmbed} theme={data?.bookingTheme ?? null}>
       {!isEmbed && <ThemeToggleFab isDark={isDark} onToggle={() => setIsDark(!isDark)} />}
       {/* Swap to a promo badge when a valid code is active — the campaign's
           headline value (e.g. "25% off") beats "free consultation" once the
@@ -1516,6 +1524,7 @@ export default function BookAppointment() {
                       ? "bg-blue-500 hover:bg-blue-400 text-white disabled:bg-white/10 disabled:text-white/30"
                       : "bg-gray-900 hover:bg-gray-800 text-white disabled:bg-gray-200 disabled:text-gray-400"
                   )}
+                  style={data?.bookingTheme?.primaryColor ? { background: "var(--book-primary)" } : undefined}
                 >
                   {submitting ? (
                     <span className="flex items-center gap-2">
@@ -1559,6 +1568,7 @@ export default function BookAppointment() {
                   className="mt-4 w-full h-12 rounded-xl text-sm font-semibold"
                   onClick={() => void handleSubmit()}
                   disabled={!referralSource || submitting}
+                  style={data?.bookingTheme?.primaryColor ? { background: "var(--book-primary)" } : undefined}
                 >
                   {submitting ? 'Wird gebucht...' : 'Termin buchen'}
                 </Button>
@@ -1661,10 +1671,13 @@ function ClinicInfoPanel({ data, isDark }: { data: BookingData; isDark: boolean 
                 className="h-10 w-10 rounded object-contain shrink-0"
               />
             )}
-            <h1 className={cn(
-              "text-sm font-semibold truncate",
-              isDark ? "text-white" : "text-gray-900",
-            )}>
+            <h1
+              className={cn(
+                "text-sm font-semibold truncate",
+                isDark ? "text-white" : "text-gray-900",
+              )}
+              style={data.bookingTheme?.headingFont ? { fontFamily: "var(--book-heading-font)" } : undefined}
+            >
               {data.group!.name}
             </h1>
           </div>
@@ -1677,10 +1690,13 @@ function ClinicInfoPanel({ data, isDark }: { data: BookingData; isDark: boolean 
                 className="h-8 w-auto object-contain"
               />
             )}
-            <h1 className={cn(
-              "text-sm font-semibold truncate",
-              isDark ? "text-white" : "text-gray-900"
-            )}>
+            <h1
+              className={cn(
+                "text-sm font-semibold truncate",
+                isDark ? "text-white" : "text-gray-900"
+              )}
+              style={data.bookingTheme?.headingFont ? { fontFamily: "var(--book-heading-font)" } : undefined}
+            >
               {data.hospital.name}
             </h1>
           </div>
@@ -1832,7 +1848,7 @@ function ThemeToggleFab({ isDark, onToggle }: { isDark: boolean; onToggle: () =>
   );
 }
 
-function PageShell({ children, isDark, isEmbed }: { children: React.ReactNode; isDark: boolean; isEmbed: boolean }) {
+function PageShell({ children, isDark, isEmbed, theme }: { children: React.ReactNode; isDark: boolean; isEmbed: boolean; theme?: BookingTheme | null }) {
   // Override the global app theme so body bg-background matches the booking page theme
   useEffect(() => {
     const prev = document.documentElement.getAttribute("data-theme");
@@ -1846,17 +1862,28 @@ function PageShell({ children, isDark, isEmbed }: { children: React.ReactNode; i
   }, [isDark]);
 
   return (
-    <div className={cn(
-      "min-h-screen transition-colors duration-500",
-      isDark
-        ? "bg-[#0c0c14] text-white"
-        : "bg-[#f0f1f3]",
-      isEmbed && "!min-h-0"
-    )}>
-      <div className={cn(
-        "max-w-4xl mx-auto px-4 py-8",
-        isEmbed && "py-4"
-      )}>
+    <div
+      data-booking-root
+      className={cn(
+        "min-h-screen transition-colors duration-500",
+        isDark
+          ? "bg-[#0c0c14] text-white"
+          : "bg-[#f0f1f3]",
+        isEmbed && "!min-h-0"
+      )}
+      // When a theme is set, the CSS var supplies the bg color (only on
+      // light mode — dark uses the fixed near-black above). Wrapped in a
+      // var() with no fallback so null themes leave className styling intact.
+      style={!isDark && theme?.bgColor ? { background: "var(--book-bg)" } : undefined}
+    >
+      <BookingThemeStyle theme={theme ?? null} />
+      <div
+        className={cn(
+          "max-w-4xl mx-auto px-4 py-8",
+          isEmbed && "py-4"
+        )}
+        style={theme?.bodyFont ? { fontFamily: "var(--book-body-font)" } : undefined}
+      >
         {children}
       </div>
 

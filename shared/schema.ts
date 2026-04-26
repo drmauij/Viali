@@ -83,6 +83,7 @@ export const hospitalGroups = pgTable("hospital_groups", {
   // `hospitals.companyLogoUrl`. Nullable; rendered next to the group name
   // in /admin/groups/:id when set.
   logoUrl: text("logo_url"),
+  bookingTheme: jsonb("booking_theme"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -115,6 +116,7 @@ export const hospitals = pgTable("hospitals", {
   companyEmail: varchar("company_email"),
   companyWebsite: varchar("company_website"),
   companyLogoUrl: varchar("company_logo_url"),
+  bookingTheme: jsonb("booking_theme"), // Custom /book page theme — see docs/superpowers/specs/2026-04-26-booking-page-theming-design.md
   // TARDOC billing identifiers
   companyGln: varchar("company_gln"), // 13-digit GLN for the facility
   companyZsr: varchar("company_zsr"), // ZSR number for Swiss billing
@@ -7215,3 +7217,11 @@ export const bookingIdempotencyKeys = pgTable(
 );
 
 export type BookingIdempotencyKey = typeof bookingIdempotencyKeys.$inferSelect;
+
+export type BookingTheme = {
+  bgColor: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  headingFont: string | null;
+  bodyFont: string | null;
+};
