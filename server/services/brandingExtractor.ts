@@ -22,6 +22,7 @@ const claudeShape = z.object({
   headingFont: z.string().regex(FONT_NAME_RE).max(60),
   bodyFont: z.string().regex(FONT_NAME_RE).max(60),
   cardRadius: z.enum(["sharp", "rounded", "pill"]).optional(),
+  buttonStyle: z.enum(["filled", "outline", "ghost"]).optional(),
 });
 
 function isPrivateOrReservedIp(ip: string): boolean {
@@ -62,7 +63,11 @@ const SYSTEM_PROMPT =
   `cardRadius is one of "sharp" (no/tiny corner radius, modern minimalist look), ` +
   `"rounded" (medium radius ~12-16px, the default modern look), or "pill" ` +
   `(large radius ~24-32px, soft/friendly look) — pick whichever the page's cards ` +
-  `and buttons match. Output ONLY the JSON object, no prose.`;
+  `and buttons match. buttonStyle is one of "filled" (solid colored bg, white ` +
+  `text — bold CTAs), "outline" (transparent bg, colored border + text — premium/ ` +
+  `clinic look), or "ghost" (transparent, just colored text — minimal/airy) — ` +
+  `pick whichever the page's primary buttons use. Output ONLY the JSON object, ` +
+  `no prose.`;
 
 export type ExtractResult = {
   bgColor: string;
@@ -71,6 +76,7 @@ export type ExtractResult = {
   headingFont: string;
   bodyFont: string;
   cardRadius?: "sharp" | "rounded" | "pill";
+  buttonStyle?: "filled" | "outline" | "ghost";
   sourceFont?: { heading: string; body: string };
 };
 
@@ -203,6 +209,7 @@ export async function extractThemeFromUrl(url: string): Promise<ExtractResult> {
     headingFont: headingMapped,
     bodyFont: bodyMapped,
     ...(result.data.cardRadius ? { cardRadius: result.data.cardRadius } : {}),
+    ...(result.data.buttonStyle ? { buttonStyle: result.data.buttonStyle } : {}),
   };
   if (headingMapped !== result.data.headingFont || bodyMapped !== result.data.bodyFont) {
     mapped.sourceFont = { heading: result.data.headingFont, body: result.data.bodyFont };

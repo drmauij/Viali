@@ -138,6 +138,47 @@ export function BookingThemeStyle({ theme }: Props) {
     );
   }
 
+  // Button style — outline or ghost overrides the filled primary remap.
+  // Uses inset box-shadow instead of border so the button height doesn't
+  // shift. Hover state restores filled look so the affordance stays clear.
+  const buttonStyle = (theme as any).buttonStyle as "filled" | "outline" | "ghost" | null | undefined;
+  if (theme.primaryColor && buttonStyle === "outline") {
+    cascade.push(
+      `[data-booking-root] .bg-blue-500, ` +
+        `[data-booking-root] .bg-blue-400, ` +
+        `[data-booking-root] .bg-emerald-500, ` +
+        `[data-booking-root] .bg-emerald-500\\/90 { ` +
+        `background-color: transparent !important; ` +
+        `color: var(--book-primary) !important; ` +
+        `box-shadow: inset 0 0 0 2px var(--book-primary) !important; ` +
+        `}`,
+    );
+    cascade.push(
+      `[data-booking-root] .bg-blue-500:hover, ` +
+        `[data-booking-root] .bg-emerald-500:hover { ` +
+        `background-color: var(--book-primary) !important; ` +
+        `color: var(--book-primary-fg) !important; ` +
+        `}`,
+    );
+  } else if (theme.primaryColor && buttonStyle === "ghost") {
+    cascade.push(
+      `[data-booking-root] .bg-blue-500, ` +
+        `[data-booking-root] .bg-blue-400, ` +
+        `[data-booking-root] .bg-emerald-500, ` +
+        `[data-booking-root] .bg-emerald-500\\/90 { ` +
+        `background-color: transparent !important; ` +
+        `color: var(--book-primary) !important; ` +
+        `box-shadow: none !important; ` +
+        `}`,
+    );
+    cascade.push(
+      `[data-booking-root] .bg-blue-500:hover, ` +
+        `[data-booking-root] .bg-emerald-500:hover { ` +
+        `background-color: color-mix(in srgb, var(--book-primary) 12%, transparent) !important; ` +
+        `}`,
+    );
+  }
+
   if (theme.secondaryColor) {
     // Soft "pill" backgrounds (VORSCHLAG badge, soft confirm boxes). 18%
     // opacity tint of secondary so the pill looks subtle.

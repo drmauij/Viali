@@ -7225,4 +7225,5 @@ export type BookingTheme = {
   headingFont: string | null;
   bodyFont: string | null;
   cardRadius?: "sharp" | "rounded" | "pill" | null;
+  buttonStyle?: "filled" | "outline" | "ghost" | null;
 };

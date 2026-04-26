@@ -30,6 +30,7 @@ interface FormState {
   headingFont: string;
   bodyFont: string;
   cardRadius: "sharp" | "rounded" | "pill" | "";
+  buttonStyle: "filled" | "outline" | "ghost" | "";
 }
 
 const fieldKeys = ["bgColor", "primaryColor", "secondaryColor"] as const;
@@ -42,6 +43,7 @@ export default function Branding({ scope, initialTheme }: Props) {
     headingFont: initialTheme?.headingFont ?? "",
     bodyFont: initialTheme?.bodyFont ?? "",
     cardRadius: (initialTheme?.cardRadius as FormState["cardRadius"]) ?? "",
+    buttonStyle: (initialTheme?.buttonStyle as FormState["buttonStyle"]) ?? "",
   });
   const [importUrl, setImportUrl] = useState("");
   const [importing, setImporting] = useState(false);
@@ -59,6 +61,7 @@ export default function Branding({ scope, initialTheme }: Props) {
         headingFont: theme.headingFont || null,
         bodyFont: theme.bodyFont || null,
         cardRadius: theme.cardRadius || null,
+        buttonStyle: theme.buttonStyle || null,
       };
       const res = await apiRequest("PATCH", path, body);
       return await res.json();
@@ -89,6 +92,7 @@ export default function Branding({ scope, initialTheme }: Props) {
         headingFont: t.headingFont ?? "",
         bodyFont: t.bodyFont ?? "",
         cardRadius: t.cardRadius ?? "",
+        buttonStyle: t.buttonStyle ?? "",
       });
       toast({
         title: "Imported",
@@ -108,7 +112,7 @@ export default function Branding({ scope, initialTheme }: Props) {
   }
 
   function reset() {
-    setTheme({ bgColor: "", primaryColor: "", secondaryColor: "", headingFont: "", bodyFont: "", cardRadius: "" });
+    setTheme({ bgColor: "", primaryColor: "", secondaryColor: "", headingFont: "", bodyFont: "", cardRadius: "", buttonStyle: "" });
   }
 
   const previewTheme: BookingTheme = {
@@ -118,6 +122,7 @@ export default function Branding({ scope, initialTheme }: Props) {
     headingFont: theme.headingFont || null,
     bodyFont: theme.bodyFont || null,
     cardRadius: theme.cardRadius || null,
+    buttonStyle: theme.buttonStyle || null,
   };
 
   return (
@@ -197,6 +202,31 @@ export default function Branding({ scope, initialTheme }: Props) {
                 onClick={() => setTheme({ ...theme, cardRadius: val as FormState["cardRadius"] })}
                 className={`flex-1 py-2 text-sm rounded border ${
                   (theme.cardRadius || "") === val
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-foreground border-input hover:bg-muted"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Label className="w-32">Button style</Label>
+          <div className="flex gap-1 flex-1">
+            {([
+              ["", "Default"],
+              ["filled", "Filled"],
+              ["outline", "Outline"],
+              ["ghost", "Ghost"],
+            ] as const).map(([val, label]) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => setTheme({ ...theme, buttonStyle: val as FormState["buttonStyle"] })}
+                className={`flex-1 py-2 text-sm rounded border ${
+                  (theme.buttonStyle || "") === val
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-background text-foreground border-input hover:bg-muted"
                 }`}
