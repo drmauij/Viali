@@ -41,6 +41,7 @@ import { seedProvidersAndRoles } from "./providers";
 import { seedServices } from "./services";
 import { seedPatientsAndCrossLocation } from "./patients";
 import { seedFlows } from "./flows";
+import { seedFunnelData } from "./funnel";
 
 export type SeedSummary = {
   groupId: string;
@@ -49,6 +50,12 @@ export type SeedSummary = {
   providerCount: number;
   patientCount: number;
   treatmentCount: number;
+  funnelStats: {
+    referrals: number;
+    leads: number;
+    appointments: number;
+    treatments: number;
+  };
   demoAdminPromoted: boolean;
 };
 
@@ -77,6 +84,7 @@ export async function seed(): Promise<SeedSummary> {
       providerCount: 0,
       patientCount: 0,
       treatmentCount: 0,
+      funnelStats: { referrals: 0, leads: 0, appointments: 0, treatments: 0 },
       demoAdminPromoted: false,
     };
   }
@@ -103,6 +111,7 @@ export async function seed(): Promise<SeedSummary> {
       providerCount: 0,
       patientCount: 0,
       treatmentCount: 0,
+      funnelStats: { referrals: 0, leads: 0, appointments: 0, treatments: 0 },
       demoAdminPromoted: false,
     };
   }
@@ -135,10 +144,19 @@ export async function seed(): Promise<SeedSummary> {
     services,
   });
 
-  // 7. Marketing flow.
+  // 7. Funnel data — referrals + leads + appointments + treatments
+  //    spread across current/prior/older windows with per-clinic skew.
+  const funnelStats = await seedFunnelData({
+    locationRows,
+    providers,
+    patients: patientRows,
+    services,
+  });
+
+  // 8. Marketing flow.
   await seedFlows({ locationRows });
 
-  // 8. Demo admin promotion. Preserved from the original monolith.
+  // 9. Demo admin promotion. Preserved from the original monolith.
   console.log(
     `Promoting demo admin to platform admin + group_admin at ${locationRows[0].hospital.name}…`,
   );
@@ -167,8 +185,9 @@ export async function seed(): Promise<SeedSummary> {
     );
   }
 
-  // Cross-location patients each have 2 treatments (one per visit).
-  const treatmentCount = CROSS_LOCATION_PATIENT_COUNT * 2;
+  // Cross-location patients each have 2 treatments (one per visit), plus
+  // whatever the funnel generator linked to completed appointments.
+  const treatmentCount = CROSS_LOCATION_PATIENT_COUNT * 2 + funnelStats.treatments;
 
   const summary: SeedSummary = {
     groupId: group.id,
@@ -177,6 +196,7 @@ export async function seed(): Promise<SeedSummary> {
     providerCount: providers.length,
     patientCount: patientRows.length,
     treatmentCount,
+    funnelStats,
     demoAdminPromoted,
   };
 
@@ -188,7 +208,11 @@ export async function seed(): Promise<SeedSummary> {
   console.log(`Locations       : ${summary.hospitalIds.length}`);
   console.log(`Providers       : ${summary.providerCount}`);
   console.log(`Patients        : ${summary.patientCount}`);
-  console.log(`Treatments      : ${summary.treatmentCount}`);
+  console.log(`Treatments      : ${summary.treatmentCount} (${funnelStats.treatments} from funnel + ${CROSS_LOCATION_PATIENT_COUNT * 2} cross-location)`);
+  console.log(`Funnel:`);
+  console.log(`  referrals     : ${funnelStats.referrals}`);
+  console.log(`  leads         : ${funnelStats.leads}`);
+  console.log(`  appointments  : ${funnelStats.appointments}`);
   console.log(
     `Demo admin      : ${summary.demoAdminPromoted ? "promoted" : "NOT promoted (user missing)"}`,
   );

@@ -168,14 +168,17 @@ export const LOCATION_SKEW: Record<string, { current: number; prior: number }> =
   Winterthur: { current: 0.4, prior: 0.4 },     // bottom of leaderboard
 };
 
-// Source mix on referral_events. Weighted random pick per row.
+// Source mix on referral_events. Weighted random pick per row. The
+// `source` column is the schema enum (social / search_engine / marketing
+// / word_of_mouth / etc.); `utmSource` is the actual ad platform name
+// the chain Funnels heatmap shows alongside it.
 export const SOURCE_WEIGHTS = [
-  { source: "instagram", utmMedium: "social", weight: 35 },
-  { source: "google", utmMedium: "cpc", weight: 25 },
-  { source: "meta_ads", utmMedium: "paidsocial", weight: 15 },
-  { source: "newsletter", utmMedium: "email", weight: 10 },
-  { source: "organic", utmMedium: "organic", weight: 10 },
-  { source: "friend_referral", utmMedium: "referral", weight: 5 },
+  { source: "social", utmSource: "instagram", utmMedium: "social", weight: 35 },
+  { source: "search_engine", utmSource: "google", utmMedium: "cpc", weight: 25 },
+  { source: "social", utmSource: "facebook", utmMedium: "paidsocial", weight: 15 },
+  { source: "marketing", utmSource: "newsletter", utmMedium: "email", weight: 10 },
+  { source: "search_engine", utmSource: "google", utmMedium: "organic", weight: 10 },
+  { source: "word_of_mouth", utmSource: "referral", utmMedium: "referral", weight: 5 },
 ] as const;
 
 // Status mix on appointments tied to referrals. ~70% confirmed/completed,
