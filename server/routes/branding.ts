@@ -31,14 +31,21 @@ const router = Router();
 // Hex colour: 3- or 6-character form (e.g. #fff or #ffffff). Anchored.
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
+// Font names: Google-Fonts-style naming. Letters, digits, single internal
+// spaces; must start with alphanumeric. Allows "Playfair Display", "DM Sans",
+// "Source Sans 3" — covers every entry in the curated catalog. This guards
+// against CSS injection via the font name fields (the name is interpolated
+// into a <style> block in BookingThemeStyle.tsx).
+const FONT_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9 ]*$/;
+
 // Body schema: every field nullable so the UI can clear individual values.
 // Font names capped at 60 chars to keep the rendered <link> URL bounded.
 const themeSchema = z.object({
   bgColor: z.string().regex(HEX_RE).nullable(),
   primaryColor: z.string().regex(HEX_RE).nullable(),
   secondaryColor: z.string().regex(HEX_RE).nullable(),
-  headingFont: z.string().min(1).max(60).nullable(),
-  bodyFont: z.string().min(1).max(60).nullable(),
+  headingFont: z.string().regex(FONT_NAME_RE).max(60).nullable(),
+  bodyFont: z.string().regex(FONT_NAME_RE).max(60).nullable(),
 });
 
 async function isPlatformAdmin(userId: string): Promise<boolean> {
@@ -181,9 +188,21 @@ const rateBuckets = new Map<string, number[]>();
 function rateLimit(key: string): boolean {
   const now = Date.now();
   const bucket = (rateBuckets.get(key) ?? []).filter((t) => now - t < 60 * 60 * 1000);
-  if (bucket.length >= 5) return false;
+  if (bucket.length >= 5) {
+    rateBuckets.set(key, bucket);
+    return false;
+  }
   bucket.push(now);
   rateBuckets.set(key, bucket);
+  // Opportunistic cleanup: every ~100th call, drop expired buckets so the
+  // Map can't grow unbounded over a long-running process.
+  if (Math.random() < 0.01) {
+    for (const [k, v] of rateBuckets) {
+      const fresh = v.filter((t) => now - t < 60 * 60 * 1000);
+      if (fresh.length === 0) rateBuckets.delete(k);
+      else if (fresh.length !== v.length) rateBuckets.set(k, fresh);
+    }
+  }
   return true;
 }
 
