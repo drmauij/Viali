@@ -12,6 +12,11 @@ export function BookPreview({ theme }: Props) {
       className="rounded-lg border overflow-hidden shadow-sm"
       style={{
         background: "var(--book-bg, #ffffff)",
+        // Force dark text inside the preview regardless of the admin
+        // page's color scheme — the preview always mocks the light /book.
+        // Otherwise the parent's dark-mode text-color cascades in and
+        // labels become unreadable on the light preview surface.
+        color: "#18181b",
         fontFamily: "var(--book-body-font, system-ui)",
       }}
     >
