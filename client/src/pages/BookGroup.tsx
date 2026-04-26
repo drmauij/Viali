@@ -194,7 +194,7 @@ export default function BookGroup() {
                     )
                   }
                   className={cn(
-                    "w-full text-left rounded-lg border p-4 transition-colors focus:outline-none focus:ring-2",
+                    "w-full text-left rounded-lg border overflow-hidden transition-colors focus:outline-none focus:ring-2",
                     isDark
                       ? "bg-white/5 border-white/10 hover:bg-white/10 focus:ring-white/30"
                       : "bg-white border-gray-200 hover:bg-gray-50 focus:ring-gray-300",
@@ -208,25 +208,27 @@ export default function BookGroup() {
                   }
                   data-testid={`location-${h.id}`}
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-stretch min-h-[6rem]">
                     <div
                       className={cn(
-                        "h-12 w-12 shrink-0 rounded border overflow-hidden flex items-center justify-center",
-                        isDark ? "bg-white/5 border-white/10" : "bg-gray-50 border-gray-200",
+                        "shrink-0 w-1/3 max-w-[10rem] flex items-center justify-center overflow-hidden",
+                        isDark ? "bg-white/5" : "bg-gray-50",
+                        // Hairline divider between image and text only.
+                        isDark ? "border-r border-white/10" : "border-r border-gray-200",
                       )}
                     >
                       {h.logoUrl ? (
                         <img
                           src={h.logoUrl}
                           alt=""
-                          className="w-full h-full object-contain"
+                          className="w-full h-full object-cover"
                           data-testid={`location-logo-${h.id}`}
                         />
                       ) : (
-                        <MapPin className={cn("h-5 w-5", isDark ? "text-white/40" : "text-gray-400")} />
+                        <MapPin className={cn("h-8 w-8", isDark ? "text-white/40" : "text-gray-400")} />
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 p-4">
                       <div className="font-medium leading-tight">{h.name}</div>
                       {h.address && (
                         <div
