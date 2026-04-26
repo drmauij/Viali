@@ -29,6 +29,7 @@ interface FormState {
   secondaryColor: string;
   headingFont: string;
   bodyFont: string;
+  cardRadius: "sharp" | "rounded" | "pill" | "";
 }
 
 const fieldKeys = ["bgColor", "primaryColor", "secondaryColor"] as const;
@@ -40,6 +41,7 @@ export default function Branding({ scope, initialTheme }: Props) {
     secondaryColor: initialTheme?.secondaryColor ?? "",
     headingFont: initialTheme?.headingFont ?? "",
     bodyFont: initialTheme?.bodyFont ?? "",
+    cardRadius: (initialTheme?.cardRadius as FormState["cardRadius"]) ?? "",
   });
   const [importUrl, setImportUrl] = useState("");
   const [importing, setImporting] = useState(false);
@@ -56,6 +58,7 @@ export default function Branding({ scope, initialTheme }: Props) {
         secondaryColor: theme.secondaryColor || null,
         headingFont: theme.headingFont || null,
         bodyFont: theme.bodyFont || null,
+        cardRadius: theme.cardRadius || null,
       };
       const res = await apiRequest("PATCH", path, body);
       return await res.json();
@@ -85,6 +88,7 @@ export default function Branding({ scope, initialTheme }: Props) {
         secondaryColor: t.secondaryColor ?? "",
         headingFont: t.headingFont ?? "",
         bodyFont: t.bodyFont ?? "",
+        cardRadius: t.cardRadius ?? "",
       });
       toast({
         title: "Imported",
@@ -104,7 +108,7 @@ export default function Branding({ scope, initialTheme }: Props) {
   }
 
   function reset() {
-    setTheme({ bgColor: "", primaryColor: "", secondaryColor: "", headingFont: "", bodyFont: "" });
+    setTheme({ bgColor: "", primaryColor: "", secondaryColor: "", headingFont: "", bodyFont: "", cardRadius: "" });
   }
 
   const previewTheme: BookingTheme = {
@@ -113,6 +117,7 @@ export default function Branding({ scope, initialTheme }: Props) {
     secondaryColor: theme.secondaryColor || null,
     headingFont: theme.headingFont || null,
     bodyFont: theme.bodyFont || null,
+    cardRadius: theme.cardRadius || null,
   };
 
   return (
@@ -175,6 +180,31 @@ export default function Branding({ scope, initialTheme }: Props) {
             <option value="">— Default —</option>
             {BODY_FONTS.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Label className="w-32">Corner radius</Label>
+          <div className="flex gap-1 flex-1">
+            {([
+              ["", "Default"],
+              ["sharp", "Sharp"],
+              ["rounded", "Rounded"],
+              ["pill", "Pill"],
+            ] as const).map(([val, label]) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => setTheme({ ...theme, cardRadius: val as FormState["cardRadius"] })}
+                className={`flex-1 py-2 text-sm rounded border ${
+                  (theme.cardRadius || "") === val
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-foreground border-input hover:bg-muted"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex gap-2 pt-2">

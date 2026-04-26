@@ -46,6 +46,7 @@ const themeSchema = z.object({
   secondaryColor: z.string().regex(HEX_RE).nullable(),
   headingFont: z.string().regex(FONT_NAME_RE).max(60).nullable(),
   bodyFont: z.string().regex(FONT_NAME_RE).max(60).nullable(),
+  cardRadius: z.enum(["sharp", "rounded", "pill"]).nullable().optional(),
 });
 
 async function isPlatformAdmin(userId: string): Promise<boolean> {

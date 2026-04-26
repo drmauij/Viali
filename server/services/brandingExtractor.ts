@@ -21,6 +21,7 @@ const claudeShape = z.object({
   secondaryColor: z.string().regex(HEX_RE),
   headingFont: z.string().regex(FONT_NAME_RE).max(60),
   bodyFont: z.string().regex(FONT_NAME_RE).max(60),
+  cardRadius: z.enum(["sharp", "rounded", "pill"]).optional(),
 });
 
 function isPrivateOrReservedIp(ip: string): boolean {
@@ -53,12 +54,15 @@ function isPrivateOrReservedIp(ip: string): boolean {
 const SYSTEM_PROMPT =
   `You are a design-token extractor. Given a screenshot and the HTML of a webpage, ` +
   `return a JSON object with the fields: bgColor, primaryColor, secondaryColor, ` +
-  `headingFont, bodyFont. Colors are hex (e.g. "#c89b6b"). primaryColor = the main ` +
-  `accent (CTA buttons / brand color). secondaryColor = a complementary accent ` +
-  `(small details, links). headingFont and bodyFont are font-family names from the ` +
-  `page; if a font is proprietary (Avenir Next, Helvetica Neue, etc.) return its ` +
-  `actual name and the server will map to the closest Google Font. Output ONLY the ` +
-  `JSON object, no prose.`;
+  `headingFont, bodyFont, cardRadius. Colors are hex (e.g. "#c89b6b"). primaryColor ` +
+  `= the main accent (CTA buttons / brand color). secondaryColor = a complementary ` +
+  `accent (small details, links). headingFont and bodyFont are font-family names ` +
+  `from the page; if a font is proprietary (Avenir Next, Helvetica Neue, etc.) ` +
+  `return its actual name and the server will map to the closest Google Font. ` +
+  `cardRadius is one of "sharp" (no/tiny corner radius, modern minimalist look), ` +
+  `"rounded" (medium radius ~12-16px, the default modern look), or "pill" ` +
+  `(large radius ~24-32px, soft/friendly look) — pick whichever the page's cards ` +
+  `and buttons match. Output ONLY the JSON object, no prose.`;
 
 export type ExtractResult = {
   bgColor: string;
@@ -66,6 +70,7 @@ export type ExtractResult = {
   secondaryColor: string;
   headingFont: string;
   bodyFont: string;
+  cardRadius?: "sharp" | "rounded" | "pill";
   sourceFont?: { heading: string; body: string };
 };
 
@@ -197,6 +202,7 @@ export async function extractThemeFromUrl(url: string): Promise<ExtractResult> {
     secondaryColor: result.data.secondaryColor,
     headingFont: headingMapped,
     bodyFont: bodyMapped,
+    ...(result.data.cardRadius ? { cardRadius: result.data.cardRadius } : {}),
   };
   if (headingMapped !== result.data.headingFont || bodyMapped !== result.data.bodyFont) {
     mapped.sourceFont = { heading: result.data.headingFont, body: result.data.bodyFont };

@@ -7224,4 +7224,5 @@ export type BookingTheme = {
   secondaryColor: string | null;
   headingFont: string | null;
   bodyFont: string | null;
+  cardRadius?: "sharp" | "rounded" | "pill" | null;
 };

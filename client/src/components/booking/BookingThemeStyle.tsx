@@ -60,6 +60,60 @@ export function BookingThemeStyle({ theme }: Props) {
     );
   }
 
+  // Polish — applies whenever ANY theme is set, regardless of which fields
+  // are populated. Tightens letter-spacing and bumps weight on headings;
+  // small detail that takes the page from "default-ish" to "designed".
+  cascade.push(
+    `[data-booking-root] h1, [data-booking-root] h2, [data-booking-root] h3 { ` +
+      `letter-spacing: -0.018em; ` +
+      `font-weight: 600; ` +
+      `}`,
+  );
+
+  // Subtle background gradient. Replaces the solid bgColor applied via the
+  // page wrapper's inline style. Top → 3% darker at the bottom; gives the
+  // page depth without looking gimmicky.
+  if (theme.bgColor) {
+    cascade.push(
+      `[data-booking-root] { ` +
+        `background: linear-gradient(180deg, var(--book-bg) 0%, color-mix(in srgb, var(--book-bg) 96%, black) 100%) !important; ` +
+        `}`,
+    );
+  }
+
+  // Card styling — drop heavy shadows on .shadow-sm/md/lg, replace with a
+  // single hairline using the secondary color at low opacity. Premium-clinic
+  // sites use thin lines, not fluffy SaaS shadows.
+  if (theme.secondaryColor) {
+    cascade.push(
+      `[data-booking-root] .shadow-sm, ` +
+        `[data-booking-root] .shadow, ` +
+        `[data-booking-root] .shadow-md, ` +
+        `[data-booking-root] .shadow-lg, ` +
+        `[data-booking-root] .hover\\:shadow-md:hover { ` +
+        `box-shadow: 0 0 0 1px color-mix(in srgb, var(--book-secondary) 14%, transparent) !important; ` +
+        `}`,
+    );
+  }
+
+  // Card radius — only the larger card classes; rounded-full (avatars,
+  // tiny pills) stays untouched.
+  const radius = (theme as any).cardRadius as "sharp" | "rounded" | "pill" | null | undefined;
+  if (radius === "sharp") {
+    cascade.push(
+      `[data-booking-root] .rounded-xl, ` +
+        `[data-booking-root] .rounded-2xl, ` +
+        `[data-booking-root] .rounded-lg, ` +
+        `[data-booking-root] .rounded { border-radius: 0 !important; }`,
+    );
+  } else if (radius === "pill") {
+    cascade.push(
+      `[data-booking-root] .rounded-xl, ` +
+        `[data-booking-root] .rounded-2xl, ` +
+        `[data-booking-root] .rounded-lg { border-radius: 28px !important; }`,
+    );
+  }
+
   // Color remaps. Tailwind utility classes containing `/` need backslash-
   // escaping in CSS selectors; in a JS string that's `\\/`.
   if (theme.primaryColor) {
@@ -85,7 +139,7 @@ export function BookingThemeStyle({ theme }: Props) {
   }
 
   if (theme.secondaryColor) {
-    // Soft "pill" backgrounds (VORSCHLAG badge, soft confirm boxes). 15%
+    // Soft "pill" backgrounds (VORSCHLAG badge, soft confirm boxes). 18%
     // opacity tint of secondary so the pill looks subtle.
     cascade.push(
       `[data-booking-root] .bg-blue-50, ` +
