@@ -241,9 +241,10 @@ export function requireResourceAdmin(paramName: string) {
         return res.status(404).json({ message: "Resource not found" });
       }
 
-      // Verify user has admin role for this hospital
+      // Verify user has admin role for this hospital. group_admin counts
+      // as admin at every member clinic in the chain.
       const hospitals = await storage.getUserHospitals(userId);
-      const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+      const hasAdminRole = hospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
       if (!hasAdminRole) {
         return res.status(403).json({ 
           message: "Admin access required for this resource.",
@@ -866,18 +867,18 @@ export async function requireHospitalAdmin(req: any, res: Response, next: NextFu
     }
     
     const hospitals = await storage.getUserHospitals(userId);
-    const hospital = hospitals.find(h => h.id === hospitalId && h.role === 'admin');
-    
+    const hospital = hospitals.find(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
+
     if (!hospital) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         message: "Admin access required for this operation.",
         code: "ADMIN_ACCESS_REQUIRED"
       });
     }
-    
+
     req.resolvedHospitalId = hospitalId;
     req.verifiedHospitalId = hospitalId;
-    req.resolvedRole = 'admin';
+    req.resolvedRole = hospital.role;
     next();
   } catch (error) {
     logger.error("Error checking admin access:", error);
@@ -1030,11 +1031,13 @@ export async function requireAdminWriteAccess(req: any, res: Response, next: Nex
       return res.status(403).json({ message: "Admin access required", code: "ADMIN_REQUIRED" });
     }
 
-    // Direct-role check only: the user must hold `admin` AT this specific
-    // hospital. We deliberately do NOT accept group-escalated roles here.
+    // Direct-role check only: the user must hold `admin` (or the
+    // chain-level `group_admin`, which is *also* stored as a direct row at
+    // each member hospital) AT this specific hospital. We still do NOT
+    // accept group-escalated `admin` roles bubbled up from elsewhere.
     const hospitals = await storage.getUserHospitals(userId);
     const hasDirectAdmin = hospitals.some(
-      (h) => h.id === hospitalId && h.role === 'admin',
+      (h) => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'),
     );
     if (!hasDirectAdmin) {
       return res.status(403).json({ message: "Admin access required", code: "ADMIN_REQUIRED" });
@@ -1193,7 +1196,9 @@ export async function userHasPermission(
 ): Promise<boolean> {
   const hospitals = await storage.getUserHospitals(userId);
   return hospitals.some(
-    h => h.id === hospitalId && (h.role === 'admin' || h[permission] === true)
+    h =>
+      h.id === hospitalId &&
+      (h.role === 'admin' || h.role === 'group_admin' || h[permission] === true)
   );
 }
 
