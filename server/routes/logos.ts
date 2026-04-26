@@ -43,8 +43,10 @@ logosRouter.post("/api/uploads/logo-upload-url", isAuthenticated, async (req: an
     );
 
     // storageKey from getUploadURLForFolder is `/objects/logos/<kind>/<uuid>.<ext>`.
-    // Rewrite it to the public download path used by `<img src>`.
-    const publicUrl = storageKey.replace(/^\/objects\//, "/api/public/logos/");
+    // Rewrite to `/api/public/logos/<kind>/<uuid>.<ext>` — strip the leading
+    // `/objects/logos/` (NOT just `/objects/`, otherwise the `logos/` segment
+    // gets duplicated in the public URL and the download route 404s).
+    const publicUrl = storageKey.replace(/^\/objects\/logos\//, "/api/public/logos/");
 
     res.json({ uploadUrl: uploadURL, publicUrl });
   } catch (err) {
@@ -63,7 +65,14 @@ logosRouter.post("/api/uploads/logo-upload-url", isAuthenticated, async (req: an
  */
 logosRouter.get("/api/public/logos/:objectPath(*)", async (req, res) => {
   try {
-    const objectPath = req.params.objectPath as string;
+    let objectPath = req.params.objectPath as string;
+    // Tolerate legacy/broken URLs that include a duplicated `logos/`
+    // segment (a previous version of the upload endpoint emitted
+    // /api/public/logos/logos/<kind>/<uuid>.jpg). Strip it so the
+    // existing rows in DB don't 404 forever.
+    if (objectPath.startsWith("logos/")) {
+      objectPath = objectPath.slice("logos/".length);
+    }
     const firstSegment = objectPath.split("/")[0];
     if (!VALID_KINDS.has(firstSegment)) {
       return res.status(404).json({ message: "Not found" });
