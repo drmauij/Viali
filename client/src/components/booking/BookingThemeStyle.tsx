@@ -30,7 +30,21 @@ export function BookingThemeStyle({ theme }: Props) {
     return <link rel="stylesheet" href={link} />;
   }
 
-  const css = `[data-booking-root] {\n  ${decls.join("\n  ")}\n}`;
+  // Cascade rules: body font applies to the whole subtree, heading font
+  // overrides on h1-h4. Using cascade (not per-element inline styles) so
+  // every heading on /book and /book/g picks up the theme without each
+  // component having to know about the CSS vars.
+  const cascade: string[] = [];
+  if (theme.bodyFont) cascade.push(`[data-booking-root] { font-family: var(--book-body-font); }`);
+  if (theme.headingFont) {
+    cascade.push(
+      `[data-booking-root] h1, [data-booking-root] h2, [data-booking-root] h3, [data-booking-root] h4 { font-family: var(--book-heading-font); }`,
+    );
+  }
+
+  const css =
+    `[data-booking-root] {\n  ${decls.join("\n  ")}\n}` +
+    (cascade.length ? `\n${cascade.join("\n")}` : "");
 
   return (
     <>
