@@ -86,6 +86,82 @@ export async function summarizeFlows(
   }));
 }
 
+/**
+ * Chain-scoped flow summary. Same shape as `summarizeFlows` per row, but
+ * scoped to a list of flow IDs (resolved via flow_hospitals join in the
+ * caller) and filters bookings/revenue to the chain's member hospital
+ * IDs. Returns one row per flow that had any send activity since `since`.
+ */
+export async function summarizeChainFlows(
+  flowIds: string[],
+  hospitalIds: string[],
+  since: Date,
+): Promise<FlowSummaryRow[]> {
+  if (flowIds.length === 0 || hospitalIds.length === 0) return [];
+
+  const eventCountsResult = await db.execute(sql`
+    SELECT
+      fe.flow_id AS "flowId",
+      COUNT(*) FILTER (WHERE ev.event_type = 'sent')      AS sent,
+      COUNT(*) FILTER (WHERE ev.event_type = 'delivered') AS delivered,
+      COUNT(DISTINCT fe.id) FILTER (WHERE ev.event_type = 'opened')  AS opened,
+      COUNT(DISTINCT fe.id) FILTER (WHERE ev.event_type = 'clicked') AS clicked,
+      COUNT(*) FILTER (WHERE ev.event_type = 'bounced')   AS bounced,
+      COUNT(*) FILTER (WHERE ev.event_type = 'complained') AS complained
+    FROM flow_executions fe
+    JOIN flow_events ev ON ev.execution_id = fe.id
+    WHERE fe.flow_id IN (${sql.join(flowIds.map(id => sql`${id}`), sql`, `)})
+      AND fe.started_at >= ${since.toISOString()}
+    GROUP BY fe.flow_id
+  `);
+  const eventRows: any[] = (eventCountsResult as any).rows ?? [];
+
+  const bookingCountsResult = await db.execute(sql`
+    SELECT
+      re.utm_content AS "flowId",
+      COUNT(*) FILTER (WHERE re.appointment_id IS NOT NULL) AS bookings
+    FROM referral_events re
+    WHERE re.hospital_id IN (${sql.join(hospitalIds.map(id => sql`${id}`), sql`, `)})
+      AND re.utm_content IN (${sql.join(flowIds.map(id => sql`${id}`), sql`, `)})
+      AND re.created_at >= ${since.toISOString()}
+    GROUP BY re.utm_content
+  `);
+  const bookingsByFlow: Record<string, number> = {};
+  for (const r of (bookingCountsResult as any).rows ?? []) {
+    bookingsByFlow[r.flowId] = Number(r.bookings) || 0;
+  }
+
+  const revenueResult = await db.execute(sql`
+    SELECT
+      re.utm_content AS "flowId",
+      COALESCE(SUM(cs.price), 0) AS revenue
+    FROM referral_events re
+    JOIN clinic_appointments ca ON ca.id = re.appointment_id
+    LEFT JOIN clinic_services cs ON cs.id = ca.service_id
+    WHERE re.hospital_id IN (${sql.join(hospitalIds.map(id => sql`${id}`), sql`, `)})
+      AND re.utm_content IN (${sql.join(flowIds.map(id => sql`${id}`), sql`, `)})
+      AND re.created_at >= ${since.toISOString()}
+      AND ca.status NOT IN ('cancelled', 'no_show')
+    GROUP BY re.utm_content
+  `);
+  const revenueByFlow: Record<string, number> = {};
+  for (const r of (revenueResult as any).rows ?? []) {
+    revenueByFlow[r.flowId] = Number(r.revenue) || 0;
+  }
+
+  return eventRows.map((r): FlowSummaryRow => ({
+    flowId: r.flowId,
+    sent: Number(r.sent) || 0,
+    delivered: Number(r.delivered) || 0,
+    opened: Number(r.opened) || 0,
+    clicked: Number(r.clicked) || 0,
+    bounced: Number(r.bounced) || 0,
+    complained: Number(r.complained) || 0,
+    bookings: bookingsByFlow[r.flowId] ?? 0,
+    revenue: revenueByFlow[r.flowId] ?? 0,
+  }));
+}
+
 export interface FlowDetailResult {
   funnel: {
     sent: number;

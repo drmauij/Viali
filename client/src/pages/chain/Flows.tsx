@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, Trash2, Send, Users, BarChart3, CalendarCheck, TrendingUp } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -18,7 +19,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import FlowsTable from "@/components/flows/FlowsTable";
+import FlowsTable, { type FlowsTableMetricsRow } from "@/components/flows/FlowsTable";
+import { formatCurrency } from "@/lib/dateUtils";
 
 export default function ChainFlows() {
   const { t } = useTranslation();
@@ -33,6 +35,35 @@ export default function ChainFlows() {
     queryKey: [`/api/chain/${groupId}/flows`],
     enabled: !!groupId,
   });
+
+  const { data: metricsSummary } = useQuery<{
+    since: string;
+    rows: Array<FlowsTableMetricsRow & { flowId: string }>;
+  }>({
+    queryKey: [`/api/chain/${groupId}/flows/metrics/summary`],
+    enabled: !!groupId,
+  });
+
+  const STATS = useMemo(() => {
+    const rows = metricsSummary?.rows ?? [];
+    const totals = rows.reduce(
+      (acc, r) => ({
+        sent: acc.sent + r.sent,
+        opened: acc.opened + r.opened,
+        bookings: acc.bookings + r.bookings,
+        revenue: acc.revenue + r.revenue,
+      }),
+      { sent: 0, opened: 0, bookings: 0, revenue: 0 },
+    );
+    const openRate = totals.sent > 0 ? Math.round((totals.opened / totals.sent) * 100) : 0;
+    return [
+      { label: t("flows.dashboard.campaigns", "Campaigns This Month"), value: String(rows.length), icon: Send, color: "text-purple-400" },
+      { label: t("flows.dashboard.reached", "Recipients Reached"), value: String(totals.sent), icon: Users, color: "text-blue-400" },
+      { label: t("flows.dashboard.openRate", "Avg. Open Rate"), value: `${openRate}%`, icon: BarChart3, color: "text-green-400" },
+      { label: t("flows.dashboard.bookings", "Bookings"), value: String(totals.bookings), icon: CalendarCheck, color: "text-orange-400" },
+      { label: t("flows.dashboard.revenue", "Revenue"), value: formatCurrency(totals.revenue), icon: TrendingUp, color: "text-emerald-400" },
+    ];
+  }, [metricsSummary, t]);
 
   const deleteMutation = useMutation({
     mutationFn: async (flowId: string) => {
@@ -75,6 +106,22 @@ export default function ChainFlows() {
           <Plus className="h-4 w-4 mr-2" />
           {t("chain.flows.new", "New campaign")}
         </Button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        {STATS.map((stat) => (
+          <Card key={stat.label}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <stat.icon className={`h-8 w-8 ${stat.color} opacity-80`} />
+                <div>
+                  <div className="text-2xl font-bold">{stat.value}</div>
+                  <div className="text-xs text-muted-foreground">{stat.label}</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {isLoading ? (

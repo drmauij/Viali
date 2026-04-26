@@ -22,6 +22,7 @@ import logger from "../logger";
 import { z } from "zod";
 import { buildLeadsListConditions } from "./leads";
 import { getLeadsStats } from "../services/leadsMetrics";
+import { summarizeChainFlows } from "../services/marketingMetricsQuery";
 import {
   getReferralStats,
   getReferralTimeseries,
@@ -688,6 +689,53 @@ chainRouter.get('/api/chain/:groupId/flows', isAuthenticated, isChainAdminForGro
   } catch (error) {
     logger.error("Error fetching chain flows:", error);
     res.status(500).json({ message: "Failed to fetch chain flows" });
+  }
+});
+
+// GET /api/chain/:groupId/flows/metrics/summary — chain-wide aggregate of
+// the same per-flow metrics shape /business/flows uses, scoped to every
+// flow that touches any hospital in the group. Drives the 5-card stat
+// strip on /chain/flows (campaigns, recipients, open rate, bookings,
+// revenue).
+chainRouter.get('/api/chain/:groupId/flows/metrics/summary', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const sinceParam = req.query.since as string | undefined;
+    const since = sinceParam
+      ? new Date(sinceParam)
+      : (() => {
+          const d = new Date();
+          d.setUTCDate(1);
+          d.setUTCHours(0, 0, 0, 0);
+          return d;
+        })();
+    if (Number.isNaN(since.getTime())) {
+      return res.status(400).json({ message: "Invalid since parameter" });
+    }
+
+    const groupHospitals = await db
+      .select({ id: hospitals.id })
+      .from(hospitals)
+      .where(eq(hospitals.groupId, groupId));
+    const hospitalIds = groupHospitals.map(h => h.id);
+    if (hospitalIds.length === 0) {
+      return res.json({ since: since.toISOString(), rows: [] });
+    }
+
+    const flowIdsRes = await db
+      .selectDistinct({ flowId: flowHospitals.flowId })
+      .from(flowHospitals)
+      .where(inArray(flowHospitals.hospitalId, hospitalIds));
+    const flowIds = flowIdsRes.map(r => r.flowId);
+    if (flowIds.length === 0) {
+      return res.json({ since: since.toISOString(), rows: [] });
+    }
+
+    const rows = await summarizeChainFlows(flowIds, hospitalIds, since);
+    res.json({ since: since.toISOString(), rows });
+  } catch (err) {
+    logger.error("[chain] flows metrics summary error:", err);
+    res.status(500).json({ message: "Failed to load summary" });
   }
 });
 
