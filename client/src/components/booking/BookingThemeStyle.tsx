@@ -12,29 +12,47 @@ function fontUrl(theme: BookingTheme): string | null {
   return `https://fonts.googleapis.com/css2?${families.join("&")}&display=swap`;
 }
 
+// Pick a contrast-safe foreground (white or near-black) for a given hex
+// background. Uses simplified relative luminance per WCAG. Threshold 0.55
+// errs on the side of dark text — light primary colors like coral/yellow
+// would be unreadable with white text.
+function contrastFg(hex: string): string {
+  const c = hex.startsWith("#") ? hex.slice(1) : hex;
+  const full = c.length === 3 ? c.split("").map((x) => x + x).join("") : c;
+  if (full.length !== 6) return "#ffffff";
+  const r = parseInt(full.slice(0, 2), 16) / 255;
+  const g = parseInt(full.slice(2, 4), 16) / 255;
+  const b = parseInt(full.slice(4, 6), 16) / 255;
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return lum > 0.55 ? "#18181b" : "#ffffff";
+}
+
 export function BookingThemeStyle({ theme }: Props) {
   if (!theme) return null;
 
   const decls: string[] = [];
   if (theme.bgColor) decls.push(`--book-bg: ${theme.bgColor};`);
-  if (theme.primaryColor) decls.push(`--book-primary: ${theme.primaryColor};`);
-  if (theme.secondaryColor) decls.push(`--book-secondary: ${theme.secondaryColor};`);
+  if (theme.primaryColor) {
+    decls.push(`--book-primary: ${theme.primaryColor};`);
+    decls.push(`--book-primary-fg: ${contrastFg(theme.primaryColor)};`);
+  }
+  if (theme.secondaryColor) {
+    decls.push(`--book-secondary: ${theme.secondaryColor};`);
+    decls.push(`--book-secondary-fg: ${contrastFg(theme.secondaryColor)};`);
+  }
   if (theme.headingFont) decls.push(`--book-heading-font: '${theme.headingFont}', sans-serif;`);
   if (theme.bodyFont) decls.push(`--book-body-font: '${theme.bodyFont}', sans-serif;`);
 
   const link = fontUrl(theme);
 
-  // If no CSS vars to declare, render only the font link (or nothing).
   if (decls.length === 0) {
     if (!link) return null;
     return <link rel="stylesheet" href={link} />;
   }
 
-  // Cascade rules: body font applies to the whole subtree, heading font
-  // overrides on h1-h4. Using cascade (not per-element inline styles) so
-  // every heading on /book and /book/g picks up the theme without each
-  // component having to know about the CSS vars.
   const cascade: string[] = [];
+
+  // Fonts.
   if (theme.bodyFont) cascade.push(`[data-booking-root] { font-family: var(--book-body-font); }`);
   if (theme.headingFont) {
     cascade.push(
@@ -42,9 +60,72 @@ export function BookingThemeStyle({ theme }: Props) {
     );
   }
 
+  // Color remaps. Tailwind utility classes containing `/` need backslash-
+  // escaping in CSS selectors; in a JS string that's `\\/`.
+  if (theme.primaryColor) {
+    // Primary surface (full color CTA) — main "Termin buchen" button +
+    // selected-slot blue + the green "Kostenlose Beratung" pill.
+    cascade.push(
+      `[data-booking-root] .bg-blue-500, ` +
+        `[data-booking-root] .bg-blue-400, ` +
+        `[data-booking-root] .bg-emerald-500, ` +
+        `[data-booking-root] .bg-emerald-500\\/90 { ` +
+        `background-color: var(--book-primary) !important; ` +
+        `color: var(--book-primary-fg) !important; ` +
+        `}`,
+    );
+    // Hover variants — slightly darker primary.
+    cascade.push(
+      `[data-booking-root] .hover\\:bg-blue-400:hover, ` +
+        `[data-booking-root] .hover\\:bg-blue-500\\/20:hover { ` +
+        `background-color: color-mix(in srgb, var(--book-primary) 88%, black) !important; ` +
+        `color: var(--book-primary-fg) !important; ` +
+        `}`,
+    );
+  }
+
+  if (theme.secondaryColor) {
+    // Soft "pill" backgrounds (VORSCHLAG badge, soft confirm boxes). 15%
+    // opacity tint of secondary so the pill looks subtle.
+    cascade.push(
+      `[data-booking-root] .bg-blue-50, ` +
+        `[data-booking-root] .bg-blue-500\\/15, ` +
+        `[data-booking-root] .bg-emerald-50, ` +
+        `[data-booking-root] .bg-emerald-400\\/15, ` +
+        `[data-booking-root] .bg-emerald-500\\/15 { ` +
+        `background-color: color-mix(in srgb, var(--book-secondary) 18%, transparent) !important; ` +
+        `}`,
+    );
+    // Link / badge text — "Ändern" links, VORSCHLAG label, etc.
+    cascade.push(
+      `[data-booking-root] .text-blue-700, ` +
+        `[data-booking-root] .text-blue-500, ` +
+        `[data-booking-root] .text-blue-300, ` +
+        `[data-booking-root] .text-emerald-700, ` +
+        `[data-booking-root] .text-emerald-300 { ` +
+        `color: var(--book-secondary) !important; ` +
+        `}`,
+    );
+    // Borders + rings — soft pill outlines.
+    cascade.push(
+      `[data-booking-root] .border-blue-200, ` +
+        `[data-booking-root] .border-blue-300, ` +
+        `[data-booking-root] .border-blue-400\\/30, ` +
+        `[data-booking-root] .border-emerald-200, ` +
+        `[data-booking-root] .border-emerald-400\\/30, ` +
+        `[data-booking-root] .ring-blue-200, ` +
+        `[data-booking-root] .ring-blue-400\\/30, ` +
+        `[data-booking-root] .ring-emerald-300\\/40, ` +
+        `[data-booking-root] .ring-emerald-600\\/20 { ` +
+        `border-color: color-mix(in srgb, var(--book-secondary) 40%, transparent) !important; ` +
+        `--tw-ring-color: color-mix(in srgb, var(--book-secondary) 40%, transparent) !important; ` +
+        `}`,
+    );
+  }
+
   const css =
-    `[data-booking-root] {\n  ${decls.join("\n  ")}\n}` +
-    (cascade.length ? `\n${cascade.join("\n")}` : "");
+    `[data-booking-root] {\n  ${decls.join("\n  ")}\n}\n` +
+    cascade.join("\n");
 
   return (
     <>
