@@ -10,8 +10,10 @@ import { uploadLogo } from "@/lib/uploadLogo";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChainTeamSection } from "@/pages/chain/Team";
 import { ServicesCatalog } from "@/pages/clinic/Services";
+import Branding from "@/pages/admin/Branding";
 import { useTranslation } from "react-i18next";
 import { Copy, Check, RefreshCw } from "lucide-react";
+import type { BookingTheme } from "@shared/schema";
 
 /**
  * `/chain/admin` — chain settings page (chain name + logo).
@@ -32,6 +34,7 @@ type Overview = {
     name: string;
     bookingToken: string | null;
     logoUrl: string | null;
+    bookingTheme: BookingTheme | null;
   };
   members: Array<{ id: string; name: string; address: string | null }>;
   counts: {
@@ -121,6 +124,7 @@ export default function BusinessGroup() {
           <TabsTrigger value="settings" data-testid="tab-chain-settings">Settings</TabsTrigger>
           <TabsTrigger value="team" data-testid="tab-chain-team">Team</TabsTrigger>
           <TabsTrigger value="services" data-testid="tab-chain-services">Services</TabsTrigger>
+          <TabsTrigger value="branding" data-testid="tab-chain-branding">Branding</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings" className="space-y-6">
@@ -141,6 +145,10 @@ export default function BusinessGroup() {
 
         <TabsContent value="services">
           <ServicesCatalog forceCatalogScope="group" />
+        </TabsContent>
+
+        <TabsContent value="branding">
+          <Branding scope={{ kind: "group", id: group.id }} initialTheme={group.bookingTheme ?? null} />
         </TabsContent>
       </Tabs>
     </div>
