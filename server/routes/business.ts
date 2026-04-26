@@ -38,7 +38,7 @@ async function isBusinessAccess(req: any, res: Response, next: any) {
     const hospitals = await storage.getUserHospitals(userId);
     const hasAccess = hospitals.some(h => 
       h.id === hospitalId && 
-      (h.role === 'admin' || h.role === 'manager' || h.role === 'staff')
+      (h.role === 'admin' || h.role === 'manager' || h.role === 'staff' || h.role === 'group_admin')
     );
     
     if (!hasAccess) {
@@ -61,7 +61,7 @@ async function isBusinessManager(req: any, res: Response, next: any) {
     const hospitals = await storage.getUserHospitals(userId);
     const hasAccess = hospitals.some(h =>
       h.id === hospitalId &&
-      (h.role === 'admin' || h.role === 'manager')
+      (h.role === 'admin' || h.role === 'manager' || h.role === 'group_admin')
     );
 
     if (!hasAccess) {
@@ -83,7 +83,7 @@ async function isMarketingOrManager(req: any, res: Response, next: any) {
     const hospitals = await storage.getUserHospitals(userId);
     const hasAccess = hospitals.some(h =>
       h.id === hospitalId &&
-      (h.role === 'admin' || h.role === 'manager' || h.role === 'marketing')
+      (h.role === 'admin' || h.role === 'manager' || h.role === 'marketing' || h.role === 'group_admin')
     );
 
     if (!hasAccess) {
@@ -2051,7 +2051,7 @@ router.delete('/api/business/:hospitalId/referral-events/:eventId', isAuthentica
     // Admin-only check — user may have multiple unit roles for same hospital
     const userId = req.user.id;
     const hospitals = await storage.getUserHospitals(userId);
-    const isAdminForHospital = hospitals.some((h: any) => h.id === hospitalId && (h.role === 'admin' || h.role === 'manager'));
+    const isAdminForHospital = hospitals.some((h: any) => h.id === hospitalId && (h.role === 'admin' || h.role === 'manager' || h.role === 'group_admin'));
     if (!isAdminForHospital) {
       return res.status(403).json({ message: 'Only admins can delete referral events' });
     }

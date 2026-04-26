@@ -548,7 +548,7 @@ async function isMarketingOrManager(req: any, res: Response, next: any) {
     const hospitals = await storage.getUserHospitals(userId);
     const hasAccess = hospitals.some(h =>
       h.id === hospitalId &&
-      (h.role === 'admin' || h.role === 'manager' || h.role === 'marketing' || h.role === 'nurse')
+      (h.role === 'admin' || h.role === 'manager' || h.role === 'marketing' || h.role === 'nurse' || h.role === 'group_admin')
     );
 
     if (!hasAccess) {
