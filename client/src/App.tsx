@@ -135,6 +135,20 @@ function HomeRedirect() {
       return;
     }
 
+    // Chain admin default landing: if the user holds a group_admin role
+    // anywhere (or is a platform admin), /chain is their home — same way
+    // platform admins always start at /platform. Wins over savedModule
+    // because the chain cockpit is the canonical landing for these users
+    // regardless of where they last navigated.
+    const isGroupAdmin = (user as any)?.hospitals?.some?.(
+      (h: any) => h.role === "group_admin",
+    );
+    const isPlatformAdmin = !!(user as any)?.isPlatformAdmin;
+    if (isGroupAdmin || isPlatformAdmin) {
+      navigate("/chain", { replace: true });
+      return;
+    }
+
     const savedModule = localStorage.getItem("activeModule");
 
     if (savedModule === "anesthesia") {
@@ -154,18 +168,6 @@ function HomeRedirect() {
       return;
     } else if (savedModule === "logistic") {
       navigate("/logistic/inventory", { replace: true });
-      return;
-    }
-
-    // Chain admin default landing: if the user holds a group_admin role
-    // anywhere and there's no saved module from a previous session, send
-    // them straight to /chain. Patrik logs in → cockpit, no clinic detour.
-    const isGroupAdmin = (user as any)?.hospitals?.some?.(
-      (h: any) => h.role === "group_admin",
-    );
-    const isPlatformAdmin = !!(user as any)?.isPlatformAdmin;
-    if ((isGroupAdmin || isPlatformAdmin) && !savedModule) {
-      navigate("/chain", { replace: true });
       return;
     }
 
