@@ -249,7 +249,18 @@ async function wipeHospitalsAndDependents(hospitalIds: string[]): Promise<void> 
   }
   await db.delete(flowHospitals).where(inArray(flowHospitals.hospitalId, hospitalIds));
 
-  // 2. Hospital-scoped tables (most of them).
+  // 2. Hospital-scoped tables (most of them). For tables that reference
+  //    patients (referral_events, clinic_appointments) we also catch rows
+  //    that point at demo patients but live at non-demo hospitals — same
+  //    orphan pattern as treatments above.
+  if (demoPatientIds.length > 0) {
+    await db
+      .delete(referralEvents)
+      .where(inArray(referralEvents.patientId, demoPatientIds));
+    await db
+      .delete(clinicAppointments)
+      .where(inArray(clinicAppointments.patientId, demoPatientIds));
+  }
   await db.delete(referralEvents).where(inArray(referralEvents.hospitalId, hospitalIds));
   await db.delete(leads).where(inArray(leads.hospitalId, hospitalIds));
   await db.delete(clinicAppointments).where(inArray(clinicAppointments.hospitalId, hospitalIds));
