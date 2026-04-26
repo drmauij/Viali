@@ -21,6 +21,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import FlowsTable, { type FlowsTableMetricsRow } from "@/components/flows/FlowsTable";
 import { formatCurrency } from "@/lib/dateUtils";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tag } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function ChainFlows() {
   const { t } = useTranslation();
@@ -41,6 +51,11 @@ export default function ChainFlows() {
     rows: Array<FlowsTableMetricsRow & { flowId: string }>;
   }>({
     queryKey: [`/api/chain/${groupId}/flows/metrics/summary`],
+    enabled: !!groupId,
+  });
+
+  const { data: promoCodes = [] } = useQuery<any[]>({
+    queryKey: [`/api/chain/${groupId}/promo-codes`],
     enabled: !!groupId,
   });
 
@@ -124,47 +139,121 @@ export default function ChainFlows() {
         ))}
       </div>
 
-      {isLoading ? (
-        <div className="p-8 text-center text-muted-foreground">{t("common.loading", "Loading...")}</div>
-      ) : (data?.flows ?? []).length === 0 ? (
-        <div className="p-8 text-center text-muted-foreground" data-testid="chain-flows-empty">
-          {t("chain.flows.empty", "No campaigns yet.")}
-        </div>
-      ) : (
-        <FlowsTable
-          flows={data?.flows ?? []}
-          onRowClick={(row) => navigate(`/chain/flows/${row.id}`)}
-          audienceColumn={{
-            header: t("chain.flows.audience", "Audience"),
-            cell: (row) => {
-              const list = (row as any).audienceHospitals ?? [];
-              if (list.length === 0) return <Badge variant="outline">—</Badge>;
-              if (list.length === 1) return <Badge variant="outline">{list[0].hospitalName}</Badge>;
-              return (
-                <Badge variant="outline">
-                  {t("chain.flows.nLocations", "{{n}} locations", { n: list.length })}
-                </Badge>
-              );
-            },
-          }}
-          actions={(row) => {
-            // Don't offer delete on already-sent campaigns — server refuses.
-            if ((row as any).sentAt) return null;
-            return (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive"
-                onClick={() => setPendingDelete({ id: row.id, name: row.name })}
-                data-testid={`button-delete-campaign-${row.id}`}
-                title={t("chain.flows.delete", "Delete")}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            );
-          }}
-        />
-      )}
+      <Tabs defaultValue="campaigns">
+        <TabsList>
+          <TabsTrigger value="campaigns" className="gap-2">
+            <Send className="h-4 w-4" />
+            {t("flows.tabs.campaigns", "Campaigns")}
+            {(data?.flows ?? []).length > 0 && <Badge variant="secondary" className="ml-1">{(data?.flows ?? []).length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="promos" className="gap-2">
+            <Tag className="h-4 w-4" />
+            {t("flows.tabs.promoCodes", "Promo Codes")}
+            {promoCodes.length > 0 && <Badge variant="secondary" className="ml-1">{promoCodes.length}</Badge>}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="campaigns" className="mt-4">
+          {isLoading ? (
+            <div className="p-8 text-center text-muted-foreground">{t("common.loading", "Loading...")}</div>
+          ) : (data?.flows ?? []).length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground" data-testid="chain-flows-empty">
+              {t("chain.flows.empty", "No campaigns yet.")}
+            </div>
+          ) : (
+            <FlowsTable
+              flows={data?.flows ?? []}
+              onRowClick={(row) => navigate(`/chain/flows/${row.id}`)}
+              audienceColumn={{
+                header: t("chain.flows.audience", "Audience"),
+                cell: (row) => {
+                  const list = (row as any).audienceHospitals ?? [];
+                  if (list.length === 0) return <Badge variant="outline">—</Badge>;
+                  if (list.length === 1) return <Badge variant="outline">{list[0].hospitalName}</Badge>;
+                  return (
+                    <Badge variant="outline">
+                      {t("chain.flows.nLocations", "{{n}} locations", { n: list.length })}
+                    </Badge>
+                  );
+                },
+              }}
+              actions={(row) => {
+                if ((row as any).sentAt) return null;
+                return (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={() => setPendingDelete({ id: row.id, name: row.name })}
+                    data-testid={`button-delete-campaign-${row.id}`}
+                    title={t("chain.flows.delete", "Delete")}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                );
+              }}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="promos" className="mt-4">
+          <Card>
+            {promoCodes.length === 0 ? (
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                {t("flows.promoCodes.empty", "No promo codes yet. Create one inside a campaign.")}
+              </CardContent>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("flows.promoCodes.code", "Code")}</TableHead>
+                    <TableHead>{t("flows.promoCodes.discount", "Discount")}</TableHead>
+                    <TableHead>{t("chain.flows.scope", "Scope")}</TableHead>
+                    <TableHead>{t("flows.offer.description", "Description")}</TableHead>
+                    <TableHead>{t("flows.promoCodes.usage", "Usage")}</TableHead>
+                    <TableHead>{t("flows.promoCodes.validUntil", "Valid Until")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {promoCodes.map((pc: any) => {
+                    const isExpired = pc.validUntil && new Date(pc.validUntil) < new Date();
+                    const isMaxed = pc.maxUses && pc.usedCount >= pc.maxUses;
+                    return (
+                      <TableRow key={pc.id} className={isExpired || isMaxed ? "opacity-50" : ""}>
+                        <TableCell>
+                          <Badge variant="outline" className="font-mono">{pc.code}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {pc.discountType === "percent" ? `${pc.discountValue}%` : `CHF ${pc.discountValue}`}
+                        </TableCell>
+                        <TableCell>
+                          {pc.groupWide ? (
+                            <Badge>{t("chain.flows.scopeChainWide", "Chain-wide")}</Badge>
+                          ) : (
+                            <Badge variant="outline">{pc.hospitalName ?? "—"}</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{pc.description || "—"}</TableCell>
+                        <TableCell>
+                          {pc.usedCount}{pc.maxUses ? ` / ${pc.maxUses}` : ""}
+                        </TableCell>
+                        <TableCell>
+                          {pc.validUntil ? (
+                            <span className={isExpired ? "text-destructive" : ""}>
+                              {new Date(pc.validUntil).toLocaleDateString("de-CH")}
+                              {isExpired && ` (${t("flows.promoCodes.expired", "expired")})`}
+                            </span>
+                          ) : "—"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <AlertDialog open={!!pendingDelete} onOpenChange={(o) => !o && setPendingDelete(null)}>
         <AlertDialogContent>

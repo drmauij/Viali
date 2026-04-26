@@ -11,6 +11,7 @@ import {
   clinicServices,
   flows,
   flowHospitals,
+  promoCodes,
   users,
   userHospitalRoles,
   units,
@@ -736,6 +737,36 @@ chainRouter.get('/api/chain/:groupId/flows/metrics/summary', isAuthenticated, is
   } catch (err) {
     logger.error("[chain] flows metrics summary error:", err);
     res.status(500).json({ message: "Failed to load summary" });
+  }
+});
+
+// GET /api/chain/:groupId/promo-codes — every promo code issued at any
+// member clinic in the chain, decorated with the issuing clinic's name
+// and a `groupWide` flag for visual scope distinction.
+chainRouter.get('/api/chain/:groupId/promo-codes', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const groupHospitals = await db
+      .select({ id: hospitals.id, name: hospitals.name })
+      .from(hospitals)
+      .where(eq(hospitals.groupId, groupId));
+    const hospitalIds = groupHospitals.map(h => h.id);
+    if (hospitalIds.length === 0) {
+      return res.json([]);
+    }
+    const nameById = new Map(groupHospitals.map(h => [h.id, h.name]));
+    const codes = await db
+      .select()
+      .from(promoCodes)
+      .where(inArray(promoCodes.hospitalId, hospitalIds))
+      .orderBy(desc(promoCodes.createdAt));
+    res.json(codes.map(c => ({
+      ...c,
+      hospitalName: nameById.get(c.hospitalId) ?? null,
+    })));
+  } catch (error) {
+    logger.error("Error fetching chain promo codes:", error);
+    res.status(500).json({ message: "Failed to fetch promo codes" });
   }
 });
 
