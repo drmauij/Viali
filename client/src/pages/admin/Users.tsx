@@ -241,7 +241,7 @@ export default function Users() {
   const [mergeUser1Id, setMergeUser1Id] = useState("");
   const [mergeUser2Id, setMergeUser2Id] = useState("");
 
-  const isAdmin = activeHospital?.role === "admin";
+  const isAdmin = activeHospital?.role === "admin" || activeHospital?.role === "group_admin";
 
   // Fetch units
   const { data: units = [] } = useQuery<Unit[]>({
