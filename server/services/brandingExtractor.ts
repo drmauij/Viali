@@ -170,11 +170,20 @@ export async function extractThemeFromUrl(url: string): Promise<ExtractResult> {
   }
 
   const data: any = await resp.json();
-  const text = data.content?.[0]?.text;
+  const text = data.content?.[0]?.text ?? "";
+  // Claude sometimes wraps JSON in a ```json fence or precedes it with prose
+  // despite the system-prompt instruction. Strip a fenced block first, then
+  // fall back to extracting the largest {...} block.
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const candidate = fenced ? fenced[1] : text;
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  const jsonText = start >= 0 && end > start ? candidate.slice(start, end + 1) : candidate;
   let raw: unknown;
   try {
-    raw = JSON.parse(text);
+    raw = JSON.parse(jsonText);
   } catch {
+    logger.warn({ snippet: text.slice(0, 500) }, "Failed to parse Claude response as JSON");
     throw new Error("Failed to parse Claude response as JSON");
   }
   const result = claudeShape.safeParse(raw);
