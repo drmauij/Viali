@@ -362,8 +362,12 @@ export default function BookAppointment() {
           }
         }
 
-        // Priority 2: single match from service_group → auto-select and skip
-        if (serviceGroupParam && list !== allServices && list.length === 1) {
+        // Priority 2: only one bookable service available — auto-select and
+        // skip the picker. Triggers in two cases:
+        //   a) ?service_group= filtered down to a single match
+        //   b) the clinic exposes exactly one bookable service total (e.g.
+        //      a chain like beauty2go where /book is consultation-only)
+        if (list.length === 1) {
           setSelectedTreatment(list[0]);
           setStep('provider');
           return;
