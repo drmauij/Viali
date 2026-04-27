@@ -5928,13 +5928,13 @@
       "roles": {
         "awr_nurse": {
           "title": "Day Clinic Nurse (AWR-Nurse)",
-          "rate": "CHF 75.00",
+          "rate": "CHF 50.00",
           "description": "registered nurse with additional training as intensive care expert",
           "roleTitle": "IMC nurse in recovery room"
         },
         "anesthesia_nurse": {
           "title": "Nurse Anesthetist",
-          "rate": "CHF 80.00",
+          "rate": "CHF 60.00",
           "description": "registered nurse with additional training as anesthesia care expert",
           "roleTitle": "Anesthesia nurse"
         },

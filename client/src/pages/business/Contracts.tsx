@@ -75,13 +75,13 @@ interface CompanyData {
 const roleInfo = {
   awr_nurse: {
     title: "Tagesklinik Pflege (AWR-Nurse)",
-    rate: `${getCurrencySymbol()} 75.00`,
+    rate: `${getCurrencySymbol()} 50.00`,
     description: "diplomierter Pflegefachmann mit Zusatzausbildung Experte Intensivpflege",
     roleTitle: "IMC-Pfleger im Aufwachraum",
   },
   anesthesia_nurse: {
     title: "Pflege-Anästhesist",
-    rate: `${getCurrencySymbol()} 80.00`,
+    rate: `${getCurrencySymbol()} 60.00`,
     description: "diplomierter Pflegefachmann mit Zusatzausbildung Experte Anästhesiepflege",
     roleTitle: "Anästhesiepfleger",
   },

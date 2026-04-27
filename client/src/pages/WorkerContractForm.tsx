@@ -52,19 +52,19 @@ type ContractFormData = z.infer<typeof contractFormSchema>;
 const roleInfo = {
   awr_nurse: {
     title: "Tagesklinik Pflege (AWR-Nurse)",
-    rate: "CHF 75.00/Std.",
+    rate: "CHF 50.00/Std.",
     description: "diplomierter Pflegefachmann mit Zusatzausbildung Experte Intensivpflege",
     roleTitle: "IMC-Pfleger im Aufwachraum",
   },
   anesthesia_nurse: {
     title: "Pflege-Anästhesist",
-    rate: "CHF 80.00/Std.",
+    rate: "CHF 60.00/Std.",
     description: "diplomierter Pflegefachmann mit Zusatzausbildung Experte Anästhesiepflege",
     roleTitle: "Anästhesiepfleger",
   },
   op_nurse: {
     title: "OP Pflege/OTA",
-    rate: "CHF 80.00/Std.",
+    rate: "CHF 50.00/Std.",
     description: "diplomierter Pflegefachmann mit Zusatzausbildung OP-Pflege oder Operationstechnischer Assistent (OTA)",
     roleTitle: "OP-Pfleger/OTA",
   },
