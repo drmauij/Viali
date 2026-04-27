@@ -3020,6 +3020,65 @@ router.get('/api/business/:hospitalId/treatments-summary', isAuthenticated, isBu
   }
 });
 
+// Surgeries summary — counts and revenue split into "planned" (planned_date in range)
+// and "converted/won" (payment_date in range). byDay is keyed by payment_date so it
+// pairs naturally with the revenue-by-day chart (which represents realized revenue).
+router.get('/api/business/:hospitalId/surgeries-summary', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const rangeDays = parseInt((req.query.range as string)?.replace('d', '') || '30', 10);
+    const start = new Date();
+    start.setDate(start.getDate() - rangeDays);
+    const startIso = start.toISOString();
+
+    const totalsRow = await db.execute<{
+      count_planned: string;
+      count_converted: string;
+      revenue_planned: string;
+      revenue_won: string;
+    }>(sql`
+      SELECT
+        COUNT(*) FILTER (WHERE s.planned_date >= ${startIso}) AS count_planned,
+        COUNT(*) FILTER (WHERE s.payment_date IS NOT NULL AND s.payment_date >= ${startIso}::date) AS count_converted,
+        COALESCE(SUM(CAST(s.price AS numeric)) FILTER (WHERE s.planned_date >= ${startIso}), 0) AS revenue_planned,
+        COALESCE(SUM(CAST(s.price AS numeric)) FILTER (WHERE s.payment_date IS NOT NULL AND s.payment_date >= ${startIso}::date), 0) AS revenue_won
+      FROM surgeries s
+      WHERE s.hospital_id = ${hospitalId}
+        AND s.is_archived = false
+    `);
+
+    const dayRows = await db.execute<{ date: string; count: string; revenue: string }>(sql`
+      SELECT
+        s.payment_date AS date,
+        COUNT(*) AS count,
+        COALESCE(SUM(CAST(s.price AS numeric)), 0) AS revenue
+      FROM surgeries s
+      WHERE s.hospital_id = ${hospitalId}
+        AND s.is_archived = false
+        AND s.payment_date IS NOT NULL
+        AND s.payment_date >= ${startIso}::date
+      GROUP BY s.payment_date
+      ORDER BY s.payment_date ASC
+    `);
+
+    const totals = totalsRow.rows[0] as any;
+    res.json({
+      countPlanned: parseInt(totals?.count_planned || '0'),
+      countConverted: parseInt(totals?.count_converted || '0'),
+      revenuePlanned: parseFloat(totals?.revenue_planned || '0'),
+      revenueWon: parseFloat(totals?.revenue_won || '0'),
+      byDay: (dayRows.rows as any[]).map(r => ({
+        date: typeof r.date === 'string' ? r.date : new Date(r.date).toISOString().slice(0, 10),
+        count: parseInt(r.count) || 0,
+        revenue: parseFloat(r.revenue) || 0,
+      })),
+    });
+  } catch (error) {
+    logger.error("Error fetching surgeries summary:", error);
+    res.status(500).json({ message: "Failed to fetch surgeries summary" });
+  }
+});
+
 router.get('/api/business/:hospitalId/providers-performance', isAuthenticated, isBusinessManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
@@ -3052,24 +3111,33 @@ router.get('/api/business/:hospitalId/providers-performance', isAuthenticated, i
       GROUP BY t.provider_id, u.first_name, u.last_name
     `);
 
-    // Per-provider surgeries: count — surgeries.surgeonId is the surgeon provider
+    // Per-provider surgeries: planned (by planned_date) + converted (by payment_date)
+    // counts and revenue. Both ranges are evaluated independently against the same
+    // surgeon row, so a surgery planned 6 months ago and paid this month contributes
+    // to "converted" only.
     const surgeryRows = await db.execute<{
       provider_id: string;
       first_name: string | null;
       last_name: string | null;
-      surgeries_count: string;
+      surgeries_planned: string;
+      surgeries_converted: string;
+      revenue_planned: string;
+      revenue_won: string;
     }>(sql`
       SELECT
         s.surgeon_id AS provider_id,
         u.first_name,
         u.last_name,
-        COUNT(*) AS surgeries_count
+        COUNT(*) FILTER (WHERE s.planned_date >= ${startIso}) AS surgeries_planned,
+        COUNT(*) FILTER (WHERE s.payment_date IS NOT NULL AND s.payment_date >= ${startIso}::date) AS surgeries_converted,
+        COALESCE(SUM(CAST(s.price AS numeric)) FILTER (WHERE s.planned_date >= ${startIso}), 0) AS revenue_planned,
+        COALESCE(SUM(CAST(s.price AS numeric)) FILTER (WHERE s.payment_date IS NOT NULL AND s.payment_date >= ${startIso}::date), 0) AS revenue_won
       FROM surgeries s
       LEFT JOIN users u ON u.id = s.surgeon_id
       WHERE s.hospital_id = ${hospitalId}
-        AND s.planned_date >= ${startIso}
         AND s.is_archived = false
         AND s.surgeon_id IS NOT NULL
+        AND (s.planned_date >= ${startIso} OR (s.payment_date IS NOT NULL AND s.payment_date >= ${startIso}::date))
       GROUP BY s.surgeon_id, u.first_name, u.last_name
     `);
 
@@ -3078,38 +3146,55 @@ router.get('/api/business/:hospitalId/providers-performance', isAuthenticated, i
       providerId: string;
       name: string;
       treatmentsCount: number;
-      surgeriesCount: number;
-      revenue: number;
+      treatmentsRevenue: number;
+      surgeriesPlanned: number;
+      surgeriesConverted: number;
+      revenuePlanned: number;
+      revenueWon: number;
       utilizationPct: number | null;
     }>();
 
     for (const r of treatmentRows.rows as any[]) {
+      const treatmentsRevenue = parseFloat(r.revenue) || 0;
       merged.set(r.provider_id, {
         providerId: r.provider_id,
         name: [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Unknown',
         treatmentsCount: parseInt(r.treatments_count) || 0,
-        surgeriesCount: 0,
-        revenue: parseFloat(r.revenue) || 0,
+        treatmentsRevenue,
+        surgeriesPlanned: 0,
+        surgeriesConverted: 0,
+        revenuePlanned: treatmentsRevenue,
+        revenueWon: treatmentsRevenue,
         utilizationPct: null, // Phase B.2 follow-up will compute from scheduled hours.
       });
     }
     for (const r of surgeryRows.rows as any[]) {
+      const surgeriesPlanned = parseInt(r.surgeries_planned) || 0;
+      const surgeriesConverted = parseInt(r.surgeries_converted) || 0;
+      const surgeryRevenuePlanned = parseFloat(r.revenue_planned) || 0;
+      const surgeryRevenueWon = parseFloat(r.revenue_won) || 0;
       const existing = merged.get(r.provider_id);
       if (existing) {
-        existing.surgeriesCount = parseInt(r.surgeries_count) || 0;
+        existing.surgeriesPlanned = surgeriesPlanned;
+        existing.surgeriesConverted = surgeriesConverted;
+        existing.revenuePlanned += surgeryRevenuePlanned;
+        existing.revenueWon += surgeryRevenueWon;
       } else {
         merged.set(r.provider_id, {
           providerId: r.provider_id,
           name: [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Unknown',
           treatmentsCount: 0,
-          surgeriesCount: parseInt(r.surgeries_count) || 0,
-          revenue: 0,
+          treatmentsRevenue: 0,
+          surgeriesPlanned,
+          surgeriesConverted,
+          revenuePlanned: surgeryRevenuePlanned,
+          revenueWon: surgeryRevenueWon,
           utilizationPct: null,
         });
       }
     }
 
-    const providers = Array.from(merged.values()).sort((a, b) => b.revenue - a.revenue);
+    const providers = Array.from(merged.values()).sort((a, b) => b.revenueWon - a.revenueWon);
     res.json({ providers });
   } catch (error) {
     logger.error("Error fetching providers performance:", error);

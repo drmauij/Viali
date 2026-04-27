@@ -465,8 +465,29 @@ export default function CostAnalytics() {
     enabled: !!activeHospital?.id && activeTopTab === 'overview',
   });
 
+  const { data: surgeriesSummary } = useQuery<{
+    countPlanned: number;
+    countConverted: number;
+    revenuePlanned: number;
+    revenueWon: number;
+    byDay: Array<{ date: string; count: number; revenue: number }>;
+  }>({
+    queryKey: [`/api/business/${activeHospital?.id}/surgeries-summary?range=${range}`],
+    enabled: !!activeHospital?.id && activeTopTab === 'overview',
+  });
+
   const { data: providersPerformance } = useQuery<{
-    providers: Array<{ providerId: string; name: string; treatmentsCount: number; surgeriesCount: number; revenue: number; utilizationPct: number | null }>;
+    providers: Array<{
+      providerId: string;
+      name: string;
+      treatmentsCount: number;
+      treatmentsRevenue: number;
+      surgeriesPlanned: number;
+      surgeriesConverted: number;
+      revenuePlanned: number;
+      revenueWon: number;
+      utilizationPct: number | null;
+    }>;
   }>({
     queryKey: [`/api/business/${activeHospital?.id}/providers-performance?range=${range}`],
     enabled: !!activeHospital?.id && activeTopTab === 'overview',
@@ -627,12 +648,29 @@ export default function CostAnalytics() {
     );
   }, [surgeriesData, surgerySearch]);
 
-  // Overview revenue: treatments revenue + surgery revenue (if loaded)
-  const overviewRevenue = useMemo(() => {
-    const treatmentRev = treatmentsSummary?.byDay.reduce((s, d) => s + (d.revenue ?? 0), 0) ?? 0;
-    const surgeryRev = (surgeriesData ?? []).reduce((s, sg) => s + ((sg.totalCost as number | undefined) ?? 0), 0);
-    return treatmentRev + surgeryRev;
-  }, [treatmentsSummary, surgeriesData]);
+  // Overview revenue: treatments revenue (already realized: signed/invoiced) + surgery
+  // revenue split into planned (planned_date in range) and won (payment_date in range).
+  const treatmentsRevenue = useMemo(
+    () => treatmentsSummary?.byDay.reduce((s, d) => s + (d.revenue ?? 0), 0) ?? 0,
+    [treatmentsSummary],
+  );
+  const overviewRevenueWon = treatmentsRevenue + (surgeriesSummary?.revenueWon ?? 0);
+  const overviewRevenuePlanned = treatmentsRevenue + (surgeriesSummary?.revenuePlanned ?? 0);
+
+  // Revenue-by-day chart: merge treatments byDay (by performed_at) with surgeries
+  // byDay (by payment_date) so the chart matches the "won" KPI.
+  const revenueByDay = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const d of treatmentsSummary?.byDay ?? []) {
+      map.set(d.date, (map.get(d.date) ?? 0) + (d.revenue ?? 0));
+    }
+    for (const d of surgeriesSummary?.byDay ?? []) {
+      map.set(d.date, (map.get(d.date) ?? 0) + (d.revenue ?? 0));
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, revenue]) => ({ date, revenue }));
+  }, [treatmentsSummary, surgeriesSummary]);
 
   // Format duration for display (e.g., "2h 15min")
   const formatDuration = (minutes: number | null | undefined) => {
@@ -715,10 +753,10 @@ export default function CostAnalytics() {
               <CardContent className="pt-4">
                 <div className="text-xs uppercase text-muted-foreground">{t('business.kpi.revenue', 'Revenue')}</div>
                 <div className="text-2xl font-semibold mt-1" data-testid="kpi-overview-revenue">
-                  {formatCurrencyLocale(overviewRevenue)}
+                  {formatCurrencyLocale(overviewRevenueWon)}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  {t('business.kpi.lastRange', 'Last {{n}} days', { n: parseInt(range) })}
+                  {t('business.kpi.revenuePlanned', '{{value}} planned', { value: formatCurrencyLocale(overviewRevenuePlanned) })}
                 </div>
               </CardContent>
             </Card>
@@ -740,8 +778,13 @@ export default function CostAnalytics() {
                 <div className="text-2xl font-semibold mt-1" data-testid="kpi-overview-surgeries">
                   {activeHospital?.clinicKind === 'aesthetic'
                     ? <span className="text-muted-foreground">—</span>
-                    : (surgeriesData?.length ?? 0)}
+                    : (surgeriesSummary?.countConverted ?? 0)}
                 </div>
+                {activeHospital?.clinicKind !== 'aesthetic' && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {t('business.kpi.surgeriesPlanned', '{{n}} planned', { n: surgeriesSummary?.countPlanned ?? 0 })}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -764,7 +807,7 @@ export default function CostAnalytics() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={treatmentsSummary?.byDay ?? []}>
+                <BarChart data={revenueByDay}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
@@ -854,8 +897,20 @@ export default function CostAnalytics() {
                     <TableRow key={p.providerId}>
                       <TableCell>{p.name}</TableCell>
                       {activeHospital?.clinicKind !== 'surgical' && <TableCell className="text-right">{p.treatmentsCount}</TableCell>}
-                      {activeHospital?.clinicKind !== 'aesthetic' && <TableCell className="text-right">{p.surgeriesCount}</TableCell>}
-                      <TableCell className="text-right">{formatCurrencyLocale(p.revenue)}</TableCell>
+                      {activeHospital?.clinicKind !== 'aesthetic' && (
+                        <TableCell className="text-right">
+                          <div>{p.surgeriesConverted}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {t('business.overview.surgeriesPlannedSubtitle', '{{n}} planned', { n: p.surgeriesPlanned })}
+                          </div>
+                        </TableCell>
+                      )}
+                      <TableCell className="text-right">
+                        <div>{formatCurrencyLocale(p.revenueWon)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {t('business.overview.revenuePlannedSubtitle', '{{value}} planned', { value: formatCurrencyLocale(p.revenuePlanned) })}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right text-muted-foreground">
                         {p.utilizationPct != null ? `${p.utilizationPct}%` : '—'}
                       </TableCell>
