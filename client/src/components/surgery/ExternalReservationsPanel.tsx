@@ -570,6 +570,9 @@ export function ExternalReservationsPanel({
   const [refusingRequestId, setRefusingRequestId] = useState<string | null>(null);
   const [refuseNote, setRefuseNote] = useState('');
   const [acceptingRequestId, setAcceptingRequestId] = useState<string | null>(null);
+  const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
+  const [decliningRequestId, setDecliningRequestId] = useState<string | null>(null);
+  const [declineReason, setDeclineReason] = useState('');
 
   const hospitalId = activeHospital?.id;
 
@@ -612,21 +615,45 @@ export function ExternalReservationsPanel({
   const surgeryRooms = surgeryRoomsProp ?? internalSurgeryRooms;
 
   const declineMutation = useMutation({
-    mutationFn: async (requestId: string) => {
-      return apiRequest('PATCH', `/api/external-surgery-requests/${requestId}`, { status: 'declined' });
+    mutationFn: async ({ requestId, reason }: { requestId: string; reason?: string }) => {
+      return apiRequest('PATCH', `/api/external-surgery-requests/${requestId}`, {
+        status: 'declined',
+        declineReason: reason && reason.trim() ? reason.trim() : undefined,
+      });
     },
     onSuccess: () => {
       toast({
         title: t('surgery.externalRequests.declined'),
         description: t('surgery.externalRequests.declinedDesc'),
       });
+      setDeclineDialogOpen(false);
+      setDecliningRequestId(null);
+      setDeclineReason('');
       refetch();
       queryClient.invalidateQueries({ predicate: (query) =>
         typeof query.queryKey[0] === 'string' &&
         query.queryKey[0].includes('external-surgery-requests')
       });
     },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
+
+  const handleDecline = (requestId: string) => {
+    setDecliningRequestId(requestId);
+    setDeclineReason('');
+    setDeclineDialogOpen(true);
+  };
+
+  const handleConfirmDecline = () => {
+    if (!decliningRequestId) return;
+    declineMutation.mutate({ requestId: decliningRequestId, reason: declineReason });
+  };
 
   // --- Surgeon action request mutations ---
   const acceptActionMutation = useMutation({
@@ -932,6 +959,44 @@ export function ExternalReservationsPanel({
     </Dialog>
   );
 
+  // --- Decline external surgery request dialog ---
+  const declineDialog = (
+    <Dialog open={declineDialogOpen} onOpenChange={(o) => { setDeclineDialogOpen(o); if (!o) { setDecliningRequestId(null); setDeclineReason(''); } }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{t('surgery.externalRequests.declineRequestTitle')}</DialogTitle>
+          <DialogDescription>
+            {t('surgery.externalRequests.declineRequestDescription')}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="space-y-2">
+            <Label>{t('surgery.externalRequests.declineReasonLabel')}</Label>
+            <Textarea
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder={t('surgery.externalRequests.declineReasonPlaceholder')}
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setDeclineDialogOpen(false)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleConfirmDecline}
+            disabled={declineMutation.isPending}
+          >
+            {declineMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {t('surgery.externalRequests.decline')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   const cardList = (
     <div className={mode === 'inline' ? "space-y-3" : "mt-6 space-y-4"}>
       {mode === 'inline' && selectedRequestId && (
@@ -1116,8 +1181,8 @@ export function ExternalReservationsPanel({
                     size="sm"
                     variant="outline"
                     className="w-full text-destructive hover:text-destructive"
-                    onClick={() => declineMutation.mutate(request.id)}
-                    disabled={declineMutation.isPending}
+                    onClick={() => handleDecline(request.id)}
+                    disabled={declineMutation.isPending && decliningRequestId === request.id}
                   >
                     <X className="mr-1 h-4 w-4" />
                     {t('surgery.externalRequests.decline')}
@@ -1150,6 +1215,7 @@ export function ExternalReservationsPanel({
           {activeTab === 'surgery-requests' ? cardList : surgeonActionCardList}
         </div>
         {refuseDialog}
+        {declineDialog}
       </div>
     );
   }
@@ -1193,6 +1259,7 @@ export function ExternalReservationsPanel({
       )}
 
       {refuseDialog}
+      {declineDialog}
     </>
   );
 }
