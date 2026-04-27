@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  AlertTriangle,
   Check,
   ChevronsUpDown,
   ChevronUp,
@@ -45,7 +44,6 @@ interface OrMedicationsCardProps {
   anesthesiaRecordId: string;
   hospitalId: string;
   isAdmin: boolean;
-  hasLegacyData: boolean;
 }
 
 interface AdministrationGroup {
@@ -99,7 +97,6 @@ export function OrMedicationsCard({
   anesthesiaRecordId,
   hospitalId,
   isAdmin,
-  hasLegacyData,
 }: OrMedicationsCardProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -320,11 +317,6 @@ export function OrMedicationsCard({
     createGroupMutation.mutate(name);
   };
 
-  // ── Dual-card warning check ──────────────────────────────────────────────
-
-  const hasOrMedEntries = orMedications.length > 0;
-  const showDualCardWarning = hasLegacyData && hasOrMedEntries;
-
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -343,19 +335,6 @@ export function OrMedicationsCard({
           </Button>
         </div>
       )}
-        {/* Dual-card warning */}
-        {showDualCardWarning && (
-          <div className="flex items-start gap-2 rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-300">
-            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-            <span>
-              {t(
-                "anesthesia.orMedications.dualCardWarning",
-                "Medications have been recorded in both the new card and the legacy card for this record. Please use only one system per record to avoid duplicate inventory entries.",
-              )}
-            </span>
-          </div>
-        )}
-
         {/* Empty state */}
         {groups.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">

@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { OrMedicationsCard } from "@/components/anesthesia/OrMedicationsCard";
 import SignaturePad from "@/components/SignaturePad";
 import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave";
@@ -150,38 +149,8 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
   // Intraoperative Data state
   const [intraOpData, setIntraOpData] = useState<IntraOpData>({});
 
-  // Custom medications state
-  const [medSearchOpen, setMedSearchOpen] = useState(false);
-  const [medSearchQuery, setMedSearchQuery] = useState("");
-
   const hospitalId = activeHospital?.id;
   const unitId = activeHospital?.unitId;
-
-  // Fetch inventory items for search
-  const { data: inventoryItems = [] } = useQuery<any[]>({
-    queryKey: [`/api/items/${hospitalId}?unitId=${unitId}`, unitId],
-    enabled: !!hospitalId && !!unitId,
-  });
-
-  // Fetch current inventory usage to find IDs for removal
-  const { data: inventoryUsageItems = [] } = useQuery<any[]>({
-    queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`],
-    enabled: !!anesthesiaRecordId,
-  });
-
-  // Filter items for the search combobox
-  const filteredMedItems = useMemo(() => {
-    const existing = intraOpData.medications?.customMedications?.map((m: any) => m.itemId) ?? [];
-    const available = inventoryItems.filter((item: any) => !existing.includes(item.id));
-    if (!medSearchQuery.trim()) return available.slice(0, 50);
-    const query = medSearchQuery.toLowerCase();
-    return available
-      .filter((item: any) =>
-        item.name?.toLowerCase().includes(query) ||
-        item.description?.toLowerCase().includes(query)
-      )
-      .slice(0, 50);
-  }, [inventoryItems, medSearchQuery, intraOpData.medications?.customMedications]);
 
   // Check if OR medication groups are configured for this hospital
   const { data: orGroups } = useQuery<any[]>({
@@ -198,27 +167,6 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
     enabled: !!anesthesiaRecordId,
   });
 
-  // Legacy infiltration/medications data detection
-  const hasLegacyData = !!(
-    intraOpData.medications?.rapidocain1 ||
-    intraOpData.medications?.ropivacainEpinephrine ||
-    intraOpData.medications?.ropivacain05 ||
-    intraOpData.medications?.ropivacain075 ||
-    intraOpData.medications?.ropivacain1 ||
-    intraOpData.medications?.bupivacain ||
-    intraOpData.medications?.bupivacain025 ||
-    intraOpData.medications?.bupivacain05 ||
-    intraOpData.medications?.vancomycinImplant ||
-    intraOpData.medications?.contrast ||
-    intraOpData.medications?.ointments ||
-    intraOpData.medications?.other ||
-    (intraOpData.medications?.customMedications?.length ?? 0) > 0 ||
-    intraOpData.infiltration?.tumorSolution ||
-    intraOpData.infiltration?.carrier ||
-    intraOpData.infiltration?.epinephrine ||
-    intraOpData.infiltration?.other
-  );
-
   // Collapsible section state for intraop cards
   const [expandedIntraOpSections, setExpandedIntraOpSections] = useState<Record<string, boolean>>({
     surgeryTimes: false,
@@ -229,7 +177,6 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
     tourniquet: false,
     irrigation: false,
     orMedications: false,
-    infiltrationMedications: false,
     dressing: false,
     drainage: false,
     xray: false,
@@ -260,10 +207,6 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
         return !!(intraOpData.tourniquet && Object.values(intraOpData.tourniquet).some(v => v));
       case 'irrigation':
         return !!(intraOpData.irrigation && Object.values(intraOpData.irrigation).some(v => v));
-      case 'infiltrationMedications':
-        return !!(intraOpData.infiltration && Object.values(intraOpData.infiltration).some(v => v)) ||
-               !!(intraOpData.medications && Object.values(intraOpData.medications).some(v => v && !(Array.isArray(v) && v.length === 0))) ||
-               !!(intraOpData.medications?.customMedications && intraOpData.medications.customMedications.length > 0);
       case 'dressing':
         return !!(intraOpData.dressing && Object.values(intraOpData.dressing).some(v => v));
       case 'drainage':
@@ -288,85 +231,6 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
     queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
     debounceMs: 800,
   });
-
-  // Add a custom medication from inventory.
-  // Note: inventory_usage has a unique constraint on (anesthesiaRecordId, itemId).
-  // If the same item is already tracked via anesthesia drug doses, the manual endpoint
-  // will upsert and overwrite the calculated qty with overrideQty: 1.
-  const addCustomMedication = async (item: any) => {
-    const newEntry = { itemId: item.id, name: item.name, volume: '' };
-    const currentCustom = intraOpData.medications?.customMedications ?? [];
-    const updated = {
-      ...intraOpData,
-      medications: {
-        ...intraOpData.medications,
-        customMedications: [...currentCustom, newEntry],
-      },
-    };
-    setIntraOpData(updated);
-    intraOpAutoSave.mutate(updated);
-    setMedSearchOpen(false);
-    setMedSearchQuery("");
-
-    // Add to inventory usage (qty=1)
-    if (anesthesiaRecordId) {
-      try {
-        await apiRequest('POST', `/api/anesthesia/inventory/${anesthesiaRecordId}/manual`, {
-          itemId: item.id,
-          qty: 1,
-          reason: 'Infiltration medication',
-        });
-        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`] });
-      } catch (err) {
-        console.error('Failed to add inventory usage:', err);
-      }
-    }
-  };
-
-  // Remove a custom medication
-  const removeCustomMedication = async (itemId: string) => {
-    const currentCustom = intraOpData.medications?.customMedications ?? [];
-    const updated = {
-      ...intraOpData,
-      medications: {
-        ...intraOpData.medications,
-        customMedications: currentCustom.filter((m: any) => m.itemId !== itemId),
-      },
-    };
-    setIntraOpData(updated);
-    intraOpAutoSave.mutate(updated);
-
-    // Zero out inventory usage
-    if (anesthesiaRecordId) {
-      try {
-        const usageRow = inventoryUsageItems.find((u: any) => u.itemId === itemId);
-        if (usageRow) {
-          await apiRequest('PATCH', `/api/anesthesia/inventory/${usageRow.id}/override`, {
-            overrideQty: 0,
-            overrideReason: 'Removed from infiltration medications',
-          });
-          queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`] });
-        }
-      } catch (err) {
-        console.error('Failed to zero inventory usage:', err);
-      }
-    }
-  };
-
-  // Update volume for a custom medication
-  const updateCustomMedicationVolume = (itemId: string, volume: string) => {
-    const currentCustom = intraOpData.medications?.customMedications ?? [];
-    const updated = {
-      ...intraOpData,
-      medications: {
-        ...intraOpData.medications,
-        customMedications: currentCustom.map((m: any) =>
-          m.itemId === itemId ? { ...m, volume } : m
-        ),
-      },
-    };
-    setIntraOpData(updated);
-  };
 
   // Local state for surgery times (optimistic updates so duration shows immediately)
   const [localSurgeryStart, setLocalSurgeryStart] = useState<string | null>(null);
@@ -1523,327 +1387,11 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
               anesthesiaRecordId={anesthesiaRecordId}
               hospitalId={hospitalId}
               isAdmin={canConfigure ?? false}
-              hasLegacyData={hasLegacyData}
             />
           </CardContent>
         )}
       </Card>
       )}
-
-      {/* Infiltration & Medications Section (Legacy) */}
-      <Collapsible defaultOpen={!hasOrGroups}>
-        <Card className={cn(hasOrGroups && "opacity-50")}>
-          <CardHeader className="py-3">
-            <CollapsibleTrigger className="flex items-center justify-between w-full hover:bg-muted/50 transition-colors rounded-md">
-              <div className="flex items-center gap-2">
-                <CardTitle>
-                  {hasOrGroups ? t('surgery.intraop.infiltrationLegacy') : t('surgery.intraop.infiltrationMedications')}
-                </CardTitle>
-                {hasIntraOpData('infiltrationMedications') && (
-                  <div className="h-2 w-2 rounded-full bg-primary" />
-                )}
-              </div>
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            </CollapsibleTrigger>
-          </CardHeader>
-          <CollapsibleContent>
-          <CardContent className="space-y-4">
-          {/* Tumescent / Infiltration Solution */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-muted-foreground">{t('surgery.intraop.tumescentSolution')}</h4>
-
-            {/* Carrier row */}
-            <div className="space-y-2">
-              <span className="text-xs font-medium text-muted-foreground">{t('surgery.intraop.carrier')}</span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(['ringer', 'nacl'] as const).map((carrier) => (
-                  <div key={carrier} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`carrier-${carrier}`}
-                      data-testid={`checkbox-carrier-${carrier}`}
-                      className="h-4 w-4"
-                      checked={intraOpData.infiltration?.carrier === carrier}
-                      onCheckedChange={(checked) => {
-                        const updated = {
-                          ...intraOpData,
-                          infiltration: {
-                            ...intraOpData.infiltration,
-                            carrier: checked ? carrier : undefined,
-                            carrierVolume: checked ? intraOpData.infiltration?.carrierVolume : undefined,
-                          }
-                        };
-                        setIntraOpData(updated);
-                        intraOpAutoSave.mutate(updated);
-                      }}
-                    />
-                    <Label htmlFor={`carrier-${carrier}`} className="text-sm">{t(`surgery.intraop.carrierOptions.${carrier}`)}</Label>
-                    {intraOpData.infiltration?.carrier === carrier && (
-                      <div className="flex items-center gap-1">
-                        <Input
-                          className="h-7 w-20 text-sm"
-                          placeholder="0"
-                          value={intraOpData.infiltration?.carrierVolume ?? ''}
-                          onChange={(e) => {
-                            const updated = {
-                              ...intraOpData,
-                              infiltration: { ...intraOpData.infiltration, carrierVolume: e.target.value }
-                            };
-                            setIntraOpData(updated);
-                          }}
-                          onBlur={() => intraOpAutoSave.mutate(intraOpData)}
-                        />
-                        <span className="text-xs text-muted-foreground">{t('surgery.intraop.mlUnit')}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Additives: LA + Epinephrine */}
-            <div className="space-y-3">
-              <span className="text-xs font-medium text-muted-foreground">{t('surgery.intraop.additive')}</span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(["rapidocain1", "ropivacain05", "ropivacain075", "ropivacain1", "bupivacain025", "bupivacain05"] as const).map((med) => (
-                  <div key={med} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`meds-${med}`}
-                      data-testid={`checkbox-meds-${med}`}
-                      className="h-4 w-4"
-                      checked={(intraOpData.medications as Record<string, boolean | string | undefined>)?.[med] === true}
-                      onCheckedChange={(checked) => {
-                        const updated = {
-                          ...intraOpData,
-                          medications: {
-                            ...intraOpData.medications,
-                            [med]: checked === true,
-                            [`${med}Volume`]: checked ? (intraOpData.medications as Record<string, boolean | string | undefined>)?.[`${med}Volume`] : undefined,
-                          }
-                        };
-                        setIntraOpData(updated);
-                        intraOpAutoSave.mutate(updated);
-                      }}
-                    />
-                    <Label htmlFor={`meds-${med}`} className="text-sm">{t(`surgery.intraop.medicationOptions.${med}`)}</Label>
-                    {(intraOpData.medications as Record<string, boolean | string | undefined>)?.[med] === true && (
-                      <div className="flex items-center gap-1">
-                        <Input
-                          className="h-7 w-20 text-sm"
-                          placeholder="0"
-                          value={String((intraOpData.medications as Record<string, boolean | string | undefined>)?.[`${med}Volume`] ?? '')}
-                          onChange={(e) => {
-                            const updated = {
-                              ...intraOpData,
-                              medications: { ...intraOpData.medications, [`${med}Volume`]: e.target.value }
-                            };
-                            setIntraOpData(updated);
-                          }}
-                          onBlur={() => intraOpAutoSave.mutate(intraOpData)}
-                        />
-                        <span className="text-xs text-muted-foreground">{t('surgery.intraop.mlUnit')}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="infiltration-epinephrine"
-                  data-testid="checkbox-infiltration-epinephrine"
-                  className="h-4 w-4"
-                  checked={intraOpData.infiltration?.epinephrine ?? false}
-                  onCheckedChange={(checked) => {
-                    const updated = {
-                      ...intraOpData,
-                      infiltration: {
-                        ...intraOpData.infiltration,
-                        epinephrine: checked === true,
-                        epinephrineAmount: checked ? intraOpData.infiltration?.epinephrineAmount : undefined,
-                      }
-                    };
-                    setIntraOpData(updated);
-                    intraOpAutoSave.mutate(updated);
-                  }}
-                />
-                <Label htmlFor="infiltration-epinephrine" className="text-sm">{t('surgery.intraop.epinephrine')}</Label>
-                {intraOpData.infiltration?.epinephrine && (
-                  <div className="flex items-center gap-1">
-                    <Input
-                      className="h-7 w-20 text-sm"
-                      placeholder="0"
-                      value={intraOpData.infiltration?.epinephrineAmount ?? ''}
-                      onChange={(e) => {
-                        const updated = {
-                          ...intraOpData,
-                          infiltration: { ...intraOpData.infiltration, epinephrineAmount: e.target.value }
-                        };
-                        setIntraOpData(updated);
-                      }}
-                      onBlur={() => intraOpAutoSave.mutate(intraOpData)}
-                    />
-                    <span className="text-xs text-muted-foreground">{t('surgery.intraop.mlUnit')}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Total volume */}
-            <div className="flex items-center gap-2">
-              <Label className="text-sm font-medium">{t('surgery.intraop.totalVolume')}</Label>
-              <Input
-                className="h-7 w-24 text-sm"
-                placeholder="0"
-                value={intraOpData.infiltration?.totalVolume ?? ''}
-                onChange={(e) => {
-                  const updated = {
-                    ...intraOpData,
-                    infiltration: { ...intraOpData.infiltration, totalVolume: e.target.value }
-                  };
-                  setIntraOpData(updated);
-                }}
-                onBlur={() => intraOpAutoSave.mutate(intraOpData)}
-              />
-              <span className="text-xs text-muted-foreground">{t('surgery.intraop.mlUnit')}</span>
-            </div>
-
-            {/* Other infiltration */}
-            <Input
-              id="infiltration-other"
-              data-testid="input-infiltration-other"
-              className="h-9 text-sm"
-              placeholder={t('surgery.intraop.infiltrationOther')}
-              value={intraOpData.infiltration?.other ?? ''}
-              onChange={(e) => {
-                const updated = {
-                  ...intraOpData,
-                  infiltration: { ...intraOpData.infiltration, other: e.target.value }
-                };
-                setIntraOpData(updated);
-              }}
-              onBlur={() => intraOpAutoSave.mutate(intraOpData)}
-            />
-          </div>
-
-          {/* Custom Medications from Inventory */}
-          {(intraOpData.medications?.customMedications?.length ?? 0) > 0 && (
-            <div className="space-y-2">
-              <span className="text-xs font-medium text-muted-foreground">{t('surgery.intraop.customMedications')}</span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {intraOpData.medications?.customMedications?.map((med: any) => (
-                  <div key={med.itemId} className="flex items-center gap-2">
-                    <span className="text-sm flex-1 truncate">{med.name}</span>
-                    <div className="flex items-center gap-1">
-                      <Input
-                        className="h-7 w-20 text-sm"
-                        placeholder="0"
-                        value={med.volume ?? ''}
-                        onChange={(e) => updateCustomMedicationVolume(med.itemId, e.target.value)}
-                        onBlur={() => intraOpAutoSave.mutate(intraOpData)}
-                      />
-                      <span className="text-xs text-muted-foreground">{t('surgery.intraop.mlUnit')}</span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                      onClick={() => removeCustomMedication(med.itemId)}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Add Medication from Inventory */}
-          <Popover open={medSearchOpen} onOpenChange={setMedSearchOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!anesthesiaRecordId}>
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                {t('surgery.intraop.addCustomMedication')}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[350px] p-0" align="start">
-              <Command shouldFilter={false}>
-                <CommandInput
-                  placeholder={t('surgery.intraop.searchInventoryMedication')}
-                  value={medSearchQuery}
-                  onValueChange={setMedSearchQuery}
-                />
-                <CommandList>
-                  <CommandEmpty>{t('surgery.intraop.noMedicationFound')}</CommandEmpty>
-                  <CommandGroup>
-                    {filteredMedItems.map((item: any) => (
-                      <CommandItem
-                        key={item.id}
-                        value={item.name}
-                        onSelect={() => addCustomMedication(item)}
-                      >
-                        <div className="flex items-center gap-2 w-full">
-                          <span className="truncate flex-1">{item.name}</span>
-                          {item.description && (
-                            <span className="text-xs text-muted-foreground truncate max-w-[120px]">{item.description}</span>
-                          )}
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-
-          {/* Divider */}
-          <hr className="border-border" />
-
-          {/* Other Medications */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-muted-foreground">{t('surgery.intraop.otherMedications')}</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(["vancomycinImplant", "contrast", "ointments"] as const).map((med) => (
-                <div key={med} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`meds-${med}`}
-                    data-testid={`checkbox-meds-${med}`}
-                    className="h-4 w-4"
-                    checked={(intraOpData.medications as Record<string, boolean | string | undefined>)?.[med] === true}
-                    onCheckedChange={(checked) => {
-                      const updated = {
-                        ...intraOpData,
-                        medications: {
-                          ...intraOpData.medications,
-                          [med]: checked === true
-                        }
-                      };
-                      setIntraOpData(updated);
-                      intraOpAutoSave.mutate(updated);
-                    }}
-                  />
-                  <Label htmlFor={`meds-${med}`} className="text-sm">{t(`surgery.intraop.medicationOptions.${med}`)}</Label>
-                </div>
-              ))}
-            </div>
-            <Input
-              id="medications-other"
-              data-testid="input-medications-other"
-              className="h-9 text-sm"
-              placeholder={t('surgery.intraop.medicationsOther')}
-              value={intraOpData.medications?.other ?? ''}
-              onChange={(e) => {
-                const updated = {
-                  ...intraOpData,
-                  medications: { ...intraOpData.medications, other: e.target.value }
-                };
-                setIntraOpData(updated);
-              }}
-              onBlur={() => intraOpAutoSave.mutate(intraOpData)}
-            />
-          </div>
-        </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
 
       {/* Dressing Section */}
       <Card>
