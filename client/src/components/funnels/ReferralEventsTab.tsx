@@ -59,7 +59,6 @@ import {
 import { funnelsUrl, type FunnelsScope } from "@/lib/funnelsApi";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -192,9 +191,8 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { user } = useAuth();
   const activeHospital = useActiveHospital();
-  const userRole = (user as any)?.hospitals?.find((h: any) => h.id === activeHospital?.id)?.role;
+  const userRole = activeHospital?.role;
   const isAdmin = userRole === "admin" || userRole === "group_admin";
   const isAdminOrManager = isAdmin || userRole === "manager";
 

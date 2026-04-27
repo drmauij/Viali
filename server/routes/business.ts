@@ -2008,6 +2008,13 @@ router.patch('/api/business/:hospitalId/referral-events/:eventId', isAuthenticat
     const { hospitalId, eventId } = req.params;
     const { source, sourceDetail } = req.body;
 
+    const userId = req.user.id;
+    const hospitals = await storage.getUserHospitals(userId);
+    const canEdit = hospitals.some((h: any) => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin' || h.role === 'manager'));
+    if (!canEdit) {
+      return res.status(403).json({ message: 'Only admins or managers can edit referral events' });
+    }
+
     const validSources = ['social', 'search_engine', 'llm', 'word_of_mouth', 'belegarzt', 'marketing', 'other'];
     if (source && !validSources.includes(source)) {
       return res.status(400).json({ message: `source must be one of: ${validSources.join(', ')}` });
@@ -2051,7 +2058,7 @@ router.delete('/api/business/:hospitalId/referral-events/:eventId', isAuthentica
     // Admin-only check — user may have multiple unit roles for same hospital
     const userId = req.user.id;
     const hospitals = await storage.getUserHospitals(userId);
-    const isAdminForHospital = hospitals.some((h: any) => h.id === hospitalId && (h.role === 'admin' || h.role === 'manager' || h.role === 'group_admin'));
+    const isAdminForHospital = hospitals.some((h: any) => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
     if (!isAdminForHospital) {
       return res.status(403).json({ message: 'Only admins can delete referral events' });
     }
