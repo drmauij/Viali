@@ -335,10 +335,21 @@ export async function updateProviderAvailability(id: string, updates: Partial<Pr
 
 export async function getProviderTimeOff(providerId: string, unitId: string | null, startDate?: string, endDate?: string, hospitalId?: string): Promise<(ProviderTimeOff & { creator?: User })[]> {
   let conditions: any[] = [eq(providerTimeOff.providerId, providerId)];
-  
+
   if (unitId === null && hospitalId) {
     conditions.push(eq(providerTimeOff.hospitalId, hospitalId));
     conditions.push(isNull(providerTimeOff.unitId));
+  } else if (unitId && hospitalId) {
+    // Also surface hospital-wide rows: legacy entries from before the unit
+    // had its own calendar still apply to availability, so they must remain
+    // visible and editable from the unit-scoped dialog.
+    conditions.push(or(
+      eq(providerTimeOff.unitId, unitId),
+      and(
+        eq(providerTimeOff.hospitalId, hospitalId),
+        isNull(providerTimeOff.unitId)
+      )
+    ));
   } else {
     conditions.push(eq(providerTimeOff.unitId, unitId!));
   }
