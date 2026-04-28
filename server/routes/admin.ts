@@ -22,6 +22,7 @@ const updateHospitalSchema = z.object({
   companyEmail: z.string().email().optional().or(z.literal('')),
   companyWebsite: z.string().url().optional().or(z.literal('')),
   companyLogoUrl: z.string().optional(),
+  companyJurisdiction: z.string().optional(),
   // TARDOC billing identifiers
   companyGln: z.string().optional(),
   companyZsr: z.string().optional(),
