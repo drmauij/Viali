@@ -1,8 +1,9 @@
 import { Router, type Response } from "express";
 import { z } from "zod";
 import { db } from "../db";
-import { workerContracts, contractTemplates, hospitals } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { workerContracts, contractTemplates, hospitals, hospitalGroups } from "@shared/schema";
+import { eq, and, isNull } from "drizzle-orm";
+import rateLimit from "express-rate-limit";
 import { isAuthenticated } from "../auth/google";
 import { storage } from "../storage";
 import { buildZodSchema } from "@shared/contractTemplates/buildZodSchema";
@@ -218,6 +219,146 @@ router.post("/api/public/contracts/c/:token/submit", async (req, res) => {
     res.status(500).json({ message: "Failed to submit contract" });
   }
 });
+
+// ───────── Path B: per-template shareable link (uses legacy hospital token) ─────────
+
+// Rate limit: max 3 submissions per token per 24 hours.
+// Scoped per legacy hospital token (not per requester IP) to mirror the
+// existing in-memory rate limiter pattern on the legacy endpoint.
+const pathBLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000, // 24 hours
+  max: 3,
+  keyGenerator: (req) => req.params.token,
+  standardHeaders: true,
+  legacyHeaders: false,
+  // In-memory store is fine — same pattern as the legacy Map-based limiter in business.ts
+});
+
+router.get("/api/public/contracts/t/:token", async (req, res) => {
+  try {
+    const tmpl = await resolveTemplateByLegacyToken(req.params.token);
+    if (!tmpl) return res.status(404).end();
+    res.json({
+      template: {
+        id: tmpl.id,
+        name: tmpl.name,
+        language: tmpl.language,
+        blocks: tmpl.blocks,
+        variables: tmpl.variables,
+      },
+      mode: "shareable",
+    });
+  } catch (error) {
+    logger.error("Error fetching shareable contract template:", error);
+    res.status(500).json({ message: "Failed to fetch template" });
+  }
+});
+
+router.post("/api/public/contracts/t/:token/submit", pathBLimiter, async (req, res) => {
+  try {
+    const resolved = await resolveTemplateAndHospital(req.params.token);
+    if (!resolved) return res.status(404).end();
+    const { tmpl, hospitalId, hospital } = resolved;
+
+    const parsed = submitInput.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+    const variables = tmpl.variables as TemplateBody["variables"];
+    const dataParsed = buildZodSchema(variables).safeParse(parsed.data.data);
+    if (!dataParsed.success) return res.status(400).json({ error: dataParsed.error.flatten() });
+
+    const finalData = injectAuto(parsed.data.data, variables, hospital);
+    const snapshot: TemplateBody = {
+      blocks: tmpl.blocks as TemplateBody["blocks"],
+      variables,
+    };
+
+    // Map role to legacy enum — same logic as Path A
+    const rawRole = (finalData as any)?.role?.id ?? "awr_nurse";
+    const legacyRoleMap: Record<string, string> = {
+      awr_nurse: "awr_nurse",
+      anesthesia_nurse: "anesthesia_nurse",
+      anesthesia_doctor: "anesthesia_doctor",
+      op_nurse: "awr_nurse",
+    };
+    const legacyRole = legacyRoleMap[rawRole] ?? "awr_nurse";
+
+    const [created] = await db
+      .insert(workerContracts)
+      .values({
+        hospitalId,
+        templateId: tmpl.id,
+        templateSnapshot: snapshot,
+        data: finalData,
+        workerSignature: parsed.data.workerSignature,
+        workerSignatureLocation: parsed.data.workerSignatureLocation,
+        workerSignedAt: new Date(),
+        firstName: ((finalData as any).worker?.firstName ?? "") as string,
+        lastName: ((finalData as any).worker?.lastName ?? "") as string,
+        street: ((finalData as any).worker?.street ?? "") as string,
+        postalCode: ((finalData as any).worker?.postalCode ?? "") as string,
+        city: ((finalData as any).worker?.city ?? "") as string,
+        email: ((finalData as any).worker?.email ?? "") as string,
+        phone: ((finalData as any).worker?.phone ?? null) as string | null,
+        dateOfBirth: ((finalData as any).worker?.dateOfBirth ?? "1970-01-01") as string,
+        iban: ((finalData as any).worker?.iban ?? "") as string,
+        role: legacyRole as any,
+        status: "pending_manager_signature",
+      } as any)
+      .returning();
+
+    res.status(200).json({ ok: true, contractId: created.id });
+  } catch (error) {
+    logger.error("Error submitting shareable contract:", error);
+    res.status(500).json({ message: "Failed to submit contract" });
+  }
+});
+
+// Resolves a legacy hospital token to the seeded on-call template.
+async function resolveTemplateByLegacyToken(token: string) {
+  const r = await resolveTemplateAndHospital(token);
+  return r?.tmpl;
+}
+
+// Resolves the legacy hospital contractToken → hospital row + the seeded on-call template.
+// Looks up the chain-owned template first (preferred), then falls back to the hospital-owned one.
+async function resolveTemplateAndHospital(token: string) {
+  const [hospital] = await db
+    .select()
+    .from(hospitals)
+    .where(eq(hospitals.contractToken, token));
+  if (!hospital) return undefined;
+
+  // Chain-owned template (preferred)
+  if (hospital.groupId) {
+    const [t] = await db
+      .select()
+      .from(contractTemplates)
+      .where(
+        and(
+          eq(contractTemplates.ownerChainId, hospital.groupId),
+          eq(contractTemplates.starterKey, "on_call_v1"),
+          isNull(contractTemplates.archivedAt),
+        ),
+      );
+    if (t) return { tmpl: t, hospitalId: hospital.id, hospital };
+  }
+
+  // Hospital-owned template (fallback)
+  const [t] = await db
+    .select()
+    .from(contractTemplates)
+    .where(
+      and(
+        eq(contractTemplates.ownerHospitalId, hospital.id),
+        eq(contractTemplates.starterKey, "on_call_v1"),
+        isNull(contractTemplates.archivedAt),
+      ),
+    );
+  if (t) return { tmpl: t, hospitalId: hospital.id, hospital };
+
+  return undefined;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -521,3 +521,154 @@ describe("op_nurse role → legacy enum mapping", () => {
     expect((row.data as any)?.role?.id).toBe("op_nurse");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Scenario 6 (Path B): per-template shareable link via legacy hospital token
+// ---------------------------------------------------------------------------
+
+describe("Path B — GET /api/public/contracts/t/:token", () => {
+  let legacyToken: string;
+  let pathBHospId: string;
+  let pathBTemplateId: string;
+
+  beforeAll(async () => {
+    // Create a hospital with a contractToken (the legacy token)
+    legacyToken = `pathb-${randomUUID().replace(/-/g, "")}`;
+    const [h] = await db
+      .insert(hospitals)
+      .values({ name: `PathB-Hosp-${uniq()}`, groupId, contractToken: legacyToken } as any)
+      .returning();
+    pathBHospId = h.id;
+    createdHospitalIds.push(pathBHospId);
+
+    // Create a template with starterKey="on_call_v1" owned by the hospital
+    const [t] = await db
+      .insert(contractTemplates)
+      .values({
+        ownerHospitalId: pathBHospId,
+        starterKey: "on_call_v1",
+        name: `PathB-OnCall-${uniq()}`,
+        language: "de",
+        status: "active",
+        blocks: [
+          { id: "pb1", type: "heading", level: 1, text: "On-Call Contract {{worker.firstName}}" },
+        ],
+        variables: {
+          simple: [
+            { key: "worker.firstName", type: "text", label: "First Name", required: true },
+            { key: "worker.lastName", type: "text", label: "Last Name", required: true },
+            { key: "worker.email", type: "email", label: "Email", required: true },
+            { key: "worker.iban", type: "iban", label: "IBAN", required: true },
+          ],
+          selectableLists: [],
+        },
+      } as any)
+      .returning();
+    pathBTemplateId = t.id;
+    createdTemplateIds.push(pathBTemplateId);
+  });
+
+  it("returns 404 for an unknown token", async () => {
+    const res = await request(buildApp(null)).get(
+      `/api/public/contracts/t/does-not-exist-token`,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("returns the on-call template for a valid legacy token", async () => {
+    const res = await request(buildApp(null)).get(
+      `/api/public/contracts/t/${legacyToken}`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.mode).toBe("shareable");
+    expect(res.body.template.id).toBe(pathBTemplateId);
+    expect(res.body.template.blocks).toBeTruthy();
+    expect(res.body.template.variables).toBeTruthy();
+  });
+});
+
+describe("Path B — POST /api/public/contracts/t/:token/submit", () => {
+  let legacyToken: string;
+  let pathBHospId: string;
+
+  beforeAll(async () => {
+    // Create a fresh hospital + on-call template for this describe block
+    legacyToken = `pathbpost-${randomUUID().replace(/-/g, "")}`;
+    const [h] = await db
+      .insert(hospitals)
+      .values({ name: `PathBPost-Hosp-${uniq()}`, groupId, contractToken: legacyToken } as any)
+      .returning();
+    pathBHospId = h.id;
+    createdHospitalIds.push(pathBHospId);
+
+    const [t] = await db
+      .insert(contractTemplates)
+      .values({
+        ownerHospitalId: pathBHospId,
+        starterKey: "on_call_v1",
+        name: `PathBPost-OnCall-${uniq()}`,
+        language: "de",
+        status: "active",
+        blocks: [],
+        variables: {
+          simple: [
+            { key: "worker.firstName", type: "text", label: "First Name", required: true },
+            { key: "worker.lastName", type: "text", label: "Last Name", required: true },
+            { key: "worker.email", type: "email", label: "Email", required: true },
+            { key: "worker.iban", type: "iban", label: "IBAN", required: true },
+          ],
+          selectableLists: [],
+        },
+      } as any)
+      .returning();
+    createdTemplateIds.push(t.id);
+  });
+
+  const submitPayload = {
+    data: validSubmitData,
+    workerSignature: "data:image/png;base64,pathbtest",
+    workerSignatureLocation: "Zürich",
+  };
+
+  it("returns 404 for an unknown token", async () => {
+    const res = await request(buildApp(null))
+      .post(`/api/public/contracts/t/totally-invalid-token/submit`)
+      .send(submitPayload);
+    expect(res.status).toBe(404);
+  });
+
+  it("first submit succeeds and returns 200 with contractId", async () => {
+    const res = await request(buildApp(null))
+      .post(`/api/public/contracts/t/${legacyToken}/submit`)
+      .send(submitPayload);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.contractId).toBeTruthy();
+    createdContractIds.push(res.body.contractId);
+  });
+
+  it("second submit succeeds (multi-use: same token accepts many submissions)", async () => {
+    const res = await request(buildApp(null))
+      .post(`/api/public/contracts/t/${legacyToken}/submit`)
+      .send(submitPayload);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    createdContractIds.push(res.body.contractId);
+  });
+
+  it("third submit succeeds (still within the 3/24h rate limit)", async () => {
+    const res = await request(buildApp(null))
+      .post(`/api/public/contracts/t/${legacyToken}/submit`)
+      .send(submitPayload);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    createdContractIds.push(res.body.contractId);
+  });
+
+  it("fourth submit within the same window returns 429 (rate limit enforced)", async () => {
+    const res = await request(buildApp(null))
+      .post(`/api/public/contracts/t/${legacyToken}/submit`)
+      .send(submitPayload);
+    expect(res.status).toBe(429);
+  });
+});
