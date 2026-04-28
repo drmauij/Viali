@@ -1667,6 +1667,13 @@
       "when": 1779100000000,
       "tag": "0237_booking_theme",
       "breakpoints": true
+    },
+    {
+      "idx": 238,
+      "version": "7",
+      "when": 1779200000000,
+      "tag": "0238_contract_templates",
+      "breakpoints": true
     }
   ]
 }

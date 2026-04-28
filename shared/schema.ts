@@ -5167,7 +5167,13 @@ export const workerContracts = pgTable("worker_contracts", {
   
   // Archive support
   archivedAt: timestamp("archived_at"),
-  
+
+  // ─── Template-system additions (2026-04-28) ────────────────────
+  templateId: varchar("template_id").references(() => contractTemplates.id),
+  templateSnapshot: jsonb("template_snapshot"),
+  data: jsonb("data"),
+  publicToken: varchar("public_token").unique(),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -5192,6 +5198,30 @@ export const insertWorkerContractSchema = createInsertSchema(workerContracts).om
 
 export type WorkerContract = typeof workerContracts.$inferSelect;
 export type InsertWorkerContract = z.infer<typeof insertWorkerContractSchema>;
+
+export const contractTemplates = pgTable("contract_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerHospitalId: varchar("owner_hospital_id").references(() => hospitals.id),
+  ownerChainId: varchar("owner_chain_id").references(() => hospitalGroups.id),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  language: varchar("language", { length: 2 }).notNull().default("de"),
+  status: varchar("status", { enum: ["draft", "active", "archived"] }).notNull().default("draft"),
+  blocks: jsonb("blocks").notNull().default(sql`'[]'::jsonb`),
+  variables: jsonb("variables").notNull().default(sql`'{"simple":[],"selectableLists":[]}'::jsonb`),
+  isStarterClone: boolean("is_starter_clone").notNull().default(false),
+  starterKey: varchar("starter_key"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  archivedAt: timestamp("archived_at"),
+}, (table) => [
+  index("idx_contract_templates_owner_hospital").on(table.ownerHospitalId),
+  index("idx_contract_templates_owner_chain").on(table.ownerChainId),
+  index("idx_contract_templates_status").on(table.status),
+]);
+
+export type ContractTemplate = typeof contractTemplates.$inferSelect;
+export type InsertContractTemplate = typeof contractTemplates.$inferInsert;
 
 // External Worklog Links - Personalized links for external workers to submit time entries
 export const externalWorklogLinks = pgTable("external_worklog_links", {
