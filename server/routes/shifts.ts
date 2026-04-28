@@ -282,4 +282,112 @@ router.get(
   },
 );
 
+const emailMonthPdfBodySchema = z.object({
+  unitId: z.string().min(1),
+  month: z.string().regex(/^\d{4}-\d{2}$/, "month must be YYYY-MM"),
+  pdfBase64: z.string().min(1).max(50 * 1024 * 1024),
+});
+
+function monthYearLabel(monthStr: string, language: string): string {
+  // monthStr = "YYYY-MM"
+  const [yearStr, mStr] = monthStr.split("-");
+  const year = Number(yearStr);
+  const month = Number(mStr) - 1;
+  const date = new Date(Date.UTC(year, month, 1));
+  const locale = language === "de" ? "de-DE" : "en-US";
+  return date.toLocaleDateString(locale, { month: "long", year: "numeric", timeZone: "UTC" });
+}
+
+// POST /api/staff-shifts/:hospitalId/email-month-pdf
+router.post(
+  "/api/staff-shifts/:hospitalId/email-month-pdf",
+  isAuthenticated,
+  requireWriteAccess,
+  requireAdminWriteAccess,
+  async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const parsed = emailMonthPdfBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid body", errors: parsed.error.issues });
+      }
+      const { unitId, month, pdfBase64 } = parsed.data;
+
+      let pdfBuffer: Buffer;
+      try {
+        pdfBuffer = Buffer.from(pdfBase64, "base64");
+      } catch {
+        return res.status(400).json({ message: "Invalid base64 PDF body" });
+      }
+      // PDF magic bytes
+      if (pdfBuffer.length < 5 || pdfBuffer.subarray(0, 5).toString("ascii") !== "%PDF-") {
+        return res.status(400).json({ message: "Body is not a PDF document" });
+      }
+
+      const hospital = await storage.getHospital(hospitalId);
+      if (!hospital) {
+        return res.status(404).json({ message: "Hospital not found" });
+      }
+      const language = (hospital.defaultLanguage as string | undefined) === "de" ? "de" : "en";
+      const monthLabel = monthYearLabel(month, language);
+      const hospitalName = hospital.name || "";
+
+      const providers = await storage.getBookableProvidersByUnit(unitId);
+      const validEmails: string[] = [];
+      let skipped = 0;
+      for (const p of providers) {
+        const email = (p as any).user?.email;
+        if (isValidWorkerEmail(email)) validEmails.push(email.trim());
+        else skipped += 1;
+      }
+
+      if (validEmails.length === 0) {
+        return res.json({ sent: 0, skipped, failed: 0, recipients: [] });
+      }
+
+      const subject =
+        language === "de"
+          ? `Dienstplan — ${monthLabel} — ${hospitalName}`
+          : `Shift Schedule — ${monthLabel} — ${hospitalName}`;
+      const html =
+        language === "de"
+          ? `<p>Der Dienstplan für <strong>${monthLabel}</strong> ist im Anhang.</p><p>${hospitalName}</p>`
+          : `<p>The shift schedule for <strong>${monthLabel}</strong> is attached.</p><p>${hospitalName}</p>`;
+
+      const safeName = hospitalName.replace(/[^a-zA-Z0-9]/g, "_") || "hospital";
+      const attachmentFilename = `shifts-${month}-${safeName}.pdf`;
+
+      const { client, fromEmail } = await (await import("../email")).getUncachableResendClient();
+
+      const results = await Promise.allSettled(
+        validEmails.map((to) =>
+          client.emails.send({
+            from: fromEmail,
+            to,
+            subject,
+            html,
+            attachments: [{ filename: attachmentFilename, content: pdfBuffer }],
+          }),
+        ),
+      );
+
+      let sent = 0;
+      let failed = 0;
+      const sentRecipients: string[] = [];
+      results.forEach((r, i) => {
+        if (r.status === "fulfilled") {
+          sent += 1;
+          sentRecipients.push(validEmails[i]);
+        } else {
+          failed += 1;
+        }
+      });
+
+      res.json({ sent, skipped, failed, recipients: sentRecipients });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to email shift schedule" });
+    }
+  },
+);
+
 export default router;
