@@ -11,7 +11,7 @@ interface Props {
 
 export function ContractDocument({ blocks, data, workerSignaturePng, managerSignaturePng }: Props) {
   return (
-    <div className="contract-document mx-auto max-w-3xl space-y-4 p-8 text-sm leading-relaxed">
+    <div className="contract-document mx-auto max-w-3xl space-y-4 p-8 text-sm leading-relaxed bg-white text-black">
       {blocks.map((b) => <RenderedBlock key={b.id} block={b} data={data} workerSignaturePng={workerSignaturePng} managerSignaturePng={managerSignaturePng} />)}
     </div>
   );

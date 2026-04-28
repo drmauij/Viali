@@ -32,7 +32,7 @@ export function AddBlockMenu({ onAdd }: { onAdd: (b: Block) => void }) {
         + Add block
       </button>
       {open && (
-        <div className="absolute z-10 mt-1 w-48 rounded border bg-white shadow text-sm">
+        <div className="absolute z-10 mt-1 w-48 rounded border bg-card text-foreground shadow text-sm">
           {TYPES.map((t) => (
             <button
               key={t.type}

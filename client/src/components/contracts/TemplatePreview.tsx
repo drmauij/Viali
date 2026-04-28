@@ -49,7 +49,7 @@ export function TemplatePreview({ blocks, variables }: Props) {
       <button onClick={downloadPdf} className="text-sm underline">
         Download sample PDF
       </button>
-      <div className="rounded border bg-white">
+      <div className="rounded border bg-white text-black">
         <ContractDocument
           blocks={blocks}
           data={data}

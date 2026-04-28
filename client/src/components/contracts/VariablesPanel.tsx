@@ -47,26 +47,26 @@ export function VariablesPanel({ value, onChange }: Props) {
         </div>
         <div className="space-y-2">
           {value.simple.map((v, i) => (
-            <div key={i} className="rounded border p-2 space-y-1 relative">
+            <div key={i} className="rounded border bg-card p-2 space-y-1 relative">
               <button
                 onClick={() => removeSimple(i)}
                 className="absolute right-1 top-1 text-xs text-red-600"
                 aria-label="Remove"
               >×</button>
               <input
-                className="w-full rounded border px-2 py-1"
+                className="w-full rounded border bg-background text-foreground px-2 py-1"
                 value={v.key}
                 onChange={(e) => patchSimple(i, { key: e.target.value })}
                 placeholder="key (e.g. worker.iban)"
               />
               <input
-                className="w-full rounded border px-2 py-1"
+                className="w-full rounded border bg-background text-foreground px-2 py-1"
                 value={v.label}
                 onChange={(e) => patchSimple(i, { label: e.target.value })}
                 placeholder="label"
               />
               <select
-                className="w-full rounded border px-2 py-1"
+                className="w-full rounded border bg-background text-foreground px-2 py-1"
                 value={v.type}
                 onChange={(e) => patchSimple(i, { type: e.target.value as VariableType })}
               >
@@ -116,15 +116,15 @@ function SelectableListEditor({
 }) {
   const fields = value.fields;
   return (
-    <div className="rounded border p-2 space-y-2 relative">
+    <div className="rounded border bg-card p-2 space-y-2 relative">
       <button onClick={onRemove} className="absolute right-1 top-1 text-xs text-red-600" aria-label="Remove">×</button>
       <input
-        className="w-full rounded border px-2 py-1 font-medium"
+        className="w-full rounded border bg-background text-foreground px-2 py-1 font-medium"
         value={value.label}
         onChange={(e) => onChange({ label: e.target.value })}
       />
       <input
-        className="w-full rounded border px-2 py-1 text-xs"
+        className="w-full rounded border bg-background text-foreground px-2 py-1 text-xs"
         value={value.key}
         onChange={(e) => onChange({ key: e.target.value })}
       />
@@ -141,7 +141,7 @@ function SelectableListEditor({
               {fields.map((f) => (
                 <td key={f.key}>
                   <input
-                    className="w-full rounded border px-1 py-0.5"
+                    className="w-full rounded border bg-background text-foreground px-1 py-0.5"
                     value={String(opt[f.key] ?? "")}
                     onChange={(e) => {
                       const next = [...value.options];

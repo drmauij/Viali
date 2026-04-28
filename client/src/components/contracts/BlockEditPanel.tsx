@@ -25,7 +25,7 @@ export function BlockEditPanel({ block, variables, onChange }: Props) {
     case "section":
       return (
         <input
-          className="w-full rounded border px-2 py-1"
+          className="w-full rounded border bg-background text-foreground px-2 py-1"
           value={block.title ?? ""}
           onChange={(e) => onChange({ ...block, title: e.target.value })}
           placeholder="Section title (optional)"
@@ -37,7 +37,7 @@ export function BlockEditPanel({ block, variables, onChange }: Props) {
           <label className="block">
             Party
             <select
-              className="ml-2 rounded border px-2 py-1"
+              className="ml-2 rounded border bg-background text-foreground px-2 py-1"
               value={block.party}
               onChange={(e) =>
                 onChange({ ...block, party: e.target.value as "worker" | "manager" })
@@ -50,7 +50,7 @@ export function BlockEditPanel({ block, variables, onChange }: Props) {
           <label className="block">
             Label
             <input
-              className="ml-2 rounded border px-2 py-1"
+              className="ml-2 rounded border bg-background text-foreground px-2 py-1"
               value={block.label}
               onChange={(e) => onChange({ ...block, label: e.target.value })}
             />
@@ -67,7 +67,7 @@ export function BlockEditPanel({ block, variables, onChange }: Props) {
       return (
         <input
           type="number"
-          className="rounded border px-2 py-1"
+          className="rounded border bg-background text-foreground px-2 py-1"
           value={block.height}
           onChange={(e) => onChange({ ...block, height: Number(e.target.value) })}
         />
@@ -96,7 +96,7 @@ function RichTextField({
     <div className="space-y-2">
       <EditorContent
         editor={editor}
-        className="prose prose-sm max-w-none rounded border bg-white p-3"
+        className="prose prose-sm dark:prose-invert max-w-none rounded border bg-background text-foreground p-3"
       />
       <InsertVariableMenu
         variables={variables}
@@ -127,7 +127,7 @@ function InsertVariableMenu({
           e.target.value = "";
         }
       }}
-      className="rounded border px-2 py-1 text-sm"
+      className="rounded border bg-background text-foreground px-2 py-1 text-sm"
     >
       <option value="">Insert variable…</option>
       {all.map((k) => (
@@ -159,7 +159,7 @@ function ListEditor({
       {block.items.map((it, i) => (
         <input
           key={i}
-          className="block w-full rounded border px-2 py-1 text-sm"
+          className="block w-full rounded border bg-background text-foreground px-2 py-1 text-sm"
           value={it}
           onChange={(e) => {
             const next = [...block.items];

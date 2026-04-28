@@ -61,7 +61,7 @@ export function TemplateEditor({ templateId, scope, ownerId }: Props) {
     <div className="space-y-3 p-6">
       <div className="flex items-center gap-3">
         <input
-          className="rounded border px-2 py-1 text-lg font-semibold"
+          className="rounded border bg-background text-foreground px-2 py-1 text-lg font-semibold"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -74,14 +74,14 @@ export function TemplateEditor({ templateId, scope, ownerId }: Props) {
         </button>
         <button
           onClick={() => setShowPreview((v) => !v)}
-          className="rounded border px-3 py-1.5 text-sm"
+          className="rounded border bg-background text-foreground px-3 py-1.5 text-sm"
         >
           {showPreview ? "Hide preview" : "Preview"}
         </button>
       </div>
 
       <div className="grid grid-cols-12 gap-3">
-        <div className="col-span-3 rounded border p-2">
+        <div className="col-span-3 rounded border bg-card p-2">
           <BlockTree
             blocks={blocks}
             selectedId={selectedId}
@@ -90,7 +90,7 @@ export function TemplateEditor({ templateId, scope, ownerId }: Props) {
           />
           <AddBlockMenu onAdd={(b) => setBlocks([...blocks, b])} />
         </div>
-        <div className="col-span-6 rounded border p-3">
+        <div className="col-span-6 rounded border bg-card p-3">
           {selected ? (
             <BlockEditPanel
               block={selected}
@@ -103,7 +103,7 @@ export function TemplateEditor({ templateId, scope, ownerId }: Props) {
             </div>
           )}
         </div>
-        <div className="col-span-3 rounded border p-2">
+        <div className="col-span-3 rounded border bg-card p-2">
           <VariablesPanel value={variables} onChange={setVariables} />
         </div>
       </div>
