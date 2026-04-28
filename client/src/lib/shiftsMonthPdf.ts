@@ -212,7 +212,7 @@ function drawShiftsTable(
     body,
     startY: 28,
     theme: "grid",
-    styles: { fontSize: 7, cellPadding: 1, halign: "center", valign: "middle", lineColor: [220, 220, 220] },
+    styles: { fontSize: 7, cellPadding: 1.8, minCellHeight: 6, halign: "center", valign: "middle", lineColor: [220, 220, 220] },
     headStyles: { fillColor: [240, 240, 240], textColor: [40, 40, 40], fontStyle: "bold" },
     columnStyles: {
       0: { cellWidth: 32, halign: "left", fontStyle: "bold", fillColor: [248, 248, 248] },
