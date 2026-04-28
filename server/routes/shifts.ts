@@ -288,6 +288,15 @@ const emailMonthPdfBodySchema = z.object({
   pdfBase64: z.string().min(1).max(50 * 1024 * 1024),
 });
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function monthYearLabel(monthStr: string, language: string): string {
   // monthStr = "YYYY-MM"
   const [yearStr, mStr] = monthStr.split("-");
@@ -347,12 +356,12 @@ router.post(
 
       const subject =
         language === "de"
-          ? `Dienstplan — ${monthLabel} — ${hospitalName}`
-          : `Shift Schedule — ${monthLabel} — ${hospitalName}`;
+          ? `Dienstplan — ${escapeHtml(monthLabel)} — ${escapeHtml(hospitalName)}`
+          : `Shift Schedule — ${escapeHtml(monthLabel)} — ${escapeHtml(hospitalName)}`;
       const html =
         language === "de"
-          ? `<p>Der Dienstplan für <strong>${monthLabel}</strong> ist im Anhang.</p><p>${hospitalName}</p>`
-          : `<p>The shift schedule for <strong>${monthLabel}</strong> is attached.</p><p>${hospitalName}</p>`;
+          ? `<p>Der Dienstplan für <strong>${escapeHtml(monthLabel)}</strong> ist im Anhang.</p><p>${escapeHtml(hospitalName)}</p>`
+          : `<p>The shift schedule for <strong>${escapeHtml(monthLabel)}</strong> is attached.</p><p>${escapeHtml(hospitalName)}</p>`;
 
       const safeName = hospitalName.replace(/[^a-zA-Z0-9]/g, "_") || "hospital";
       const attachmentFilename = `shifts-${month}-${safeName}.pdf`;
