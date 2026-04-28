@@ -8,8 +8,9 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { SignatureCanvas } from "@/components/ui/signature-canvas";
 import { DynamicContractForm } from "@/components/contracts/DynamicContractForm";
+import { ContractReadOnly } from "@/components/contracts/ContractReadOnly";
 import { Loader2, CheckCircle, AlertCircle, Building2 } from "lucide-react";
-import type { VariablesSchema } from "@shared/contractTemplates/types";
+import type { Block, VariablesSchema } from "@shared/contractTemplates/types";
 
 // ─── API response shapes ────────────────────────────────────────────────────
 
@@ -17,7 +18,7 @@ interface TemplateSummary {
   id: string;
   name: string;
   language: string;
-  blocks: unknown[];
+  blocks: Block[];
   variables: VariablesSchema;
 }
 
@@ -166,10 +167,10 @@ export default function WorkerContractForm() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto text-gray-400" />
-          <p className="mt-2 text-gray-500">Laden…</p>
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
+          <p className="mt-2 text-muted-foreground">Laden…</p>
         </div>
       </div>
     );
@@ -177,12 +178,12 @@ export default function WorkerContractForm() {
 
   if (errorMsg) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Fehler</h2>
-            <p className="text-gray-600">{errorMsg}</p>
+            <h2 className="text-lg font-semibold mb-2">Fehler</h2>
+            <p className="text-muted-foreground">{errorMsg}</p>
           </CardContent>
         </Card>
       </div>
@@ -191,14 +192,14 @@ export default function WorkerContractForm() {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
             <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">
+            <h2 className="text-lg font-semibold mb-2">
               Vertrag eingereicht!
             </h2>
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               Ihr Vertrag wurde erfolgreich eingereicht und wartet nun auf die
               Unterschrift des Managers. Sie erhalten eine Benachrichtigung,
               sobald der Vertrag vollständig unterzeichnet ist.
@@ -214,7 +215,7 @@ export default function WorkerContractForm() {
   // ─── Main form ────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
         <Card>
@@ -244,6 +245,18 @@ export default function WorkerContractForm() {
             />
           </CardContent>
         </Card>
+
+        {/* Read-only contract document — updates live as the form is filled */}
+        <div className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground px-1">
+            Vertragstext
+          </h2>
+          <ContractReadOnly
+            blocks={contract.template.blocks}
+            variables={contract.template.variables}
+            data={formData}
+          />
+        </div>
 
         {/* Signature section */}
         <Card>
@@ -290,7 +303,7 @@ export default function WorkerContractForm() {
           )}
         </Button>
 
-        <div className="text-center text-sm text-gray-400">
+        <div className="text-center text-sm text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} Viali</p>
         </div>
       </div>
