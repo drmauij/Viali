@@ -48,6 +48,14 @@ let unitId: string;
 let managerUserId: string;
 let plainUserId: string;
 
+// Cross-tenant fixtures
+let otherGroupId: string;
+let otherHospId: string;
+/** Template owned by a foreign hospital (otherHospId) */
+let foreignTemplateId: string;
+/** Template owned by a foreign chain (otherGroupId) */
+let foreignChainTemplateId: string;
+
 const createdTemplateIds: string[] = [];
 const createdContractIds: string[] = [];
 const createdUserIds: string[] = [];
@@ -151,6 +159,58 @@ beforeAll(async () => {
     .send(minimalTemplate);
   templateId = res.body.id;
   createdTemplateIds.push(templateId);
+
+  // ── Cross-tenant setup: a separate chain + hospital ────────────────────────
+
+  const [og] = await db
+    .insert(hospitalGroups)
+    .values({
+      name: `OtherChain-${uniq()}`,
+      defaultLicenseType: "test",
+      defaultPricePerRecord: "5.00",
+    } as any)
+    .returning();
+  otherGroupId = og.id;
+  createdGroupIds.push(otherGroupId);
+
+  const [oh] = await db
+    .insert(hospitals)
+    .values({ name: `OtherHosp-${uniq()}`, groupId: otherGroupId } as any)
+    .returning();
+  otherHospId = oh.id;
+  createdHospitalIds.push(otherHospId);
+
+  // Template owned by the foreign hospital
+  const [ft] = await db
+    .insert(contractTemplates)
+    .values({
+      ownerHospitalId: otherHospId,
+      ownerChainId: null,
+      name: `ForeignHospTemplate-${uniq()}`,
+      language: "de",
+      status: "active",
+      blocks: [],
+      variables: { simple: [], selectableLists: [] },
+    } as any)
+    .returning();
+  foreignTemplateId = ft.id;
+  createdTemplateIds.push(foreignTemplateId);
+
+  // Template owned by the foreign chain
+  const [fct] = await db
+    .insert(contractTemplates)
+    .values({
+      ownerChainId: otherGroupId,
+      ownerHospitalId: null,
+      name: `ForeignChainTemplate-${uniq()}`,
+      language: "de",
+      status: "active",
+      blocks: [],
+      variables: { simple: [], selectableLists: [] },
+    } as any)
+    .returning();
+  foreignChainTemplateId = fct.id;
+  createdTemplateIds.push(foreignChainTemplateId);
 });
 
 afterAll(async () => {
@@ -670,5 +730,34 @@ describe("Path B — POST /api/public/contracts/t/:token/submit", () => {
       .post(`/api/public/contracts/t/${legacyToken}/submit`)
       .send(submitPayload);
     expect(res.status).toBe(429);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Scenario 7 (Path A cross-tenant): manager cannot use a foreign template
+// ---------------------------------------------------------------------------
+
+describe("POST /api/business/:hospitalId/contracts — cross-tenant template ownership", () => {
+  it("returns 403 when templateId belongs to a foreign hospital (no shared chain)", async () => {
+    const res = await request(buildApp(managerUserId))
+      .post(`/api/business/${hospId}/contracts`)
+      .send({ templateId: foreignTemplateId });
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 403 when templateId belongs to a foreign chain", async () => {
+    const res = await request(buildApp(managerUserId))
+      .post(`/api/business/${hospId}/contracts`)
+      .send({ templateId: foreignChainTemplateId });
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 201 when templateId belongs to the requesting hospital (baseline sanity check)", async () => {
+    const res = await request(buildApp(managerUserId))
+      .post(`/api/business/${hospId}/contracts`)
+      .send({ templateId });
+    expect(res.status).toBe(201);
+    expect(res.body.publicToken).toBeTruthy();
+    createdContractIds.push(res.body.id);
   });
 });

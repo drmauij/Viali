@@ -47,6 +47,18 @@ let managerUserId: string;
 let plainUserId: string;
 let chainAdminUserId: string;
 
+// Cross-tenant fixtures — a second, completely separate hospital+chain
+let otherGroupId: string;
+let otherHospId: string;
+let otherUnitId: string;
+let otherManagerUserId: string;
+/** A template owned by the other hospital (different chain) */
+let foreignHospitalTemplateId: string;
+/** A template owned by the other chain */
+let foreignChainTemplateId: string;
+/** Separate cleanup list for foreign-tenant templates (not mixed into createdTemplateIds) */
+const foreignTemplateCleanupIds: string[] = [];
+
 const createdTemplateIds: string[] = [];
 const createdUserIds: string[] = [];
 const createdHospitalIds: string[] = [];
@@ -116,6 +128,79 @@ beforeAll(async () => {
     .values({ userId: chainAdminUserId, hospitalId: hospId, unitId, role: "group_admin" } as any)
     .returning();
   createdRoleIds.push(cr.id);
+
+  // ── Cross-tenant setup: a totally separate chain + hospital ──────────────
+
+  const [og] = await db
+    .insert(hospitalGroups)
+    .values({
+      name: `OtherChain-${uniq()}`,
+      defaultLicenseType: "test",
+      defaultPricePerRecord: "5.00",
+    } as any)
+    .returning();
+  otherGroupId = og.id;
+  createdGroupIds.push(otherGroupId);
+
+  const [oh] = await db
+    .insert(hospitals)
+    .values({ name: `OtherHosp-${uniq()}`, groupId: otherGroupId } as any)
+    .returning();
+  otherHospId = oh.id;
+  createdHospitalIds.push(otherHospId);
+
+  const [ou] = await db
+    .insert(units)
+    .values({ hospitalId: otherHospId, name: "Default", type: "clinic" } as any)
+    .returning();
+  otherUnitId = ou.id;
+  createdUnitIds.push(otherUnitId);
+
+  const [omu] = await db
+    .insert(users)
+    .values({ email: `othermgr-${uniq()}@test.test` } as any)
+    .returning();
+  otherManagerUserId = omu.id;
+  createdUserIds.push(otherManagerUserId);
+  const [omr] = await db
+    .insert(userHospitalRoles)
+    .values({ userId: otherManagerUserId, hospitalId: otherHospId, unitId: otherUnitId, role: "manager" } as any)
+    .returning();
+  createdRoleIds.push(omr.id);
+
+  // Create a template owned by the other hospital (foreign to hospId)
+  const [ft] = await db
+    .insert(contractTemplates)
+    .values({
+      ownerHospitalId: otherHospId,
+      ownerChainId: null,
+      name: `ForeignHospTemplate-${uniq()}`,
+      language: "de",
+      status: "active",
+      blocks: [],
+      variables: { simple: [], selectableLists: [] },
+    } as any)
+    .returning();
+  foreignHospitalTemplateId = ft.id;
+  // NOTE: do NOT push to createdTemplateIds — these are foreign-tenant rows,
+  // tracked separately to avoid poisoning the shared cleanup array.
+  foreignTemplateCleanupIds.push(foreignHospitalTemplateId);
+
+  // Create a template owned by the other chain (foreign to groupId)
+  const [fct] = await db
+    .insert(contractTemplates)
+    .values({
+      ownerChainId: otherGroupId,
+      ownerHospitalId: null,
+      name: `ForeignChainTemplate-${uniq()}`,
+      language: "de",
+      status: "active",
+      blocks: [],
+      variables: { simple: [], selectableLists: [] },
+    } as any)
+    .returning();
+  foreignChainTemplateId = fct.id;
+  foreignTemplateCleanupIds.push(foreignChainTemplateId);
 });
 
 afterAll(async () => {
@@ -123,6 +208,11 @@ afterAll(async () => {
     await db
       .delete(contractTemplates)
       .where(inArray(contractTemplates.id, createdTemplateIds));
+  }
+  if (foreignTemplateCleanupIds.length) {
+    await db
+      .delete(contractTemplates)
+      .where(inArray(contractTemplates.id, foreignTemplateCleanupIds));
   }
   if (createdRoleIds.length) {
     await db
@@ -374,5 +464,108 @@ describe("Chain-scoped CRUD (/api/chain/:groupId/contract-templates)", () => {
     expect(res.status).toBe(200);
     const ids = res.body.map((t: any) => t.id);
     expect(ids).toContain(chainTemplateId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cross-tenant authorization
+// ---------------------------------------------------------------------------
+
+describe("Cross-tenant: hospital-scoped routes reject foreign templates", () => {
+  it("GET single — Hospital A manager cannot fetch a template owned by Hospital B (returns 403)", async () => {
+    const res = await request(buildApp(managerUserId)).get(
+      `/api/business/${hospId}/contract-templates/${foreignHospitalTemplateId}`,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("PATCH — Hospital A manager cannot update a template owned by Hospital B (returns 403)", async () => {
+    const res = await request(buildApp(managerUserId))
+      .patch(`/api/business/${hospId}/contract-templates/${foreignHospitalTemplateId}`)
+      .send({ name: "Hacked" });
+    expect(res.status).toBe(403);
+  });
+
+  it("Clone — Hospital A manager cannot clone a template owned by Hospital B (returns 403)", async () => {
+    const res = await request(buildApp(managerUserId))
+      .post(`/api/business/${hospId}/contract-templates/${foreignHospitalTemplateId}/clone`)
+      .send({ name: "Stolen Clone" });
+    expect(res.status).toBe(403);
+  });
+
+  it("Archive — Hospital A manager cannot archive a template owned by Hospital B (returns 403)", async () => {
+    const res = await request(buildApp(managerUserId))
+      .post(`/api/business/${hospId}/contract-templates/${foreignHospitalTemplateId}/archive`)
+      .send();
+    expect(res.status).toBe(403);
+  });
+
+  it("GET single — Hospital A manager cannot fetch a template owned by a foreign chain (returns 403)", async () => {
+    const res = await request(buildApp(managerUserId)).get(
+      `/api/business/${hospId}/contract-templates/${foreignChainTemplateId}`,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("PATCH — Hospital A manager cannot update a template owned by a foreign chain (returns 403)", async () => {
+    const res = await request(buildApp(managerUserId))
+      .patch(`/api/business/${hospId}/contract-templates/${foreignChainTemplateId}`)
+      .send({ name: "Hacked Chain Template" });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("Cross-tenant: chain-scoped routes reject templates not owned by that chain", () => {
+  it("GET single — Chain A admin cannot fetch a template owned by Chain B (returns 403)", async () => {
+    const res = await request(buildApp(chainAdminUserId)).get(
+      `/api/chain/${groupId}/contract-templates/${foreignChainTemplateId}`,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("PATCH — Chain A admin cannot update a template owned by Chain B (returns 403)", async () => {
+    const res = await request(buildApp(chainAdminUserId))
+      .patch(`/api/chain/${groupId}/contract-templates/${foreignChainTemplateId}`)
+      .send({ name: "Chain Hacked" });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("Cross-tenant: hospital-scoped access to own chain templates is allowed", () => {
+  let ownChainTemplateId: string;
+
+  beforeAll(async () => {
+    // Create a chain-owned template for the hospital's own chain
+    const [t] = await db
+      .insert(contractTemplates)
+      .values({
+        ownerChainId: groupId,
+        ownerHospitalId: null,
+        name: `OwnChainTemplate-${uniq()}`,
+        language: "de",
+        status: "active",
+        blocks: [],
+        variables: { simple: [], selectableLists: [] },
+      } as any)
+      .returning();
+    ownChainTemplateId = t.id;
+    createdTemplateIds.push(ownChainTemplateId);
+  });
+
+  it("Hospital A manager CAN GET a template owned by Hospital A's own chain (returns 200)", async () => {
+    const res = await request(buildApp(managerUserId)).get(
+      `/api/business/${hospId}/contract-templates/${ownChainTemplateId}`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(ownChainTemplateId);
+  });
+
+  it("Hospital A manager CAN clone a template owned by Hospital A's own chain (returns 201)", async () => {
+    const res = await request(buildApp(managerUserId))
+      .post(`/api/business/${hospId}/contract-templates/${ownChainTemplateId}/clone`)
+      .send({ name: "Own Chain Clone" });
+    expect(res.status).toBe(201);
+    expect(res.body.ownerHospitalId).toBe(hospId);
+    createdTemplateIds.push(res.body.id);
   });
 });

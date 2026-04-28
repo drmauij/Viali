@@ -10,6 +10,7 @@ import { buildZodSchema } from "@shared/contractTemplates/buildZodSchema";
 import { randomUUID } from "node:crypto";
 import type { TemplateBody, ContractData } from "@shared/contractTemplates/types";
 import logger from "../logger";
+import { assertHospitalCanAccessTemplate } from "./contractTemplates";
 
 // ---------------------------------------------------------------------------
 // Auth middleware (mirrors the pattern in contractTemplates.ts / business.ts)
@@ -59,6 +60,10 @@ router.post(
         .from(contractTemplates)
         .where(eq(contractTemplates.id, parsed.data.templateId));
       if (!tmpl) return res.status(404).json({ error: "template not found" });
+
+      if (!await assertHospitalCanAccessTemplate(tmpl, req.params.hospitalId)) {
+        return res.status(403).json({ error: "forbidden" });
+      }
 
       const [created] = await db
         .insert(workerContracts)

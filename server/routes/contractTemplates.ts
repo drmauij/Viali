@@ -6,8 +6,41 @@ import { db } from "../db";
 import { hospitals } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import * as contractTemplatesStorage from "../storage/contractTemplatesStorage";
-import type { InsertContractTemplate } from "@shared/schema";
+import type { InsertContractTemplate, ContractTemplate } from "@shared/schema";
 import logger from "../logger";
+
+// ---------------------------------------------------------------------------
+// Ownership helpers — exported so contractInstances.ts can reuse them
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true when `hospitalId` is allowed to access `template`.
+ * Allowed when the template is directly owned by that hospital, OR when the
+ * template is owned by the chain that hospital belongs to.
+ */
+export async function assertHospitalCanAccessTemplate(
+  template: ContractTemplate,
+  hospitalId: string,
+): Promise<boolean> {
+  if (template.ownerHospitalId === hospitalId) return true;
+  if (!template.ownerChainId) return false;
+  const [hospital] = await db
+    .select({ groupId: hospitals.groupId })
+    .from(hospitals)
+    .where(eq(hospitals.id, hospitalId));
+  return !!hospital && hospital.groupId === template.ownerChainId;
+}
+
+/**
+ * Returns true when `groupId` is allowed to access `template`.
+ * Allowed only when the template is directly owned by that chain.
+ */
+export function assertChainCanAccessTemplate(
+  template: ContractTemplate,
+  groupId: string,
+): boolean {
+  return template.ownerChainId === groupId;
+}
 
 const router = Router();
 
@@ -120,6 +153,9 @@ router.get(
     try {
       const tmpl = await contractTemplatesStorage.getById(req.params.id);
       if (!tmpl) return res.status(404).end();
+      if (!await assertHospitalCanAccessTemplate(tmpl, req.params.hospitalId)) {
+        return res.status(403).json({ error: "forbidden" });
+      }
       res.json(tmpl);
     } catch (error) {
       logger.error("Error fetching contract template:", error);
@@ -161,6 +197,9 @@ router.post(
     try {
       const source = await contractTemplatesStorage.getById(req.params.id);
       if (!source) return res.status(404).end();
+      if (!await assertHospitalCanAccessTemplate(source, req.params.hospitalId)) {
+        return res.status(403).json({ error: "forbidden" });
+      }
       const cloned = await contractTemplatesStorage.cloneInto(
         source,
         { ownerHospitalId: req.params.hospitalId },
@@ -181,6 +220,11 @@ router.patch(
   isBusinessManager,
   async (req: any, res) => {
     try {
+      const tmpl = await contractTemplatesStorage.getById(req.params.id);
+      if (!tmpl) return res.status(404).end();
+      if (!await assertHospitalCanAccessTemplate(tmpl, req.params.hospitalId)) {
+        return res.status(403).json({ error: "forbidden" });
+      }
       const parsed = baseInput.partial().safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.flatten() });
@@ -201,6 +245,11 @@ router.post(
   isBusinessManager,
   async (req, res) => {
     try {
+      const tmpl = await contractTemplatesStorage.getById(req.params.id);
+      if (!tmpl) return res.status(404).end();
+      if (!await assertHospitalCanAccessTemplate(tmpl, req.params.hospitalId)) {
+        return res.status(403).json({ error: "forbidden" });
+      }
       await contractTemplatesStorage.archive(req.params.id);
       res.status(204).end();
     } catch (error) {
@@ -240,6 +289,9 @@ router.get(
     try {
       const tmpl = await contractTemplatesStorage.getById(req.params.id);
       if (!tmpl) return res.status(404).end();
+      if (!assertChainCanAccessTemplate(tmpl, req.params.groupId)) {
+        return res.status(403).json({ error: "forbidden" });
+      }
       res.json(tmpl);
     } catch (error) {
       logger.error("Error fetching chain contract template:", error);
@@ -281,6 +333,9 @@ router.post(
     try {
       const source = await contractTemplatesStorage.getById(req.params.id);
       if (!source) return res.status(404).end();
+      if (!assertChainCanAccessTemplate(source, req.params.groupId)) {
+        return res.status(403).json({ error: "forbidden" });
+      }
       const cloned = await contractTemplatesStorage.cloneInto(
         source,
         { ownerChainId: req.params.groupId },
@@ -301,6 +356,11 @@ router.patch(
   isChainAdmin,
   async (req: any, res) => {
     try {
+      const tmpl = await contractTemplatesStorage.getById(req.params.id);
+      if (!tmpl) return res.status(404).end();
+      if (!assertChainCanAccessTemplate(tmpl, req.params.groupId)) {
+        return res.status(403).json({ error: "forbidden" });
+      }
       const parsed = baseInput.partial().safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.flatten() });
@@ -321,6 +381,11 @@ router.post(
   isChainAdmin,
   async (req, res) => {
     try {
+      const tmpl = await contractTemplatesStorage.getById(req.params.id);
+      if (!tmpl) return res.status(404).end();
+      if (!assertChainCanAccessTemplate(tmpl, req.params.groupId)) {
+        return res.status(403).json({ error: "forbidden" });
+      }
       await contractTemplatesStorage.archive(req.params.id);
       res.status(204).end();
     } catch (error) {
