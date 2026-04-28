@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "wouter";
 import { formatDate } from "@/lib/dateUtils";
 import { pdf } from "@react-pdf/renderer";
 import { ContractDocumentPdf } from "@/lib/contractTemplates/ContractDocumentPdf";
@@ -34,7 +35,8 @@ import {
   Eye,
   Archive,
   ArchiveRestore,
-  Mail
+  Mail,
+  Settings2
 } from "lucide-react";
 
 interface WorkerContract {
@@ -78,6 +80,7 @@ export default function Contracts() {
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [, navigate] = useLocation();
   
   const activeHospital = useMemo(() => {
     const userHospitals = (user as any)?.hospitals;
@@ -404,6 +407,14 @@ const signContractMutation = useMutation({
           <h1 className="text-2xl font-bold">{t('business.contracts.title')}</h1>
           <p className="text-gray-500">{t('business.contracts.subtitle')}</p>
         </div>
+        <Button
+          variant="outline"
+          onClick={() => navigate('/business/contracts/templates')}
+          data-testid="button-manage-templates"
+        >
+          <Settings2 className="w-4 h-4 mr-2" />
+          Manage templates
+        </Button>
       </div>
 
       <Card>

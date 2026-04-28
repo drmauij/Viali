@@ -6,7 +6,7 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 export default function ContractTemplatesPage() {
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
-  const [match, params] = useRoute<{ id: string }>("/business/hr/contracts/templates/:id");
+  const [match, params] = useRoute<{ id: string }>("/business/contracts/templates/:id");
   if (!hospitalId) return null;
   return match
     ? <TemplateEditor templateId={params.id} scope="hospital" ownerId={hospitalId} />

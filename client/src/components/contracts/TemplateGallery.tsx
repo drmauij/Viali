@@ -29,7 +29,7 @@ export function TemplateGallery({ scope, ownerId }: Props) {
 
   const editBase =
     scope === "hospital"
-      ? `/business/hr/contracts/templates`
+      ? `/business/contracts/templates`
       : `/chain/contracts/templates`;
 
   const { data = [], isLoading } = useQuery<ContractTemplate[]>({

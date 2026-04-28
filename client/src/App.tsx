@@ -371,8 +371,8 @@ function Router() {
               <Route path="/business/flows">{() => <ProtectedRoute requireBusiness><Flows /></ProtectedRoute>}</Route>
               <Route path="/business">{() => <ProtectedRoute requireBusiness><CostAnalytics /></ProtectedRoute>}</Route>
               <Route path="/business/administration">{() => <ProtectedRoute requireBusiness><SimplifiedDashboard /></ProtectedRoute>}</Route>
-              <Route path="/business/hr/contracts/templates/:id">{() => <ProtectedRoute requireBusiness><ContractTemplates /></ProtectedRoute>}</Route>
-              <Route path="/business/hr/contracts/templates">{() => <ProtectedRoute requireBusiness><ContractTemplates /></ProtectedRoute>}</Route>
+              <Route path="/business/contracts/templates/:id">{() => <ProtectedRoute requireBusiness><ContractTemplates /></ProtectedRoute>}</Route>
+              <Route path="/business/contracts/templates">{() => <ProtectedRoute requireBusiness><ContractTemplates /></ProtectedRoute>}</Route>
               <Route path="/business/hr">{() => <ProtectedRoute requireBusiness><HR /></ProtectedRoute>}</Route>
               <Route path="/business/staff">{() => <ProtectedRoute requireBusiness><HR /></ProtectedRoute>}</Route>
               <Route path="/business/contracts">{() => <ProtectedRoute requireBusiness><HR /></ProtectedRoute>}</Route>
