@@ -10,7 +10,6 @@ export interface ShiftsMonthPdfInput {
   providers: Array<{ id: string; firstName: string; lastName: string }>;
   shiftTypes: ShiftType[];
   staffShifts: StaffShift[];
-  staffPool: Array<{ id: string; date: string; userId: string | null; name: string; role: string }>;
   absences: Array<{
     providerId: string;
     absenceType: string;
@@ -169,7 +168,7 @@ function drawShiftsTable(
   autoTable(doc, {
     head,
     body,
-    startY: 24,
+    startY: 28,
     theme: "grid",
     styles: { fontSize: 7, cellPadding: 1, halign: "center", valign: "middle", lineColor: [220, 220, 220] },
     headStyles: { fillColor: [240, 240, 240], textColor: [40, 40, 40], fontStyle: "bold" },
@@ -193,7 +192,7 @@ function drawShiftsTable(
 function drawLegend(doc: any, types: ShiftType[]): void {
   if (types.length === 0) return;
 
-  const startY = (doc.lastAutoTable?.finalY ?? 24) + 8;
+  const startY = (doc.lastAutoTable?.finalY ?? 28) + 8;
   const pageHeight = doc.internal.pageSize.height;
   const pageWidth = doc.internal.pageSize.width;
 
