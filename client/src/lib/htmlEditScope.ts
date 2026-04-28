@@ -52,3 +52,47 @@ function randomId(): string {
   // 9 chars of base36 — collision-free per request, no crypto dep needed.
   return Math.random().toString(36).slice(2, 11);
 }
+
+/**
+ * Find the element with `data-vai-marker="<markerId>"` in `markedHtml` and
+ * replace its outerHTML with `replacement`. The replacement is first stripped
+ * of markdown code fences (Claude sometimes adds them). Throws if the
+ * replacement parses to anything other than exactly one root element. Returns
+ * `markedHtml` unchanged if the marker is not found (caller logs / toasts).
+ */
+export function replaceMarkedElement(
+  markedHtml: string,
+  markerId: string,
+  replacement: string,
+): string {
+  const cleaned: string = stripMarkdownFences(replacement).trim();
+  if (!cleaned) throw new Error("replacement is empty");
+
+  // Validate single-root: parse in a fresh template and count element children.
+  const tpl: HTMLTemplateElement = document.createElement("template");
+  tpl.innerHTML = cleaned;
+  const roots: HTMLCollection = tpl.content.children;
+  if (roots.length !== 1) {
+    throw new Error(`replacement must be a single root element, got ${roots.length}`);
+  }
+
+  const doc: Document = new DOMParser().parseFromString(markedHtml, "text/html");
+  const target: Element | null = doc.querySelector(`[data-vai-marker="${cssEscape(markerId)}"]`);
+  if (!target) return markedHtml;
+
+  // Replace via outerHTML on the original element.
+  target.outerHTML = cleaned;
+  return "<!DOCTYPE html>" + doc.documentElement.outerHTML;
+}
+
+function stripMarkdownFences(s: string): string {
+  return s
+    .trim()
+    .replace(/^```(?:html|HTML)?\s*\n?/, "")
+    .replace(/\n?```\s*$/, "");
+}
+
+function cssEscape(s: string): string {
+  // Marker ids are base36 — no special chars — but be defensive.
+  return s.replace(/["\\]/g, "\\$&");
+}
