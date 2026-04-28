@@ -46,6 +46,8 @@ import { registerMarketingAiRoutes } from "./marketingAi";
 import treatmentsRouter from "./treatments";
 import { chainRouter } from "./chain";
 import brandingRouter from "./branding";
+import contractTemplatesRouter from "./contractTemplates";
+import contractInstancesRouter from "./contractInstances";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -107,4 +109,8 @@ export function registerDomainRoutes(app: Express) {
   app.use(treatmentsRouter);
   // Booking theme save endpoints (PATCH /api/branding/{group,hospital}/:id).
   app.use(brandingRouter);
+  // Contract template CRUD (hospital + chain scoped).
+  app.use(contractTemplatesRouter);
+  // Contract instances: Path A (manager-created single-use token URLs).
+  app.use(contractInstancesRouter);
 }

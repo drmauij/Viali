@@ -17,6 +17,7 @@ import { startWorker } from "./worker";
 import { backfillChecklistTemplateAssignments } from "./storage/checklists";
 import { cleanupExpiredPortalData } from "./storage/portalOtp";
 import { cleanupExpiredIdempotencyKeys } from "./storage/bookingIdempotency";
+import { seedAllOwners } from "./seed/seedContractTemplates";
 import { sendPublicApiError } from "./lib/publicApiErrors";
 import logger from "./logger";
 
@@ -260,6 +261,30 @@ app.use((req, res, next) => {
       await backfillChecklistTemplateAssignments();
     } catch (err) {
       logger.warn("Checklist assignment backfill skipped or failed:", err);
+    }
+
+    try {
+      const seedRes = await seedAllOwners();
+      log(`[seed] contract template starters: ${seedRes.chainsSeeded} chains, ${seedRes.hospitalsSeeded} hospitals`);
+    } catch (err) {
+      logger.warn("Contract template seed skipped or failed:", err);
+    }
+
+    // 2026-04-28: One-shot opt-in backfill for legacy worker_contracts rows that pre-date
+    // the contract template system. Set BACKFILL_CONTRACTS_ON_BOOT=1 on the first deploy
+    // after the contract templates feature ships; the function is idempotent so leaving
+    // it set is safe (subsequent boots find nothing to migrate).
+    if (process.env.BACKFILL_CONTRACTS_ON_BOOT === "1") {
+      try {
+        const { backfillExistingContracts } = await import("./seed/backfillExistingContracts");
+        const r = await backfillExistingContracts();
+        console.log(`[seed] contract backfill: migrated=${r.migrated}, skippedNoTemplate=${r.skippedNoTemplate}`);
+        if (r.skippedNoTemplate > 0) {
+          console.warn(`[seed] WARNING: ${r.skippedNoTemplate} contracts could not be backfilled (role enum mismatch?). Investigate before disabling BACKFILL_CONTRACTS_ON_BOOT.`);
+        }
+      } catch (e) {
+        console.error(`[seed] contract backfill failed`, e);
+      }
     }
 
     const server = await registerRoutes(app);

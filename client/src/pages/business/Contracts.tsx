@@ -1,6 +1,9 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { getCurrencySymbol, formatDate, formatDateForInput } from "@/lib/dateUtils";
+import { formatDate } from "@/lib/dateUtils";
+import { pdf } from "@react-pdf/renderer";
+import { ContractDocumentPdf } from "@/lib/contractTemplates/ContractDocumentPdf";
+import { ContractDocument } from "@/lib/contractTemplates/ContractDocument";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -10,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import SignaturePad from "@/components/SignaturePad";
 import { 
@@ -59,212 +61,16 @@ interface WorkerContract {
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // Template-system fields (Task 1 additions)
+  templateId: string | null;
+  templateSnapshot: { blocks: any[]; variables: any } | null;
+  data: Record<string, unknown> | null;
+  publicToken: string | null;
 }
 
-interface CompanyData {
-  companyName: string;
-  companyStreet: string;
-  companyPostalCode: string;
-  companyCity: string;
-  companyPhone: string;
-  companyFax: string;
-  companyEmail: string;
-  companyLogoUrl: string;
-}
-
-const roleInfo = {
-  awr_nurse: {
-    title: "Tagesklinik Pflege (AWR-Nurse)",
-    rate: `${getCurrencySymbol()} 50.00`,
-    description: "diplomierter Pflegefachmann mit Zusatzausbildung Experte Intensivpflege",
-    roleTitle: "IMC-Pfleger im Aufwachraum",
-  },
-  anesthesia_nurse: {
-    title: "Pflege-Anästhesist",
-    rate: `${getCurrencySymbol()} 60.00`,
-    description: "diplomierter Pflegefachmann mit Zusatzausbildung Experte Anästhesiepflege",
-    roleTitle: "Anästhesiepfleger",
-  },
-  anesthesia_doctor: {
-    title: "Arzt Anästhesie",
-    rate: `${getCurrencySymbol()} 150.00`,
-    description: "Facharzt Anästhesiologie, in der Schweiz anerkannt",
-    roleTitle: "Anästhesiearzt",
-  },
-};
-
-function ContractPreview({ 
-  contract, 
-  companyData,
-  showSignatures = false 
-}: { 
-  contract: WorkerContract; 
-  companyData: CompanyData;
-  showSignatures?: boolean;
-}) {
-  const { t } = useTranslation();
-  const role = {
-    title: t(`business.contracts.roles.${contract.role}.title`),
-    rate: t(`business.contracts.roles.${contract.role}.rate`),
-    description: t(`business.contracts.roles.${contract.role}.description`),
-    roleTitle: t(`business.contracts.roles.${contract.role}.roleTitle`),
-  };
-  
-  return (
-    <div className="bg-white border rounded-lg p-6 text-sm space-y-4">
-      <h3 className="text-center font-bold text-lg">{t('business.contracts.preview.title')}</h3>
-      
-      <div>
-        <p className="mb-2">{t('business.contracts.preview.between')}</p>
-        <p className="font-semibold">{companyData.companyName}</p>
-        <p>{companyData.companyStreet}, {companyData.companyPostalCode} {companyData.companyCity}</p>
-        <p className="italic text-gray-600">{t('business.contracts.preview.client')}</p>
-      </div>
-      
-      <div>
-        <p className="mb-2">{t('business.contracts.preview.and')}</p>
-        <p className="font-semibold">{contract.lastName}, {contract.firstName}</p>
-        <p>{contract.street}, {contract.postalCode} {contract.city}</p>
-        <p>{t('business.contracts.preview.phone')}: {contract.phone || "-"}, {t('business.contracts.preview.email')}: {contract.email}</p>
-        <p className="italic text-gray-600">{t('business.contracts.preview.contractor')}</p>
-      </div>
-      
-      <div>
-        <p><strong>{t('business.contracts.preview.iban')}:</strong> {contract.iban}</p>
-        <p><strong>{t('business.contracts.preview.dob')}:</strong> {contract.dateOfBirth}</p>
-      </div>
-
-      <Separator />
-
-      <div>
-        <h4 className="font-bold mb-1">{t('business.contracts.sections.preamble')}</h4>
-        <p className="text-gray-700">
-          {t('business.contracts.sections.preambleText', { companyName: companyData.companyName })}
-        </p>
-      </div>
-      
-      <div>
-        <h4 className="font-bold mb-1">{t('business.contracts.sections.subject')}</h4>
-        <p className="text-gray-700">
-          {t('business.contracts.sections.subjectText', { description: role.description, roleTitle: role.roleTitle })}
-        </p>
-      </div>
-
-      <div>
-        <h4 className="font-bold mb-1">{t('business.contracts.sections.workplace')}</h4>
-        <p className="text-gray-700">
-          {t('business.contracts.sections.workplaceText', { 
-            companyName: companyData.companyName, 
-            companyStreet: companyData.companyStreet, 
-            companyPostalCode: companyData.companyPostalCode, 
-            companyCity: companyData.companyCity 
-          })}
-        </p>
-      </div>
-
-      <div>
-        <h4 className="font-bold mb-1">{t('business.contracts.sections.workingHours')}</h4>
-        <p className="text-gray-700">
-          {t('business.contracts.sections.workingHoursText')}
-        </p>
-      </div>
-      
-      <div>
-        <h4 className="font-bold mb-1">{t('business.contracts.sections.compensation')}</h4>
-        <p className="text-gray-700">
-          {t('business.contracts.sections.compensationText', { rate: role.rate, title: role.title })}
-        </p>
-      </div>
-
-      <div>
-        <h4 className="font-bold mb-1">{t('business.contracts.sections.socialInsurance')}</h4>
-        <p className="text-gray-700">
-          {t('business.contracts.sections.socialInsuranceText')}
-        </p>
-      </div>
-
-      <div>
-        <h4 className="font-bold mb-1">{t('business.contracts.sections.vacation')}</h4>
-        <p className="text-gray-700">
-          {t('business.contracts.sections.vacationText')}
-        </p>
-      </div>
-
-      <div>
-        <h4 className="font-bold mb-1">{t('business.contracts.sections.confidentiality')}</h4>
-        <p className="text-gray-700">
-          {t('business.contracts.sections.confidentialityText')}
-        </p>
-      </div>
-
-      <div>
-        <h4 className="font-bold mb-1">{t('business.contracts.sections.termination')}</h4>
-        <p className="text-gray-700">
-          {t('business.contracts.sections.terminationText')}
-        </p>
-      </div>
-
-      <div>
-        <h4 className="font-bold mb-1">{t('business.contracts.sections.otherProvisions')}</h4>
-        <p className="text-gray-700">
-          {t('business.contracts.sections.otherProvisionsText')}
-        </p>
-      </div>
-
-      <div>
-        <h4 className="font-bold mb-1">{t('business.contracts.sections.jurisdiction')}</h4>
-        <p className="text-gray-700">
-          {t('business.contracts.sections.jurisdictionText')}
-        </p>
-      </div>
-
-      {showSignatures && (
-        <>
-          <Separator />
-          <div className="grid grid-cols-2 gap-8 pt-4">
-            <div>
-              <p className="text-sm text-gray-500 mb-2">{t('business.contracts.preview.contractor')}</p>
-              {contract.workerSignature ? (
-                <>
-                  <img 
-                    src={contract.workerSignature} 
-                    alt="Signature" 
-                    className="h-16 border rounded bg-white"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {contract.workerSignatureLocation}, {formatDate(new Date(contract.workerSignedAt || contract.createdAt))}
-                  </p>
-                </>
-              ) : (
-                <p className="text-gray-400 italic">{t('business.contracts.preview.noSignature')}</p>
-              )}
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-2">{t('business.contracts.preview.client')} ({companyData.companyName})</p>
-              {contract.managerSignature ? (
-                <>
-                  <img 
-                    src={contract.managerSignature} 
-                    alt="Signature" 
-                    className="h-16 border rounded bg-white"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {contract.managerName}, {formatDate(new Date(contract.managerSignedAt!))}
-                  </p>
-                </>
-              ) : (
-                <p className="text-gray-400 italic">{t('business.contracts.preview.awaitingCountersignature')}</p>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
 
 export default function Contracts() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedContract, setSelectedContract] = useState<WorkerContract | null>(null);
@@ -310,17 +116,7 @@ export default function Contracts() {
     enabled: !!hospitalId,
   });
 
-  const { data: companyData } = useQuery<CompanyData>({
-    queryKey: ['/api/clinic', hospitalId, 'company-data'],
-    queryFn: async () => {
-      const res = await fetch(`/api/clinic/${hospitalId}/company-data`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch company data');
-      return res.json();
-    },
-    enabled: !!hospitalId,
-  });
-
-  const signContractMutation = useMutation({
+const signContractMutation = useMutation({
     mutationFn: async ({ contractId, signature }: { contractId: string; signature: string }) => {
       const res = await apiRequest('POST', `/api/business/${hospitalId}/contracts/${contractId}/sign`, { signature });
       return res.json();
@@ -413,382 +209,28 @@ export default function Contracts() {
     setShowSignaturePad(false);
   };
 
-  const generateContractPDF = async (contract: WorkerContract) => {
-    if (!companyData) return;
-
-    const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF();
-    const role = roleInfo[contract.role];
-
-    let yPos = 20;
-    
-    if (companyData.companyLogoUrl) {
-      try {
-        const logoImg = new Image();
-        logoImg.crossOrigin = 'Anonymous';
-        await new Promise<void>((resolve, reject) => {
-          logoImg.onload = () => resolve();
-          logoImg.onerror = () => reject();
-          logoImg.src = companyData.companyLogoUrl;
-        });
-        
-        const scaleFactor = 4;
-        const canvas = document.createElement('canvas');
-        const origWidth = logoImg.naturalWidth || logoImg.width;
-        const origHeight = logoImg.naturalHeight || logoImg.height;
-        canvas.width = origWidth * scaleFactor;
-        canvas.height = origHeight * scaleFactor;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(logoImg, 0, 0, canvas.width, canvas.height);
-        }
-        
-        const maxLogoWidth = 60;
-        const maxLogoHeight = 30;
-        const aspectRatio = origWidth / origHeight;
-        let logoWidth = maxLogoWidth;
-        let logoHeight = logoWidth / aspectRatio;
-        if (logoHeight > maxLogoHeight) {
-          logoHeight = maxLogoHeight;
-          logoWidth = logoHeight * aspectRatio;
-        }
-        
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const logoX = (pageWidth - logoWidth) / 2;
-        const flattenedLogoUrl = canvas.toDataURL('image/png');
-        doc.addImage(flattenedLogoUrl, 'PNG', logoX, yPos, logoWidth, logoHeight);
-        yPos += logoHeight + 10;
-      } catch (e) {
-        console.warn('Failed to load logo:', e);
-      }
+  const downloadContractPDF = async (contract: WorkerContract) => {
+    const snapshot = contract.templateSnapshot;
+    const data = contract.data;
+    if (!snapshot || !data) {
+      toast({ title: t('business.contracts.toast.legacyContract'), variant: "destructive" });
+      return;
     }
-
-    doc.setFontSize(16);
-    doc.setFont(undefined as any, 'bold');
-    doc.text("Vertrag für Kurzzeiteinsätze auf Abruf", 105, yPos, { align: 'center' });
-    yPos += 15;
-
-    doc.setFontSize(10);
-    doc.setFont(undefined as any, 'normal');
-    doc.text("zwischen", 20, yPos);
-    yPos += 8;
-
-    doc.setFont(undefined as any, 'bold');
-    doc.text(companyData.companyName || "Klinik", 20, yPos);
-    yPos += 5;
-    doc.setFont(undefined as any, 'normal');
-    doc.text(`${companyData.companyStreet}, ${companyData.companyPostalCode} ${companyData.companyCity}`, 20, yPos);
-    yPos += 5;
-    doc.setFont(undefined as any, 'italic');
-    doc.text("- Auftraggeber -", 20, yPos);
-    yPos += 10;
-
-    doc.setFont(undefined as any, 'normal');
-    doc.text("und", 20, yPos);
-    yPos += 8;
-
-    doc.setFont(undefined as any, 'bold');
-    doc.text(`${contract.lastName}, ${contract.firstName}`, 20, yPos);
-    yPos += 5;
-    doc.setFont(undefined as any, 'normal');
-    doc.text(`${contract.street}, ${contract.postalCode} ${contract.city}`, 20, yPos);
-    yPos += 5;
-    doc.text(`Tel: ${contract.phone || '-'}, E-Mail: ${contract.email}`, 20, yPos);
-    yPos += 5;
-    doc.setFont(undefined as any, 'italic');
-    doc.text("- Auftragnehmer -", 20, yPos);
-    yPos += 10;
-
-    doc.setFont(undefined as any, 'normal');
-    doc.text(`IBAN: ${contract.iban}`, 20, yPos);
-    yPos += 5;
-    doc.text(`Geb.: ${contract.dateOfBirth}`, 20, yPos);
-    yPos += 15;
-
-    const addSection = (title: string, content: string) => {
-      if (yPos > 260) {
-        doc.addPage();
-        yPos = 20;
-      }
-      doc.setFont(undefined as any, 'bold');
-      doc.text(title, 20, yPos);
-      yPos += 6;
-      doc.setFont(undefined as any, 'normal');
-      const lines = doc.splitTextToSize(content, 170);
-      doc.text(lines, 20, yPos);
-      yPos += lines.length * 5 + 8;
-    };
-
-    addSection("Präambel", 
-      `Die ${companyData.companyName} bietet die Möglichkeit für einzelne Tage stundenweise Tätigkeiten im Bereich der IMC-Pflege, Anästhesiepflege und ärztlichen Anästhesie anzubieten. Der Auftragnehmer ist bereit, künftig nach Absprache für die Leistungserbringung in seinem Fachbereich auf Abruf stundenweise zur Verfügung zu stehen.`
-    );
-
-    addSection("1. Vertragsgegenstand", 
-      `Der Auftragnehmer ist ${role.description}, in der Schweiz anerkannt. Er verpflichtet sich, Leistungen als ${role.roleTitle} für den Auftraggeber zu erbringen. Der Auftragnehmer erbringt seine Leistungen in eigener fachlicher Verantwortung. Der Auftragnehmer beachtet die Weisungen der Geschäftsleitung und der Leitenden Chirurgin (Dr. med. Lena Schumann). Er hat Pausen (ohne Vergütung) auf Anweisung wahrzunehmen.`
-    );
-
-    addSection("2. Arbeitsort", 
-      `Der Arbeitsort befindet sich an der ${companyData.companyName}, ${companyData.companyStreet}, ${companyData.companyPostalCode} ${companyData.companyCity}.`
-    );
-
-    addSection("3. Arbeitszeit und Abruf", 
-      `Der Einsatz erfolgt nach Bedarf der Auftraggeberin. Termine, die der Auftragnehmer schriftlich oder per E-Mail bestätigt, sind verbindlich. Die Termine dürfen nur im Krankheitsfall abgesagt werden, wobei der Auftragnehmer möglichst frühzeitig (48h vorher) einen voraussichtlichen Ausfall mitzuteilen hat. Er hat die Auftraggeberin auch über die voraussichtliche Eventualität eines krankheitsbedingten Ausfalls frühzeitig zu informieren, damit rechtzeitig Ersatzpersonal geplant werden kann.`
-    );
-
-    addSection("4. Vergütung", 
-      `Der Auftragnehmer erhält für die erbrachte Arbeitsleistung einen Bruttolohn pro Stunde in Höhe von ${role.rate} (${role.title}). Die Auszahlung erfolgt im Folgemonat des Einsatzes auf das von dem Auftragnehmer angegebene Bankkonto. Der Auftragnehmer hat den Stundeneinsatz pro Tag von der ärztlichen Leitung (Dr. med. Lena Schumann) bestätigen zu lassen. Am Ende des Monats reicht der Auftragnehmer seine bestätigte Stundenaufstellung zur Abrechnung bei der Auftraggeberin ein.`
-    );
-
-    addSection("5. Sozialversicherungen", 
-      `Dieser Vertrag unterliegt den gesetzlichen Vorschriften der Sozialversicherungen in der Schweiz. Der Auftraggeber verpflichtet sich, alle erforderlichen Abgaben für AHV, ALV abzuführen. Vom Bruttolohn werden die Auftragnehmerbeiträge in Abzug gebracht.`
-    );
-
-    addSection("6. Einschluss und Abgeltung von Ferienansprüchen und Lohnfortzahlung", 
-      `Angesichts der kurzen Dauer der Arbeitseinsätze werden der Ferienanspruch sowie der Anspruch auf Lohnfortzahlung bei unverschuldeter Verhinderung an der Arbeitsleistung (Krankheit, Unfall, usw.) durch den vereinbarten Bruttolohn abgegolten. Für Feiertage und bezahlte Absenzen besteht kein besonderer Lohnanspruch, da die entsprechende Entschädigung mit Rücksicht auf die kurze Dauer der Arbeitseinsätze im Lohn eingeschlossen ist.`
-    );
-
-    addSection("7. Vertraulichkeit", 
-      `Der Auftragnehmer verpflichtet sich, alle im Zusammenhang mit seiner Tätigkeit bekannt gewordenen Informationen über den Auftraggeber und dessen Geschäftsabläufe vertraulich zu behandeln und nicht an Dritte weiterzugeben.`
-    );
-
-    addSection("8. Beendigung des Arbeitsverhältnisses", 
-      `Die Vereinbarung kann mit einer Frist von einem Monat gekündigt werden.`
-    );
-
-    addSection("9. Weitere Bestimmungen", 
-      `Änderungen oder Ergänzungen dieses Vertrags bedürfen der Schriftform. Mündliche Abreden sind ungültig.`
-    );
-
-    addSection("10. Recht und Gerichtsstand", 
-      `Soweit nicht die Bestimmungen dieses Vertrags vorgehen, gelten die allgemeinen Bestimmungen des Obligationenrechts. Abänderungen, Ergänzungen oder die Aufhebung des vorliegenden Vertrages sind nur in Schriftform und von beiden Vertragsparteien unterzeichnet rechtsgültig. Sollten Teile dieses Vertrages unwirksam sein, so wird hierdurch die Gültigkeit der übrigen Bestimmungen nicht berührt. An die Stelle unwirksamer Bestimmungen treten sinngemäss die einschlägigen gesetzlichen Bestimmungen. Auf diesen Arbeitsvertrag ist schweizerisches Recht anwendbar. Der Gerichtsstand ist Kreuzlingen. Jede Vertragspartei erhält ein Exemplar dieses Vertrages.`
-    );
-
-    if (yPos > 220) {
-      doc.addPage();
-      yPos = 20;
-    }
-    
-    doc.line(20, yPos, 190, yPos);
-    yPos += 10;
-
-    if (contract.workerSignature) {
-      doc.text(`${contract.workerSignatureLocation || 'Ort'}, ${formatDate(new Date(contract.workerSignedAt || contract.createdAt))}`, 20, yPos);
-      yPos += 5;
-      doc.text("Auftragnehmer/in", 20, yPos);
-      yPos += 3;
-      try {
-        doc.addImage(contract.workerSignature, 'PNG', 20, yPos, 50, 20);
-      } catch (e) {
-        console.warn('Failed to add worker signature:', e);
-      }
-    }
-
-    if (contract.managerSignature && contract.managerSignedAt) {
-      doc.text(`Kreuzlingen, ${formatDate(new Date(contract.managerSignedAt))}`, 120, yPos - 8);
-      doc.text(companyData.companyName || "Klinik", 120, yPos - 3);
-      doc.text(contract.managerName || "Manager", 120, yPos + 2);
-      try {
-        doc.addImage(contract.managerSignature, 'PNG', 120, yPos + 5, 50, 20);
-      } catch (e) {
-        console.warn('Failed to add manager signature:', e);
-      }
-    }
-
-    doc.save(`Vertrag_${contract.lastName}_${contract.firstName}_${formatDateForInput(new Date(contract.createdAt))}.pdf`);
-  };
-
-  const generateContractPDFBase64 = async (contract: WorkerContract): Promise<string | null> => {
-    if (!companyData) return null;
-
-    const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF();
-    const role = roleInfo[contract.role];
-
-    let yPos = 20;
-    
-    if (companyData.companyLogoUrl) {
-      try {
-        const logoImg = new Image();
-        logoImg.crossOrigin = 'Anonymous';
-        await new Promise<void>((resolve, reject) => {
-          logoImg.onload = () => resolve();
-          logoImg.onerror = () => reject();
-          logoImg.src = companyData.companyLogoUrl;
-        });
-        
-        const scaleFactor = 4;
-        const canvas = document.createElement('canvas');
-        const origWidth = logoImg.naturalWidth || logoImg.width;
-        const origHeight = logoImg.naturalHeight || logoImg.height;
-        canvas.width = origWidth * scaleFactor;
-        canvas.height = origHeight * scaleFactor;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(logoImg, 0, 0, canvas.width, canvas.height);
-        }
-        
-        const maxLogoWidth = 60;
-        const maxLogoHeight = 30;
-        const aspectRatio = origWidth / origHeight;
-        let logoWidth = maxLogoWidth;
-        let logoHeight = logoWidth / aspectRatio;
-        if (logoHeight > maxLogoHeight) {
-          logoHeight = maxLogoHeight;
-          logoWidth = logoHeight * aspectRatio;
-        }
-        
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const logoX = (pageWidth - logoWidth) / 2;
-        const flattenedLogoUrl = canvas.toDataURL('image/png');
-        doc.addImage(flattenedLogoUrl, 'PNG', logoX, yPos, logoWidth, logoHeight);
-        yPos += logoHeight + 10;
-      } catch (e) {
-        console.warn('Failed to load logo:', e);
-      }
-    }
-
-    doc.setFontSize(16);
-    doc.setFont(undefined as any, 'bold');
-    doc.text("Vertrag für Kurzzeiteinsätze auf Abruf", 105, yPos, { align: 'center' });
-    yPos += 15;
-
-    doc.setFontSize(10);
-    doc.setFont(undefined as any, 'normal');
-    doc.text("zwischen", 20, yPos);
-    yPos += 8;
-
-    doc.setFont(undefined as any, 'bold');
-    doc.text(companyData.companyName || "Klinik", 20, yPos);
-    yPos += 5;
-    doc.setFont(undefined as any, 'normal');
-    doc.text(`${companyData.companyStreet}, ${companyData.companyPostalCode} ${companyData.companyCity}`, 20, yPos);
-    yPos += 5;
-    doc.setFont(undefined as any, 'italic');
-    doc.text("- Auftraggeber -", 20, yPos);
-    yPos += 10;
-
-    doc.setFont(undefined as any, 'normal');
-    doc.text("und", 20, yPos);
-    yPos += 8;
-
-    doc.setFont(undefined as any, 'bold');
-    doc.text(`${contract.lastName}, ${contract.firstName}`, 20, yPos);
-    yPos += 5;
-    doc.setFont(undefined as any, 'normal');
-    doc.text(`${contract.street}, ${contract.postalCode} ${contract.city}`, 20, yPos);
-    yPos += 5;
-    doc.text(`Tel: ${contract.phone || '-'}, E-Mail: ${contract.email}`, 20, yPos);
-    yPos += 5;
-    doc.setFont(undefined as any, 'italic');
-    doc.text("- Auftragnehmer -", 20, yPos);
-    yPos += 10;
-
-    doc.setFont(undefined as any, 'normal');
-    doc.text(`IBAN: ${contract.iban}`, 20, yPos);
-    yPos += 5;
-    doc.text(`Geb.: ${contract.dateOfBirth}`, 20, yPos);
-    yPos += 15;
-
-    const addSection = (title: string, content: string) => {
-      if (yPos > 260) {
-        doc.addPage();
-        yPos = 20;
-      }
-      doc.setFont(undefined as any, 'bold');
-      doc.text(title, 20, yPos);
-      yPos += 6;
-      doc.setFont(undefined as any, 'normal');
-      const lines = doc.splitTextToSize(content, 170);
-      doc.text(lines, 20, yPos);
-      yPos += lines.length * 5 + 8;
-    };
-
-    addSection("Präambel", 
-      `Die ${companyData.companyName} bietet die Möglichkeit für einzelne Tage stundenweise Tätigkeiten im Bereich der IMC-Pflege, Anästhesiepflege und ärztlichen Anästhesie anzubieten. Der Auftragnehmer ist bereit, künftig nach Absprache für die Leistungserbringung in seinem Fachbereich auf Abruf stundenweise zur Verfügung zu stehen.`
-    );
-
-    addSection("1. Vertragsgegenstand", 
-      `Der Auftragnehmer ist ${role.description}, in der Schweiz anerkannt. Er verpflichtet sich, Leistungen als ${role.roleTitle} für den Auftraggeber zu erbringen. Der Auftragnehmer erbringt seine Leistungen in eigener fachlicher Verantwortung. Der Auftragnehmer beachtet die Weisungen der Geschäftsleitung und der Leitenden Chirurgin (Dr. med. Lena Schumann). Er hat Pausen (ohne Vergütung) auf Anweisung wahrzunehmen.`
-    );
-
-    addSection("2. Arbeitsort", 
-      `Der Arbeitsort befindet sich an der ${companyData.companyName}, ${companyData.companyStreet}, ${companyData.companyPostalCode} ${companyData.companyCity}.`
-    );
-
-    addSection("3. Arbeitszeit und Abruf", 
-      `Der Einsatz erfolgt nach Bedarf der Auftraggeberin. Termine, die der Auftragnehmer schriftlich oder per E-Mail bestätigt, sind verbindlich. Die Termine dürfen nur im Krankheitsfall abgesagt werden, wobei der Auftragnehmer möglichst frühzeitig (48h vorher) einen voraussichtlichen Ausfall mitzuteilen hat. Er hat die Auftraggeberin auch über die voraussichtliche Eventualität eines krankheitsbedingten Ausfalls frühzeitig zu informieren, damit rechtzeitig Ersatzpersonal geplant werden kann.`
-    );
-
-    addSection("4. Vergütung", 
-      `Der Auftragnehmer erhält für die erbrachte Arbeitsleistung einen Bruttolohn pro Stunde in Höhe von ${role.rate} (${role.title}). Die Auszahlung erfolgt im Folgemonat des Einsatzes auf das von dem Auftragnehmer angegebene Bankkonto. Der Auftragnehmer hat den Stundeneinsatz pro Tag von der ärztlichen Leitung (Dr. med. Lena Schumann) bestätigen zu lassen. Am Ende des Monats reicht der Auftragnehmer seine bestätigte Stundenaufstellung zur Abrechnung bei der Auftraggeberin ein.`
-    );
-
-    addSection("5. Sozialversicherungen", 
-      `Dieser Vertrag unterliegt den gesetzlichen Vorschriften der Sozialversicherungen in der Schweiz. Der Auftraggeber verpflichtet sich, alle erforderlichen Abgaben für AHV, ALV abzuführen. Vom Bruttolohn werden die Auftragnehmerbeiträge in Abzug gebracht.`
-    );
-
-    addSection("6. Einschluss und Abgeltung von Ferienansprüchen und Lohnfortzahlung", 
-      `Angesichts der kurzen Dauer der Arbeitseinsätze werden der Ferienanspruch sowie der Anspruch auf Lohnfortzahlung bei unverschuldeter Verhinderung an der Arbeitsleistung (Krankheit, Unfall, usw.) durch den vereinbarten Bruttolohn abgegolten. Für Feiertage und bezahlte Absenzen besteht kein besonderer Lohnanspruch, da die entsprechende Entschädigung mit Rücksicht auf die kurze Dauer der Arbeitseinsätze im Lohn eingeschlossen ist.`
-    );
-
-    addSection("7. Vertraulichkeit", 
-      `Der Auftragnehmer verpflichtet sich, alle im Zusammenhang mit seiner Tätigkeit bekannt gewordenen Informationen über den Auftraggeber und dessen Geschäftsabläufe vertraulich zu behandeln und nicht an Dritte weiterzugeben.`
-    );
-
-    addSection("8. Beendigung des Arbeitsverhältnisses", 
-      `Die Vereinbarung kann mit einer Frist von einem Monat gekündigt werden.`
-    );
-
-    addSection("9. Weitere Bestimmungen", 
-      `Änderungen oder Ergänzungen dieses Vertrags bedürfen der Schriftform. Mündliche Abreden sind ungültig.`
-    );
-
-    addSection("10. Recht und Gerichtsstand", 
-      `Soweit nicht die Bestimmungen dieses Vertrags vorgehen, gelten die allgemeinen Bestimmungen des Obligationenrechts. Abänderungen, Ergänzungen oder die Aufhebung des vorliegenden Vertrages sind nur in Schriftform und von beiden Vertragsparteien unterzeichnet rechtsgültig. Sollten Teile dieses Vertrages unwirksam sein, so wird hierdurch die Gültigkeit der übrigen Bestimmungen nicht berührt. An die Stelle unwirksamer Bestimmungen treten sinngemäss die einschlägigen gesetzlichen Bestimmungen. Auf diesen Arbeitsvertrag ist schweizerisches Recht anwendbar. Der Gerichtsstand ist Kreuzlingen. Jede Vertragspartei erhält ein Exemplar dieses Vertrages.`
-    );
-
-    if (yPos > 220) {
-      doc.addPage();
-      yPos = 20;
-    }
-    
-    doc.line(20, yPos, 190, yPos);
-    yPos += 10;
-
-    if (contract.workerSignature) {
-      doc.text(`${contract.workerSignatureLocation || 'Ort'}, ${formatDate(new Date(contract.workerSignedAt || contract.createdAt))}`, 20, yPos);
-      yPos += 5;
-      doc.text("Auftragnehmer/in", 20, yPos);
-      yPos += 3;
-      try {
-        doc.addImage(contract.workerSignature, 'PNG', 20, yPos, 50, 20);
-      } catch (e) {
-        console.warn('Failed to add worker signature:', e);
-      }
-    }
-
-    if (contract.managerSignature && contract.managerSignedAt) {
-      doc.text(`Kreuzlingen, ${formatDate(new Date(contract.managerSignedAt))}`, 120, yPos - 8);
-      doc.text(companyData.companyName || "Klinik", 120, yPos - 3);
-      doc.text(contract.managerName || "Manager", 120, yPos + 2);
-      try {
-        doc.addImage(contract.managerSignature, 'PNG', 120, yPos + 5, 50, 20);
-      } catch (e) {
-        console.warn('Failed to add manager signature:', e);
-      }
-    }
-
-    // Return base64 without the data:application/pdf;base64, prefix
-    const pdfData = doc.output('datauristring');
-    return pdfData.split(',')[1];
+    const blob = await pdf(
+      <ContractDocumentPdf
+        blocks={snapshot.blocks}
+        data={data}
+        workerSignaturePng={contract.workerSignature ?? null}
+        managerSignaturePng={contract.managerSignature ?? null}
+      />
+    ).toBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const lastName = contract.lastName ?? "contract";
+    a.download = `${lastName}-${contract.id.slice(0, 8)}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleSendContractEmail = async (contract: WorkerContract) => {
@@ -796,13 +238,22 @@ export default function Contracts() {
       toast({ title: t('business.contracts.toast.emailError'), description: t('business.contracts.toast.noEmail'), variant: "destructive" });
       return;
     }
-    
-    const pdfBase64 = await generateContractPDFBase64(contract);
-    if (!pdfBase64) {
-      toast({ title: t('business.contracts.toast.emailError'), description: t('business.contracts.toast.pdfError'), variant: "destructive" });
+    const snapshot = contract.templateSnapshot;
+    const data = contract.data;
+    if (!snapshot || !data) {
+      toast({ title: t('business.contracts.toast.emailError'), description: t('business.contracts.toast.legacyContract'), variant: "destructive" });
       return;
     }
-    
+    const blob = await pdf(
+      <ContractDocumentPdf
+        blocks={snapshot.blocks}
+        data={data}
+        workerSignaturePng={contract.workerSignature ?? null}
+        managerSignaturePng={contract.managerSignature ?? null}
+      />
+    ).toBlob();
+    const arrayBuffer = await blob.arrayBuffer();
+    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
     sendContractEmailMutation.mutate({ contractId: contract.id, pdfBase64 });
   };
 
@@ -882,7 +333,7 @@ export default function Contracts() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => generateContractPDF(contract)}
+                      onClick={() => downloadContractPDF(contract)}
                       data-testid={`button-download-contract-${contract.id}`}
                     >
                       <Download className="w-4 h-4 sm:mr-1" />
@@ -1090,14 +541,21 @@ export default function Contracts() {
           <DialogHeader>
             <DialogTitle>{t('business.contracts.dialog.viewTitle')}</DialogTitle>
           </DialogHeader>
-          {selectedContract && companyData && (
+          {selectedContract && (
             <div className="space-y-4">
-              <ContractPreview 
-                contract={selectedContract} 
-                companyData={companyData}
-                showSignatures={true}
-              />
-              
+              {selectedContract.templateSnapshot ? (
+                <ContractDocument
+                  blocks={(selectedContract.templateSnapshot?.blocks ?? []) as any}
+                  data={(selectedContract.data ?? {}) as Record<string, unknown>}
+                  workerSignaturePng={selectedContract.workerSignature ?? null}
+                  managerSignaturePng={selectedContract.managerSignature ?? null}
+                />
+              ) : (
+                <p className="text-sm text-gray-500 italic py-4 text-center">
+                  {t('business.contracts.preview.legacyNoSnapshot')}
+                </p>
+              )}
+
               <div className="flex gap-2 pt-4 border-t">
                 {selectedContract.status === 'pending_manager_signature' && (
                   <Button
@@ -1114,7 +572,7 @@ export default function Contracts() {
                 {selectedContract.status === 'signed' && (
                   <Button
                     variant="outline"
-                    onClick={() => generateContractPDF(selectedContract)}
+                    onClick={() => downloadContractPDF(selectedContract)}
                     data-testid="button-download-from-view"
                   >
                     <Download className="w-4 h-4 mr-2" />
@@ -1135,16 +593,23 @@ export default function Contracts() {
               {t('business.contracts.dialog.signDescription')}
             </DialogDescription>
           </DialogHeader>
-          {selectedContract && companyData && (
+          {selectedContract && (
             <div className="space-y-4">
-              <ContractPreview 
-                contract={selectedContract} 
-                companyData={companyData}
-                showSignatures={true}
-              />
-              
+              {selectedContract.templateSnapshot ? (
+                <ContractDocument
+                  blocks={(selectedContract.templateSnapshot?.blocks ?? []) as any}
+                  data={(selectedContract.data ?? {}) as Record<string, unknown>}
+                  workerSignaturePng={selectedContract.workerSignature ?? null}
+                  managerSignaturePng={selectedContract.managerSignature ?? null}
+                />
+              ) : (
+                <p className="text-sm text-gray-500 italic py-4 text-center">
+                  {t('business.contracts.preview.legacyNoSnapshot')}
+                </p>
+              )}
+
               <div className="border-t pt-4">
-                <Button 
+                <Button
                   className="w-full"
                   onClick={() => setShowSignaturePad(true)}
                   data-testid="button-open-signature-pad"
