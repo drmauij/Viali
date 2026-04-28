@@ -111,6 +111,7 @@ router.post('/api/controlled/extract-patient-info', isAuthenticated, requirePerm
 router.post('/api/controlled/dispense', isAuthenticated, requirePermission('canManageControlled'), async (req: any, res) => {
   try {
     const userId = req.user.id;
+    const activeUnitId = getActiveUnitIdFromRequest(req);
     const { items: dispenseItems, patientId, patientPhoto, notes, signatures } = req.body;
     
     if (!dispenseItems || !Array.isArray(dispenseItems) || dispenseItems.length === 0) {
@@ -131,11 +132,11 @@ router.post('/api/controlled/dispense', isAuthenticated, requirePermission('canM
           throw new Error(`Item ${item.itemId} not found`);
         }
         
-        const unitId = await getUserUnitForHospital(userId, itemData.hospitalId);
+        const unitId = await getUserUnitForHospital(userId, itemData.hospitalId, activeUnitId || undefined);
         if (!unitId) {
           throw new Error("Access denied to this hospital");
         }
-        
+
         if (itemData.unitId !== unitId) {
           throw new Error(`Access denied to item ${item.itemId}'s unit`);
         }
@@ -201,6 +202,7 @@ router.post('/api/controlled/dispense', isAuthenticated, requirePermission('canM
 router.post('/api/controlled/adjust', isAuthenticated, requirePermission('canManageControlled'), async (req: any, res) => {
   try {
     const userId = req.user.id;
+    const activeUnitId = getActiveUnitIdFromRequest(req);
     const { itemId, newCurrentUnits, notes, signature, attachmentPhoto } = req.body;
     
     if (!itemId) {
@@ -228,11 +230,11 @@ router.post('/api/controlled/adjust', isAuthenticated, requirePermission('canMan
       return res.status(400).json({ message: "Item must have exact quantity tracking enabled" });
     }
     
-    const unitId = await getUserUnitForHospital(userId, item.hospitalId);
+    const unitId = await getUserUnitForHospital(userId, item.hospitalId, activeUnitId || undefined);
     if (!unitId) {
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
-    
+
     if (item.unitId !== unitId) {
       return res.status(403).json({ message: "Access denied to this item's location" });
     }
