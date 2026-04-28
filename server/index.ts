@@ -17,6 +17,7 @@ import { startWorker } from "./worker";
 import { backfillChecklistTemplateAssignments } from "./storage/checklists";
 import { cleanupExpiredPortalData } from "./storage/portalOtp";
 import { cleanupExpiredIdempotencyKeys } from "./storage/bookingIdempotency";
+import { seedAllOwners } from "./seed/seedContractTemplates";
 import { sendPublicApiError } from "./lib/publicApiErrors";
 import logger from "./logger";
 
@@ -260,6 +261,13 @@ app.use((req, res, next) => {
       await backfillChecklistTemplateAssignments();
     } catch (err) {
       logger.warn("Checklist assignment backfill skipped or failed:", err);
+    }
+
+    try {
+      const seedRes = await seedAllOwners();
+      log(`[seed] contract template starters: ${seedRes.chainsSeeded} chains, ${seedRes.hospitalsSeeded} hospitals`);
+    } catch (err) {
+      logger.warn("Contract template seed skipped or failed:", err);
     }
 
     const server = await registerRoutes(app);
