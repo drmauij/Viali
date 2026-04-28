@@ -174,8 +174,10 @@ function drawShiftsTable(
     ["", ...weekdays.map((d) => format(d, "d", dateOpts))],
   ];
 
-  // Body. Cells carry metadata used by didDrawCell to draw the stacked
-  // (OP-strip-above, shift-fill-below) layout that mirrors the in-app cell.
+  // Body. All data cells are rendered manually in didDrawCell so the shift
+  // appears as a rounded inset box (matching the in-app view) and the OP dot
+  // floats above it. We tell autoTable to render the cells empty/white so it
+  // doesn't paint the full-cell shift color over our drawing.
   const body = input.providers.map((p) => {
     const name =
       `${p.lastName}, ${p.firstName}`.replace(/^,\s*/, "").replace(/,\s*$/, "") ||
@@ -195,21 +197,11 @@ function drawShiftsTable(
         shiftColor: shiftType?.color ?? null,
         isAbsent,
       };
-      if (shiftType) {
-        cells.push({
-          content: shiftType.code || "",
-          _opMeta: meta,
-          styles: {
-            fillColor: hexToRgb(shiftType.color),
-            textColor: [255, 255, 255],
-            fontStyle: "bold",
-          },
-        });
-      } else if (isAbsent) {
-        cells.push({ content: "", _opMeta: meta, styles: { fillColor: [229, 231, 235] } });
-      } else {
-        cells.push({ content: "", _opMeta: meta });
-      }
+      cells.push({
+        content: "",
+        _opMeta: meta,
+        styles: { fillColor: [255, 255, 255] },
+      });
     }
     return cells;
   });
@@ -228,47 +220,46 @@ function drawShiftsTable(
       // Skip headers and the leftmost staff-name column.
       if (data.section !== "body" || data.column.index === 0) return;
       const meta = data.cell.raw?._opMeta;
-      if (!meta?.opRole) return;
+      if (!meta) return;
 
-      // Mirror the in-app stacked cell: a small light-grey strip on top
-      // containing the green dot, with the shift fill (or absence grey)
-      // BELOW it. We repaint the cell over autoTable's default render to
-      // get the two-band layout.
+      // Replicate the in-app cell: a small floating green dot at the top
+      // (shown only when the provider has an OP role assignment), and a
+      // rounded inset box with the shift color (or absence grey) below it.
       const { x, y, width, height } = data.cell;
-      const inset = 0.2;        // keep autoTable's cell border visible
-      const stripH = 2.4;       // height of the top OP strip in mm
+      const sidePad = 0.8;     // horizontal padding around the shift box
+      const dotRadius = 0.75;
+      const dotMargin = 1.2;   // distance from cell top to dot center
 
-      // ── Top strip: muted grey with green dot ─────────────────────────
-      doc.setFillColor(229, 231, 235); // tailwind muted/200
-      doc.rect(x + inset, y + inset, width - inset * 2, stripH, "F");
-      doc.setFillColor(34, 197, 94);   // tailwind green-500
-      doc.circle(x + inset + 1.5, y + inset + stripH / 2, 0.7, "F");
+      // 1) Floating green dot (top-center of cell). No background strip —
+      //    matches the bare dot in the screen version.
+      if (meta.opRole) {
+        doc.setFillColor(34, 197, 94); // tailwind green-500
+        doc.circle(x + width / 2, y + dotMargin, dotRadius, "F");
+      }
 
-      // ── Bottom strip: shift fill (if any), absence grey, or white ────
-      const botY = y + inset + stripH;
-      const botH = height - inset * 2 - stripH;
+      // 2) Rounded shift / absence box, inset from cell edges. The top of the
+      //    box leaves room for the dot when present; otherwise centers the box.
+      const topPad = meta.opRole ? dotMargin + dotRadius + 0.6 : 1.0;
+      const botPad = 0.8;
+      const boxX = x + sidePad;
+      const boxY = y + topPad;
+      const boxW = width - sidePad * 2;
+      const boxH = height - topPad - botPad;
+
       if (meta.shiftColor) {
         const [r, g, b] = hexToRgb(meta.shiftColor);
         doc.setFillColor(r, g, b);
-        doc.rect(x + inset, botY, width - inset * 2, botH, "F");
-        // Re-draw the shift code centered in the bottom strip.
+        doc.roundedRect(boxX, boxY, boxW, boxH, 0.6, 0.6, "F");
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7);
-        doc.text(
-          meta.shiftCode ?? "",
-          x + width / 2,
-          botY + botH / 2 + 1.1,
-          { align: "center" },
-        );
+        doc.text(meta.shiftCode ?? "", boxX + boxW / 2, boxY + boxH / 2 + 1.0, { align: "center" });
         doc.setTextColor(0);
       } else if (meta.isAbsent) {
         doc.setFillColor(229, 231, 235);
-        doc.rect(x + inset, botY, width - inset * 2, botH, "F");
-      } else {
-        doc.setFillColor(255, 255, 255);
-        doc.rect(x + inset, botY, width - inset * 2, botH, "F");
+        doc.roundedRect(boxX, boxY, boxW, boxH, 0.6, 0.6, "F");
       }
+      // else: no shift, no absence — leave white. (Dot may still be drawn above.)
     },
     didDrawPage: (data: any) => {
       const pageCount = doc.getNumberOfPages();
@@ -332,20 +323,18 @@ function drawLegend(doc: any, types: ShiftType[], hasOpRoles: boolean, strings: 
 
   if (hasOpRoles) {
     placeEntry(() => {
-      // Sample of the OP marker: stacked layout — grey strip with green dot
-      // above a sample shift-color strip. Mirrors what cells look like in the table.
+      // Sample of the OP marker: green dot floating above a rounded purple
+      // shift box. Mirrors how cells look in the table.
       const swX = cursorX;
-      const swY = cursorY - 3;
+      const swY = cursorY - 3.2;
       const swW = 8;
-      const swH = 4;
-      // Top strip (1.6mm) — grey with green dot
-      doc.setFillColor(229, 231, 235);
-      doc.rect(swX, swY, swW, 1.6, "F");
+      const swH = 4.2;
+      // Floating green dot, centered horizontally over the swatch
       doc.setFillColor(34, 197, 94);
-      doc.circle(swX + 1.4, swY + 0.8, 0.65, "F");
-      // Bottom strip (2.4mm) — illustrative purple to show how it stacks above a shift fill
-      doc.setFillColor(99, 102, 241);
-      doc.rect(swX, swY + 1.6, swW, swH - 1.6, "F");
+      doc.circle(swX + swW / 2, swY + 0.6, 0.6, "F");
+      // Rounded shift swatch
+      doc.setFillColor(99, 102, 241); // illustrative shift color
+      doc.roundedRect(swX, swY + 1.4, swW, swH - 1.4, 0.5, 0.5, "F");
       doc.text(strings.plannedInOp, swX + 11, cursorY);
     });
   }
