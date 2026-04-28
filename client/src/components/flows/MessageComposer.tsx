@@ -36,6 +36,9 @@ function summarizeSelectedElement(snippet: string): string {
     H1: "Heading", H2: "Heading", H3: "Heading", H4: "Heading", H5: "Heading", H6: "Heading",
     P: "Paragraph", LI: "List item", A: "Link", BUTTON: "Button",
     IMG: "Image", BLOCKQUOTE: "Quote",
+    SPAN: "Phrase", STRONG: "Phrase", EM: "Phrase", B: "Phrase", I: "Phrase",
+    SMALL: "Phrase", MARK: "Phrase", CODE: "Phrase",
+    DIV: "Card", TABLE: "Card", TD: "Cell",
   };
   const label = human[tag] || tag;
   return preview ? `${label} "${preview}"` : label;

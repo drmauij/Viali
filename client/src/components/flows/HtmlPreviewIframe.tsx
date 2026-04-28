@@ -32,6 +32,29 @@ function findSelectableAncestor(start: Element, root: Element): Element | null {
   return null;
 }
 
+// Walk up looking for a "card" — the nearest DIV / TABLE / TD that has
+// a visual boundary (border, border-radius, box-shadow, or explicit
+// background). Used by Alt-click to widen selection from inner content
+// to the enclosing visual unit (treatment card, hero box, CTA banner).
+function findCardAncestor(start: Element, root: Element, win: Window): Element | null {
+  let n: Element | null = start;
+  while (n && n !== root) {
+    if (n.tagName === "DIV" || n.tagName === "TABLE" || n.tagName === "TD") {
+      const cs = win.getComputedStyle(n);
+      const hasRadius = cs.borderRadius !== "0px";
+      const hasShadow = cs.boxShadow !== "none";
+      const hasBorder =
+        parseFloat(cs.borderTopWidth || "0") > 0 ||
+        parseFloat(cs.borderRightWidth || "0") > 0 ||
+        parseFloat(cs.borderBottomWidth || "0") > 0 ||
+        parseFloat(cs.borderLeftWidth || "0") > 0;
+      if (hasRadius || hasShadow || hasBorder) return n;
+    }
+    n = n.parentElement;
+  }
+  return null;
+}
+
 function pathToElement(root: Element, path: number[]): Element | null {
   let n: Element | null = root;
   for (const idx of path) {
@@ -107,11 +130,22 @@ export function HtmlPreviewIframe({
         return;
       }
 
+      const win = doc.defaultView;
+      const pickTarget = (target: Element, altKey: boolean): Element | null => {
+        // Alt held: prefer the enclosing card. Fall back to inner
+        // content if no visual-boundary ancestor exists.
+        if (altKey && win) {
+          const card = findCardAncestor(target, doc.body, win);
+          if (card) return card;
+        }
+        return findSelectableAncestor(target, doc.body);
+      };
+
       // Hover outline.
       const onMove = (ev: MouseEvent) => {
         const target = ev.target as Element | null;
         if (!target) return;
-        const sel = findSelectableAncestor(target, doc.body);
+        const sel = pickTarget(target, ev.altKey);
         doc.querySelectorAll("[data-vai-hover]").forEach((el) =>
           el.removeAttribute("data-vai-hover"),
         );
@@ -125,7 +159,7 @@ export function HtmlPreviewIframe({
       const onClick = (ev: MouseEvent) => {
         const target = ev.target as Element | null;
         if (!target) return;
-        const sel = findSelectableAncestor(target, doc.body);
+        const sel = pickTarget(target, ev.altKey);
         if (sel) {
           ev.preventDefault();
           const path = computeDomPath(sel, doc.body);
