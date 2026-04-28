@@ -5211,6 +5211,7 @@ export const contractTemplates = pgTable("contract_templates", {
   variables: jsonb("variables").notNull().default(sql`'{"simple":[],"selectableLists":[]}'::jsonb`),
   isStarterClone: boolean("is_starter_clone").notNull().default(false),
   starterKey: varchar("starter_key"),
+  publicToken: varchar("public_token").unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   archivedAt: timestamp("archived_at"),

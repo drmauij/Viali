@@ -319,15 +319,46 @@ router.post("/api/public/contracts/t/:token/submit", pathBLimiter, async (req, r
   }
 });
 
-// Resolves a legacy hospital token to the seeded on-call template.
+// Resolves a token to a template (per-template share token first, then legacy hospital token).
 async function resolveTemplateByLegacyToken(token: string) {
   const r = await resolveTemplateAndHospital(token);
   return r?.tmpl;
 }
 
-// Resolves the legacy hospital contractToken → hospital row + the seeded on-call template.
-// Looks up the chain-owned template first (preferred), then falls back to the hospital-owned one.
+// Token resolution order:
+//   1. contract_templates.public_token  → that template + a hospital that can own it
+//   2. hospitals.contract_token         → seeded on_call_v1 template (legacy fallback)
 async function resolveTemplateAndHospital(token: string) {
+  // (1) Per-template share token
+  const [tmplByToken] = await db
+    .select()
+    .from(contractTemplates)
+    .where(
+      and(
+        eq(contractTemplates.publicToken, token),
+        isNull(contractTemplates.archivedAt),
+      ),
+    );
+
+  if (tmplByToken) {
+    // Pick a hospital that owns/can-own this template, so injectAuto has hospital context.
+    let hospital: any | undefined;
+    if (tmplByToken.ownerHospitalId) {
+      [hospital] = await db
+        .select()
+        .from(hospitals)
+        .where(eq(hospitals.id, tmplByToken.ownerHospitalId));
+    } else if (tmplByToken.ownerChainId) {
+      [hospital] = await db
+        .select()
+        .from(hospitals)
+        .where(eq(hospitals.groupId, tmplByToken.ownerChainId));
+    }
+    if (!hospital) return undefined;
+    return { tmpl: tmplByToken, hospitalId: hospital.id, hospital };
+  }
+
+  // (2) Legacy hospital token → seeded on_call_v1 template
   const [hospital] = await db
     .select()
     .from(hospitals)

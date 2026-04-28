@@ -1,14 +1,23 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, FileText, Clock } from "lucide-react";
 import SimplifiedStaff from "./SimplifiedStaff";
 import Contracts from "./Contracts";
 import WorklogManagement from "../WorklogManagement";
 
+const TAB_BY_PATH: Record<string, string> = {
+  "/business/contracts": "contracts",
+  "/business/worklogs": "worklogs",
+  "/business/hr": "staff",
+};
+
 export default function HR() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState("staff");
+  const [location] = useLocation();
+  const initial = TAB_BY_PATH[location] ?? "staff";
+  const [activeTab, setActiveTab] = useState(initial);
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">

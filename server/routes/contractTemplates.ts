@@ -7,7 +7,21 @@ import { hospitals } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import * as contractTemplatesStorage from "../storage/contractTemplatesStorage";
 import type { InsertContractTemplate, ContractTemplate } from "@shared/schema";
+import { suggestTemplate } from "../services/contractTemplateAI";
 import logger from "../logger";
+
+const aiSuggestInput = z.object({
+  prompt: z.string().min(1).max(4000),
+  currentBlocks: z.array(z.any()).default([]),
+  currentVariables: z
+    .object({
+      simple: z.array(z.any()).default([]),
+      selectableLists: z.array(z.any()).default([]),
+    })
+    .default({ simple: [], selectableLists: [] }),
+  language: z.string().default("de"),
+  selectedBlockId: z.string().nullish(),
+});
 
 // ---------------------------------------------------------------------------
 // Ownership helpers — exported so contractInstances.ts can reuse them
@@ -259,6 +273,50 @@ router.post(
   },
 );
 
+// POST — AI suggest (hospital scope) — body: { prompt, currentBlocks, currentVariables, language }
+router.post(
+  "/api/business/:hospitalId/contract-templates/:id/ai-suggest",
+  isAuthenticated,
+  isBusinessManager,
+  async (req, res) => {
+    try {
+      const tmpl = await contractTemplatesStorage.getById(req.params.id);
+      if (!tmpl) return res.status(404).end();
+      if (!await assertHospitalCanAccessTemplate(tmpl, req.params.hospitalId)) {
+        return res.status(403).json({ error: "forbidden" });
+      }
+      const parsed = aiSuggestInput.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+      const out = await suggestTemplate(parsed.data);
+      res.json(out);
+    } catch (error: any) {
+      logger.error("AI suggest failed:", error);
+      res.status(500).json({ message: error?.message ?? "AI suggest failed" });
+    }
+  },
+);
+
+// POST — regenerate share token (hospital scope)
+router.post(
+  "/api/business/:hospitalId/contract-templates/:id/regenerate-token",
+  isAuthenticated,
+  isBusinessManager,
+  async (req, res) => {
+    try {
+      const tmpl = await contractTemplatesStorage.getById(req.params.id);
+      if (!tmpl) return res.status(404).end();
+      if (!await assertHospitalCanAccessTemplate(tmpl, req.params.hospitalId)) {
+        return res.status(403).json({ error: "forbidden" });
+      }
+      const updated = await contractTemplatesStorage.regeneratePublicToken(req.params.id);
+      res.json(updated);
+    } catch (error) {
+      logger.error("Error regenerating contract template token:", error);
+      res.status(500).json({ message: "Failed to regenerate token" });
+    }
+  },
+);
+
 // ---------------------------------------------------------------------------
 // Chain-scoped routes  (/api/chain/:groupId/contract-templates/...)
 // Note: param is :groupId to match the rest of the chain routes in chain.ts
@@ -391,6 +449,50 @@ router.post(
     } catch (error) {
       logger.error("Error archiving chain contract template:", error);
       res.status(500).json({ message: "Failed to archive chain contract template" });
+    }
+  },
+);
+
+// POST — AI suggest (chain scope)
+router.post(
+  "/api/chain/:groupId/contract-templates/:id/ai-suggest",
+  isAuthenticated,
+  isChainAdmin,
+  async (req, res) => {
+    try {
+      const tmpl = await contractTemplatesStorage.getById(req.params.id);
+      if (!tmpl) return res.status(404).end();
+      if (!assertChainCanAccessTemplate(tmpl, req.params.groupId)) {
+        return res.status(403).json({ error: "forbidden" });
+      }
+      const parsed = aiSuggestInput.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+      const out = await suggestTemplate(parsed.data);
+      res.json(out);
+    } catch (error: any) {
+      logger.error("AI suggest (chain) failed:", error);
+      res.status(500).json({ message: error?.message ?? "AI suggest failed" });
+    }
+  },
+);
+
+// POST — regenerate share token (chain scope)
+router.post(
+  "/api/chain/:groupId/contract-templates/:id/regenerate-token",
+  isAuthenticated,
+  isChainAdmin,
+  async (req, res) => {
+    try {
+      const tmpl = await contractTemplatesStorage.getById(req.params.id);
+      if (!tmpl) return res.status(404).end();
+      if (!assertChainCanAccessTemplate(tmpl, req.params.groupId)) {
+        return res.status(403).json({ error: "forbidden" });
+      }
+      const updated = await contractTemplatesStorage.regeneratePublicToken(req.params.id);
+      res.json(updated);
+    } catch (error) {
+      logger.error("Error regenerating chain contract template token:", error);
+      res.status(500).json({ message: "Failed to regenerate token" });
     }
   },
 );

@@ -1,10 +1,12 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileText, Plus, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { FileText, Plus, Loader2, ArrowLeft, Link2, Check, Files, Trash2 } from "lucide-react";
 import type { ContractTemplate } from "@shared/schema";
 
 interface Props {
@@ -21,6 +23,8 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
 export function TemplateGallery({ scope, ownerId }: Props) {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
+  const { toast } = useToast();
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const base =
     scope === "hospital"
@@ -48,8 +52,61 @@ export function TemplateGallery({ scope, ownerId }: Props) {
     },
   });
 
+  const cloneTemplate = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest("POST", `${base}/${id}/clone`, {}).then((r) => r.json()),
+    onSuccess: (created: ContractTemplate) => {
+      qc.invalidateQueries({ queryKey: [base] });
+      toast({ title: "Template duplicated", description: "Opening the new copy for editing." });
+      navigate(`${editBase}/${created.id}`);
+    },
+    onError: () =>
+      toast({ title: "Failed to duplicate template", variant: "destructive" }),
+  });
+
+  const deleteTemplate = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `${base}/${id}/archive`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [base] });
+      toast({ title: "Template deleted" });
+    },
+    onError: () =>
+      toast({ title: "Failed to delete template", variant: "destructive" }),
+  });
+
+  const backHref = scope === "hospital" ? "/business/contracts" : "/business/contracts";
+
+  const shareUrlFor = (token: string | null) =>
+    token ? `${window.location.origin}/contract/t/${token}` : null;
+
+  const handleCopy = async (t: ContractTemplate) => {
+    const url = shareUrlFor(t.publicToken);
+    if (!url) {
+      toast({
+        title: "No share link yet",
+        description: "Open the template and save it once to generate a link.",
+        variant: "destructive",
+      });
+      return;
+    }
+    await navigator.clipboard.writeText(url);
+    setCopiedId(t.id);
+    setTimeout(() => setCopiedId((id) => (id === t.id ? null : id)), 2000);
+    toast({ title: "Share link copied", description: url });
+  };
+
   return (
     <div className="space-y-4 p-6">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate(backHref)}
+        className="-ml-2 h-8 text-muted-foreground"
+        data-testid="button-back-to-contracts"
+      >
+        <ArrowLeft className="h-4 w-4 mr-1" />
+        Back to Contracts
+      </Button>
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Contract Templates</h1>
         <Button
@@ -111,13 +168,65 @@ export function TemplateGallery({ scope, ownerId }: Props) {
                     </div>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate(`${editBase}/${t.id}`)}
-                >
-                  Edit
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleCopy(t)}
+                    disabled={t.status !== "active" || !t.publicToken}
+                    title={
+                      t.status !== "active"
+                        ? "Activate the template before sharing"
+                        : t.publicToken
+                          ? "Copy share link"
+                          : "No link yet"
+                    }
+                    data-testid={`button-copy-share-link-${t.id}`}
+                  >
+                    {copiedId === t.id ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Link2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => cloneTemplate.mutate(t.id)}
+                    disabled={cloneTemplate.isPending}
+                    title="Duplicate template (e.g. to translate or modify)"
+                    data-testid={`button-clone-${t.id}`}
+                  >
+                    <Files className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate(`${editBase}/${t.id}`)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const ok = window.confirm(
+                        `Delete the template "${t.name}"?\n\n` +
+                          `• The share link will stop working.\n` +
+                          `• Contracts already submitted with this template KEEP a frozen copy and remain valid.\n` +
+                          `• You can recreate or duplicate a starter at any time.\n\n` +
+                          `Continue?`,
+                      );
+                      if (ok) deleteTemplate.mutate(t.id);
+                    }}
+                    disabled={deleteTemplate.isPending}
+                    title="Delete template"
+                    className="text-destructive hover:text-destructive"
+                    data-testid={`button-delete-${t.id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </CardContent>

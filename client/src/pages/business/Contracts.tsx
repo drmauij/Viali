@@ -14,7 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
+import type { ContractTemplate } from "@shared/schema";
 import SignaturePad from "@/components/SignaturePad";
 import { 
   FileText, 
@@ -36,7 +38,8 @@ import {
   Archive,
   ArchiveRestore,
   Mail,
-  Settings2
+  Settings2,
+  ChevronDown
 } from "lucide-react";
 
 interface WorkerContract {
@@ -79,7 +82,6 @@ export default function Contracts() {
   const [showSignDialog, setShowSignDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [, navigate] = useLocation();
   
   const activeHospital = useMemo(() => {
@@ -109,15 +111,19 @@ export default function Contracts() {
     enabled: !!hospitalId,
   });
 
-  const { data: contractToken, refetch: refetchToken } = useQuery({
-    queryKey: ['/api/business', hospitalId, 'contract-token'],
+  const { data: templates = [] } = useQuery<ContractTemplate[]>({
+    queryKey: ['/api/business', hospitalId, 'contract-templates'],
     queryFn: async () => {
-      const res = await fetch(`/api/business/${hospitalId}/contract-token`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch token');
+      const res = await fetch(`/api/business/${hospitalId}/contract-templates`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch templates');
       return res.json();
     },
     enabled: !!hospitalId,
   });
+  const activeTemplates = templates.filter((tmpl) => tmpl.status === 'active' && tmpl.publicToken);
+  const draftTemplateCount = templates.filter((tmpl) => tmpl.status === 'draft').length;
+  const [copiedTemplateId, setCopiedTemplateId] = useState<string | null>(null);
+  const [showAllLinks, setShowAllLinks] = useState(true);
 
 const signContractMutation = useMutation({
     mutationFn: async ({ contractId, signature }: { contractId: string; signature: string }) => {
@@ -132,17 +138,6 @@ const signContractMutation = useMutation({
     },
     onError: () => {
       toast({ title: t('business.contracts.toast.signError'), description: t('business.contracts.toast.signErrorDesc'), variant: "destructive" });
-    },
-  });
-
-  const regenerateTokenMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('POST', `/api/business/${hospitalId}/contract-token/regenerate`, {});
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({ title: t('business.contracts.toast.linkRegenerated'), description: t('business.contracts.toast.linkRegeneratedDesc') });
-      refetchToken();
     },
   });
 
@@ -192,17 +187,13 @@ const signContractMutation = useMutation({
   const pendingContracts = activeContracts.filter(c => c.status === 'pending_manager_signature');
   const signedContracts = activeContracts.filter(c => c.status === 'signed');
 
-  const contractLink = contractToken?.contractToken 
-    ? `${window.location.origin}/contract/${contractToken.contractToken}`
-    : null;
-
-  const handleCopyLink = () => {
-    if (contractLink) {
-      navigator.clipboard.writeText(contractLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      toast({ title: t('business.contracts.toast.linkCopied'), description: t('business.contracts.toast.linkCopiedDesc') });
-    }
+  const handleCopyTemplateLink = async (tmpl: ContractTemplate) => {
+    if (!tmpl.publicToken) return;
+    const url = `${window.location.origin}/contract/t/${tmpl.publicToken}`;
+    await navigator.clipboard.writeText(url);
+    setCopiedTemplateId(tmpl.id);
+    setTimeout(() => setCopiedTemplateId((id) => (id === tmpl.id ? null : id)), 2000);
+    toast({ title: t('business.contracts.toast.linkCopied'), description: url });
   };
 
   const handleSignContract = (signature: string) => {
@@ -418,41 +409,97 @@ const signContractMutation = useMutation({
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Link2 className="w-5 h-5" />
-            {t('business.contracts.contractLinkTitle')}
-          </CardTitle>
-          <CardDescription>
-            {t('business.contracts.contractLinkDescription')}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            <Input 
-              value={contractLink || t('business.contracts.loading')} 
-              readOnly 
-              className="font-mono text-sm"
-              data-testid="input-contract-link"
-            />
-            <Button
-              variant="outline"
-              onClick={handleCopyLink}
-              disabled={!contractLink}
-              data-testid="button-copy-link"
-            >
-              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => regenerateTokenMutation.mutate()}
-              disabled={regenerateTokenMutation.isPending}
-              data-testid="button-regenerate-link"
-            >
-              <RefreshCw className={`w-4 h-4 ${regenerateTokenMutation.isPending ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
-        </CardContent>
+        <Collapsible open={showAllLinks} onOpenChange={setShowAllLinks}>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <CardTitle className="flex items-center gap-2">
+                    <Link2 className="w-5 h-5" />
+                    {t('business.contracts.contractLinkTitle')}
+                    <Badge variant="secondary" className="ml-1">
+                      {activeTemplates.length}
+                    </Badge>
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    {activeTemplates.length === 0
+                      ? "No active templates yet — create or activate one in Manage templates."
+                      : "Send the right link to the right worker. Each template has its own URL."}
+                    {draftTemplateCount > 0 && (
+                      <span className="ml-1 text-xs">
+                        ({draftTemplateCount} draft{draftTemplateCount === 1 ? '' : 's'} not shown)
+                      </span>
+                    )}
+                  </CardDescription>
+                </div>
+                <ChevronDown
+                  className={`w-5 h-5 shrink-0 text-muted-foreground transition-transform ${showAllLinks ? 'rotate-180' : ''}`}
+                />
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+
+          <CollapsibleContent>
+            <CardContent className="pt-0 space-y-2">
+              {activeTemplates.length === 0 ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/business/contracts/templates')}
+                  data-testid="button-go-to-templates"
+                >
+                  <Settings2 className="w-4 h-4 mr-2" />
+                  Manage templates
+                </Button>
+              ) : (
+                activeTemplates.map((tmpl) => {
+                  const url = `${window.location.origin}/contract/t/${tmpl.publicToken}`;
+                  return (
+                    <div
+                      key={tmpl.id}
+                      className="flex items-center gap-2 rounded border bg-background p-2"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 text-sm font-medium truncate">
+                          <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
+                          {tmpl.name}
+                          <span className="text-xs text-muted-foreground uppercase">
+                            {tmpl.language}
+                          </span>
+                        </div>
+                        <div className="font-mono text-xs text-muted-foreground truncate mt-1">
+                          {url}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCopyTemplateLink(tmpl)}
+                        title="Copy link"
+                        data-testid={`button-copy-template-link-${tmpl.id}`}
+                      >
+                        {copiedTemplateId === tmpl.id ? (
+                          <Check className="w-4 h-4" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate(`/business/contracts/templates/${tmpl.id}`)}
+                        title="Edit template"
+                        data-testid={`button-edit-template-${tmpl.id}`}
+                      >
+                        <Settings2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
 
       <Tabs defaultValue="pending" className="space-y-4">

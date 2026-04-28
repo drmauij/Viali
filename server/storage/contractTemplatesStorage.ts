@@ -1,8 +1,13 @@
 // server/storage/contractTemplatesStorage.ts
+import { randomUUID } from "node:crypto";
 import { db } from "../db";
 import { contractTemplates, hospitals, type ContractTemplate, type InsertContractTemplate } from "@shared/schema";
 import { and, eq, isNull, or } from "drizzle-orm";
 import type { TemplateBody } from "@shared/contractTemplates/types";
+
+function newShareToken(): string {
+  return randomUUID().replace(/-/g, "");
+}
 
 export async function listForHospital(hospitalId: string): Promise<ContractTemplate[]> {
   // Hospital sees: all chain-owned templates of its chain (if any), plus its own.
@@ -32,7 +37,27 @@ export async function getById(id: string): Promise<ContractTemplate | undefined>
 }
 
 export async function create(input: InsertContractTemplate): Promise<ContractTemplate> {
-  const [row] = await db.insert(contractTemplates).values(input).returning();
+  const [row] = await db
+    .insert(contractTemplates)
+    .values({ publicToken: newShareToken(), ...input })
+    .returning();
+  return row;
+}
+
+export async function getByPublicToken(token: string): Promise<ContractTemplate | undefined> {
+  const [row] = await db
+    .select()
+    .from(contractTemplates)
+    .where(eq(contractTemplates.publicToken, token));
+  return row;
+}
+
+export async function regeneratePublicToken(id: string): Promise<ContractTemplate> {
+  const [row] = await db
+    .update(contractTemplates)
+    .set({ publicToken: newShareToken(), updatedAt: new Date() })
+    .where(eq(contractTemplates.id, id))
+    .returning();
   return row;
 }
 
@@ -66,5 +91,6 @@ export async function cloneInto(
     variables: source.variables,
     isStarterClone: source.isStarterClone,
     starterKey: source.starterKey,
+    // publicToken is intentionally omitted — `create` generates a fresh one
   } as InsertContractTemplate);
 }

@@ -1,8 +1,13 @@
 // server/seed/seedContractTemplates.ts
+import { randomUUID } from "node:crypto";
 import { db } from "../db";
 import { contractTemplates, hospitalGroups, hospitals } from "@shared/schema";
 import { eq, isNull } from "drizzle-orm";
 import { STARTERS } from "./contractTemplateStarters";
+
+function newShareToken(): string {
+  return randomUUID().replace(/-/g, "");
+}
 
 async function ownerHasTemplate(filter: { ownerChainId?: string; ownerHospitalId?: string }): Promise<boolean> {
   const where = filter.ownerChainId
@@ -24,6 +29,7 @@ export async function seedStartersForChain(chainId: string): Promise<void> {
       variables: s.body.variables,
       isStarterClone: true,
       starterKey: s.key,
+      publicToken: newShareToken(),
     });
   }
 }
@@ -40,6 +46,7 @@ export async function seedStartersForHospital(hospitalId: string): Promise<void>
       variables: s.body.variables,
       isStarterClone: true,
       starterKey: s.key,
+      publicToken: newShareToken(),
     });
   }
 }
