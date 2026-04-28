@@ -705,10 +705,6 @@ export default function SettingsPage() {
               <i className="fas fa-link mr-2 shrink-0"></i>
               <span className="truncate">{t("admin.links", "Links")}</span>
             </TabsTrigger>
-            <TabsTrigger value="data" data-testid="tab-data" className="justify-start md:w-full">
-              <i className="fas fa-database mr-2 shrink-0"></i>
-              <span className="truncate">{t("admin.data", "Data")}</span>
-            </TabsTrigger>
             <TabsTrigger value="security" data-testid="tab-security" className="justify-start md:w-full">
               <i className="fas fa-shield-halved mr-2 shrink-0"></i>
               <span className="truncate">{t("admin.security", "Security")}</span>
