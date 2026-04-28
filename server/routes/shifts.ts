@@ -356,8 +356,8 @@ router.post(
 
       const subject =
         language === "de"
-          ? `Dienstplan — ${escapeHtml(monthLabel)} — ${escapeHtml(hospitalName)}`
-          : `Shift Schedule — ${escapeHtml(monthLabel)} — ${escapeHtml(hospitalName)}`;
+          ? `Dienstplan — ${monthLabel} — ${hospitalName}`
+          : `Shift Schedule — ${monthLabel} — ${hospitalName}`;
       const html =
         language === "de"
           ? `<p>Der Dienstplan für <strong>${escapeHtml(monthLabel)}</strong> ist im Anhang.</p><p>${escapeHtml(hospitalName)}</p>`
