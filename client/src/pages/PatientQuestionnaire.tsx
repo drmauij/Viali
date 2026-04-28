@@ -393,6 +393,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.returnToPortal": "Back to Portal",
     "questionnaire.review.title": "Review Your Information",
     "questionnaire.review.edit": "Edit",
+    "questionnaire.validation.required": "Required field",
+    "questionnaire.validation.completeStep": "Please fill in the missing information to continue.",
   },
   de: {
     "questionnaire.title": "Präoperativer Fragebogen",
@@ -570,6 +572,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.returnToPortal": "Zurück zum Portal",
     "questionnaire.review.title": "Überprüfen Sie Ihre Angaben",
     "questionnaire.review.edit": "Bearbeiten",
+    "questionnaire.validation.required": "Pflichtfeld",
+    "questionnaire.validation.completeStep": "Bitte ergänzen Sie die fehlenden Angaben, um fortzufahren.",
   },
   it: {
     "questionnaire.title": "Questionario preoperatorio",
@@ -747,6 +751,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.returnToPortal": "Torna al portale",
     "questionnaire.review.title": "Verifichi le Sue informazioni",
     "questionnaire.review.edit": "Modificare",
+    "questionnaire.validation.required": "Campo obbligatorio",
+    "questionnaire.validation.completeStep": "Compili le informazioni mancanti per continuare.",
   },
   es: {
     "questionnaire.title": "Cuestionario preoperatorio",
@@ -924,6 +930,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.returnToPortal": "Volver al portal",
     "questionnaire.review.title": "Revise su información",
     "questionnaire.review.edit": "Editar",
+    "questionnaire.validation.required": "Campo obligatorio",
+    "questionnaire.validation.completeStep": "Complete la información faltante para continuar.",
   },
   fr: {
     "questionnaire.title": "Questionnaire préopératoire",
@@ -1101,6 +1109,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.returnToPortal": "Retour au portail",
     "questionnaire.review.title": "Vérifiez vos informations",
     "questionnaire.review.edit": "Modifier",
+    "questionnaire.validation.required": "Champ obligatoire",
+    "questionnaire.validation.completeStep": "Veuillez compléter les informations manquantes pour continuer.",
   },
 };
 
@@ -1126,6 +1136,11 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [signatureOpen, setSignatureOpen] = useState(false);
+  const [attemptedNext, setAttemptedNext] = useState(false);
+
+  useEffect(() => {
+    setAttemptedNext(false);
+  }, [currentStep]);
 
   const t = useCallback((key: string) => {
     return translations[language]?.[key] || translations["en"]?.[key] || key;
@@ -1445,7 +1460,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
     const stepId = STEPS[stepIndex]?.id;
     switch (stepId) {
       case 'personal':
-        return !!(formData.patientFirstName && formData.patientLastName && formData.patientBirthday && formData.patientPhone && formData.height && formData.weight);
+        return !!(formData.patientFirstName && formData.patientLastName && formData.patientBirthday && formData.patientPhone && formData.height && formData.weight && formData.smsConsent);
       case 'allergies':
         return formData.noAllergies || formData.allergies.length > 0 || !!formData.allergiesNotes;
       case 'conditions':
@@ -1493,6 +1508,37 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
       handleNext();
     }, 600);
   }, [handleNext]);
+
+  const getFirstMissingPersonalFieldId = useCallback((): string | null => {
+    if (!formData.patientFirstName) return 'firstName';
+    if (!formData.patientLastName) return 'lastName';
+    if (!formData.patientBirthday) return 'birthday';
+    if (!formData.height) return 'height';
+    if (!formData.weight) return 'weight';
+    if (!formData.patientPhone) return 'phone';
+    if (!formData.smsConsent) return 'sms-consent';
+    return null;
+  }, [formData]);
+
+  const handleNextClick = useCallback(() => {
+    if (!isStepValid(currentStep)) {
+      setAttemptedNext(true);
+      if (STEPS[currentStep]?.id === 'personal') {
+        const fieldId = getFirstMissingPersonalFieldId();
+        if (fieldId) {
+          const el = document.getElementById(fieldId);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => {
+              try { el.focus({ preventScroll: true }); } catch { /* noop */ }
+            }, 350);
+          }
+        }
+      }
+      return;
+    }
+    handleNext();
+  }, [currentStep, isStepValid, getFirstMissingPersonalFieldId, handleNext]);
 
   const handleBack = useCallback(() => {
     const newStep = currentStep - 1;
@@ -1754,6 +1800,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
                 formData={formData}
                 updateField={updateField}
                 t={t}
+                attemptedNext={attemptedNext}
               />
             )}
             {currentStep === 1 && config && (
@@ -1843,6 +1890,11 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
         />
 
         <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t p-4 shadow-lg">
+          {attemptedNext && !isStepValid(currentStep) && STEPS[currentStep]?.id !== 'personal' && (
+            <div className="max-w-2xl mx-auto mb-3 text-sm text-red-600 dark:text-red-400 text-center" data-testid="step-incomplete-message">
+              {t("questionnaire.validation.completeStep")}
+            </div>
+          )}
           <div className="max-w-2xl mx-auto flex gap-3">
             {currentStep > 0 && (
               <Button
@@ -1857,9 +1909,9 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
             )}
             {currentStep < STEPS.length - 1 ? (
               <Button
-                onClick={handleNext}
-                className="flex-1"
-                disabled={!isStepValid(currentStep)}
+                onClick={handleNextClick}
+                className={`flex-1 ${!isStepValid(currentStep) ? 'opacity-50' : ''}`}
+                aria-disabled={!isStepValid(currentStep)}
                 data-testid="button-next"
               >
                 {t("questionnaire.nav.next")}
@@ -1896,6 +1948,7 @@ interface StepProps {
   formData: FormData;
   updateField: <K extends keyof FormData>(field: K, value: FormData[K]) => void;
   t: (key: string) => string;
+  attemptedNext?: boolean;
 }
 
 function NoneCheckbox({ checked, onChange, label, testId }: { checked: boolean; onChange: (checked: boolean) => void; label: string; testId: string }) {
@@ -1929,7 +1982,18 @@ function NoneCheckbox({ checked, onChange, label, testId }: { checked: boolean; 
   );
 }
 
-function PersonalInfoStep({ formData, updateField, t }: StepProps) {
+function RequiredFieldError({ show, t }: { show: boolean; t: (key: string) => string }) {
+  if (!show) return null;
+  return (
+    <p className="text-sm text-red-500 mt-1" data-testid="error-required">
+      {t("questionnaire.validation.required")}
+    </p>
+  );
+}
+
+function PersonalInfoStep({ formData, updateField, t, attemptedNext }: StepProps) {
+  const showError = (value: string) => !!attemptedNext && !value;
+  const errorClass = (value: string) => (showError(value) ? "border-red-500 focus-visible:ring-red-500" : "");
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1940,7 +2004,9 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
             value={formData.patientFirstName}
             onChange={(e) => updateField("patientFirstName", e.target.value)}
             data-testid="input-firstName"
+            className={errorClass(formData.patientFirstName)}
           />
+          <RequiredFieldError show={showError(formData.patientFirstName)} t={t} />
         </div>
         <div>
           <Label htmlFor="lastName">{t("questionnaire.personal.lastName")} <span className="text-red-500">*</span></Label>
@@ -1949,7 +2015,9 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
             value={formData.patientLastName}
             onChange={(e) => updateField("patientLastName", e.target.value)}
             data-testid="input-lastName"
+            className={errorClass(formData.patientLastName)}
           />
+          <RequiredFieldError show={showError(formData.patientLastName)} t={t} />
         </div>
       </div>
 
@@ -1961,6 +2029,7 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
           onChange={(value) => updateField("patientBirthday", value)}
           data-testid="input-birthday"
         />
+        <RequiredFieldError show={showError(formData.patientBirthday)} t={t} />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -1973,7 +2042,9 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
             onChange={(e) => updateField("height", e.target.value)}
             placeholder="170"
             data-testid="input-height"
+            className={errorClass(formData.height)}
           />
+          <RequiredFieldError show={showError(formData.height)} t={t} />
         </div>
         <div>
           <Label htmlFor="weight">{t("questionnaire.personal.weight")} <span className="text-red-500">*</span></Label>
@@ -1984,7 +2055,9 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
             onChange={(e) => updateField("weight", e.target.value)}
             placeholder="70"
             data-testid="input-weight"
+            className={errorClass(formData.weight)}
           />
+          <RequiredFieldError show={showError(formData.weight)} t={t} />
         </div>
       </div>
 
@@ -2009,25 +2082,29 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
             onChange={(value) => updateField("patientPhone", value)}
             data-testid="input-phone"
           />
+          <RequiredFieldError show={showError(formData.patientPhone)} t={t} />
         </div>
       </div>
 
       {formData.patientPhone && (
-        <div className="flex items-start gap-3 p-3 border rounded-lg bg-blue-50 dark:bg-blue-900/20">
-          <Checkbox
-            id="sms-consent"
-            checked={formData.smsConsent}
-            onCheckedChange={(checked) => updateField("smsConsent", !!checked)}
-            data-testid="checkbox-sms-consent"
-          />
-          <div>
-            <Label htmlFor="sms-consent" className="cursor-pointer">
-              {t("questionnaire.personal.smsConsent")}
-            </Label>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-              {t("questionnaire.personal.smsConsentText")}
-            </p>
+        <div>
+          <div className={`flex items-start gap-3 p-3 border rounded-lg bg-blue-50 dark:bg-blue-900/20 ${attemptedNext && !formData.smsConsent ? 'border-red-500' : ''}`}>
+            <Checkbox
+              id="sms-consent"
+              checked={formData.smsConsent}
+              onCheckedChange={(checked) => updateField("smsConsent", !!checked)}
+              data-testid="checkbox-sms-consent"
+            />
+            <div>
+              <Label htmlFor="sms-consent" className="cursor-pointer">
+                {t("questionnaire.personal.smsConsent")} <span className="text-red-500">*</span>
+              </Label>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                {t("questionnaire.personal.smsConsentText")}
+              </p>
+            </div>
           </div>
+          <RequiredFieldError show={!!attemptedNext && !formData.smsConsent} t={t} />
         </div>
       )}
 
