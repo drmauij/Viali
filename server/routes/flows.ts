@@ -31,6 +31,11 @@ import { generateExecutionToken } from "../services/marketingExecutionToken";
 import { assignVariant } from "../services/marketingAbAssignment";
 import { summarizeFlows, flowDetail } from "../services/marketingMetricsQuery";
 import { sendRemainderForWinner } from "../services/marketingAbSendRemainder";
+import {
+  SNIPPET_EDIT_SYSTEM_PROMPT,
+  buildSnippetEditUserMessage,
+  stripMarkdownFencesServer,
+} from "./flowsComposeHelpers";
 import OpenAI from "openai";
 
 const router = Router();
@@ -725,6 +730,9 @@ const composeSchema = z.object({
       })
     )
     .optional(),
+  // ── NEW: single-element scoped edit ──
+  selectedSnippet: z.string().optional(),
+  brandHead: z.string().optional(),
 });
 
 // Fetch screenshot of a website (cached per session; TTL 1h).
@@ -1136,6 +1144,43 @@ CRITICAL: Return ONLY raw HTML. Do NOT wrap in markdown code fences (no \`\`\`ht
       const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
 
       let responseText: string;
+
+      if (body.channel === "html_email" && body.selectedSnippet && ANTHROPIC_API_KEY) {
+        const userMessage = buildSnippetEditUserMessage(
+          body.brandHead || "",
+          body.selectedSnippet,
+          body.prompt || "",
+        );
+        logger.info(
+          `[flows] compose snippet-edit: snippet=${body.selectedSnippet.length}b, head=${(body.brandHead || "").length}b`
+        );
+        const resp = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 1500,
+            system: SNIPPET_EDIT_SYSTEM_PROMPT,
+            messages: [{ role: "user", content: userMessage }],
+          }),
+        });
+        if (!resp.ok) {
+          const errText = await resp.text();
+          logger.error(`[flows] snippet-edit Anthropic ${resp.status}: ${errText.slice(0, 500)}`);
+          return res.status(502).json({ error: `Anthropic API ${resp.status}` });
+        }
+        const data = (await resp.json()) as { content: Array<{ type: string; text?: string }> };
+        const raw = data.content
+          .filter((b) => b.type === "text")
+          .map((b) => b.text || "")
+          .join("");
+        const replacementSnippet = stripMarkdownFencesServer(raw);
+        return res.json({ replacementSnippet });
+      }
 
       if (body.channel === "html_email" && ANTHROPIC_API_KEY && !body.abVariantOf) {
         // Log what we're sending to debug image issues
