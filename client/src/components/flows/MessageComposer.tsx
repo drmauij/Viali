@@ -15,7 +15,14 @@ import {
 } from "@/components/ui/resizable";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, Send, Maximize2, Minimize2 } from "lucide-react";
+import { Loader2, Send, Maximize2, Minimize2, Undo2 } from "lucide-react";
+import {
+  markElementByPath,
+  replaceMarkedElement,
+  stripMarkers,
+  extractHeadContent,
+} from "@/lib/htmlEditScope";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { HtmlPreviewIframe } from "./HtmlPreviewIframe";
 
@@ -367,6 +374,8 @@ const AiChatPanel = forwardRef<AiChatPanelHandle, {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
+  const { toast } = useToast();
+  const undoRef = useRef<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -421,6 +430,98 @@ const AiChatPanel = forwardRef<AiChatPanelHandle, {
     const text = (explicitPrompt ?? prompt).trim();
     if (!text || !hospitalId || loading) return;
 
+    // ── Snippet-edit path: scoped to a single element ──
+    if (selection && channel === "html_email") {
+      const marked = markElementByPath(sourceContent, selection.path);
+      if (!marked) {
+        toast({
+          title: "Couldn't find the selected element",
+          description: "Please re-select an element and try again.",
+          variant: "destructive",
+        });
+        onSelectionApplied();
+        return;
+      }
+      const userMessage: ChatMessage = { role: "user", content: text };
+      setMessages([...messages, userMessage]);
+      setPrompt("");
+      setLoading(true);
+      try {
+        const res = await apiRequest(
+          "POST",
+          `/api/business/${hospitalId}/flows/compose`,
+          {
+            channel,
+            prompt: text,
+            selectedSnippet: marked.snippet,
+            brandHead: extractHeadContent(sourceContent),
+            previousMessages: messages,
+          },
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as { replacementSnippet?: string };
+        const replacement = (data.replacementSnippet || "").trim();
+        if (!replacement) throw new Error("empty replacement");
+
+        let next: string;
+        try {
+          next = stripMarkers(
+            replaceMarkedElement(marked.markedHtml, marked.markerId, replacement),
+          );
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "splice failed";
+          throw new Error(`Couldn't apply edit — ${msg}. Please rephrase.`);
+        }
+
+        undoRef.current = sourceContent;
+        onMessageGenerated(next);
+        onSelectionApplied();
+        toast({
+          title: "AI updated the element",
+          description: "Click ↶ to revert.",
+          action: (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (undoRef.current !== null) {
+                  onMessageGenerated(undoRef.current);
+                  undoRef.current = null;
+                  toast({ title: "Reverted to previous version" });
+                }
+              }}
+            >
+              <Undo2 className="h-4 w-4 mr-1" />
+              Undo
+            </Button>
+          ),
+        });
+        const aiMessage: ChatMessage = {
+          role: "assistant",
+          content: t("flows.compose.elementEdited", "Element updated — see preview →"),
+        };
+        setMessages([...messages, userMessage, aiMessage]);
+      } catch (err) {
+        const errMessage: ChatMessage = {
+          role: "assistant",
+          content:
+            err instanceof Error
+              ? err.message
+              : t("flows.compose.aiError", "Error generating message. Please try again."),
+        };
+        setMessages([...messages, userMessage, errMessage]);
+        toast({
+          title: "AI edit failed",
+          description: err instanceof Error ? err.message : "Try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // ── Existing full-document / variant path (unchanged) ──
     const userMessage: ChatMessage = { role: "user", content: text };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
