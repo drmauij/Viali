@@ -144,9 +144,9 @@ export default function ClinicShifts() {
   >({
     queryKey: ["staff-pool-range", hospitalId, fromStr, toStr],
     queryFn: () =>
-      fetch(
+      apiRequest(
+        "GET",
         `/api/staff-pool/${hospitalId}/range?startDate=${fromStr}&endDate=${toStr}`,
-        { credentials: "include" }
       ).then((r) => r.json()),
     enabled: !!hospitalId,
   });

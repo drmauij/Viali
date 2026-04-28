@@ -63,6 +63,7 @@ if (import.meta.env.VITE_SENTRY_DSN) {
       /Failed to fetch dynamically imported module/,
       /Loading chunk .* failed/,
       /Importing a module script failed/,
+      /'text\/html' is not a valid JavaScript MIME type/,
     ],
   });
 
@@ -86,14 +87,17 @@ if (import.meta.env.VITE_SENTRY_DSN) {
           url.startsWith(window.location.origin) ||
           url.startsWith(window.location.protocol + "//" + window.location.host);
         const method = (init?.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
-        const isExpected401 =
-          res.status === 401 && url.includes("/api/auth/");
+        // 401/403 on /api/* are auth/permission state, not bugs: session expired
+        // while a page polls in background, or non-admin user hits an admin route.
+        // These flood Sentry without representing real errors.
+        const isAuthState =
+          (res.status === 401 || res.status === 403) && url.includes("/api/");
         const isRateLimited = res.status === 429;
         const isExpectedNoise = isExpectedFetchNoise(method, url, res.status);
         // 502/503/504 are nginx/upstream outages — Node process restart, crash,
         // or deploy window. Not app bugs; suppress to avoid flooding Sentry.
         const isUpstreamOutage = res.status === 502 || res.status === 503 || res.status === 504;
-        if (isSameOrigin && !isExpected401 && !isRateLimited && !isExpectedNoise && !isUpstreamOutage) {
+        if (isSameOrigin && !isAuthState && !isRateLimited && !isExpectedNoise && !isUpstreamOutage) {
           let body: string | undefined;
           try {
             body = (await res.clone().text()).slice(0, 2000);
@@ -122,5 +126,37 @@ if (import.meta.env.VITE_SENTRY_DSN) {
     return res;
   };
 }
+
+// Stale-deploy auto-recovery: when a hashed Vite chunk goes missing after a
+// deploy, dynamic import() rejects with one of these messages. The page is
+// effectively broken until reload. Reload once per session — guarded so a real
+// missing chunk (rare) doesn't infinite-loop the user.
+const CHUNK_ERROR_PATTERNS = [
+  /Failed to fetch dynamically imported module/i,
+  /Loading chunk .* failed/i,
+  /Importing a module script failed/i,
+  /'text\/html' is not a valid JavaScript MIME type/i,
+];
+const RELOAD_FLAG = "viali_chunk_reload_once";
+
+function maybeReloadOnChunkError(message: unknown) {
+  if (typeof message !== "string") return;
+  if (!CHUNK_ERROR_PATTERNS.some((re) => re.test(message))) return;
+  try {
+    if (sessionStorage.getItem(RELOAD_FLAG)) return;
+    sessionStorage.setItem(RELOAD_FLAG, "1");
+  } catch {
+    /* private mode etc. — fall through and reload anyway */
+  }
+  window.location.reload();
+}
+
+window.addEventListener("error", (e) => {
+  maybeReloadOnChunkError(e.message);
+});
+window.addEventListener("unhandledrejection", (e) => {
+  const reason: any = e.reason;
+  maybeReloadOnChunkError(typeof reason === "string" ? reason : reason?.message);
+});
 
 createRoot(document.getElementById("root")!).render(<App />);
