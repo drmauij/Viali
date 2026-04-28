@@ -115,6 +115,18 @@ router.get("/api/public/contracts/c/:token", async (req, res) => {
       .where(eq(contractTemplates.id, row.templateId!));
     if (!tmpl) return res.status(500).json({ error: "template missing" });
 
+    const [hospital] = await db
+      .select()
+      .from(hospitals)
+      .where(eq(hospitals.id, row.hospitalId));
+
+    const variables = tmpl.variables as TemplateBody["variables"];
+    const prefill = injectAuto(
+      (row.data ?? {}) as Record<string, unknown>,
+      variables,
+      hospital,
+    );
+
     res.json({
       contractId: row.id,
       template: {
@@ -122,9 +134,10 @@ router.get("/api/public/contracts/c/:token", async (req, res) => {
         name: tmpl.name,
         language: tmpl.language,
         blocks: tmpl.blocks,
-        variables: tmpl.variables,
+        variables,
       },
-      prefill: row.data ?? {},
+      prefill,
+      regional: regionalFromHospital(hospital),
       mode: "single-use",
     });
   } catch (error) {
@@ -159,12 +172,22 @@ router.post("/api/public/contracts/c/:token/submit", async (req, res) => {
     if (!tmpl) return res.status(500).json({ error: "template missing" });
 
     const parsed = submitInput.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Ungültige Eingabe.",
+        error: parsed.error.flatten(),
+      });
+    }
 
     const variables = tmpl.variables as TemplateBody["variables"];
     const dataValidator = buildZodSchema(variables);
     const dataParsed = dataValidator.safeParse(parsed.data.data);
-    if (!dataParsed.success) return res.status(400).json({ error: dataParsed.error.flatten() });
+    if (!dataParsed.success) {
+      return res.status(400).json({
+        message: "Bitte alle Pflichtfelder ausfüllen.",
+        error: dataParsed.error.flatten(),
+      });
+    }
 
     const [hospital] = await db
       .select()
@@ -241,16 +264,23 @@ const pathBLimiter = rateLimit({
 
 router.get("/api/public/contracts/t/:token", async (req, res) => {
   try {
-    const tmpl = await resolveTemplateByLegacyToken(req.params.token);
-    if (!tmpl) return res.status(404).end();
+    const resolved = await resolveTemplateAndHospital(req.params.token);
+    if (!resolved) return res.status(404).end();
+    const { tmpl, hospital } = resolved;
+
+    const variables = tmpl.variables as TemplateBody["variables"];
+    const prefill = injectAuto({}, variables, hospital);
+
     res.json({
       template: {
         id: tmpl.id,
         name: tmpl.name,
         language: tmpl.language,
         blocks: tmpl.blocks,
-        variables: tmpl.variables,
+        variables,
       },
+      prefill,
+      regional: regionalFromHospital(hospital),
       mode: "shareable",
     });
   } catch (error) {
@@ -266,11 +296,21 @@ router.post("/api/public/contracts/t/:token/submit", pathBLimiter, async (req, r
     const { tmpl, hospitalId, hospital } = resolved;
 
     const parsed = submitInput.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Ungültige Eingabe.",
+        error: parsed.error.flatten(),
+      });
+    }
 
     const variables = tmpl.variables as TemplateBody["variables"];
     const dataParsed = buildZodSchema(variables).safeParse(parsed.data.data);
-    if (!dataParsed.success) return res.status(400).json({ error: dataParsed.error.flatten() });
+    if (!dataParsed.success) {
+      return res.status(400).json({
+        message: "Bitte alle Pflichtfelder ausfüllen.",
+        error: dataParsed.error.flatten(),
+      });
+    }
 
     const finalData = injectAuto(parsed.data.data, variables, hospital);
     const snapshot: TemplateBody = {
@@ -400,6 +440,24 @@ async function resolveTemplateAndHospital(token: string) {
 // Helpers
 // ---------------------------------------------------------------------------
 
+// Regional preferences relevant for the public worker form (date format, locale, etc.).
+// Falls back to European/24h/de if the hospital hasn't configured them.
+function regionalFromHospital(hospital: any): {
+  dateFormat: "european" | "american";
+  hourFormat: "24h" | "12h";
+  timezone: string;
+  defaultLanguage: string;
+  currency: string;
+} {
+  return {
+    dateFormat: hospital?.dateFormat === "american" ? "american" : "european",
+    hourFormat: hospital?.hourFormat === "12h" ? "12h" : "24h",
+    timezone: hospital?.timezone || "Europe/Zurich",
+    defaultLanguage: hospital?.defaultLanguage || "de",
+    currency: hospital?.currency || "CHF",
+  };
+}
+
 function injectAuto(
   input: Record<string, any>,
   vars: TemplateBody["variables"],
@@ -413,11 +471,14 @@ function injectAuto(
       value = new Date().toISOString().slice(0, 10);
     } else if (v.source.startsWith("auto:hospital.")) {
       const field = v.source.slice("auto:hospital.".length);
-      // Special compose: "address" → street + postalCode + city
+      // Special compose: "address" → companyStreet + companyPostalCode + companyCity
+      // (use the billing/company address, not the clinic location street/city columns).
       if (field === "address" && hospital) {
         const parts = [
-          hospital.street,
-          [hospital.postalCode, hospital.city].filter(Boolean).join(" "),
+          hospital.companyStreet,
+          [hospital.companyPostalCode, hospital.companyCity]
+            .filter(Boolean)
+            .join(" "),
         ].filter(Boolean);
         value = parts.join(", ");
       } else {

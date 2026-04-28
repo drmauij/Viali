@@ -11,6 +11,8 @@ import { DynamicContractForm } from "@/components/contracts/DynamicContractForm"
 import { ContractReadOnly } from "@/components/contracts/ContractReadOnly";
 import { Loader2, CheckCircle, AlertCircle, Building2 } from "lucide-react";
 import type { Block, VariablesSchema } from "@shared/contractTemplates/types";
+import { buildZodSchema } from "@shared/contractTemplates/buildZodSchema";
+import { applyHospitalSettings } from "@/lib/dateUtils";
 
 // ─── API response shapes ────────────────────────────────────────────────────
 
@@ -26,6 +28,13 @@ interface FetchedContract {
   contractId?: string;
   template: TemplateSummary;
   prefill?: Record<string, unknown>;
+  regional?: {
+    dateFormat: "european" | "american";
+    hourFormat: "24h" | "12h";
+    timezone: string;
+    defaultLanguage: string;
+    currency: string;
+  };
   mode: "single-use" | "shareable";
 }
 
@@ -62,6 +71,7 @@ export default function WorkerContractForm() {
   const [signature, setSignature] = useState("");
 
   const sigRef = useRef<{ clear: () => void } | null>(null);
+  const formSectionRef = useRef<HTMLDivElement | null>(null);
 
   // ─── Fetch template / prefill ─────────────────────────────────────────────
 
@@ -96,6 +106,13 @@ export default function WorkerContractForm() {
         if (res) {
           setContract(res);
           setFormData(res.prefill ?? {});
+          if (res.regional) {
+            applyHospitalSettings({
+              dateFormat: res.regional.dateFormat,
+              hourFormat: res.regional.hourFormat,
+              currency: res.regional.currency,
+            });
+          }
         }
       })
       .catch(() => {
@@ -106,7 +123,44 @@ export default function WorkerContractForm() {
 
   // ─── Submit ───────────────────────────────────────────────────────────────
 
+  function labelForPath(path: string, variables: VariablesSchema): string {
+    const simple = variables.simple.find((s) => s.key === path);
+    if (simple) return simple.label;
+    for (const list of variables.selectableLists) {
+      if (path === list.key) return list.label;
+      if (path.startsWith(list.key + ".")) return list.label;
+    }
+    return path.split(".").pop() ?? path;
+  }
+
   async function onSubmit() {
+    if (!contract) return;
+
+    // Validate form data with the same schema the server uses, so the worker
+    // sees exactly which fields are missing/invalid before hitting the API.
+    const dataParsed = buildZodSchema(contract.template.variables).safeParse(
+      formData,
+    );
+    if (!dataParsed.success) {
+      const labels = Array.from(
+        new Set(
+          dataParsed.error.issues.map((iss) =>
+            labelForPath(iss.path.join("."), contract.template.variables),
+          ),
+        ),
+      );
+      toast({
+        title: "Bitte alle Pflichtfelder ausfüllen.",
+        description: `Fehlt oder ungültig: ${labels.join(", ")}`,
+        variant: "destructive",
+      });
+      formSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      return;
+    }
+
     if (!signature) {
       toast({
         title: "Bitte unterschreiben Sie zuerst.",
@@ -233,18 +287,20 @@ export default function WorkerContractForm() {
         </Card>
 
         {/* Dynamic variable fields driven by template schema */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Ihre Angaben</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DynamicContractForm
-              variables={contract.template.variables}
-              initial={formData}
-              onChange={setFormData}
-            />
-          </CardContent>
-        </Card>
+        <div ref={formSectionRef}>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Ihre Angaben</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DynamicContractForm
+                variables={contract.template.variables}
+                initial={formData}
+                onChange={setFormData}
+              />
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Read-only contract document — updates live as the form is filled */}
         <div className="space-y-2">

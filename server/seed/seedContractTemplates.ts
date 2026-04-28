@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { db } from "../db";
 import { contractTemplates, hospitalGroups, hospitals } from "@shared/schema";
-import { eq, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { STARTERS } from "./contractTemplateStarters";
 
 function newShareToken(): string {
@@ -10,9 +10,11 @@ function newShareToken(): string {
 }
 
 async function ownerHasTemplate(filter: { ownerChainId?: string; ownerHospitalId?: string }): Promise<boolean> {
+  // Only count active (non-archived) templates — archiving a starter clone frees its
+  // seed slot, so the next boot can re-seed with the latest starter content.
   const where = filter.ownerChainId
-    ? eq(contractTemplates.ownerChainId, filter.ownerChainId)
-    : eq(contractTemplates.ownerHospitalId, filter.ownerHospitalId!);
+    ? and(eq(contractTemplates.ownerChainId, filter.ownerChainId), isNull(contractTemplates.archivedAt))
+    : and(eq(contractTemplates.ownerHospitalId, filter.ownerHospitalId!), isNull(contractTemplates.archivedAt));
   const [row] = await db.select({ id: contractTemplates.id }).from(contractTemplates).where(where).limit(1);
   return !!row;
 }

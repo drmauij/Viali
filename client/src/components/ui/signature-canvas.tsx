@@ -14,6 +14,10 @@ export function SignatureCanvas({ value, onChange, label, className = "" }: Sign
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(!!value);
+  // Tracks the dataURL we last produced ourselves, so the value-change effect
+  // can skip re-painting it on top of the strokes the user just drew (which
+  // would otherwise stack a scaled overlay → visible "doubled" strokes).
+  const lastWrittenRef = useRef<string | undefined>(undefined);
 
   // Initialize canvas with proper size based on container
   const initializeCanvas = useCallback(() => {
@@ -60,18 +64,27 @@ export function SignatureCanvas({ value, onChange, label, className = "" }: Sign
   }, [initializeCanvas]);
 
   useEffect(() => {
-    if (value && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        const img = new Image();
-        img.onload = () => {
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        };
-        img.src = value;
-        setHasSignature(true);
-      }
-    }
+    if (!value) return;
+    // Skip if this is our own dataURL bouncing back via parent state — drawing it
+    // on top of the live strokes would render at 2× (retina scale) and cause doubling.
+    if (value === lastWrittenRef.current) return;
+
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const img = new Image();
+    img.onload = () => {
+      // Draw at the logical (display) size — context is already scaled by DPR,
+      // so passing canvas.width / canvas.height (raw px) would render at 2×.
+      const displayWidth = container.clientWidth - 16;
+      const displayHeight = 150;
+      ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
+    };
+    img.src = value;
+    setHasSignature(true);
   }, [value]);
 
   const getCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -132,6 +145,7 @@ export function SignatureCanvas({ value, onChange, label, className = "" }: Sign
       const canvas = canvasRef.current;
       if (canvas) {
         const dataUrl = canvas.toDataURL("image/png");
+        lastWrittenRef.current = dataUrl;
         onChange(dataUrl);
         setHasSignature(true);
       }
@@ -147,6 +161,7 @@ export function SignatureCanvas({ value, onChange, label, className = "" }: Sign
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    lastWrittenRef.current = undefined;
     onChange("");
     setHasSignature(false);
   };
@@ -154,10 +169,10 @@ export function SignatureCanvas({ value, onChange, label, className = "" }: Sign
   return (
     <div className={`space-y-2 ${className}`}>
       {label && <label className="text-sm font-medium">{label}</label>}
-      <div ref={containerRef} className="border rounded-md bg-white dark:bg-gray-900 p-2">
+      <div ref={containerRef} className="border rounded-md bg-card p-2">
         <canvas
           ref={canvasRef}
-          className="border rounded cursor-crosshair touch-none"
+          className="border rounded cursor-crosshair touch-none bg-white"
           onMouseDown={startDrawing}
           onMouseMove={draw}
           onMouseUp={stopDrawing}

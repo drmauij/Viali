@@ -116,6 +116,7 @@ export const hospitals = pgTable("hospitals", {
   companyEmail: varchar("company_email"),
   companyWebsite: varchar("company_website"),
   companyLogoUrl: varchar("company_logo_url"),
+  companyJurisdiction: varchar("company_jurisdiction"), // Legal venue / Gerichtsstand for contract templates (e.g. "Zürich")
   bookingTheme: jsonb("booking_theme"), // Custom /book page theme — see docs/superpowers/specs/2026-04-26-booking-page-theming-design.md
   // TARDOC billing identifiers
   companyGln: varchar("company_gln"), // 13-digit GLN for the facility
