@@ -1,8 +1,10 @@
 import * as React from "react";
+import { formatDate } from "@/lib/dateUtils";
 import type {
   Block,
   ContractData,
   VariablesSchema,
+  VariableType,
 } from "@shared/contractTemplates/types";
 
 const TOKEN_RE = /\{\{([\w.]+)\}\}/g;
@@ -30,6 +32,33 @@ function labelForKey(key: string, variables: VariablesSchema): string {
   return key.split(".").pop() ?? key;
 }
 
+function typeForKey(
+  key: string,
+  variables: VariablesSchema,
+): VariableType | undefined {
+  const simple = variables.simple.find((s) => s.key === key);
+  if (simple) return simple.type;
+  for (const list of variables.selectableLists) {
+    if (key.startsWith(list.key + ".")) {
+      const fieldKey = key.slice(list.key.length + 1);
+      const f = list.fields.find((ff) => ff.key === fieldKey);
+      if (f) return f.type;
+    }
+  }
+  return undefined;
+}
+
+function formatValueForType(value: unknown, type: VariableType | undefined): string {
+  const raw = String(value);
+  if (type === "date") {
+    // ISO YYYY-MM-DD → locale-formatted (dd.MM.yyyy / MM/dd/yyyy depending on hospital regional setting)
+    const formatted = formatDate(raw);
+    // formatDate returns "N/A" for empty/invalid; keep raw in that edge case
+    return formatted === "N/A" || formatted === "Invalid date" ? raw : formatted;
+  }
+  return raw;
+}
+
 interface RenderTextProps {
   text: string;
   data: ContractData;
@@ -47,8 +76,11 @@ function RenderText({ text, data, variables }: RenderTextProps) {
     const filled = value != null && String(value).trim() !== "";
     nodes.push(
       filled ? (
-        <span key={`${key}-${idx}`} className="font-medium">
-          {String(value)}
+        <span
+          key={`${key}-${idx}`}
+          className="font-medium bg-yellow-200 text-black dark:bg-yellow-400/25 dark:text-foreground rounded-sm px-1"
+        >
+          {formatValueForType(value, typeForKey(key, variables))}
         </span>
       ) : (
         <span key={`${key}-${idx}`} className="italic text-muted-foreground">

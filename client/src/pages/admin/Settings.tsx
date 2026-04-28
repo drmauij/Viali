@@ -50,6 +50,7 @@ export default function SettingsPage() {
     companyEmail: "",
     companyWebsite: "",
     companyLogoUrl: "",
+    companyJurisdiction: "",
     companyGln: "",
     companyZsr: "",
     defaultTpValue: "",
@@ -161,6 +162,7 @@ export default function SettingsPage() {
         companyEmail: fullHospitalData.companyEmail || "",
         companyWebsite: fullHospitalData.companyWebsite || "",
         companyLogoUrl: fullHospitalData.companyLogoUrl || "",
+        companyJurisdiction: fullHospitalData.companyJurisdiction || "",
         companyGln: fullHospitalData.companyGln || "",
         companyZsr: fullHospitalData.companyZsr || "",
         defaultTpValue: fullHospitalData.defaultTpValue || "",
@@ -1145,6 +1147,17 @@ export default function SettingsPage() {
                           onChange={(e) => setHospitalForm(prev => ({ ...prev, companyWebsite: e.target.value }))}
                           placeholder="https://www.klinik.ch"
                           data-testid="input-company-website-inline"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="company-jurisdiction-inline">{t("admin.companyJurisdiction", "Gerichtsstand")}</Label>
+                        <Input
+                          id="company-jurisdiction-inline"
+                          value={hospitalForm.companyJurisdiction}
+                          onChange={(e) => setHospitalForm(prev => ({ ...prev, companyJurisdiction: e.target.value }))}
+                          placeholder="Zürich"
+                          data-testid="input-company-jurisdiction-inline"
                         />
                       </div>
 
