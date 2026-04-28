@@ -96,3 +96,20 @@ function cssEscape(s: string): string {
   // Marker ids are base36 — no special chars — but be defensive.
   return s.replace(/["\\]/g, "\\$&");
 }
+
+/** Remove every `data-vai-marker="..."` (and `data-vai-marker='...'`) attribute. */
+export function stripMarkers(html: string): string {
+  // Safe regex: we only target our own attribute name, never user content.
+  return html.replace(/\s+data-vai-marker=("[^"]*"|'[^']*')/g, "");
+}
+
+/**
+ * Return the inner of `<head>` from an HTML document, trimmed to ~3 kB.
+ * Used as brand context for the AI snippet-edit prompt — preserves CSS,
+ * fonts, and palette without paying for the full body.
+ */
+export function extractHeadContent(html: string, maxLen: number = 3000): string {
+  const m: RegExpMatchArray | null = html.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+  if (!m) return "";
+  return m[1].slice(0, maxLen);
+}
