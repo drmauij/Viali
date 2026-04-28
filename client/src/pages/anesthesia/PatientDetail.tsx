@@ -39,6 +39,7 @@ import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSett
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import SignaturePad from "@/components/SignaturePad";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
+import { dataUrlToBlob } from "@/lib/dataUrlToBlob";
 import { generateWristbandPdf } from "@/lib/wristbandPdf";
 import AnesthesiaRecordButton from "@/components/anesthesia/AnesthesiaRecordButton";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
@@ -384,15 +385,20 @@ export default function PatientDetail() {
   };
 
   // Handle camera capture for notes (add to pending attachments)
-  const handleNoteCameraCapture = async (photoDataUrl: string) => {
-    // Convert base64 to file
-    const response = await fetch(photoDataUrl);
-    const blob = await response.blob();
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const file = new File([blob], `photo-${timestamp}.jpg`, { type: 'image/jpeg' });
-    
-    setPendingAttachments(prev => [...prev, file]);
-    setIsCameraOpen(false);
+  const handleNoteCameraCapture = (photoDataUrl: string) => {
+    try {
+      const blob = dataUrlToBlob(photoDataUrl);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const file = new File([blob], `photo-${timestamp}.jpg`, { type: 'image/jpeg' });
+      setPendingAttachments(prev => [...prev, file]);
+      setIsCameraOpen(false);
+    } catch (error) {
+      toast({
+        title: t('anesthesia.patientDetail.error'),
+        description: t('anesthesia.patientDetail.photoProcessFailed', 'Failed to process photo. Please try again.'),
+        variant: 'destructive',
+      });
+    }
   };
 
   // Filter to only submitted questionnaires that have responses with IDs
@@ -693,13 +699,21 @@ export default function PatientDetail() {
   // Handle camera capture (convert base64 to file and upload)
   const handleCameraCapture = async (photoDataUrl: string) => {
     if (!derivedPatientId || !activeHospital?.id) return;
-    
-    // Convert base64 to file
-    const response = await fetch(photoDataUrl);
-    const blob = await response.blob();
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const file = new File([blob], `photo-${timestamp}.jpg`, { type: 'image/jpeg' });
-    
+
+    let file: File;
+    try {
+      const blob = dataUrlToBlob(photoDataUrl);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      file = new File([blob], `photo-${timestamp}.jpg`, { type: 'image/jpeg' });
+    } catch (error) {
+      toast({
+        title: t('anesthesia.patientDetail.error'),
+        description: t('anesthesia.patientDetail.photoProcessFailed', 'Failed to process photo. Please try again.'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
     await handleFileUpload(file);
     setIsCameraOpen(false);
   };

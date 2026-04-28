@@ -17,6 +17,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CameraCapture } from "@/components/CameraCapture";
 import { formatDateTime } from "@/lib/dateUtils";
+import { dataUrlToBlob } from "@/lib/dataUrlToBlob";
 
 export type PatientDocument = {
   id: string;
@@ -462,14 +463,21 @@ export function PatientDocumentsSection({
     }
   };
 
-  const handleCameraCapture = async (photoDataUrl: string) => {
-    const response = await fetch(photoDataUrl);
-    const blob = await response.blob();
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const file = new File([blob], `photo-${timestamp}.jpg`, { type: 'image/jpeg' });
-    setPendingFiles([file]);
-    setIsCameraOpen(false);
-    setIsUploadDialogOpen(true);
+  const handleCameraCapture = (photoDataUrl: string) => {
+    try {
+      const blob = dataUrlToBlob(photoDataUrl);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const file = new File([blob], `photo-${timestamp}.jpg`, { type: 'image/jpeg' });
+      setPendingFiles([file]);
+      setIsCameraOpen(false);
+      setIsUploadDialogOpen(true);
+    } catch (error) {
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('anesthesia.patientDetail.photoProcessFailed', 'Failed to process photo. Please try again.'),
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleUpload = () => {
