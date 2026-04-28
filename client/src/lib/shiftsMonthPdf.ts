@@ -174,7 +174,8 @@ function drawShiftsTable(
     ["", ...weekdays.map((d) => format(d, "d", dateOpts))],
   ];
 
-  // Body. Each cell carries metadata used by didDrawCell to overlay the OP marker.
+  // Body. Cells carry metadata used by didDrawCell to draw the stacked
+  // (OP-strip-above, shift-fill-below) layout that mirrors the in-app cell.
   const body = input.providers.map((p) => {
     const name =
       `${p.lastName}, ${p.firstName}`.replace(/^,\s*/, "").replace(/,\s*$/, "") ||
@@ -187,7 +188,13 @@ function drawShiftsTable(
       const shift = shiftByKey.get(`${p.id}|${dateStr}`);
       const shiftType = shift?.shiftTypeId ? typeById.get(shift.shiftTypeId) : null;
       const opRole = roleByKey.get(`${p.id}|${dateStr}`);
-      const meta = { opRole };
+      const isAbsent = !shiftType && absenceFor(p.id, d);
+      const meta = {
+        opRole,
+        shiftCode: shiftType?.code ?? null,
+        shiftColor: shiftType?.color ?? null,
+        isAbsent,
+      };
       if (shiftType) {
         cells.push({
           content: shiftType.code || "",
@@ -198,7 +205,7 @@ function drawShiftsTable(
             fontStyle: "bold",
           },
         });
-      } else if (absenceFor(p.id, d)) {
+      } else if (isAbsent) {
         cells.push({ content: "", _opMeta: meta, styles: { fillColor: [229, 231, 235] } });
       } else {
         cells.push({ content: "", _opMeta: meta });
@@ -223,21 +230,45 @@ function drawShiftsTable(
       const meta = data.cell.raw?._opMeta;
       if (!meta?.opRole) return;
 
-      // OP marker — single high-contrast dot in the top-right corner.
-      // Composition: white outer halo + green inner core. The halo guarantees
-      // visibility on every cell background:
-      //   • white cell  → green dot reads against white
-      //   • shift fill  → white halo isolates the dot from any color
-      //   • absence grey → both layers contrast against grey
-      const { x, y, width } = data.cell;
-      const cx = x + width - 1.4;   // 1.4mm in from right edge
-      const cy = y + 1.4;           // 1.4mm down from top edge
+      // Mirror the in-app stacked cell: a small light-grey strip on top
+      // containing the green dot, with the shift fill (or absence grey)
+      // BELOW it. We repaint the cell over autoTable's default render to
+      // get the two-band layout.
+      const { x, y, width, height } = data.cell;
+      const inset = 0.2;        // keep autoTable's cell border visible
+      const stripH = 2.4;       // height of the top OP strip in mm
 
-      doc.setFillColor(255, 255, 255);
-      doc.circle(cx, cy, 0.95, "F"); // halo (1.9mm diameter)
+      // ── Top strip: muted grey with green dot ─────────────────────────
+      doc.setFillColor(229, 231, 235); // tailwind muted/200
+      doc.rect(x + inset, y + inset, width - inset * 2, stripH, "F");
+      doc.setFillColor(34, 197, 94);   // tailwind green-500
+      doc.circle(x + inset + 1.5, y + inset + stripH / 2, 0.7, "F");
 
-      doc.setFillColor(22, 163, 74); // green-600 — readable on white halo
-      doc.circle(cx, cy, 0.65, "F"); // core (1.3mm diameter)
+      // ── Bottom strip: shift fill (if any), absence grey, or white ────
+      const botY = y + inset + stripH;
+      const botH = height - inset * 2 - stripH;
+      if (meta.shiftColor) {
+        const [r, g, b] = hexToRgb(meta.shiftColor);
+        doc.setFillColor(r, g, b);
+        doc.rect(x + inset, botY, width - inset * 2, botH, "F");
+        // Re-draw the shift code centered in the bottom strip.
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.text(
+          meta.shiftCode ?? "",
+          x + width / 2,
+          botY + botH / 2 + 1.1,
+          { align: "center" },
+        );
+        doc.setTextColor(0);
+      } else if (meta.isAbsent) {
+        doc.setFillColor(229, 231, 235);
+        doc.rect(x + inset, botY, width - inset * 2, botH, "F");
+      } else {
+        doc.setFillColor(255, 255, 255);
+        doc.rect(x + inset, botY, width - inset * 2, botH, "F");
+      }
     },
     didDrawPage: (data: any) => {
       const pageCount = doc.getNumberOfPages();
@@ -301,17 +332,21 @@ function drawLegend(doc: any, types: ShiftType[], hasOpRoles: boolean, strings: 
 
   if (hasOpRoles) {
     placeEntry(() => {
-      // Sample of the OP marker: white halo + green core circle, on a sample swatch.
-      // Use a darker swatch so the halo is visible (mirrors how it looks over a colored shift cell).
-      doc.setFillColor(70, 70, 70);
-      doc.rect(cursorX, cursorY - 3, 8, 4, "F");
-      const cx = cursorX + 6.5;
-      const cy = cursorY - 1.5;
-      doc.setFillColor(255, 255, 255);
-      doc.circle(cx, cy, 0.95, "F");
-      doc.setFillColor(22, 163, 74);
-      doc.circle(cx, cy, 0.65, "F");
-      doc.text(strings.plannedInOp, cursorX + 11, cursorY);
+      // Sample of the OP marker: stacked layout — grey strip with green dot
+      // above a sample shift-color strip. Mirrors what cells look like in the table.
+      const swX = cursorX;
+      const swY = cursorY - 3;
+      const swW = 8;
+      const swH = 4;
+      // Top strip (1.6mm) — grey with green dot
+      doc.setFillColor(229, 231, 235);
+      doc.rect(swX, swY, swW, 1.6, "F");
+      doc.setFillColor(34, 197, 94);
+      doc.circle(swX + 1.4, swY + 0.8, 0.65, "F");
+      // Bottom strip (2.4mm) — illustrative purple to show how it stacks above a shift fill
+      doc.setFillColor(99, 102, 241);
+      doc.rect(swX, swY + 1.6, swW, swH - 1.6, "F");
+      doc.text(strings.plannedInOp, swX + 11, cursorY);
     });
   }
 }
