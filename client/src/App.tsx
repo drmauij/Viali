@@ -100,6 +100,7 @@ const ChainFlows = React.lazy(() => import("@/pages/chain/Flows"));
 const ChainFlowCreate = React.lazy(() => import("@/pages/chain/FlowCreate"));
 const ChainLocations = React.lazy(() => import("@/pages/chain/Locations"));
 const ChainTeam = React.lazy(() => import("@/pages/chain/Team"));
+const ContractTemplates = React.lazy(() => import("@/pages/business/ContractTemplates"));
 
 function PageLoader() {
   return (
@@ -368,6 +369,8 @@ function Router() {
               <Route path="/business/flows">{() => <ProtectedRoute requireBusiness><Flows /></ProtectedRoute>}</Route>
               <Route path="/business">{() => <ProtectedRoute requireBusiness><CostAnalytics /></ProtectedRoute>}</Route>
               <Route path="/business/administration">{() => <ProtectedRoute requireBusiness><SimplifiedDashboard /></ProtectedRoute>}</Route>
+              <Route path="/business/hr/contracts/templates/:id">{() => <ProtectedRoute requireBusiness><ContractTemplates /></ProtectedRoute>}</Route>
+              <Route path="/business/hr/contracts/templates">{() => <ProtectedRoute requireBusiness><ContractTemplates /></ProtectedRoute>}</Route>
               <Route path="/business/hr">{() => <ProtectedRoute requireBusiness><HR /></ProtectedRoute>}</Route>
               <Route path="/business/staff">{() => <ProtectedRoute requireBusiness><HR /></ProtectedRoute>}</Route>
               <Route path="/business/contracts">{() => <ProtectedRoute requireBusiness><HR /></ProtectedRoute>}</Route>
