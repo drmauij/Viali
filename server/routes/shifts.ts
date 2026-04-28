@@ -6,6 +6,7 @@ import { storage } from "../storage";
 import { db } from "../db";
 import { staffShifts, dailyStaffPool, users } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
+import { isValidWorkerEmail } from "../lib/emailFilter";
 
 const router = Router();
 
@@ -247,5 +248,38 @@ router.post("/api/staff-shifts/:hospitalId/assign/bulk", isAuthenticated, requir
     res.status(500).json({ message: "Failed to bulk assign shifts" });
   }
 });
+
+// ── Month-PDF email distribution ──────────────────────────────────────────────
+
+router.get(
+  "/api/staff-shifts/:hospitalId/email-month-pdf/recipients",
+  isAuthenticated,
+  requireWriteAccess,
+  requireAdminWriteAccess,
+  async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const unitId = req.query.unitId as string | undefined;
+      if (!unitId) {
+        return res.status(400).json({ message: "unitId query parameter is required" });
+      }
+
+      const providers = await storage.getBookableProvidersByUnit(unitId);
+      const valid: string[] = [];
+      let skipped = 0;
+      for (const p of providers) {
+        const email = (p as any).user?.email;
+        if (isValidWorkerEmail(email)) {
+          valid.push(email.trim());
+        } else {
+          skipped += 1;
+        }
+      }
+      res.json({ valid, skipped });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch recipients" });
+    }
+  },
+);
 
 export default router;
