@@ -17,6 +17,22 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest } from "@/lib/queryClient";
 import { Loader2, Send, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { HtmlPreviewIframe } from "./HtmlPreviewIframe";
+
+function summarizeSelectedElement(snippet: string): string {
+  // Extract tag + first ~40 chars of inner text for the chip.
+  const tagMatch = snippet.match(/^<([a-z0-9]+)/i);
+  const tag = tagMatch ? tagMatch[1].toUpperCase() : "Element";
+  const text = snippet.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const preview = text.length <= 40 ? text : text.slice(0, 39) + "…";
+  const human: Record<string, string> = {
+    H1: "Heading", H2: "Heading", H3: "Heading", H4: "Heading", H5: "Heading", H6: "Heading",
+    P: "Paragraph", LI: "List item", A: "Link", BUTTON: "Button",
+    IMG: "Image", BLOCKQUOTE: "Quote",
+  };
+  const label = human[tag] || tag;
+  return preview ? `${label} "${preview}"` : label;
+}
 
 interface Props {
   channel: "sms" | "email" | "html_email";
@@ -113,28 +129,31 @@ function EmailPreview({
   );
 }
 
-function HtmlEmailPreview({ content }: { content: string }) {
-  const { t } = useTranslation();
-  // If the AI returned a full HTML document, render it as-is — wrapping it in
-  // another <body> produces invalid nested documents that render blank.
-  const looksLikeFullDoc = /^\s*(<!DOCTYPE|<html[\s>])/i.test(content);
-  const srcDoc = content
-    ? looksLikeFullDoc
-      ? content
-      : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;">${content}</body></html>`
-    : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;color:#999;">${t("flows.compose.noContent", "No content yet")}</body></html>`;
-
+function HtmlEmailPreview({
+  content,
+  selectable,
+  selectedPath,
+  onElementClick,
+  onBackgroundClick,
+}: {
+  content: string;
+  selectable: boolean;
+  selectedPath: number[] | null;
+  onElementClick?: (path: number[]) => void;
+  onBackgroundClick?: () => void;
+}) {
   return (
     <div className="h-full p-4">
       <div className="border rounded-lg overflow-hidden h-full min-h-64">
-        <iframe
-          title="HTML Email Preview"
-          srcDoc={srcDoc}
-          sandbox="allow-same-origin"
+        <HtmlPreviewIframe
+          html={content}
+          selectable={selectable}
+          selectedPath={selectedPath}
+          onElementClick={onElementClick}
+          onBackgroundClick={onBackgroundClick}
           className="w-full h-full"
-          // Force light color-scheme so AI-generated HTML without explicit
-          // colors doesn't inherit the parent app's dark theme.
-          style={{ minHeight: "300px", background: "white", colorScheme: "light" }}
+          style={{ minHeight: "300px" }}
+          title="HTML Email Preview"
         />
       </div>
     </div>
@@ -248,6 +267,10 @@ function PreviewPanel({
   onSubjectChange,
   onExamplePromptClick,
   isGenerating,
+  selectable,
+  selectedPath,
+  onElementClick,
+  onBackgroundClick,
 }: {
   channel: "sms" | "email" | "html_email";
   messageContent: string;
@@ -255,6 +278,10 @@ function PreviewPanel({
   onSubjectChange: (v: string) => void;
   onExamplePromptClick?: (prompt: string) => void;
   isGenerating?: boolean;
+  selectable: boolean;
+  selectedPath: number[] | null;
+  onElementClick?: (path: number[]) => void;
+  onBackgroundClick?: () => void;
 }) {
   const { t } = useTranslation();
   const isEmpty = !messageContent.trim();
@@ -285,7 +312,13 @@ function PreviewPanel({
               <EmailPreview subject={messageSubject} content={messageContent} />
             )}
             {channel === "html_email" && (
-              <HtmlEmailPreview content={messageContent} />
+              <HtmlEmailPreview
+                content={messageContent}
+                selectable={selectable}
+                selectedPath={selectedPath}
+                onElementClick={onElementClick}
+                onBackgroundClick={onBackgroundClick}
+              />
             )}
           </>
         )}
@@ -312,6 +345,10 @@ const AiChatPanel = forwardRef<AiChatPanelHandle, {
   onSubjectGenerated?: (subject: string) => void;
   /** Called with true when AI generation starts, false when it ends. */
   onLoadingChange?: (loading: boolean) => void;
+  // ── NEW ──
+  selection: { path: number[]; snippet: string; summary: string } | null;
+  sourceContent: string;
+  onSelectionApplied: () => void;
 }>(function AiChatPanel(
   {
     channel,
@@ -321,6 +358,9 @@ const AiChatPanel = forwardRef<AiChatPanelHandle, {
     onMessageGenerated,
     onSubjectGenerated,
     onLoadingChange,
+    selection,
+    sourceContent,
+    onSelectionApplied,
   },
   ref,
 ) {
@@ -663,6 +703,40 @@ export default function MessageComposer({
   const { t } = useTranslation();
   const [referenceUrl, setReferenceUrl] = useState("");
   const chatPaneRef = useRef<AiChatPanelHandle>(null);
+
+  const [selection, setSelection] = useState<{
+    path: number[];
+    snippet: string;
+    summary: string;
+  } | null>(null);
+
+  // Clear selection when the user activates a different variant.
+  useEffect(() => {
+    setSelection(null);
+  }, [activeVariantLabel]);
+
+  const handleElementClick = (path: number[]) => {
+    // Pull the clicked element's outerHTML out of messageContent so we can
+    // make a chip summary. The parsed-DOM walk uses `parsed.body` — paths
+    // were computed against `doc.body` in the iframe so they match.
+    const doc = new DOMParser().parseFromString(messageContent || "", "text/html");
+    let node: Element | null = doc.body;
+    for (const idx of path) {
+      if (!node) { node = null; break; }
+      node = node.children[idx] || null;
+    }
+    if (!node) {
+      setSelection(null);
+      return;
+    }
+    setSelection({
+      path,
+      snippet: node.outerHTML,
+      summary: summarizeSelectedElement(node.outerHTML),
+    });
+  };
+
+  const handleBackgroundClick = () => setSelection(null);
   const [internalFullscreen, setInternalFullscreen] = useState(false);
   const isFullscreen = controlledFullscreen ?? internalFullscreen;
   const exitFullscreen = () => {
@@ -806,18 +880,30 @@ export default function MessageComposer({
                   messageSubject={messageSubject}
                   onSubjectChange={onSubjectChange}
                   onExamplePromptClick={(p) => chatPaneRef.current?.submitPrompt(p)}
-                  isGenerating={
-                    // Show the spinner whenever the active variant has empty
-                    // content AND any generation is happening anywhere — this
-                    // catches the race between adding a placeholder variant
-                    // and the parent setting generatingLabels for it.
-                    !!generatingLabels && generatingLabels.size > 0
-                  }
+                  isGenerating={!!generatingLabels && generatingLabels.size > 0}
+                  selectable={channel === "html_email"}
+                  selectedPath={selection?.path ?? null}
+                  onElementClick={handleElementClick}
+                  onBackgroundClick={handleBackgroundClick}
                 />
               )}
             </div>
             {/* Prompt bar pinned to the bottom */}
             <div className="border-t p-3 bg-background">
+              {selection && (
+                <div className="mb-2 inline-flex items-center gap-1 rounded bg-blue-500/15 text-blue-700 dark:text-blue-300 px-2 py-0.5 text-xs">
+                  <span>Scope: {selection.summary}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelection(null)}
+                    className="ml-1 hover:text-foreground"
+                    title="Clear scope"
+                    data-testid="button-clear-flows-ai-scope"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
               <AiChatPanel
                 ref={chatPaneRef}
                 channel={channel}
@@ -827,6 +913,9 @@ export default function MessageComposer({
                 onMessageGenerated={onContentChange}
                 onSubjectGenerated={onSubjectChange}
                 onLoadingChange={onChatLoadingChange}
+                selection={selection}
+                sourceContent={messageContent}
+                onSelectionApplied={() => setSelection(null)}
               />
             </div>
           </div>
