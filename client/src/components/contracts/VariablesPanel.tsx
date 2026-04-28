@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { VariablesSchema, SimpleVariable, SelectableListVariable, VariableType } from "@shared/contractTemplates/types";
+import type { VariablesSchema, SimpleVariable, SelectableListVariable, SelectableListField, VariableType } from "@shared/contractTemplates/types";
 
 interface Props {
   value: VariablesSchema;
@@ -115,6 +115,46 @@ function SelectableListEditor({
   onRemove: () => void;
 }) {
   const fields = value.fields;
+
+  function addField() {
+    const existing = new Set(fields.map((f) => f.key));
+    let n = fields.length + 1;
+    let key = `field${n}`;
+    while (existing.has(key)) key = `field${++n}`;
+    const newFields = [...fields, { key, type: "text" as VariableType }];
+    const newOptions = value.options.map((opt) => ({ ...opt, [key]: "" }));
+    onChange({ fields: newFields, options: newOptions });
+  }
+
+  function removeField(idx: number) {
+    const removedKey = fields[idx].key;
+    const newFields = fields.filter((_, i) => i !== idx);
+    const newOptions = value.options.map((opt, oi) => {
+      const { [removedKey]: _drop, ...rest } = opt;
+      // Storage requires id on every option; if user dropped the "id" column, regenerate.
+      const id = (rest as { id?: string }).id || (removedKey === "id" ? `opt_${oi + 1}` : "");
+      return { ...rest, id } as typeof opt;
+    });
+    onChange({ fields: newFields, options: newOptions });
+  }
+
+  function patchField(idx: number, p: Partial<SelectableListField>) {
+    const oldKey = fields[idx].key;
+    const newFields = [...fields];
+    newFields[idx] = { ...newFields[idx], ...p };
+    const newKey = newFields[idx].key;
+
+    if (p.key !== undefined && oldKey !== newKey) {
+      const newOptions = value.options.map((opt) => {
+        const { [oldKey]: oldVal, ...rest } = opt;
+        return { ...rest, [newKey]: oldVal ?? "" } as typeof opt;
+      });
+      onChange({ fields: newFields, options: newOptions });
+    } else {
+      onChange({ fields: newFields });
+    }
+  }
+
   return (
     <div className="rounded border bg-card p-2 space-y-2 relative">
       <button onClick={onRemove} className="absolute right-1 top-1 text-xs text-red-600" aria-label="Remove">×</button>
@@ -131,7 +171,32 @@ function SelectableListEditor({
       <table className="w-full text-xs">
         <thead>
           <tr>
-            {fields.map((f) => <th key={f.key} className="text-left">{f.key}</th>)}
+            {fields.map((f, fi) => (
+              <th key={fi} className="text-left p-1 align-top min-w-[90px]">
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-0.5">
+                    <input
+                      className="flex-1 min-w-0 rounded border bg-background text-foreground px-1 py-0.5 font-semibold"
+                      value={f.key}
+                      onChange={(e) => patchField(fi, { key: e.target.value })}
+                      placeholder="key"
+                    />
+                    <button
+                      onClick={() => removeField(fi)}
+                      className="text-red-600 px-0.5 leading-none"
+                      aria-label="Remove field"
+                    >×</button>
+                  </div>
+                  <select
+                    className="w-full rounded border bg-background text-foreground px-1 py-0.5"
+                    value={f.type}
+                    onChange={(e) => patchField(fi, { type: e.target.value as VariableType })}
+                  >
+                    {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              </th>
+            ))}
             <th />
           </tr>
         </thead>
@@ -161,19 +226,22 @@ function SelectableListEditor({
           ))}
         </tbody>
       </table>
-      <button
-        onClick={() =>
-          onChange({
-            options: [
-              ...value.options,
-              fields.reduce((a, f) => ({ ...a, [f.key]: "" }), { id: `opt_${value.options.length + 1}` }) as never,
-            ],
-          })
-        }
-        className="text-xs underline"
-      >
-        + Add option
-      </button>
+      <div className="flex gap-3">
+        <button onClick={addField} className="text-xs underline">+ Add field</button>
+        <button
+          onClick={() =>
+            onChange({
+              options: [
+                ...value.options,
+                fields.reduce((a, f) => ({ ...a, [f.key]: "" }), { id: `opt_${value.options.length + 1}` }) as never,
+              ],
+            })
+          }
+          className="text-xs underline"
+        >
+          + Add option
+        </button>
+      </div>
     </div>
   );
 }
