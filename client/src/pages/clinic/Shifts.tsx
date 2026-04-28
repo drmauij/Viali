@@ -38,7 +38,7 @@ function getStoredView(): ViewType {
 }
 
 export default function ClinicShifts() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
 
   const activeHospital = useMemo(() => {
@@ -226,17 +226,38 @@ export default function ClinicShifts() {
   const monthLabel = format(anchor, "MMMM yyyy");
 
   const buildPdf = async () => {
+    // Resolve a date-fns locale matching the user's UI language so weekday/month
+    // names render in the right language. Fall back to en-US if the locale
+    // can't be loaded.
+    const lang = (i18n.language || "en").toLowerCase().split("-")[0];
+    let dateLocale;
+    try {
+      dateLocale = lang === "de"
+        ? (await import("date-fns/locale/de")).de
+        : (await import("date-fns/locale/en-US")).enUS;
+    } catch {
+      dateLocale = undefined;
+    }
+
     return generateShiftsMonthPdf({
       hospitalName: activeHospital?.name ?? "",
       unitName: activeHospital?.unitName ?? null,
       anchor,
       timeZone: activeHospital?.timezone || "Europe/Zurich",
-      locale: activeHospital?.dateFormat === "american" ? "en-US" : "de-CH",
+      locale: i18n.language === "de" ? "de-CH" : "en-US",
+      dateLocale,
+      i18n: {
+        title: t("shifts.pdf.title"),
+        generated: t("shifts.pdf.generated"),
+        legend: t("shifts.pdf.legend"),
+        plannedInOp: t("shifts.pdf.plannedInOp"),
+      },
       providers,
       shiftTypes,
       staffShifts,
       absences,
       timeOffs,
+      staffPool,
     });
   };
 

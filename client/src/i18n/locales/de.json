@@ -8268,6 +8268,12 @@
     "monthView": "Monat",
     "saved": "Schicht gespeichert",
     "currentlyAssigned": "Aktuell",
+    "pdf": {
+      "title": "Dienstplan",
+      "generated": "Erstellt am",
+      "legend": "Legende",
+      "plannedInOp": "OP-Einsatz geplant"
+    },
     "popover": {
       "role": "Rolle (Saal-Plan)",
       "rolePlaceholder": "Rolle wählen",

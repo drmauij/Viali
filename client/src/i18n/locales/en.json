@@ -8251,6 +8251,12 @@
     "monthView": "Month",
     "saved": "Shift saved",
     "currentlyAssigned": "Currently",
+    "pdf": {
+      "title": "Shift Schedule",
+      "generated": "Generated",
+      "legend": "Legend",
+      "plannedInOp": "Planned in OP"
+    },
     "popover": {
       "role": "Role (Saal plan)",
       "rolePlaceholder": "Select role",
