@@ -4,6 +4,9 @@ import { computeDomPath } from "@/lib/htmlEditScope";
 const SELECTABLE_TAGS = new Set([
   "H1", "H2", "H3", "H4", "H5", "H6",
   "P", "LI", "A", "BUTTON", "IMG", "BLOCKQUOTE",
+  // Inline text containers — AI-generated emails wrap prices, badges,
+  // emphasized phrases in these.
+  "SPAN", "STRONG", "EM", "B", "I", "SMALL", "MARK", "CODE",
 ]);
 
 const STYLE_BLOCK = `
@@ -11,10 +14,19 @@ const STYLE_BLOCK = `
 [data-vai-selected] { outline: 2px solid #3b82f6 !important; outline-offset: 2px; box-shadow: 0 0 0 4px rgba(59,130,246,0.2); }
 `;
 
+// A DIV / TD is selectable only as a "leaf" — text content but no
+// element children. Catches badge-style pills (duration "30 Min",
+// rounded chips) without letting users select wrapper sections.
+function isLeafTextContainer(el: Element): boolean {
+  if (el.tagName !== "DIV" && el.tagName !== "TD") return false;
+  if (el.children.length > 0) return false;
+  return (el.textContent || "").trim().length > 0;
+}
+
 function findSelectableAncestor(start: Element, root: Element): Element | null {
   let n: Element | null = start;
   while (n && n !== root) {
-    if (SELECTABLE_TAGS.has(n.tagName)) return n;
+    if (SELECTABLE_TAGS.has(n.tagName) || isLeafTextContainer(n)) return n;
     n = n.parentElement;
   }
   return null;
