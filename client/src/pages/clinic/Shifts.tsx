@@ -14,10 +14,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Mail } from "lucide-react";
 import ShiftsWeekView from "@/components/shifts/ShiftsWeekView";
 import ShiftsMonthView from "@/components/shifts/ShiftsMonthView";
 import ShiftsDayView from "@/components/shifts/ShiftsDayView";
+import ShiftsEmailDialog from "@/components/shifts/ShiftsEmailDialog";
+import { generateShiftsMonthPdf } from "@/lib/shiftsMonthPdf";
 import type { ShiftType, StaffShift } from "@shared/schema";
 
 type ViewType = "day" | "week" | "month";
@@ -58,6 +60,7 @@ export default function ClinicShifts() {
 
   const [anchor, setAnchor] = useState<Date>(() => new Date());
   const [view, setView] = useState<ViewType>(getStoredView);
+  const [emailOpen, setEmailOpen] = useState(false);
 
   function changeView(v: ViewType) {
     setView(v);
@@ -219,6 +222,36 @@ export default function ClinicShifts() {
     enabled: !!hospitalId && !!unitId,
   });
 
+  const monthStr = `${anchor.getFullYear()}-${String(anchor.getMonth() + 1).padStart(2, "0")}`;
+  const monthLabel = format(anchor, "MMMM yyyy");
+
+  const buildPdf = async () => {
+    return generateShiftsMonthPdf({
+      hospitalName: activeHospital?.name ?? "",
+      unitName: activeHospital?.unitName ?? null,
+      anchor,
+      timeZone: activeHospital?.timezone || "Europe/Zurich",
+      locale: activeHospital?.dateFormat === "american" ? "en-US" : "de-CH",
+      providers,
+      shiftTypes,
+      staffShifts,
+      absences,
+      timeOffs,
+    });
+  };
+
+  const handleDownload = async () => {
+    const { blob, filename } = await buildPdf();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
@@ -237,8 +270,29 @@ export default function ClinicShifts() {
         {/* Date range label */}
         <span className="text-sm font-medium ml-2 flex-1 min-w-0 truncate">{headerLabel}</span>
 
-        {/* View switcher */}
-        <div className="flex gap-1 ml-auto">
+        {/* View switcher + actions */}
+        <div className="flex gap-1 ml-auto items-center">
+          {view === "month" && isAdmin && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleDownload}
+                title="Download PDF"
+              >
+                <Download className="h-4 w-4 mr-1" /> PDF
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setEmailOpen(true)}
+                title="Email schedule to team"
+              >
+                <Mail className="h-4 w-4 mr-1" /> Email
+              </Button>
+              <div className="w-px h-5 bg-border mx-1" />
+            </>
+          )}
           {(["day", "week", "month"] as ViewType[]).map((v) => (
             <Button
               key={v}
@@ -301,6 +355,18 @@ export default function ClinicShifts() {
           />
         )}
       </div>
+
+      {hospitalId && unitId && (
+        <ShiftsEmailDialog
+          open={emailOpen}
+          onOpenChange={setEmailOpen}
+          hospitalId={hospitalId}
+          unitId={unitId}
+          monthStr={monthStr}
+          monthLabel={monthLabel}
+          generatePdfBase64={async () => (await buildPdf()).base64}
+        />
+      )}
     </div>
   );
 }
