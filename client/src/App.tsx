@@ -262,6 +262,8 @@ function Router() {
           <Route path="/q/:alias" component={QuestionnaireAliasResolver} />
           <Route path="/external-surgery/:token" component={ExternalSurgeryRequest} />
           <Route path="/surgeon-portal/:token" component={SurgeonPortal} />
+          <Route path="/contract/c/:token" component={WorkerContractForm} />
+          <Route path="/contract/t/:token" component={WorkerContractForm} />
           <Route path="/contract/:token" component={WorkerContractForm} />
           <Route path="/worklog/:token" component={ExternalWorklog} />
           <Route path="/kiosk/:token" component={PublicWorktimeKiosk} />
