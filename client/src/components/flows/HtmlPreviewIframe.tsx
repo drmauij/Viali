@@ -35,6 +35,7 @@ interface Props {
   selectedPath: number[] | null;
   onElementClick?: (path: number[]) => void;
   onBackgroundClick?: () => void;
+  onAnyClick?: () => void;
   className?: string;
   style?: CSSProperties;
   title?: string;
@@ -46,6 +47,7 @@ export function HtmlPreviewIframe({
   selectedPath,
   onElementClick,
   onBackgroundClick,
+  onAnyClick,
   className,
   style,
   title = "HTML preview",
@@ -84,7 +86,14 @@ export function HtmlPreviewIframe({
         if (target) target.setAttribute("data-vai-selected", "true");
       }
 
-      if (!selectable) return;
+      if (!selectable) {
+        // Even when not selectable, surface a single coarse "I clicked the iframe"
+        // signal — used to activate inactive A/B variants on click.
+        if (onAnyClick) {
+          doc.addEventListener("click", () => onAnyClick());
+        }
+        return;
+      }
 
       // Hover outline.
       const onMove = (ev: MouseEvent) => {
@@ -125,7 +134,7 @@ export function HtmlPreviewIframe({
     // srcDoc was set synchronously — call onLoad once for the current doc too.
     onLoad();
     return () => iframe.removeEventListener("load", onLoad);
-  }, [srcDoc, selectable, selectedPath, onElementClick, onBackgroundClick]);
+  }, [srcDoc, selectable, selectedPath, onElementClick, onBackgroundClick, onAnyClick]);
 
   return (
     <iframe

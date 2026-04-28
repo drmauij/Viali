@@ -889,12 +889,6 @@ export default function MessageComposer({
                   {splitPreviews.map((v) => {
                     const isActive = v.label === activeVariantLabel;
                     const isGenerating = !!generatingLabels?.has(v.label);
-                    const looksLikeFullDoc = /^\s*(<!DOCTYPE|<html[\s>])/i.test(v.messageTemplate);
-                    const srcDoc = v.messageTemplate
-                      ? looksLikeFullDoc
-                        ? v.messageTemplate
-                        : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;">${v.messageTemplate}</body></html>`
-                      : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;color:#999;">${t("flows.compose.noContent", "No content yet")}</body></html>`;
                     return (
                       <div
                         key={v.label}
@@ -953,16 +947,32 @@ export default function MessageComposer({
                             scrollable. Click-to-select happens via the header. */}
                         <div className="flex-1 min-h-0 overflow-hidden">
                           {channel === "html_email" ? (
-                            <iframe
-                              title={`Variant ${v.label} preview`}
-                              srcDoc={srcDoc}
-                              sandbox="allow-same-origin"
+                            <HtmlPreviewIframe
+                              html={v.messageTemplate}
+                              selectable={isActive}
+                              selectedPath={isActive ? (selection?.path ?? null) : null}
+                              onElementClick={
+                                isActive
+                                  ? (path) => {
+                                      const doc = new DOMParser().parseFromString(v.messageTemplate || "", "text/html");
+                                      let node: Element | null = doc.body;
+                                      for (const idx of path) {
+                                        if (!node) { node = null; break; }
+                                        node = node.children[idx] || null;
+                                      }
+                                      if (!node) return;
+                                      setSelection({
+                                        path,
+                                        snippet: node.outerHTML,
+                                        summary: summarizeSelectedElement(node.outerHTML),
+                                      });
+                                    }
+                                  : undefined
+                              }
+                              onBackgroundClick={isActive ? () => setSelection(null) : undefined}
+                              onAnyClick={!isActive ? () => onActivateVariant?.(v.label) : undefined}
                               className="w-full h-full"
-                              // Force light color-scheme so AI-generated HTML
-                              // that doesn't set explicit colors doesn't
-                              // inherit the parent app's dark theme defaults
-                              // (e.g. dark text on dark canvas, unreadable).
-                              style={{ background: "white", colorScheme: "light" }}
+                              title={`Variant ${v.label} preview`}
                             />
                           ) : channel === "sms" ? (
                             <SmsPreview content={v.messageTemplate} />
