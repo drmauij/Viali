@@ -23,33 +23,32 @@ function isLeafTextContainer(el: Element): boolean {
   return (el.textContent || "").trim().length > 0;
 }
 
-function findSelectableAncestor(start: Element, root: Element): Element | null {
-  let n: Element | null = start;
-  while (n && n !== root) {
-    if (SELECTABLE_TAGS.has(n.tagName) || isLeafTextContainer(n)) return n;
-    n = n.parentElement;
-  }
-  return null;
+// A DIV / TABLE / TD with a visible boundary (border, border-radius,
+// or box-shadow) is selectable as a "card". AI-generated emails use
+// inline styles, so we read getComputedStyle from the iframe's window.
+function isCardLike(el: Element, win: Window | null): boolean {
+  if (!win) return false;
+  const tag = el.tagName;
+  if (tag !== "DIV" && tag !== "TABLE" && tag !== "TD") return false;
+  const cs = win.getComputedStyle(el);
+  if (cs.borderRadius && cs.borderRadius !== "0px") return true;
+  if (cs.boxShadow && cs.boxShadow !== "none") return true;
+  const widths = [
+    cs.borderTopWidth, cs.borderRightWidth,
+    cs.borderBottomWidth, cs.borderLeftWidth,
+  ];
+  if (widths.some((w) => parseFloat(w || "0") > 0)) return true;
+  return false;
 }
 
-// Walk up looking for a "card" — the nearest DIV / TABLE / TD that has
-// a visual boundary (border, border-radius, box-shadow, or explicit
-// background). Used by Alt-click to widen selection from inner content
-// to the enclosing visual unit (treatment card, hero box, CTA banner).
-function findCardAncestor(start: Element, root: Element, win: Window): Element | null {
+function findSelectableAncestor(start: Element, root: Element, win: Window | null): Element | null {
   let n: Element | null = start;
   while (n && n !== root) {
-    if (n.tagName === "DIV" || n.tagName === "TABLE" || n.tagName === "TD") {
-      const cs = win.getComputedStyle(n);
-      const hasRadius = cs.borderRadius !== "0px";
-      const hasShadow = cs.boxShadow !== "none";
-      const hasBorder =
-        parseFloat(cs.borderTopWidth || "0") > 0 ||
-        parseFloat(cs.borderRightWidth || "0") > 0 ||
-        parseFloat(cs.borderBottomWidth || "0") > 0 ||
-        parseFloat(cs.borderLeftWidth || "0") > 0;
-      if (hasRadius || hasShadow || hasBorder) return n;
-    }
+    if (
+      SELECTABLE_TAGS.has(n.tagName) ||
+      isLeafTextContainer(n) ||
+      isCardLike(n, win)
+    ) return n;
     n = n.parentElement;
   }
   return null;
@@ -130,22 +129,11 @@ export function HtmlPreviewIframe({
         return;
       }
 
-      const win = doc.defaultView;
-      const pickTarget = (target: Element, altKey: boolean): Element | null => {
-        // Alt held: prefer the enclosing card. Fall back to inner
-        // content if no visual-boundary ancestor exists.
-        if (altKey && win) {
-          const card = findCardAncestor(target, doc.body, win);
-          if (card) return card;
-        }
-        return findSelectableAncestor(target, doc.body);
-      };
-
       // Hover outline.
       const onMove = (ev: MouseEvent) => {
         const target = ev.target as Element | null;
         if (!target) return;
-        const sel = pickTarget(target, ev.altKey);
+        const sel = findSelectableAncestor(target, doc.body, doc.defaultView);
         doc.querySelectorAll("[data-vai-hover]").forEach((el) =>
           el.removeAttribute("data-vai-hover"),
         );
@@ -159,7 +147,7 @@ export function HtmlPreviewIframe({
       const onClick = (ev: MouseEvent) => {
         const target = ev.target as Element | null;
         if (!target) return;
-        const sel = pickTarget(target, ev.altKey);
+        const sel = findSelectableAncestor(target, doc.body, doc.defaultView);
         if (sel) {
           ev.preventDefault();
           const path = computeDomPath(sel, doc.body);
