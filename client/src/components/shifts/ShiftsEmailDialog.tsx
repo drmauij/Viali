@@ -53,9 +53,10 @@ export default function ShiftsEmailDialog({
     queryFn: () =>
       apiRequest(
         "GET",
-        `/api/staff-shifts/${hospitalId}/email-month-pdf/recipients?unitId=${unitId}`,
+        `/api/staff-shifts/${encodeURIComponent(hospitalId)}/email-month-pdf/recipients?unitId=${encodeURIComponent(unitId)}`,
       ).then((r) => r.json()),
     enabled: open,
+    staleTime: 0,
   });
 
   // Reset send state whenever the dialog re-opens.
@@ -69,7 +70,7 @@ export default function ShiftsEmailDialog({
       const pdfBase64 = await generatePdfBase64();
       const res = await apiRequest(
         "POST",
-        `/api/staff-shifts/${hospitalId}/email-month-pdf`,
+        `/api/staff-shifts/${encodeURIComponent(hospitalId)}/email-month-pdf`,
         { unitId, month: monthStr, pdfBase64 },
       );
       const json: SendResponse = await res.json();
