@@ -95,3 +95,40 @@ describe("replaceMarkedElement", () => {
     ).toThrow(/single root/);
   });
 });
+
+import { stripMarkers, extractHeadContent } from "@/lib/htmlEditScope";
+
+describe("stripMarkers", () => {
+  it("removes data-vai-marker attributes from any tag", () => {
+    const html = `<p data-vai-marker="a1">one</p><div data-vai-marker='b2'>two</div>`;
+    const out = stripMarkers(html);
+    expect(out).not.toContain("data-vai-marker");
+    expect(out).toContain("<p>one</p>");
+    expect(out).toContain("<div>two</div>");
+  });
+
+  it("leaves HTML without markers untouched", () => {
+    const html = `<p class="x">y</p>`;
+    expect(stripMarkers(html)).toBe(html);
+  });
+});
+
+describe("extractHeadContent", () => {
+  it("returns the inner of <head>", () => {
+    const html = `<!DOCTYPE html><html><head><style>body{color:red}</style><title>x</title></head><body>z</body></html>`;
+    const head = extractHeadContent(html);
+    expect(head).toContain("<style>body{color:red}</style>");
+    expect(head).toContain("<title>x</title>");
+    expect(head).not.toContain("<body>");
+  });
+
+  it("returns an empty string when there is no <head>", () => {
+    expect(extractHeadContent("<p>hi</p>")).toBe("");
+  });
+
+  it("trims to a max byte length", () => {
+    const big = "x".repeat(10000);
+    const html = `<html><head><style>${big}</style></head><body></body></html>`;
+    expect(extractHeadContent(html).length).toBeLessThanOrEqual(3000);
+  });
+});
