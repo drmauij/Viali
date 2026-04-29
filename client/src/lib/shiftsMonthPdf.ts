@@ -1,4 +1,4 @@
-import { addDays, startOfMonth, endOfMonth, format } from "date-fns";
+import { addDays, startOfMonth, endOfMonth, format, getDay } from "date-fns";
 import type { Locale } from "date-fns";
 import type { ShiftType, StaffShift } from "@shared/schema";
 
@@ -167,11 +167,25 @@ function drawShiftsTable(
 
   // Header rows: 2 header rows so weekday letter and day number stack.
   // Use the user's locale for weekday names so they render in the right language.
+  // Weekend columns get a slightly darker gray fill to mirror the on-screen tint.
   const dateOpts = input.dateLocale ? { locale: input.dateLocale } : undefined;
-  const head = [
-    ["Staff", ...weekdays.map((d) => format(d, "EEE", dateOpts))],
-    ["", ...weekdays.map((d) => format(d, "d", dateOpts))],
-  ];
+  const WEEKEND_FILL: [number, number, number] = [225, 225, 230];
+  const isWeekend = (d: Date) => {
+    const dow = getDay(d);
+    return dow === 0 || dow === 6;
+  };
+  const headRow1: any[] = ["Staff"];
+  const headRow2: any[] = [""];
+  for (const d of weekdays) {
+    const weekend = isWeekend(d);
+    headRow1.push(weekend
+      ? { content: format(d, "EEE", dateOpts), styles: { fillColor: WEEKEND_FILL } }
+      : format(d, "EEE", dateOpts));
+    headRow2.push(weekend
+      ? { content: format(d, "d", dateOpts), styles: { fillColor: WEEKEND_FILL } }
+      : format(d, "d", dateOpts));
+  }
+  const head = [headRow1, headRow2];
 
   // Body. All data cells are rendered manually in didDrawCell so the shift
   // appears as a rounded inset box (matching the in-app view) and the OP dot
@@ -199,7 +213,7 @@ function drawShiftsTable(
       cells.push({
         content: "",
         _opMeta: meta,
-        styles: { fillColor: [255, 255, 255] },
+        styles: { fillColor: isWeekend(d) ? WEEKEND_FILL : [255, 255, 255] },
       });
     }
     return cells;
