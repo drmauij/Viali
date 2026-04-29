@@ -95,24 +95,19 @@ export default function AppointmentsMonthView({
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartRef = useRef<{ x: number; y: number; providerId: string; dayIdx: number } | null>(null);
 
-  // Generate every day of the month with separator positions between weeks.
-  // Patients sometimes can only come on Saturday/Sunday, so all 7 weekdays
-  // are included; the separator before each Monday visually splits weeks.
-  const { weekdays, separatorAfter } = useMemo(() => {
+  // Generate every day of the month. Patients sometimes can only come on
+  // Saturday/Sunday, so all 7 weekdays are included; weekends are visually
+  // marked by a tinted cell background instead of a separator strip.
+  const weekdays = useMemo(() => {
     const monthStartDate = startOfMonth(selectedDate);
     const monthEndDate = endOfMonth(selectedDate);
     const wd: Date[] = [];
-    const seps = new Set<number>();
     let current = new Date(monthStartDate);
     while (!isBefore(monthEndDate, startOfDay(current))) {
-      const dow = getDay(current);
-      if (dow === 1 && wd.length > 0) {
-        seps.add(wd.length - 1);
-      }
       wd.push(new Date(current));
       current = addDays(current, 1);
     }
-    return { weekdays: wd, separatorAfter: seps };
+    return wd;
   }, [selectedDate]);
 
   const handleDragStart = useCallback((providerId: string, dayIdx: number) => {
@@ -279,21 +274,24 @@ export default function AppointmentsMonthView({
     return parts.join('\n') || format(day, 'dd.MM.yyyy');
   };
 
-  const SEP_WIDTH = 8;
-  const totalGridWidth = `calc(9rem + ${weekdays.length * MIN_COL_WIDTH + separatorAfter.size * SEP_WIDTH}px)`;
+  const totalGridWidth = `calc(9rem + ${weekdays.length * MIN_COL_WIDTH}px)`;
 
   return (
     <div className="appointments-month-view h-full flex flex-col overflow-x-auto" data-testid="appointments-month-view">
-      {/* Single header row: day abbreviations with gray separators between weeks */}
+      {/* Single header row: day abbreviations; weekend columns get a darker tint. */}
       <div className="flex border-b bg-muted/30" style={{ minWidth: totalGridWidth }}>
         <div className="w-36 flex-shrink-0 p-1 border-r text-xs text-muted-foreground font-medium flex items-center justify-center">
           {t('clinic.appointments.provider')}
         </div>
-        {weekdays.map((day, idx) => (
-          <React.Fragment key={idx}>
+        {weekdays.map((day, idx) => {
+          const dow = getDay(day);
+          const isWeekend = dow === 0 || dow === 6;
+          return (
             <div
+              key={idx}
               className={cn(
                 "text-center text-[10px] leading-tight py-1 border-r cursor-pointer hover:bg-primary/20 transition-colors",
+                isWeekend && "bg-gray-300/40 dark:bg-gray-600/40",
                 isToday(day) && "bg-primary/10 text-primary font-bold"
               )}
               style={{ width: MIN_COL_WIDTH, minWidth: MIN_COL_WIDTH }}
@@ -301,11 +299,8 @@ export default function AppointmentsMonthView({
             >
               {formatDayAbbrev(day)}
             </div>
-            {separatorAfter.has(idx) && (
-              <div className="bg-gray-300 dark:bg-gray-600" style={{ width: SEP_WIDTH, minWidth: SEP_WIDTH }} />
-            )}
-          </React.Fragment>
-        ))}
+          );
+        })}
       </div>
 
       {/* Provider rows */}
@@ -335,12 +330,15 @@ export default function AppointmentsMonthView({
                 const tooltip = buildTooltip(provider.id, day);
 
                 const inDragRange = isDayInDragRange(provider.id, dayIdx);
+                const dow = getDay(day);
+                const isWeekend = dow === 0 || dow === 6;
 
                 return (
                   <React.Fragment key={dayIdx}>
                     <div
                       className={cn(
                         "border-r cursor-pointer hover:bg-muted/30 transition-colors relative select-none",
+                        isWeekend && "bg-gray-300/40 dark:bg-gray-600/40",
                         isToday(day) && "bg-primary/5",
                         absence && !absence.isPartial && (ABSENCE_COLORS[absence.type] || ABSENCE_COLORS.default),
                         inDragRange && "ring-2 ring-orange-400 bg-orange-100/50 dark:bg-orange-900/30"
@@ -432,9 +430,6 @@ export default function AppointmentsMonthView({
                         </>
                       )}
                     </div>
-                    {separatorAfter.has(dayIdx) && (
-                      <div className="bg-gray-300 dark:bg-gray-600" style={{ width: SEP_WIDTH, minWidth: SEP_WIDTH }} />
-                    )}
                   </React.Fragment>
                 );
               })}

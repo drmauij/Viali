@@ -58,7 +58,6 @@ interface PopoverState {
   bulkDates?: string[];
 }
 
-const SEP_WIDTH = 6;
 const MIN_COL_WIDTH = 42;
 
 export default function ShiftsMonthView({
@@ -113,20 +112,17 @@ export default function ShiftsMonthView({
     onFinalize: handleFinalize,
   });
 
-  const { weekdays, separatorAfter } = useMemo(() => {
+  const weekdays = useMemo(() => {
     const monthStartDate = startOfMonth(anchor);
     const monthEndDate = endOfMonth(anchor);
     const wd: Date[] = [];
-    const seps = new Set<number>();
     let current = new Date(monthStartDate);
     while (current <= monthEndDate) {
-      const dow = getDay(current);
-      if (dow === 1 && wd.length > 0) seps.add(wd.length - 1);
       wd.push(new Date(current));
       current = addDays(current, 1);
     }
     weekdaysRef.current = wd;
-    return { weekdays: wd, separatorAfter: seps };
+    return wd;
   }, [anchor]);
 
   const shiftByKey = useMemo(() => {
@@ -193,7 +189,7 @@ export default function ShiftsMonthView({
 
   const isToday = (day: Date) => isSameDay(day, new Date());
 
-  const totalGridWidth = `calc(9rem + ${weekdays.length * MIN_COL_WIDTH + separatorAfter.size * SEP_WIDTH}px)`;
+  const totalGridWidth = `calc(9rem + ${weekdays.length * MIN_COL_WIDTH}px)`;
 
   return (
     <div className="overflow-x-auto h-full flex flex-col">
@@ -202,11 +198,15 @@ export default function ShiftsMonthView({
         <div className="w-36 flex-shrink-0 p-1 border-r text-xs text-muted-foreground font-medium flex items-center">
           Staff
         </div>
-        {weekdays.map((day, idx) => (
-          <React.Fragment key={idx}>
+        {weekdays.map((day, idx) => {
+          const dow = getDay(day);
+          const isWeekend = dow === 0 || dow === 6;
+          return (
             <div
+              key={idx}
               className={cn(
                 "text-center text-[10px] leading-tight py-1 border-r",
+                isWeekend && "bg-gray-300/40 dark:bg-gray-600/40",
                 isToday(day) && "bg-primary/10 text-primary font-bold"
               )}
               style={{ width: MIN_COL_WIDTH, minWidth: MIN_COL_WIDTH }}
@@ -214,14 +214,8 @@ export default function ShiftsMonthView({
               <div>{format(day, "EEE")}</div>
               <div className="text-muted-foreground">{format(day, "d")}</div>
             </div>
-            {separatorAfter.has(idx) && (
-              <div
-                className="bg-gray-300 dark:bg-gray-600"
-                style={{ width: SEP_WIDTH, minWidth: SEP_WIDTH }}
-              />
-            )}
-          </React.Fragment>
-        ))}
+          );
+        })}
       </div>
 
       {/* Provider rows */}
@@ -260,12 +254,15 @@ export default function ShiftsMonthView({
                   const inDragRange = isInDragRange(p.id, dayIdx);
                   const isOpen =
                     popover?.userId === p.id && popover?.date === dateStr;
+                  const dow = getDay(day);
+                  const isWeekend = dow === 0 || dow === 6;
 
                   return (
                     <React.Fragment key={dayIdx}>
                       <div
                         className={cn(
                           "border-r",
+                          isWeekend && "bg-gray-300/40 dark:bg-gray-600/40",
                           isToday(day) && "bg-primary/5",
                           inDragRange && "ring-2 ring-inset ring-blue-400 bg-blue-50 dark:bg-blue-950/30"
                         )}
@@ -306,12 +303,6 @@ export default function ShiftsMonthView({
                           </div>
                         </StaffShiftPopover>
                       </div>
-                      {separatorAfter.has(dayIdx) && (
-                        <div
-                          className="bg-gray-300 dark:bg-gray-600"
-                          style={{ width: SEP_WIDTH, minWidth: SEP_WIDTH }}
-                        />
-                      )}
                     </React.Fragment>
                   );
                 })}

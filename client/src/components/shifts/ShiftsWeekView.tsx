@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useCallback } from "react";
-import { addDays, startOfISOWeek, format, isSameDay } from "date-fns";
+import { addDays, startOfISOWeek, format, isSameDay, getDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import ShiftCell from "./ShiftCell";
 import StaffShiftPopover from "./StaffShiftPopover";
@@ -195,21 +195,26 @@ export default function ShiftsWeekView({
         <div className="w-40 flex-shrink-0 p-2 border-r text-xs text-muted-foreground font-medium">
           Staff
         </div>
-        {weekDays.map((day, idx) => (
-          <div
-            key={idx}
-            className={cn(
-              "flex-1 p-2 text-center border-r text-sm font-medium",
-              isToday(day) && "bg-primary/10 text-primary"
-            )}
-            style={{ minWidth: MIN_COL_WIDTH }}
-          >
-            <div>{DAY_HEADERS[idx]}</div>
-            <div className="text-xs text-muted-foreground font-normal">
-              {format(day, "d MMM")}
+        {weekDays.map((day, idx) => {
+          const dow = getDay(day);
+          const isWeekend = dow === 0 || dow === 6;
+          return (
+            <div
+              key={idx}
+              className={cn(
+                "flex-1 p-2 text-center border-r text-sm font-medium",
+                isWeekend && "bg-gray-300/40 dark:bg-gray-600/40",
+                isToday(day) && "bg-primary/10 text-primary"
+              )}
+              style={{ minWidth: MIN_COL_WIDTH }}
+            >
+              <div>{DAY_HEADERS[idx]}</div>
+              <div className="text-xs text-muted-foreground font-normal">
+                {format(day, "d MMM")}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Provider rows */}
@@ -242,12 +247,15 @@ export default function ShiftsWeekView({
                   const inDragRange = isInDragRange(p.id, dayIdx);
                   const isOpen =
                     popover?.userId === p.id && popover?.date === dateStr;
+                  const dow = getDay(day);
+                  const isWeekend = dow === 0 || dow === 6;
 
                   return (
                     <div
                       key={dayIdx}
                       className={cn(
                         "flex-1 border-r",
+                        isWeekend && "bg-gray-300/40 dark:bg-gray-600/40",
                         isToday(day) && "bg-primary/5",
                         inDragRange && "ring-2 ring-inset ring-blue-400 bg-blue-50 dark:bg-blue-950/30"
                       )}

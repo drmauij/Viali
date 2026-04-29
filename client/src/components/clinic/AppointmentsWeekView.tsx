@@ -309,20 +309,25 @@ export default function AppointmentsWeekView({
         <div className="w-40 flex-shrink-0 p-2 border-r text-xs text-muted-foreground font-medium">
           {t('clinic.appointments.provider')}
         </div>
-        {weekDays.map((day, idx) => (
-          <div
-            key={idx}
-            className={cn(
-              "flex-1 p-2 text-center border-r text-sm font-medium cursor-pointer hover:bg-primary/20 transition-colors",
-              isToday(day) && "bg-primary/10 text-primary"
-            )}
-            style={{ minWidth: MIN_COL_WIDTH }}
-            onClick={() => onDayClick?.(day)}
-            data-testid={`day-header-${format(day, 'yyyy-MM-dd')}`}
-          >
-            {formatDayHeader(day)}
-          </div>
-        ))}
+        {weekDays.map((day, idx) => {
+          const dow = getDay(day);
+          const isWeekend = dow === 0 || dow === 6;
+          return (
+            <div
+              key={idx}
+              className={cn(
+                "flex-1 p-2 text-center border-r text-sm font-medium cursor-pointer hover:bg-primary/20 transition-colors",
+                isWeekend && "bg-gray-300/40 dark:bg-gray-600/40",
+                isToday(day) && "bg-primary/10 text-primary"
+              )}
+              style={{ minWidth: MIN_COL_WIDTH }}
+              onClick={() => onDayClick?.(day)}
+              data-testid={`day-header-${format(day, 'yyyy-MM-dd')}`}
+            >
+              {formatDayHeader(day)}
+            </div>
+          );
+        })}
       </div>
 
       <div className="flex-1 overflow-auto pb-6" style={{ minWidth: `calc(10rem + ${weekDays.length * MIN_COL_WIDTH}px)` }}>
@@ -348,12 +353,15 @@ export default function AppointmentsWeekView({
                 const dayStr = format(day, 'yyyy-MM-dd');
 
                 const inDragRange = isDayInDragRange(provider.id, dayIdx);
+                const dow = getDay(day);
+                const isWeekend = dow === 0 || dow === 6;
 
                 return (
                   <div
                     key={dayIdx}
                     className={cn(
                       "flex-1 border-r p-1 cursor-pointer hover:bg-muted/30 transition-colors relative select-none",
+                      isWeekend && "bg-gray-300/40 dark:bg-gray-600/40",
                       isToday(day) && "bg-primary/5",
                       absence && !absence.isPartial && absence.approvalStatus !== 'pending' && (ABSENCE_COLORS[absence.type] || ABSENCE_COLORS.default),
                       absence && !absence.isPartial && absence.approvalStatus === 'pending' && "bg-orange-50 dark:bg-orange-950/30 border border-dashed border-orange-300 dark:border-orange-700",
