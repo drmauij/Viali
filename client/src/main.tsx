@@ -26,6 +26,12 @@ const EXPECTED_FETCH_NOISE: Array<{
   { method: "GET", statuses: [403], pattern: /^\/api\/admin\/[^/]+\/questionnaire-token$/ },
   // Patient portal login — 400 on wrong verification code is user input, not a bug
   { method: "POST", statuses: [400, 401], pattern: /^\/api\/portal-auth\/patient\/[^/]+\/verify-code$/ },
+  // Admin email change — 409 EMAIL_EXISTS is user-input collision, surfaced via toast
+  { method: "PATCH", statuses: [409], pattern: /^\/api\/admin\/users\/[^/]+\/email$/ },
+  // Inventory commit — 400 = missing signature / nothing to commit (user-input validation)
+  { method: "POST", statuses: [400], pattern: /^\/api\/anesthesia\/inventory\/[^/]+\/commit$/ },
+  // Item archive guard — 409 ITEM_HAS_MED_CONFIGS is the confirm-before-archive flow
+  { method: "PATCH", statuses: [409], pattern: /^\/api\/items\/[^/]+$/ },
 ];
 
 function isExpectedFetchNoise(method: string, url: string, status: number): boolean {

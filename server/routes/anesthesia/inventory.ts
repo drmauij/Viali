@@ -181,8 +181,15 @@ router.post('/api/anesthesia/inventory/:recordId/commit', isAuthenticated, requi
 
     res.json(commit);
   } catch (error) {
+    const msg = error instanceof Error ? error.message : "Failed to commit inventory";
+    if (msg === "Signature required for controlled items") {
+      return res.status(400).json({ message: msg, code: "SIGNATURE_REQUIRED" });
+    }
+    if (msg === "No inventory items to commit" || msg === "No new items to commit (all items already committed)") {
+      return res.status(400).json({ message: msg, code: "NOTHING_TO_COMMIT" });
+    }
     logger.error("Error committing inventory:", error);
-    res.status(500).json({ message: error instanceof Error ? error.message : "Failed to commit inventory" });
+    res.status(500).json({ message: msg });
   }
 });
 

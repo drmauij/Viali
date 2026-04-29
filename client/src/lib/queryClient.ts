@@ -27,16 +27,16 @@ function getActiveUnitId(): string | null {
 async function throwIfResNotOk(res: Response, url?: string) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
-    
-    // Try to parse JSON error response and extract message
-    let error: Error;
+
+    // Try to parse JSON error response and extract message + code/data so callers
+    // can branch on `error.code` (e.g. "ITEM_HAS_MED_CONFIGS", "EMAIL_EXISTS")
+    // without re-fetching the response body.
+    let error: Error & { status?: number; code?: string; data?: any };
     try {
       const errorData = JSON.parse(text);
-      if (errorData.message) {
-        error = new Error(errorData.message);
-      } else {
-        error = new Error(`${res.status}: ${text}`);
-      }
+      error = new Error(errorData.message || `${res.status}: ${text}`);
+      error.code = errorData.code;
+      error.data = errorData;
     } catch (e) {
       if (e instanceof SyntaxError) {
         error = new Error(`${res.status}: ${text}`);
@@ -44,7 +44,8 @@ async function throwIfResNotOk(res: Response, url?: string) {
         throw e;
       }
     }
-    
+    error.status = res.status;
+
     // Sentry capture is handled globally by the fetch interceptor in main.tsx,
     // which covers raw fetch() callsites too. No per-request capture here.
     throw error;

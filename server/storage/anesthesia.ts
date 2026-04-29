@@ -4086,6 +4086,12 @@ export async function commitInventoryUsage(
       continue;
     }
 
+    // Archived items cannot be committed: their stock isn't tracked, and the
+    // client UI hides them from the commit dialog (so no signature pad is shown).
+    // Skipping here keeps server and client aligned and prevents the "controlled
+    // substance signature required" mismatch that surfaced 2026-04-29.
+    if (item.status === "archived") continue;
+
     const currentQty = parseFloat(String(usageRecord.overrideQty || usageRecord.calculatedQty));
     const qtyToCommit = Math.max(0, Math.round(currentQty));
 

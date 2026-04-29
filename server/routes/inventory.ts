@@ -3,8 +3,8 @@ import type { Request, Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
 import { sendStockAlertEmail, StockAlertItem } from "../resend";
-import { 
-  insertItemSchema, 
+import {
+  insertItemSchema,
   insertFolderSchema,
   items,
   stockLevels,
@@ -13,6 +13,7 @@ import {
   anesthesiaMedications,
   anesthesiaRecords,
   surgeries,
+  medicationConfigs,
 } from "@shared/schema";
 import { desc } from "drizzle-orm";
 import { eq, inArray, and, gte, sql, or, isNull } from "drizzle-orm";
@@ -673,9 +674,32 @@ router.patch('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (r
     }
     
     if (item.controlled && req.body.currentUnits !== undefined && req.body.currentUnits !== item.currentUnits) {
-      return res.status(403).json({ 
-        message: "Controlled substance quantities cannot be edited directly. Use the Controller tab to log all movements." 
+      return res.status(403).json({
+        message: "Controlled substance quantities cannot be edited directly. Use the Controller tab to log all movements."
       });
+    }
+
+    // Archiving guard: if this PATCH transitions status active → archived, refuse
+    // when any medication_config still references this item, unless caller passes
+    // force=true to confirm. Prevents anesthesia records from silently breaking
+    // (signature pad missing, inventory not deducted) — see the Fentanyl 2026-04-29 incident.
+    if (
+      req.body.status === "archived" &&
+      item.status !== "archived" &&
+      req.body.force !== true
+    ) {
+      const attached = await db
+        .select({ id: medicationConfigs.id, adminGroup: medicationConfigs.administrationGroup })
+        .from(medicationConfigs)
+        .where(eq(medicationConfigs.itemId, itemId));
+      if (attached.length > 0) {
+        return res.status(409).json({
+          message: `This item is referenced by ${attached.length} medication configuration(s). Archiving will break anesthesia records that use them.`,
+          code: "ITEM_HAS_MED_CONFIGS",
+          count: attached.length,
+          adminGroups: Array.from(new Set(attached.map(a => a.adminGroup).filter(Boolean))),
+        });
+      }
     }
     
     const finalControlled = req.body.controlled !== undefined ? req.body.controlled : item.controlled;

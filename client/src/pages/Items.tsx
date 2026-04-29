@@ -4029,27 +4029,46 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           <div className="flex-shrink-0 bg-background z-10 px-6 py-4 border-t">
             <div className="flex gap-2 justify-between">
               {canWrite ? (
-                <Button 
-                  type="button" 
+                <Button
+                  type="button"
                   variant="secondary"
                   onClick={() => {
-                    if (selectedItem) {
-                      const newStatus = editFormData.status === 'archived' ? 'active' : 'archived';
-                      setEditFormData(prev => ({ ...prev, status: newStatus }));
+                    if (!selectedItem) return;
+                    const newStatus = editFormData.status === 'archived' ? 'active' : 'archived';
+
+                    const runArchive = (force: boolean) => {
                       updateItemMutation.mutate({
                         selectedItem,
-                        itemData: { status: newStatus },
+                        itemData: { status: newStatus, ...(force ? { force: true } : {}) },
                       }, {
                         onSuccess: () => {
+                          setEditFormData(prev => ({ ...prev, status: newStatus }));
                           handleCloseEditDialog();
                         },
+                        onError: (error: any) => {
+                          if (error?.code === 'ITEM_HAS_MED_CONFIGS' && !force) {
+                            const count = error?.data?.count ?? '?';
+                            const groups = (error?.data?.adminGroups || []).filter(Boolean).join(', ');
+                            const detail = groups ? `\n\nAdmin groups: ${groups}` : '';
+                            const ok = window.confirm(
+                              `This item is referenced by ${count} medication configuration(s). ` +
+                              `Archiving it will break anesthesia records that use it ` +
+                              `(missing signature pad, inventory not deducted).${detail}\n\n` +
+                              `Migrate or delete those configurations first.\n\n` +
+                              `Archive anyway?`
+                            );
+                            if (ok) runArchive(true);
+                          }
+                        },
                       });
-                    }
+                    };
+
+                    runArchive(false);
                   }}
                   disabled={updateItemMutation.isPending}
                   data-testid="button-archive-item"
                 >
-                  {editFormData.status === 'archived' 
+                  {editFormData.status === 'archived'
                     ? <><i className="fas fa-box-open mr-2"></i>{t('items.unarchive', 'Restore')}</>
                     : <><i className="fas fa-archive mr-2"></i>{t('items.archive', 'Archive')}</>
                   }

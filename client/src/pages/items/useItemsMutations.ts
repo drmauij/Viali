@@ -146,6 +146,9 @@ export function useItemsMutations(params: UseItemsMutationsParams) {
       });
     },
     onError: (error: any) => {
+      // Archive guard (ITEM_HAS_MED_CONFIGS) is intercepted by the archive
+      // button handler with a confirm dialog; suppress the destructive toast.
+      if (error.code === "ITEM_HAS_MED_CONFIGS") return;
       toast({
         title: t('common.error'),
         description: error.message || t('items.failedToUpdate'),
