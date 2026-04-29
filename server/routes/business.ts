@@ -3293,12 +3293,15 @@ router.get('/api/business/:hospitalId/inventory-value-trend', isAuthenticated, i
   try {
     const { hospitalId } = req.params;
     const days = Math.min(parseInt((req.query.days as string) || '30', 10), 365);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffIso = cutoff.toISOString().slice(0, 10);
     const rows = await db.execute<{ date: string; value: string }>(sql`
       SELECT snapshot_date::text AS date,
              COALESCE(SUM(CAST(total_value AS numeric)), 0)::text AS value
       FROM inventory_snapshots
       WHERE hospital_id = ${hospitalId}
-        AND snapshot_date >= CURRENT_DATE - ${days}
+        AND snapshot_date >= ${cutoffIso}::date
       GROUP BY snapshot_date
       ORDER BY snapshot_date
     `);
