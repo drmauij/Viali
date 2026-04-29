@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import SignaturePad from "@/components/SignaturePad";
 import type { ChecklistTemplate, ChecklistCompletion } from "@shared/schema";
 import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download, Circle, Pencil, PauseCircle, CheckCircle2, XCircle, ClipboardCheck, FileSignature, FileText, MoreHorizontal } from "lucide-react";
-import { formatDate, formatDateHeader, formatMonthYear, formatTime as formatTimeUtil, getDateFnsTimeFormat, formatDateForInput } from "@/lib/dateUtils";
+import { formatDate, formatDateHeader, formatMonthYear, formatTime as formatTimeUtil, getDateFnsTimeFormat, formatDateForInput, getWeekStartsOn } from "@/lib/dateUtils";
 import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -266,11 +266,13 @@ function DroppableRoomHeader({
 export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOutside, tapSelectedRequest, onTapSlotWithSelection, onSearchSelect, surgeonFilter }: OPCalendarProps) {
   const { t, i18n } = useTranslation();
   
-  // Create date-fns localizer based on i18n language
+  // Create date-fns localizer based on i18n language. Wrap startOfWeek so
+  // the calendar header starts on the day matching the hospital's regional
+  // setting (Monday for European, Sunday for American).
   const localizer = useMemo(() => dateFnsLocalizer({
     format: dateFnsFormat,
     parse,
-    startOfWeek,
+    startOfWeek: (date: Date) => startOfWeek(date, { weekStartsOn: getWeekStartsOn() }),
     getDay,
     locales: dateFnsLocales,
   }), []);

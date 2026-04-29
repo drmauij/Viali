@@ -148,6 +148,17 @@ export const getDateFormatConfig = (): DateFormatConfig => {
   return currentConfig;
 };
 
+/**
+ * Day-of-week the calendar week starts on, derived from the active locale:
+ *   en-US → 0 (Sunday)  — American convention
+ *   everything else → 1 (Monday) — European/ISO convention
+ * Use as the `weekStartsOn` option in date-fns helpers, or to wrap
+ * `startOfWeek` for the react-big-calendar localizer.
+ */
+export const getWeekStartsOn = (): 0 | 1 => {
+  return currentConfig.locale === "en-US" ? 0 : 1;
+};
+
 /** Sentinel values used when a patient's birthday is unknown (e.g. booked via public page) */
 const UNKNOWN_BIRTHDAY_SENTINELS = ['1900-01-01', '0000-01-01'];
 

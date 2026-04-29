@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw, Video, FileText, X } from "lucide-react";
-import { formatDateForInput, formatTime, formatMonthYear, formatDate as formatDateUtil, formatDateHeader, getDateFnsTimeFormat } from "@/lib/dateUtils";
+import { formatDateForInput, formatTime, formatMonthYear, formatDate as formatDateUtil, formatDateHeader, getDateFnsTimeFormat, getWeekStartsOn } from "@/lib/dateUtils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -219,10 +219,12 @@ export default function ClinicCalendar({
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   
+  // Week starts on Monday for European hospitals, Sunday for American (mirrors
+  // the regional dateFormat setting via getWeekStartsOn).
   const localizer = useMemo(() => dateFnsLocalizer({
     format: dateFnsFormat,
     parse,
-    startOfWeek,
+    startOfWeek: (date: Date) => startOfWeek(date, { weekStartsOn: getWeekStartsOn() }),
     getDay,
     locales: dateFnsLocales,
   }), []);
