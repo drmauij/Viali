@@ -27,6 +27,8 @@ import { HistorySummaryCard } from "./HistorySummaryCard";
 import { NoAppointmentBanner } from "./NoAppointmentBanner";
 import { LinkAppointmentDialog } from "./LinkAppointmentDialog";
 import { isTreatmentLocked } from "./appointmentLinkHelpers";
+import { parseCurrencyValue } from "@/pages/items/helpers";
+import { formatCurrency } from "@/lib/dateUtils";
 import SignaturePad from "@/components/SignaturePad";
 import type { Treatment, TreatmentLine, TreatmentItemConfig } from "@shared/schema";
 
@@ -230,16 +232,16 @@ export function TreatmentEditor({
 
   // ---- Mutations ----
 
-  // Coerce empty-string numerics to undefined so Postgres doesn't reject
-  // the insert with `invalid input syntax for type numeric: ""`. The Line
-  // form uses controlled inputs that default to "" when unset, but the
-  // server expects either a numeric-formatted string or omission.
+  // Normalize numeric fields before submit: empty → undefined (Postgres
+  // rejects "" for numeric), and locale-formatted strings like "400,-" or
+  // "€1.000,50" that came in via prefilled service prices → canonical
+  // "400.00" via parseCurrencyValue. Without this the server returns 400
+  // "invalid input syntax for type numeric" (incident 2026-04-29 VIALI-NJ).
   const sanitizeLine = (l: Partial<TreatmentLine>): Partial<TreatmentLine> => {
-    const blank = (v: unknown) => v === "" || v === null || v === undefined;
     return {
       ...l,
-      unitPrice: blank(l.unitPrice) ? undefined : l.unitPrice,
-      total: blank(l.total) ? undefined : l.total,
+      unitPrice: parseCurrencyValue(l.unitPrice as any),
+      total: parseCurrencyValue(l.total as any),
     };
   };
   const sanitizeLines = (ls: Partial<TreatmentLine>[]) => ls.map(sanitizeLine);
@@ -534,7 +536,7 @@ export function TreatmentEditor({
                   <div className="flex items-center gap-1 shrink-0">
                     {line.total && (
                       <span className="text-sm font-medium mr-2">
-                        €{line.total as string}
+                        {formatCurrency(line.total as string)}
                       </span>
                     )}
                     {!isLocked && (
@@ -564,7 +566,7 @@ export function TreatmentEditor({
 
             {lines.length > 0 && (
               <div className="flex justify-end text-sm font-medium pt-1">
-                {t("treatments.total", "Total")}: €{total.toFixed(2)}
+                {t("treatments.total", "Total")}: {formatCurrency(total)}
               </div>
             )}
           </div>

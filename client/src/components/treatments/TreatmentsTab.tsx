@@ -14,6 +14,7 @@ import { Plus, Pencil, FileText, RotateCcw, Building2 } from "lucide-react";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { apiRequest } from "@/lib/queryClient";
+import { formatCurrency } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
 import { TreatmentEditor } from "./TreatmentEditor";
 import { TodayAppointmentDialog, type TodayAppointmentRow } from "./TodayAppointmentDialog";
@@ -283,7 +284,7 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
                     </div>
                   </TableCell>
                   <TableCell className="text-right font-medium whitespace-nowrap">
-                    €{lineTotal.toFixed(2)}
+                    {formatCurrency(lineTotal)}
                   </TableCell>
                   <TableCell>
                     <Badge variant={STATUS_VARIANT[treatment.status] ?? "secondary"}>

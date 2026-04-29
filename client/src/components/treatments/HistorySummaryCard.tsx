@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronRight, Copy } from "lucide-react";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
+import { formatCurrency } from "@/lib/dateUtils";
 import type { Treatment, TreatmentLine } from "@shared/schema";
 
 type Session = Treatment & { lines: TreatmentLine[] };
@@ -74,7 +75,7 @@ export function HistorySummaryCard({
                     {more > 0 ? ` +${more} more` : ""}
                   </span>
                   <span className="ml-auto font-medium whitespace-nowrap">
-                    €{total.toFixed(2)}
+                    {formatCurrency(total)}
                   </span>
                 </button>
                 <Button
@@ -122,7 +123,7 @@ export function HistorySummaryCard({
                         )}
                       </div>
                       <span className="font-medium ml-2">
-                        €{(l.total as string) ?? "0"}
+                        {formatCurrency((l.total as string) ?? 0)}
                       </span>
                     </div>
                   ))}
