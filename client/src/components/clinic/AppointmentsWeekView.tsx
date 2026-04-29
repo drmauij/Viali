@@ -120,11 +120,7 @@ export default function AppointmentsWeekView({
 
   const weekDays = useMemo(() => {
     const weekStart = startOfISOWeek(selectedDate);
-    const days: Date[] = [];
-    for (let i = 0; i < 5; i++) {
-      days.push(addDays(weekStart, i));
-    }
-    return days;
+    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   }, [selectedDate]);
 
   // Drag selection state for multi-day off-time

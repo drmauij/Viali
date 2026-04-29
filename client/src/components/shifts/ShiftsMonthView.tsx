@@ -121,10 +121,8 @@ export default function ShiftsMonthView({
     let current = new Date(monthStartDate);
     while (current <= monthEndDate) {
       const dow = getDay(current);
-      if (dow !== 0 && dow !== 6) {
-        if (dow === 1 && wd.length > 0) seps.add(wd.length - 1);
-        wd.push(new Date(current));
-      }
+      if (dow === 1 && wd.length > 0) seps.add(wd.length - 1);
+      wd.push(new Date(current));
       current = addDays(current, 1);
     }
     weekdaysRef.current = wd;

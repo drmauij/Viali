@@ -1,4 +1,4 @@
-import { addDays, startOfMonth, endOfMonth, format, getDay } from "date-fns";
+import { addDays, startOfMonth, endOfMonth, format } from "date-fns";
 import type { Locale } from "date-fns";
 import type { ShiftType, StaffShift } from "@shared/schema";
 
@@ -69,7 +69,7 @@ export async function generateShiftsMonthPdf(input: ShiftsMonthPdfInput): Promis
 
   const strings: ShiftsMonthPdfStrings = { ...DEFAULT_STRINGS, ...input.i18n };
 
-  // 1. Compute weekdays in the month (Mon-Fri only, matching the on-screen view)
+  // 1. Compute every day in the month, matching the on-screen view (now Mon-Sun).
   const weekdays = computeWeekdays(input.anchor);
 
   // 2. Header
@@ -104,8 +104,7 @@ function computeWeekdays(anchor: Date): Date[] {
   const out: Date[] = [];
   let cur = new Date(start);
   while (cur <= end) {
-    const dow = getDay(cur);
-    if (dow !== 0 && dow !== 6) out.push(new Date(cur));
+    out.push(new Date(cur));
     cur = addDays(cur, 1);
   }
   return out;

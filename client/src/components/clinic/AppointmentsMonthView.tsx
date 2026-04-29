@@ -95,22 +95,21 @@ export default function AppointmentsMonthView({
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartRef = useRef<{ x: number; y: number; providerId: string; dayIdx: number } | null>(null);
 
-  // Generate weekdays only (no Sat/Sun), with separator positions between weeks
+  // Generate every day of the month with separator positions between weeks.
+  // Patients sometimes can only come on Saturday/Sunday, so all 7 weekdays
+  // are included; the separator before each Monday visually splits weeks.
   const { weekdays, separatorAfter } = useMemo(() => {
     const monthStartDate = startOfMonth(selectedDate);
     const monthEndDate = endOfMonth(selectedDate);
     const wd: Date[] = [];
-    const seps = new Set<number>(); // indices after which to insert a gray separator
+    const seps = new Set<number>();
     let current = new Date(monthStartDate);
     while (!isBefore(monthEndDate, startOfDay(current))) {
       const dow = getDay(current);
-      if (dow !== 0 && dow !== 6) {
-        // If this is a Monday and there are already days in the list, add separator before it
-        if (dow === 1 && wd.length > 0) {
-          seps.add(wd.length - 1);
-        }
-        wd.push(new Date(current));
+      if (dow === 1 && wd.length > 0) {
+        seps.add(wd.length - 1);
       }
+      wd.push(new Date(current));
       current = addDays(current, 1);
     }
     return { weekdays: wd, separatorAfter: seps };
