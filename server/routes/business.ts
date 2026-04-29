@@ -3031,6 +3031,13 @@ router.get('/api/business/:hospitalId/surgeries-summary', isAuthenticated, isBus
     start.setDate(start.getDate() - rangeDays);
     const startIso = start.toISOString();
 
+    // "Planned" KPIs are strictly forward-looking (planned_date >= today) and
+    // intentionally NOT bounded by `range`. The dashboard's range selector is
+    // for backward-looking comparison ("how much did we earn in the last N
+    // days"); it should not change how many future surgeries are scheduled.
+    // Previously planned was filtered by `planned_date >= startIso` which
+    // inflated the count whenever range widened, since older never-paid
+    // surgeries leaked into "planned".
     const totalsRow = await db.execute<{
       count_planned: string;
       count_converted: string;
@@ -3038,9 +3045,9 @@ router.get('/api/business/:hospitalId/surgeries-summary', isAuthenticated, isBus
       revenue_won: string;
     }>(sql`
       SELECT
-        COUNT(*) FILTER (WHERE s.planned_date >= ${startIso}) AS count_planned,
+        COUNT(*) FILTER (WHERE s.planned_date >= NOW()) AS count_planned,
         COUNT(*) FILTER (WHERE s.payment_date IS NOT NULL AND s.payment_date >= ${startIso}::date) AS count_converted,
-        COALESCE(SUM(CAST(s.price AS numeric)) FILTER (WHERE s.planned_date >= ${startIso}), 0) AS revenue_planned,
+        COALESCE(SUM(CAST(s.price AS numeric)) FILTER (WHERE s.planned_date >= NOW()), 0) AS revenue_planned,
         COALESCE(SUM(CAST(s.price AS numeric)) FILTER (WHERE s.payment_date IS NOT NULL AND s.payment_date >= ${startIso}::date), 0) AS revenue_won
       FROM surgeries s
       WHERE s.hospital_id = ${hospitalId}
