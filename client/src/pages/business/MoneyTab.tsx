@@ -62,6 +62,9 @@ export default function MoneyTab({ hospitalId, range }: Props) {
 
   return (
     <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">
+        {t('business.money.helperText', 'Did we make money? Revenue, costs, and margin for the selected period.')}
+      </p>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card>
           <CardContent className="p-4">

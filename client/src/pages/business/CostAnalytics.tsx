@@ -44,9 +44,6 @@ export default function CostAnalytics() {
           <h1 className="text-2xl md:text-3xl font-bold" data-testid="text-cost-analytics-title">
             {activeHospital?.name ?? t('business.costs.title')}
           </h1>
-          <p className="text-muted-foreground mt-1">
-            {t('business.costs.subtitle')}
-          </p>
         </div>
         <Select value={range} onValueChange={(v) => setRange(v as any)}>
           <SelectTrigger className="w-[180px]" data-testid="select-range">
