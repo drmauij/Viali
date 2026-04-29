@@ -173,35 +173,43 @@ function HomeRedirect() {
     }
 
     const userHospitals = (user as any)?.hospitals;
-    if (userHospitals && userHospitals.length > 0) {
-      const savedHospitalKey = localStorage.getItem('activeHospital');
-      let activeHospital = userHospitals[0];
-      if (savedHospitalKey) {
-        const saved = userHospitals.find((h: any) => 
-          `${h.id}-${h.unitId}-${h.role}` === savedHospitalKey
-        );
-        if (saved) activeHospital = saved;
-      }
 
-      if (activeHospital.unitType === 'business') {
-        navigate("/business", { replace: true });
-        return;
-      }
+    // No hospital roles → first-time Google sign-in, or a removed staff member
+    // returning. Land them on the welcome/signup page where they choose to
+    // create a clinic or wait for an invitation. Replaces the old behavior of
+    // silently auto-bootstrapping "<FirstName>'s Hospital".
+    if (!userHospitals || userHospitals.length === 0) {
+      navigate("/signup", { replace: true });
+      return;
+    }
 
-      if (activeHospital.unitType === 'anesthesia') {
-        navigate("/anesthesia/op", { replace: true });
-        return;
-      }
+    const savedHospitalKey = localStorage.getItem('activeHospital');
+    let activeHospital = userHospitals[0];
+    if (savedHospitalKey) {
+      const saved = userHospitals.find((h: any) =>
+        `${h.id}-${h.unitId}-${h.role}` === savedHospitalKey
+      );
+      if (saved) activeHospital = saved;
+    }
 
-      if (activeHospital.unitType === 'or') {
-        navigate("/surgery/op", { replace: true });
-        return;
-      }
+    if (activeHospital.unitType === 'business') {
+      navigate("/business", { replace: true });
+      return;
+    }
 
-      if (activeHospital.unitType === 'clinic') {
-        navigate("/clinic", { replace: true });
-        return;
-      }
+    if (activeHospital.unitType === 'anesthesia') {
+      navigate("/anesthesia/op", { replace: true });
+      return;
+    }
+
+    if (activeHospital.unitType === 'or') {
+      navigate("/surgery/op", { replace: true });
+      return;
+    }
+
+    if (activeHospital.unitType === 'clinic') {
+      navigate("/clinic", { replace: true });
+      return;
     }
 
     navigate("/inventory/items", { replace: true });

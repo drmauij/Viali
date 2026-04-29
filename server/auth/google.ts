@@ -6,7 +6,6 @@ import connectPg from "connect-pg-simple";
 import { storage } from "../storage";
 import type { InsertLoginAuditLog } from "@shared/schema";
 import { Pool } from "pg";
-import { seedHospitalData } from "../seed-hospital";
 import logger from "../logger";
 
 /** Extract IP + user-agent from request and log an auth event. Fire-and-forget. */
@@ -69,7 +68,7 @@ export function getSessionMiddleware() {
 
 async function upsertUser(profile: any) {
   const userId = profile.id;
-  
+
   const user = await storage.upsertUser({
     id: userId,
     email: profile.emails?.[0]?.value || profile.email,
@@ -78,24 +77,12 @@ async function upsertUser(profile: any) {
     profileImageUrl: profile.photos?.[0]?.value || profile.picture,
   });
 
-  // Check if user has any hospitals assigned
-  const userHospitals = await storage.getUserHospitals(user.id);
-  
-  // If user has no hospitals, create one and seed it with default data
-  if (userHospitals.length === 0) {
-    const firstName = profile.name?.givenName || profile.given_name || "User";
-    const hospitalName = `${firstName}'s Hospital`;
-    
-    // Create hospital
-    const hospital = await storage.createHospital(hospitalName);
-
-    // Seed hospital with default data (locations, surgery rooms, admin groups, medications)
-    // This includes: 4 locations, 3 surgery rooms, 5 admin groups, and 13 medications
-    await seedHospitalData(hospital.id, user.id);
-    
-    logger.info(`[Auth] Created and seeded new hospital for user ${user.id}`);
-  }
-  
+  // No auto-bootstrap. If the user has no hospital roles (first-time Google
+  // sign-in, or a removed/archived staff member returning), the client routes
+  // them to /signup where they explicitly choose to create a clinic or wait
+  // for an invitation. Removed because silent auto-creation produced orphan
+  // "<FirstName>'s Hospital" rows when staff signed in via Google by mistake
+  // (incident 2026-04-29: Krisztina Labant + similar earlier).
   return user;
 }
 

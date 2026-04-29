@@ -454,6 +454,16 @@ router.post('/api/signup', isAuthenticated, async (req: any, res) => {
       bookingLocation: null,
     });
 
+    // Seed the remaining defaults (surgery rooms, administration groups,
+    // medications, anesthesia settings). Idempotent: skips items that already
+    // exist; the four units we created above are detected and not re-created.
+    try {
+      const { seedHospitalData } = await import('../seed-hospital');
+      await seedHospitalData(hospital.id);
+    } catch (seedError) {
+      logger.error('[Signup] seedHospitalData failed; hospital still created:', seedError);
+    }
+
     res.status(201).json({
       message: "Hospital created successfully",
       hospital,
