@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { sql } from "drizzle-orm";
+import { db } from "../server/db";
 
 const TEST_HOSPITAL_ID = "93c37796-9d15-4931-aca9-a7f494bd3a16";
 
@@ -26,5 +28,22 @@ describe("money-summary", () => {
     for (const d of result.byDay) {
       expect(d.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
+  });
+
+  it("matches treatment revenue computed directly from signed/invoiced treatments in range", async () => {
+    const result = await callMoneySummary("30d");
+    expect(result.revenue.treatment).toBeGreaterThanOrEqual(0);
+    expect(result.revenue.total).toBeCloseTo(result.revenue.surgery + result.revenue.treatment, 2);
+
+    const known = await db.execute(sql`
+      SELECT COALESCE(SUM(CAST(tl.total AS numeric)), 0) AS rev
+      FROM treatments t
+      JOIN treatment_lines tl ON tl.treatment_id = t.id
+      WHERE t.hospital_id = ${TEST_HOSPITAL_ID}
+        AND t.status IN ('signed', 'invoiced')
+        AND t.performed_at >= NOW() - INTERVAL '30 days'
+    `);
+    const expectedTreatmentRevenue = parseFloat((known.rows[0] as any)?.rev ?? "0");
+    expect(result.revenue.treatment).toBeCloseTo(expectedTreatmentRevenue, 2);
   });
 });
