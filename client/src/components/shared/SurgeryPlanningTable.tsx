@@ -984,6 +984,10 @@ export function SurgeryPlanningTable({
   const [pendingUpdates, setPendingUpdates] = useState<Set<string>>(new Set());
   const [isCompactViewInternal, setIsCompactViewInternal] = useState(true);
   const isCompactView = compactView ?? isCompactViewInternal;
+  // Business view: financial date columns (quote sent, contract sent, invoice sent)
+  // are hidden by default to keep the table tidy. Operators can expand them
+  // when needed; the contract-received status remains always visible as a checkbox.
+  const [showFinancialDates, setShowFinancialDates] = useState(false);
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
   const [downloadingFullPdf, setDownloadingFullPdf] = useState<string | null>(null);
   const [downloadingInvoicePdf, setDownloadingInvoicePdf] = useState<string | null>(null);
@@ -1468,12 +1472,12 @@ export function SurgeryPlanningTable({
     if (showScheduling) count += hideRoomAndAdmission ? 0 : 1; // (admission) - status column hidden
     if (showScheduling && showPreOpColumn) count += 1; // pre-op column
     if (showPaidStatus) count += 1;
-    if (showBusiness) count += 9; // price, quote, contract sent/received, invoice, payment, notes, full PDF, invoice PDF
+    if (showBusiness) count += showFinancialDates ? 9 : 6; // price, [quote, contractSent, invoice], contractReceived, payment, notes, full PDF, invoice PDF
     if (showContracts && !showBusiness) count += 1; // contract received icon only
     if (!showBusiness) count += 1; // notes column for non-business views
     if (showImplants) count += 3;
     return count;
-  }, [showClinical, showScheduling, showBusiness, showContracts, showImplants, showPaidStatus, showPreOpColumn, hideRoomAndAdmission]);
+  }, [showClinical, showScheduling, showBusiness, showContracts, showImplants, showPaidStatus, showPreOpColumn, hideRoomAndAdmission, showFinancialDates]);
   
   if (surgeriesLoading) {
     return (
@@ -1516,6 +1520,29 @@ export function SurgeryPlanningTable({
               <>
                 <ChevronUp className="h-4 w-4" />
                 {t("surgeryPlanning.compactView")}
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+      {showBusiness && (
+        <div className={cn("flex justify-end", contained && "shrink-0")}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFinancialDates((v) => !v)}
+            className="gap-2"
+            data-testid="toggle-financial-dates"
+          >
+            {showFinancialDates ? (
+              <>
+                <ChevronUp className="h-4 w-4" />
+                {t("surgeryPlanning.hideFinancialDates", "Hide quote / contract / invoice dates")}
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-4 w-4" />
+                {t("surgeryPlanning.showFinancialDates", "Show quote / contract / invoice dates")}
               </>
             )}
           </Button>
@@ -1583,13 +1610,19 @@ export function SurgeryPlanningTable({
                   <CreditCard className="h-4 w-4 inline mr-1" />
                   {t("surgeryPlanning.columns.price")}
                 </TableHead>
-                <TableHead>{t("surgeryPlanning.columns.quoteSent")}</TableHead>
-                <TableHead>
-                  <FileText className="h-4 w-4 inline mr-1" />
-                  {t("surgeryPlanning.columns.contractSent")}
-                </TableHead>
-                <TableHead>{t("surgeryPlanning.columns.contractReceived")}</TableHead>
-                <TableHead>{t("surgeryPlanning.columns.invoiceSent")}</TableHead>
+                {showFinancialDates && (
+                  <TableHead>{t("surgeryPlanning.columns.quoteSent")}</TableHead>
+                )}
+                {showFinancialDates && (
+                  <TableHead>
+                    <FileText className="h-4 w-4 inline mr-1" />
+                    {t("surgeryPlanning.columns.contractSent")}
+                  </TableHead>
+                )}
+                <TableHead className="text-center">{t("surgeryPlanning.columns.contractReceived")}</TableHead>
+                {showFinancialDates && (
+                  <TableHead>{t("surgeryPlanning.columns.invoiceSent")}</TableHead>
+                )}
                 <TableHead>{t("surgeryPlanning.columns.paymentDate")}</TableHead>
                 <TableHead>
                   <StickyNote className="h-4 w-4 inline mr-1" />
@@ -1804,42 +1837,54 @@ export function SurgeryPlanningTable({
                           isPending={isFieldPending(surgery.id, "price")}
                         />
                       </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <EditableDateCell
-                          value={surgery.quoteSentDate}
-                          surgeryId={surgery.id}
-                          field="quoteSentDate"
-                          onUpdate={handleUpdate}
-                          isPending={isFieldPending(surgery.id, "quoteSentDate")}
+                      {showFinancialDates && (
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <EditableDateCell
+                            value={surgery.quoteSentDate}
+                            surgeryId={surgery.id}
+                            field="quoteSentDate"
+                            onUpdate={handleUpdate}
+                            isPending={isFieldPending(surgery.id, "quoteSentDate")}
+                          />
+                        </TableCell>
+                      )}
+                      {showFinancialDates && (
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <EditableDateCell
+                            value={surgery.treatmentContractSentDate}
+                            surgeryId={surgery.id}
+                            field="treatmentContractSentDate"
+                            onUpdate={handleUpdate}
+                            isPending={isFieldPending(surgery.id, "treatmentContractSentDate")}
+                          />
+                        </TableCell>
+                      )}
+                      <TableCell onClick={(e) => e.stopPropagation()} className="text-center">
+                        <Checkbox
+                          checked={!!surgery.treatmentContractReceivedDate}
+                          disabled={isFieldPending(surgery.id, "treatmentContractReceivedDate")}
+                          onCheckedChange={(checked) => {
+                            handleUpdate(
+                              surgery.id,
+                              "treatmentContractReceivedDate",
+                              checked ? new Date().toISOString() : null,
+                            );
+                          }}
+                          data-testid={`checkbox-contract-received-${surgery.id}`}
+                          aria-label={t("surgeryPlanning.columns.contractReceived")}
                         />
                       </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <EditableDateCell
-                          value={surgery.treatmentContractSentDate}
-                          surgeryId={surgery.id}
-                          field="treatmentContractSentDate"
-                          onUpdate={handleUpdate}
-                          isPending={isFieldPending(surgery.id, "treatmentContractSentDate")}
-                        />
-                      </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <EditableDateCell
-                          value={surgery.treatmentContractReceivedDate}
-                          surgeryId={surgery.id}
-                          field="treatmentContractReceivedDate"
-                          onUpdate={handleUpdate}
-                          isPending={isFieldPending(surgery.id, "treatmentContractReceivedDate")}
-                        />
-                      </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <EditableDateCell
-                          value={surgery.invoiceSentDate}
-                          surgeryId={surgery.id}
-                          field="invoiceSentDate"
-                          onUpdate={handleUpdate}
-                          isPending={isFieldPending(surgery.id, "invoiceSentDate")}
-                        />
-                      </TableCell>
+                      {showFinancialDates && (
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <EditableDateCell
+                            value={surgery.invoiceSentDate}
+                            surgeryId={surgery.id}
+                            field="invoiceSentDate"
+                            onUpdate={handleUpdate}
+                            isPending={isFieldPending(surgery.id, "invoiceSentDate")}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <EditableDateCell
                           value={surgery.paymentDate}
