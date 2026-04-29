@@ -3086,6 +3086,19 @@ router.get('/api/business/:hospitalId/surgeries-summary', isAuthenticated, isBus
   }
 });
 
+router.get('/api/business/:hospitalId/money-summary', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const range = (req.query.range as string) || '30d';
+    const { computeMoneySummary } = await import('./business/moneyHelpers');
+    const summary = await computeMoneySummary(hospitalId, range);
+    res.json(summary);
+  } catch (error) {
+    logger.error("Error computing money summary:", error);
+    res.status(500).json({ message: "Failed to compute money summary" });
+  }
+});
+
 router.get('/api/business/:hospitalId/providers-performance', isAuthenticated, isBusinessManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
