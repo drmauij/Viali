@@ -26,12 +26,20 @@ const EXPECTED_FETCH_NOISE: Array<{
   { method: "GET", statuses: [403], pattern: /^\/api\/admin\/[^/]+\/questionnaire-token$/ },
   // Patient portal login — 400 on wrong verification code is user input, not a bug
   { method: "POST", statuses: [400, 401], pattern: /^\/api\/portal-auth\/patient\/[^/]+\/verify-code$/ },
+  // Worklog portal login — same pattern as patient portal verify-code
+  { method: "POST", statuses: [400, 401], pattern: /^\/api\/portal-auth\/worklog\/[^/]+\/verify-code$/ },
+  // Patient-portal token GET — 410 Gone = link expired (normal token lifecycle)
+  { method: "GET", statuses: [410], pattern: /^\/api\/patient-portal\/[^/]+$/ },
   // Admin email change — 409 EMAIL_EXISTS is user-input collision, surfaced via toast
   { method: "PATCH", statuses: [409], pattern: /^\/api\/admin\/users\/[^/]+\/email$/ },
   // Inventory commit — 400 = missing signature / nothing to commit (user-input validation)
   { method: "POST", statuses: [400], pattern: /^\/api\/anesthesia\/inventory\/[^/]+\/commit$/ },
   // Item archive guard — 409 ITEM_HAS_MED_CONFIGS is the confirm-before-archive flow
   { method: "PATCH", statuses: [409], pattern: /^\/api\/items\/[^/]+$/ },
+  // Item reduce-unit — 400 "No units available" when stock is 0 (user clicked "-" on stockout)
+  { method: "PATCH", statuses: [400], pattern: /^\/api\/items\/[^/]+\/reduce-unit$/ },
+  // PDF export probes sticker docs that may not be persisted yet — caller handles 404 gracefully
+  { method: "GET", statuses: [404], pattern: /^\/api\/anesthesia\/records\/[^/]+\/sticker-doc\/[^/]+\/download-url$/ },
 ];
 
 function isExpectedFetchNoise(method: string, url: string, status: number): boolean {
