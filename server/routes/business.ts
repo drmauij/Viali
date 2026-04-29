@@ -3099,6 +3099,20 @@ router.get('/api/business/:hospitalId/money-summary', isAuthenticated, isBusines
   }
 });
 
+router.get('/api/business/:hospitalId/top-procedures-by-margin', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const range = (req.query.range as string) || '30d';
+    const limit = Math.min(parseInt((req.query.limit as string) || '5', 10), 50);
+    const { computeTopProceduresByMargin } = await import('./business/topProcedures');
+    const rows = await computeTopProceduresByMargin(hospitalId, range, limit);
+    res.json(rows);
+  } catch (error) {
+    logger.error("Error computing top procedures by margin:", error);
+    res.status(500).json({ message: "Failed to compute top procedures" });
+  }
+});
+
 router.get('/api/business/:hospitalId/providers-performance', isAuthenticated, isBusinessManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
