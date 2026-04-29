@@ -46,4 +46,12 @@ describe("money-summary", () => {
     const expectedTreatmentRevenue = parseFloat((known.rows[0] as any)?.rev ?? "0");
     expect(result.revenue.treatment).toBeCloseTo(expectedTreatmentRevenue, 2);
   });
+
+  it("populates deltaPp_vs_prev as the percentage point diff between current and prior margin%", async () => {
+    const cur = await callMoneySummary("30d");
+    const { computePriorMarginPercent } = await import("../server/routes/business/moneyHelpers");
+    const prior = await computePriorMarginPercent(TEST_HOSPITAL_ID, "30d");
+    expect(cur.margin.deltaPp_vs_prev).toBeCloseTo((cur.margin.percent - prior) * 100, 4);
+    expect(Number.isFinite(cur.margin.deltaPp_vs_prev)).toBe(true);
+  });
 });

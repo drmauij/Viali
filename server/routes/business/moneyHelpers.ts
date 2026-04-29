@@ -19,7 +19,8 @@ interface SurgeryAgg {
   byDay: Map<string, { revenue: number; staffCost: number; materialsCost: number }>;
 }
 
-async function aggregateSurgeries(hospitalId: string, startIso: string): Promise<SurgeryAgg> {
+async function aggregateSurgeries(hospitalId: string, startIso: string, endIso?: string): Promise<SurgeryAgg> {
+  const upperBound = endIso ? sql`AND s.payment_date < ${endIso}::date` : sql``;
   const rows = await db.execute<{
     payment_date: string;
     price: string | null;
@@ -83,6 +84,7 @@ async function aggregateSurgeries(hospitalId: string, startIso: string): Promise
       AND s.is_archived = false
       AND s.payment_date IS NOT NULL
       AND s.payment_date >= ${startIso}::date
+      ${upperBound}
   `);
 
   const agg: SurgeryAgg = { revenue: 0, staffCost: 0, materialsCost: 0, byDay: new Map() };
@@ -112,7 +114,7 @@ interface TreatmentAgg {
   byDay: Map<string, { revenue: number; staffCost: number; materialsCost: number }>;
 }
 
-async function aggregateTreatments(hospitalId: string, startIso: string): Promise<TreatmentAgg> {
+async function aggregateTreatments(hospitalId: string, startIso: string, endIso?: string): Promise<TreatmentAgg> {
   // Per spec:
   //   - Cost is attributed only when revenue is counted (status IN signed/invoiced).
   //   - Staff cost: users.hourly_rate × duration_minutes/60.
@@ -121,6 +123,7 @@ async function aggregateTreatments(hospitalId: string, startIso: string): Promis
   //   - Materials cost: SUM over treatment_lines with item_id set of
   //     total × (preferred_supplier_basispreis / item.patient_price), when both are positive.
   //     Items missing either price contribute 0 cost.
+  const upperBound = endIso ? sql`AND t.performed_at < ${endIso}` : sql``;
   const rows = await db.execute<{
     performed_at: string;
     treatment_revenue: string;
@@ -139,6 +142,7 @@ async function aggregateTreatments(hospitalId: string, startIso: string): Promis
       WHERE t.hospital_id = ${hospitalId}
         AND t.status IN ('signed', 'invoiced')
         AND t.performed_at >= ${startIso}
+        ${upperBound}
       GROUP BY t.id
     ),
     t_materials AS (
@@ -207,14 +211,48 @@ async function aggregateTreatments(hospitalId: string, startIso: string): Promis
   return agg;
 }
 
+async function aggregateForWindow(
+  hospitalId: string,
+  startIso: string,
+  endIso: string,
+): Promise<{ revenue: number; cost: number }> {
+  const s = await aggregateSurgeries(hospitalId, startIso, endIso);
+  const t = await aggregateTreatments(hospitalId, startIso, endIso);
+  return {
+    revenue: s.revenue + t.revenue,
+    cost: s.staffCost + s.materialsCost + t.staffCost + t.materialsCost,
+  };
+}
+
+export async function computePriorMarginPercent(
+  hospitalId: string,
+  range: string,
+): Promise<number> {
+  const days = rangeToDays(range);
+  const priorEnd = new Date();
+  priorEnd.setDate(priorEnd.getDate() - days);
+  const priorStart = new Date(priorEnd);
+  priorStart.setDate(priorStart.getDate() - days);
+  const { revenue, cost } = await aggregateForWindow(
+    hospitalId,
+    priorStart.toISOString(),
+    priorEnd.toISOString(),
+  );
+  if (revenue <= 0) return 0;
+  return (revenue - cost) / revenue;
+}
+
 export async function computeMoneySummary(hospitalId: string, range: string): Promise<MoneySummary> {
   const days = rangeToDays(range);
   const start = new Date();
   start.setDate(start.getDate() - days);
   const startIso = start.toISOString();
 
-  const surgery = await aggregateSurgeries(hospitalId, startIso);
-  const treatment = await aggregateTreatments(hospitalId, startIso);
+  const [surgery, treatment, priorMarginPercent] = await Promise.all([
+    aggregateSurgeries(hospitalId, startIso),
+    aggregateTreatments(hospitalId, startIso),
+    computePriorMarginPercent(hospitalId, range),
+  ]);
 
   const totalRevenue = surgery.revenue + treatment.revenue;
   const totalStaff = surgery.staffCost + treatment.staffCost;
@@ -222,6 +260,7 @@ export async function computeMoneySummary(hospitalId: string, range: string): Pr
   const totalCost = totalStaff + totalMaterials;
   const marginValue = totalRevenue - totalCost;
   const marginPercent = totalRevenue > 0 ? marginValue / totalRevenue : 0;
+  const deltaPp_vs_prev = (marginPercent - priorMarginPercent) * 100;
 
   // Merge surgery + treatment byDay maps.
   const merged = new Map<string, { revenue: number; staffCost: number; materialsCost: number }>();
@@ -242,7 +281,7 @@ export async function computeMoneySummary(hospitalId: string, range: string): Pr
   return {
     revenue: { surgery: surgery.revenue, treatment: treatment.revenue, total: totalRevenue },
     cost:    { staff: totalStaff, materials: totalMaterials, total: totalCost },
-    margin:  { value: marginValue, percent: marginPercent, deltaPp_vs_prev: 0 }, // wired in Task 3
+    margin:  { value: marginValue, percent: marginPercent, deltaPp_vs_prev },
     byDay,
   };
 }
