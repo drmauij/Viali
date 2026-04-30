@@ -66,9 +66,13 @@ function downloadCsv(content: string, filename: string) {
 
 // ── Export functions ───────────────────────────────────────────────────────
 
-export function exportAnonymizedCsv(rows: FunnelRow[]) {
+export function exportAnonymizedCsv(
+  rows: FunnelRow[],
+  classifyFunnel: (r: FunnelRow) => string,
+) {
   const header = [
-    "referral_date", "source", "source_detail", "capture_method",
+    "referral_date", "funnel", "source", "source_detail", "capture_method",
+    "from_lead",
     "appointment_status", "appointment_date", "provider_name",
     "surgery_status", "payment_status", "price_chf", "payment_date",
     "treatment_status", "treatment_total_chf", "treatment_performed_at",
@@ -91,9 +95,11 @@ export function exportAnonymizedCsv(rows: FunnelRow[]) {
       : "";
     return [
       r.referral_date?.slice(0, 10) ?? "",
+      classifyFunnel(r),
       r.source,
       r.source_detail ?? "",
       r.capture_method,
+      r.from_lead ? "yes" : "no",
       r.appointment_status ?? "",
       r.appointment_date ?? "",
       providerName,
@@ -129,23 +135,120 @@ export function exportAdPerformanceCsv(
     meta_forms: "Meta Forms",
   };
 
-  // Section 1: Summary
-  const summaryHeader = "funnel,budget_chf,referrals,cpr_chf,appointments_kept,cost_per_kept_chf,paid_conversions,cpa_chf,revenue_chf,roi";
-  const summaryRows = adPerformance.map((r: any) => [
-    funnelLabels[r.funnel] || r.funnel,
-    r.budget,
-    r.leads,
-    r.cpl ?? "",
-    r.appointmentsKept,
-    r.cpk ?? "",
-    r.paidConversions,
-    r.cpa ?? "",
-    r.revenue,
-    r.roi ?? "",
-  ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","));
+  // Restrict the budget-side data to months whose first day falls within
+  // the user's selected [from, to] period — the detail rows below are
+  // already filtered, so we keep both halves of the report aligned.
+  const fromMonth = from.slice(0, 7);
+  const toMonth = to.slice(0, 7);
+  const monthsInRange = adPerformance.filter(
+    (m: any) => m.month >= fromMonth && m.month <= toMonth,
+  );
 
-  // Section 2: Raw referral-level data with funnel classification
-  const detailHeader = "referral_date,funnel,source,source_detail,capture_method,has_click_id,appointment_status,appointment_date,provider,surgery_status,payment_status,price_chf,payment_date,days_to_conversion";
+  // Section 1: Period summary — one row per funnel, aggregated across all
+  // in-range months. Also appends a TOTAL row across funnels.
+  type Agg = { budget: number; referrals: number; kept: number; paid: number; revenue: number };
+  const summary: Record<string, Agg> = {};
+  for (const month of monthsInRange) {
+    for (const f of month.funnels ?? []) {
+      const a = (summary[f.funnel] ??= { budget: 0, referrals: 0, kept: 0, paid: 0, revenue: 0 });
+      a.budget += Number(f.budget) || 0;
+      a.referrals += Number(f.leads) || 0;
+      a.kept += Number(f.appointmentsKept) || 0;
+      a.paid += Number(f.paidConversions) || 0;
+      a.revenue += Number(f.revenue) || 0;
+    }
+  }
+
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const cpr = (a: Agg) => (a.referrals > 0 ? Math.round(a.budget / a.referrals) : "");
+  const cpk = (a: Agg) => (a.kept > 0 ? Math.round(a.budget / a.kept) : "");
+  const cpa = (a: Agg) => (a.paid > 0 ? Math.round(a.budget / a.paid) : "");
+  const roi = (a: Agg) =>
+    a.budget > 0 && a.paid > 0 ? round2((a.revenue - a.budget) / a.budget) : "";
+
+  const summaryHeader =
+    "funnel,budget_chf,referrals,cpr_chf,appointments_kept,cost_per_kept_chf,paid_conversions,cpa_chf,revenue_chf,roi";
+
+  const summaryRows = Object.entries(summary)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([funnel, a]) =>
+      [
+        funnelLabels[funnel] || funnel,
+        a.budget,
+        a.referrals,
+        cpr(a),
+        a.kept,
+        cpk(a),
+        a.paid,
+        cpa(a),
+        a.revenue,
+        roi(a),
+      ]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .join(","),
+    );
+
+  const totalAgg: Agg = Object.values(summary).reduce(
+    (acc, a) => ({
+      budget: acc.budget + a.budget,
+      referrals: acc.referrals + a.referrals,
+      kept: acc.kept + a.kept,
+      paid: acc.paid + a.paid,
+      revenue: acc.revenue + a.revenue,
+    }),
+    { budget: 0, referrals: 0, kept: 0, paid: 0, revenue: 0 },
+  );
+  const totalRow = [
+    "TOTAL",
+    totalAgg.budget,
+    totalAgg.referrals,
+    cpr(totalAgg),
+    totalAgg.kept,
+    cpk(totalAgg),
+    totalAgg.paid,
+    cpa(totalAgg),
+    totalAgg.revenue,
+    roi(totalAgg),
+  ]
+    .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+    .join(",");
+
+  // Section 2: Per-month × funnel breakdown — same metric set as the summary,
+  // so trend comparisons are possible without re-aggregating from detail.
+  const monthlyHeader =
+    "month,funnel,budget_chf,referrals,cpr_chf,appointments_kept,cost_per_kept_chf,paid_conversions,cpa_chf,revenue_chf,roi";
+  const monthlyRows: string[] = [];
+  for (const m of monthsInRange) {
+    for (const f of m.funnels ?? []) {
+      const a: Agg = {
+        budget: Number(f.budget) || 0,
+        referrals: Number(f.leads) || 0,
+        kept: Number(f.appointmentsKept) || 0,
+        paid: Number(f.paidConversions) || 0,
+        revenue: Number(f.revenue) || 0,
+      };
+      monthlyRows.push(
+        [
+          m.month,
+          funnelLabels[f.funnel] || f.funnel,
+          a.budget,
+          a.referrals,
+          cpr(a),
+          a.kept,
+          cpk(a),
+          a.paid,
+          cpa(a),
+          a.revenue,
+          roi(a),
+        ]
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .join(","),
+      );
+    }
+  }
+
+  // Section 3: Raw referral-level data with funnel classification
+  const detailHeader = "referral_date,funnel,source,source_detail,capture_method,has_click_id,from_lead,appointment_status,appointment_date,provider,surgery_status,payment_status,price_chf,payment_date,days_to_conversion";
   const detailRows = rows.map((r) => {
     const funnel = classifyFunnel(r);
     const daysToConversion = r.payment_date && r.referral_date
@@ -161,6 +264,7 @@ export function exportAdPerformanceCsv(
       r.source_detail ?? "",
       r.capture_method,
       r.has_click_id ? "yes" : "no",
+      r.from_lead ? "yes" : "no",
       r.appointment_status ?? "",
       r.appointment_date ?? "",
       provider,
@@ -175,9 +279,14 @@ export function exportAdPerformanceCsv(
   const csv = [
     `"Ad Performance Report — ${from} to ${to}"`,
     "",
-    "--- SUMMARY ---",
+    "--- SUMMARY (period totals per funnel) ---",
     summaryHeader,
     ...summaryRows,
+    totalRow,
+    "",
+    "--- MONTHLY (per month per funnel) ---",
+    monthlyHeader,
+    ...monthlyRows,
     "",
     "--- DETAIL (per referral) ---",
     detailHeader,

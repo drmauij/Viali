@@ -562,7 +562,7 @@ export default function ReferralFunnel({ scope, from, to, currency = "CHF", onEa
           <Button
             variant="outline"
             size="sm"
-            onClick={() => exportAnonymizedCsv(filtered)}
+            onClick={() => exportAnonymizedCsv(filtered, classifyFunnel)}
           >
             <Download className="h-4 w-4 mr-1" />
             {t("business.funnel.export", "Export CSV")}
