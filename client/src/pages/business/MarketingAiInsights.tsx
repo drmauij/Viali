@@ -36,11 +36,32 @@ export default function MarketingAiInsights({ scope, startDate, endDate }: Props
   const activeHospital = useActiveHospital();
   const isAdmin = activeHospital?.role === "admin";
 
+  // The parent (Funnels.tsx) initialises `referralFrom` to "" and only
+  // populates it once ReferralFunnel fires `onEarliestDate`. The AI card is
+  // rendered above ReferralFunnel and on tabs where it doesn't render at
+  // all, so dates can be empty when the user clicks Generate. Fall back to
+  // a 365-day lookback so the request always has a valid YYYY-MM-DD range
+  // — enough history to contain mature cohorts but bounded.
+  const { effectiveStartDate, effectiveEndDate } = useMemo(() => {
+    const today = new Date();
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    const fallbackEnd = fmt(today);
+    const past = new Date(today);
+    past.setDate(past.getDate() - 365);
+    const fallbackStart = fmt(past);
+    return {
+      effectiveStartDate: startDate || fallbackStart,
+      effectiveEndDate: endDate || fallbackEnd,
+    };
+  }, [startDate, endDate]);
+
   // All hooks must be called unconditionally (Rules of Hooks).
   // For chain scope, we skip network calls via `enabled: false` and gate via JSX below.
   const hospitalId = scope.groupId ? "" : (scope.hospitalIds[0] ?? "");
-  const url = scope.groupId ? null : funnelsUrl("ai-analysis", scope, { startDate, endDate });
-  const key = ["marketing-ai-analysis", hospitalId, startDate, endDate];
+  const url = scope.groupId
+    ? null
+    : funnelsUrl("ai-analysis", scope, { startDate: effectiveStartDate, endDate: effectiveEndDate });
+  const key = ["marketing-ai-analysis", hospitalId, effectiveStartDate, effectiveEndDate];
 
   const { data, isLoading: loadingCache } = useQuery<AnalysisResponse | null>({
     queryKey: key,
@@ -49,7 +70,7 @@ export default function MarketingAiInsights({ scope, startDate, endDate }: Props
       if (!res.ok) throw new Error(`fetch failed (${res.status})`);
       return (await res.json()) as AnalysisResponse | null;
     },
-    enabled: !!url && !!hospitalId && !!startDate && !!endDate,
+    enabled: !!url && !!hospitalId && !!effectiveStartDate && !!effectiveEndDate,
   });
 
   const [expanded, setExpanded] = useState(false);
@@ -61,7 +82,11 @@ export default function MarketingAiInsights({ scope, startDate, endDate }: Props
       const postUrl = funnelsUrl("ai-analysis", scope);
       if (!postUrl) throw new Error("scope not addressable");
       const trimmed = notes.trim();
-      const body: Record<string, unknown> = { startDate, endDate, force };
+      const body: Record<string, unknown> = {
+        startDate: effectiveStartDate,
+        endDate: effectiveEndDate,
+        force,
+      };
       if (trimmed.length > 0) body.operatorNotes = trimmed;
       const res = await apiRequest("POST", postUrl, body);
       if (!res.ok) throw new Error("generation failed");
