@@ -112,41 +112,56 @@ export function BookingThemeStyle({ theme }: Props) {
     );
   }
 
-  // Card radius — only the larger card classes; rounded-full (avatars,
-  // tiny pills) stays untouched.
+  // Card radius — applies to the larger card/button radius classes;
+  // rounded-full (avatars, tiny pills) stays untouched. All three explicit
+  // values emit a unifying rule so the user sees a visible difference
+  // when cycling through Sharp / Rounded / Pill — `null` (Default) means
+  // "use whatever Tailwind class the element shipped with" and emits no
+  // rule. Without an explicit "rounded" rule, picking "Rounded" looked
+  // identical to Default and varied per-element (rounded=4px, md=6px,
+  // xl=12px), which read as "almost sharp" in some places.
+  const radiusSel =
+    `[data-booking-root] .rounded-xl, ` +
+    `[data-booking-root] .rounded-2xl, ` +
+    `[data-booking-root] .rounded-lg, ` +
+    `[data-booking-root] .rounded-md, ` +
+    `[data-booking-root] .rounded`;
   const radius = (theme as any).cardRadius as "sharp" | "rounded" | "pill" | null | undefined;
   if (radius === "sharp") {
-    cascade.push(
-      `[data-booking-root] .rounded-xl, ` +
-        `[data-booking-root] .rounded-2xl, ` +
-        `[data-booking-root] .rounded-lg, ` +
-        `[data-booking-root] .rounded { border-radius: 0 !important; }`,
-    );
+    cascade.push(`${radiusSel} { border-radius: 0 !important; }`);
+  } else if (radius === "rounded") {
+    cascade.push(`${radiusSel} { border-radius: 14px !important; }`);
   } else if (radius === "pill") {
-    cascade.push(
-      `[data-booking-root] .rounded-xl, ` +
-        `[data-booking-root] .rounded-2xl, ` +
-        `[data-booking-root] .rounded-lg { border-radius: 28px !important; }`,
-    );
+    cascade.push(`${radiusSel} { border-radius: 28px !important; }`);
   }
 
   // Color remaps. Tailwind utility classes containing `/` need backslash-
   // escaping in CSS selectors; in a JS string that's `\\/`.
+  // CTA selectors include the `[data-book-cta]` marker (used on the live
+  // preview button + the main /book "Weiter"/"Termin buchen" button) so
+  // the cascade reaches buttons that don't carry a `.bg-blue-500`-style
+  // class. `.bg-gray-900` is the light-mode default for the main CTA.
+  const ctaSel =
+    `[data-booking-root] [data-book-cta], ` +
+    `[data-booking-root] .bg-blue-500, ` +
+    `[data-booking-root] .bg-blue-400, ` +
+    `[data-booking-root] .bg-gray-900, ` +
+    `[data-booking-root] .bg-emerald-500, ` +
+    `[data-booking-root] .bg-emerald-500\\/90`;
   if (theme.primaryColor) {
     // Primary surface (full color CTA) — main "Termin buchen" button +
     // selected-slot blue + the green "Kostenlose Beratung" pill.
     cascade.push(
-      `[data-booking-root] .bg-blue-500, ` +
-        `[data-booking-root] .bg-blue-400, ` +
-        `[data-booking-root] .bg-emerald-500, ` +
-        `[data-booking-root] .bg-emerald-500\\/90 { ` +
+      `${ctaSel} { ` +
         `background-color: var(--book-primary) !important; ` +
         `color: var(--book-primary-fg) !important; ` +
         `}`,
     );
     // Hover variants — slightly darker primary.
     cascade.push(
-      `[data-booking-root] .hover\\:bg-blue-400:hover, ` +
+      `[data-booking-root] [data-book-cta]:hover, ` +
+        `[data-booking-root] .hover\\:bg-blue-400:hover, ` +
+        `[data-booking-root] .hover\\:bg-gray-800:hover, ` +
         `[data-booking-root] .hover\\:bg-blue-500\\/20:hover { ` +
         `background-color: color-mix(in srgb, var(--book-primary) 88%, black) !important; ` +
         `color: var(--book-primary-fg) !important; ` +
@@ -175,38 +190,43 @@ export function BookingThemeStyle({ theme }: Props) {
   // Button style — outline or ghost overrides the filled primary remap.
   // Uses inset box-shadow instead of border so the button height doesn't
   // shift. Hover state restores filled look so the affordance stays clear.
+  // `background` (shorthand) is reset alongside `background-color` because
+  // both /book and the preview set the primary fill via inline `style`,
+  // and inline shorthand would leak through if only `background-color`
+  // were neutralised.
   const buttonStyle = (theme as any).buttonStyle as "filled" | "outline" | "ghost" | null | undefined;
   if (theme.primaryColor && buttonStyle === "outline") {
     cascade.push(
-      `[data-booking-root] .bg-blue-500, ` +
-        `[data-booking-root] .bg-blue-400, ` +
-        `[data-booking-root] .bg-emerald-500, ` +
-        `[data-booking-root] .bg-emerald-500\\/90 { ` +
+      `${ctaSel} { ` +
+        `background: transparent !important; ` +
         `background-color: transparent !important; ` +
         `color: var(--book-primary) !important; ` +
         `box-shadow: inset 0 0 0 2px var(--book-primary) !important; ` +
         `}`,
     );
     cascade.push(
-      `[data-booking-root] .bg-blue-500:hover, ` +
+      `[data-booking-root] [data-book-cta]:hover, ` +
+        `[data-booking-root] .bg-blue-500:hover, ` +
+        `[data-booking-root] .bg-gray-900:hover, ` +
         `[data-booking-root] .bg-emerald-500:hover { ` +
+        `background: var(--book-primary) !important; ` +
         `background-color: var(--book-primary) !important; ` +
         `color: var(--book-primary-fg) !important; ` +
         `}`,
     );
   } else if (theme.primaryColor && buttonStyle === "ghost") {
     cascade.push(
-      `[data-booking-root] .bg-blue-500, ` +
-        `[data-booking-root] .bg-blue-400, ` +
-        `[data-booking-root] .bg-emerald-500, ` +
-        `[data-booking-root] .bg-emerald-500\\/90 { ` +
+      `${ctaSel} { ` +
+        `background: transparent !important; ` +
         `background-color: transparent !important; ` +
         `color: var(--book-primary) !important; ` +
         `box-shadow: none !important; ` +
         `}`,
     );
     cascade.push(
-      `[data-booking-root] .bg-blue-500:hover, ` +
+      `[data-booking-root] [data-book-cta]:hover, ` +
+        `[data-booking-root] .bg-blue-500:hover, ` +
+        `[data-booking-root] .bg-gray-900:hover, ` +
         `[data-booking-root] .bg-emerald-500:hover { ` +
         `background-color: color-mix(in srgb, var(--book-primary) 12%, transparent) !important; ` +
         `}`,

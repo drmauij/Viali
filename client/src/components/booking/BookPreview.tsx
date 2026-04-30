@@ -53,6 +53,7 @@ export function BookPreview({ theme }: Props) {
         </div>
         <button
           type="button"
+          data-book-cta
           className="w-full rounded py-2 text-sm font-medium text-white"
           style={{ background: "var(--book-primary, #18181b)" }}
         >

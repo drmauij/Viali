@@ -395,6 +395,14 @@ router.get('/api/public/group-booking/:token', async (req, res) => {
 // 3a: Get booking page data (hospital info + bookable providers)
 router.get('/api/public/booking/:bookingToken', async (req, res) => {
   try {
+    // Override the 60s public-booking cache from server/index.ts: this
+    // endpoint carries the booking theme + provider list which admins
+    // change interactively. A 60s cache made every theme tweak appear to
+    // "stick" — saving Pill, then Sharp, kept showing Pill until the
+    // browser cache expired. Sub-endpoints (slots, services) keep their
+    // 60s cache since they're high-traffic and tolerate brief staleness.
+    res.setHeader("Cache-Control", "no-store");
+
     const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
     if (!hospital) {
       return sendPublicApiError(res, "HOSPITAL_NOT_FOUND");

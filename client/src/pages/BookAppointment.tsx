@@ -1522,6 +1522,7 @@ export default function BookAppointment() {
                 <Button
                   onClick={handleDetailsContinue}
                   disabled={submitting || !firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || (!selectedTreatment && !notes.trim()) || !privacyAccepted || (!!data?.hospital?.noShowFeeMessage && !noShowFeeAcknowledged)}
+                  data-book-cta
                   className={cn(
                     "w-full h-12 rounded-xl text-sm font-semibold transition-all duration-200",
                     isDark
