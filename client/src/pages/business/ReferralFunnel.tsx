@@ -84,12 +84,14 @@ type FunnelMetrics = {
   treatmentPerformed: number;   // count where treatment_id present
   converted: number;            // surgery OR treatment (union, de-duplicated)
   paid: number;                 // surgery paid OR treatment signed
+  fromLead: number;             // count of referrals that originated from a lead webhook
   noShowRate: number;
   cancellationRate: number;
   leadToConversionRate: number;
   aptToConversionRate: number;
   conversionToPaidRate: number;
   fullFunnelRate: number;
+  fromLeadRate: number;         // fromLead / totalReferrals
   totalRevenue: number;
   avgDaysToConversion: number | null;
 };
@@ -158,6 +160,7 @@ function computeMetrics(rows: FunnelRow[]): FunnelMetrics {
   const treatmentPerformed = rows.filter((r) => r.treatment_id);
   const converted = rows.filter((r) => r.surgery_id || r.treatment_id);
   const paid = rows.filter((r) => r.payment_date || r.treatment_status === "signed");
+  const fromLead = rows.filter((r) => r.from_lead);
 
   const totalRevenue = paid.reduce(
     (sum, r) =>
@@ -188,6 +191,7 @@ function computeMetrics(rows: FunnelRow[]): FunnelMetrics {
     treatmentPerformed: treatmentPerformed.length,
     converted: converted.length,
     paid: paid.length,
+    fromLead: fromLead.length,
     noShowRate: withAppt.length > 0 ? noShow.length / withAppt.length : 0,
     cancellationRate: withAppt.length > 0 ? cancelled.length / withAppt.length : 0,
     leadToConversionRate: total > 0 ? converted.length / total : 0,
@@ -196,6 +200,7 @@ function computeMetrics(rows: FunnelRow[]): FunnelMetrics {
     conversionToPaidRate:
       converted.length > 0 ? paid.length / converted.length : 0,
     fullFunnelRate: total > 0 ? paid.length / total : 0,
+    fromLeadRate: total > 0 ? fromLead.length / total : 0,
     totalRevenue,
     avgDaysToConversion:
       conversionDays.length > 0
@@ -263,7 +268,7 @@ export default function ReferralFunnel({ scope, from, to, currency = "CHF", onEa
   // ── Data fetching ──────────────────────────────────────────────────────
 
   const funnelDataUrl = funnelsUrl("referral-funnel", scope, { from, to });
-  const { data: rows = [], isLoading } = useQuery<FunnelRow[]>({
+  const { data: rawRows = [], isLoading } = useQuery<FunnelRow[]>({
     queryKey: [funnelDataUrl],
     queryFn: async () => {
       if (!funnelDataUrl) throw new Error("scope not addressable");
@@ -273,6 +278,16 @@ export default function ReferralFunnel({ scope, from, to, currency = "CHF", onEa
     },
     enabled: !!funnelDataUrl,
   });
+
+  // The funnel page operates only on referrals attached to an appointment.
+  // Orphan referrals — currently only created by the Meta CSV bulk-match
+  // approval flow when no future appointment exists — would skew every
+  // denominator on this page. Excluding them gives a single, consistent
+  // universe across all KPIs, the funnel chart, the source matrix, and CSV exports.
+  const rows = useMemo(
+    () => rawRows.filter((r) => r.appointment_id),
+    [rawRows],
+  );
 
   // Report earliest referral date to parent for auto-setting "From"
   const reportedEarliest = useRef(false);
@@ -423,16 +438,16 @@ export default function ReferralFunnel({ scope, from, to, currency = "CHF", onEa
   // ── Funnel chart data ──────────────────────────────────────────────────
 
   const funnelChartData = useMemo(() => {
+    // Universe is "referrals attached to an appointment" — the standalone
+    // "Appointments" stage would equal "Referrals" so it's omitted.
     const stageKeys = [
       "referrals",
-      "appointments",
       "kept",
       "surgeryPlanned",
       "paid",
     ] as const;
     const stageLabels: Record<(typeof stageKeys)[number], string> = {
       referrals: t("business.funnel.referrals", "Referrals"),
-      appointments: t("business.funnel.appointments", "Appointments"),
       kept: t("business.funnel.kept", "Kept"),
       surgeryPlanned: t("business.funnel.converted", "Converted"),
       paid: t("business.funnel.paid", "Paid"),
@@ -452,9 +467,6 @@ export default function ReferralFunnel({ scope, from, to, currency = "CHF", onEa
         switch (key) {
           case "referrals":
             entry[src] = m.totalReferrals;
-            break;
-          case "appointments":
-            entry[src] = m.withAppointment;
             break;
           case "kept":
             entry[src] = m.kept;
@@ -658,6 +670,10 @@ export default function ReferralFunnel({ scope, from, to, currency = "CHF", onEa
               value={String(metrics.totalReferrals)}
             />
             <KpiCard
+              label={t("business.funnel.fromLeads", "From Leads")}
+              value={`${metrics.fromLead} (${pct(metrics.fromLeadRate)})`}
+            />
+            <KpiCard
               label={t("business.funnel.noShowRate", "No-Show Rate")}
               value={`${metrics.noShow} (${pct(metrics.noShowRate)})`}
             />
@@ -667,7 +683,7 @@ export default function ReferralFunnel({ scope, from, to, currency = "CHF", onEa
             />
             <KpiCard
               label={t("business.funnel.attended", "Attended")}
-              value={`${metrics.kept} / ${metrics.withAppointment}`}
+              value={`${metrics.kept} / ${metrics.totalReferrals} (${pct(metrics.totalReferrals > 0 ? metrics.kept / metrics.totalReferrals : 0)})`}
             />
             <KpiCard
               label={t(
@@ -752,6 +768,9 @@ export default function ReferralFunnel({ scope, from, to, currency = "CHF", onEa
                       {t("business.funnel.referrals", "Referrals")}
                     </TableHead>
                     <TableHead className="text-right">
+                      {t("business.funnel.fromLeads", "From Leads")}
+                    </TableHead>
+                    <TableHead className="text-right">
                       {t("business.funnel.attended", "Attended")}
                     </TableHead>
                     <TableHead className="text-right">
@@ -793,6 +812,9 @@ export default function ReferralFunnel({ scope, from, to, currency = "CHF", onEa
                         {isSubRow ? `↳ ${subLabel}` : bucketLabel(source)}
                       </TableCell>
                       <TableCell className="text-right">{m.totalReferrals}</TableCell>
+                      <TableCell className="text-right">
+                        {m.fromLead} <span className="text-muted-foreground text-xs">({pct(m.fromLeadRate)})</span>
+                      </TableCell>
                       <TableCell className="text-right">{m.kept}</TableCell>
                       <TableCell className="text-right">
                         {m.noShow} <span className="text-muted-foreground text-xs">({pct(m.noShowRate)})</span>
@@ -816,6 +838,9 @@ export default function ReferralFunnel({ scope, from, to, currency = "CHF", onEa
                   <TableRow className="font-semibold border-t-2">
                     <TableCell>Total</TableCell>
                     <TableCell className="text-right">{metrics.totalReferrals}</TableCell>
+                    <TableCell className="text-right">
+                      {metrics.fromLead} <span className="text-muted-foreground text-xs">({pct(metrics.fromLeadRate)})</span>
+                    </TableCell>
                     <TableCell className="text-right">{metrics.kept}</TableCell>
                     <TableCell className="text-right">
                       {metrics.noShow} <span className="text-muted-foreground text-xs">({pct(metrics.noShowRate)})</span>

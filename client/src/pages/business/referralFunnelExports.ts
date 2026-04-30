@@ -8,6 +8,10 @@ export type FunnelRow = {
   patient_id: string;
   capture_method: string;
   has_click_id: boolean;
+  // True when a row in the `leads` table is linked to this appointment —
+  // i.e. the referral came in via the lead webhook (Meta Lead Form, website
+  // contact form) and required a staff callback before booking.
+  from_lead: boolean;
   gclid: string | null;
   gbraid: string | null;
   wbraid: string | null;

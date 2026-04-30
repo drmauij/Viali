@@ -187,6 +187,11 @@ export async function getReferralFunnel(
     re.patient_id,
     re.capture_method,
     CASE WHEN re.gclid IS NOT NULL OR re.gbraid IS NOT NULL OR re.wbraid IS NOT NULL OR re.fbclid IS NOT NULL OR re.igshid IS NOT NULL OR re.ttclid IS NOT NULL OR re.msclkid IS NOT NULL OR re.li_fat_id IS NOT NULL OR re.twclid IS NOT NULL OR re.meta_lead_id IS NOT NULL OR re.meta_form_id IS NOT NULL THEN true ELSE false END AS has_click_id,
+    EXISTS (
+      SELECT 1 FROM leads l
+      WHERE l.appointment_id = re.appointment_id
+        AND l.hospital_id = re.hospital_id
+    ) AS from_lead,
     re.gclid,
     re.gbraid,
     re.wbraid,
