@@ -173,6 +173,7 @@ const saveProgressSchema = z.object({
   outpatientCaregiverFirstName: z.string().optional(),
   outpatientCaregiverLastName: z.string().optional(),
   outpatientCaregiverPhone: z.string().optional(),
+  caregiverIsEmergencyContact: z.boolean().optional(),
   currentStep: z.number().optional(),
   completedSteps: z.array(z.string()).optional(),
 });
@@ -353,6 +354,7 @@ router.get('/api/questionnaire/patient/:patientId/links', isAuthenticated, requi
             outpatientCaregiverFirstName: response.outpatientCaregiverFirstName,
             outpatientCaregiverLastName: response.outpatientCaregiverLastName,
             outpatientCaregiverPhone: response.outpatientCaregiverPhone,
+            caregiverIsEmergencyContact: response.caregiverIsEmergencyContact,
             // "None" flags
             noAllergies: response.noAllergies,
             noMedications: response.noMedications,
@@ -1204,9 +1206,37 @@ router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async 
     const existingResponse = await storage.getQuestionnaireResponseByLinkId(link.id);
 
     // Get existing uploads if response exists
-    const existingUploads = existingResponse 
+    const existingUploads = existingResponse
       ? await storage.getQuestionnaireUploads(existingResponse.id)
       : [];
+
+    // Pre-op info card data — only loaded when the link is bound to a surgery.
+    // Powers the "what to bring / when to arrive / fasting" panel on the
+    // Submit step + confirmation screen + confirmation email.
+    let surgeryInfo: { admissionTime: string | null; plannedDate: string | null; stayType: string | null } | null = null;
+    let hospitalInfo: { name: string | null; phone: string | null; defaultAdmissionOffsetMinutes: number | null } | null = null;
+    if (link.surgeryId) {
+      const [surgeryRow, hospitalRow] = await Promise.all([
+        storage.getSurgery(link.surgeryId),
+        storage.getHospital(link.hospitalId),
+      ]);
+      if (surgeryRow) {
+        surgeryInfo = {
+          admissionTime: surgeryRow.admissionTime ? new Date(surgeryRow.admissionTime).toISOString() : null,
+          plannedDate: surgeryRow.plannedDate ? new Date(surgeryRow.plannedDate).toISOString() : null,
+          stayType: surgeryRow.stayType ?? null,
+        };
+      }
+      if (hospitalRow) {
+        // Prefer the dedicated questionnaire help-line; fall back to the
+        // company phone so we always show *some* number if one exists.
+        hospitalInfo = {
+          name: hospitalRow.name ?? null,
+          phone: (hospitalRow as any).questionnairePhone ?? (hospitalRow as any).companyPhone ?? null,
+          defaultAdmissionOffsetMinutes: hospitalRow.defaultAdmissionOffsetMinutes ?? null,
+        };
+      }
+    }
 
     // Flatten illness lists and filter for patient-visible items
     const flatIllnessList = flattenIllnessLists(hospitalSettings?.illnessLists);
@@ -1234,6 +1264,8 @@ router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async 
       patientCity: patient?.city || existingResponse?.patientCity,
       hospitalId: link.hospitalId,
       surgeryId: link.surgeryId,
+      surgery: surgeryInfo,
+      hospital: hospitalInfo,
       existingResponse: existingResponse ? {
         id: existingResponse.id,
         patientFirstName: existingResponse.patientFirstName,
@@ -1262,6 +1294,10 @@ router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async 
         womanHealthNotes: existingResponse.womanHealthNotes,
         additionalNotes: existingResponse.additionalNotes,
         questionsForDoctor: existingResponse.questionsForDoctor,
+        outpatientCaregiverFirstName: existingResponse.outpatientCaregiverFirstName,
+        outpatientCaregiverLastName: existingResponse.outpatientCaregiverLastName,
+        outpatientCaregiverPhone: existingResponse.outpatientCaregiverPhone,
+        caregiverIsEmergencyContact: existingResponse.caregiverIsEmergencyContact,
         currentStep: existingResponse.currentStep,
         completedSteps: existingResponse.completedSteps,
       } : null,
@@ -1376,6 +1412,7 @@ router.post('/api/public/questionnaire/:token/save', questionnaireSaveLimiter, a
         outpatientCaregiverFirstName: data.outpatientCaregiverFirstName ?? response.outpatientCaregiverFirstName,
         outpatientCaregiverLastName: data.outpatientCaregiverLastName ?? response.outpatientCaregiverLastName,
         outpatientCaregiverPhone: data.outpatientCaregiverPhone ?? response.outpatientCaregiverPhone,
+        caregiverIsEmergencyContact: data.caregiverIsEmergencyContact ?? response.caregiverIsEmergencyContact,
         currentStep: data.currentStep ?? response.currentStep,
         completedSteps: data.completedSteps ?? response.completedSteps,
         lastSavedAt: new Date(),
@@ -1428,13 +1465,14 @@ router.post('/api/public/questionnaire/:token/save', questionnaireSaveLimiter, a
         outpatientCaregiverFirstName: data.outpatientCaregiverFirstName,
         outpatientCaregiverLastName: data.outpatientCaregiverLastName,
         outpatientCaregiverPhone: data.outpatientCaregiverPhone,
+        caregiverIsEmergencyContact: data.caregiverIsEmergencyContact,
         currentStep: data.currentStep ?? 0,
         completedSteps: data.completedSteps,
         lastSavedAt: new Date(),
       });
     }
 
-    res.json({ 
+    res.json({
       id: response.id,
       savedAt: response.lastSavedAt,
       currentStep: response.currentStep,
@@ -1514,6 +1552,7 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
         outpatientCaregiverFirstName: data.outpatientCaregiverFirstName ?? response.outpatientCaregiverFirstName,
         outpatientCaregiverLastName: data.outpatientCaregiverLastName ?? response.outpatientCaregiverLastName,
         outpatientCaregiverPhone: data.outpatientCaregiverPhone ?? response.outpatientCaregiverPhone,
+        caregiverIsEmergencyContact: data.caregiverIsEmergencyContact ?? response.caregiverIsEmergencyContact,
         userAgent: req.headers['user-agent'] || null,
         ipAddress: req.ip || null,
       });
@@ -1565,6 +1604,7 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
         outpatientCaregiverFirstName: data.outpatientCaregiverFirstName,
         outpatientCaregiverLastName: data.outpatientCaregiverLastName,
         outpatientCaregiverPhone: data.outpatientCaregiverPhone,
+        caregiverIsEmergencyContact: data.caregiverIsEmergencyContact,
         currentStep: 0,
         userAgent: req.headers['user-agent'] || null,
         ipAddress: req.ip || null,
@@ -1573,6 +1613,29 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
 
     // Submit the response
     const submitted = await storage.submitQuestionnaireResponse(response.id);
+
+    // Copy caregiver to patient.emergencyContact* — only when:
+    //   1. The questionnaire link is bound to a surgery (clinical safety case)
+    //   2. The link is bound to a known patient
+    //   3. The patient consented (default true; explicit false opts out)
+    //   4. The caregiver fields actually contain something to copy
+    // Failures here must NOT fail the submit — fire-and-forget with logging.
+    if (link.surgeryId && link.patientId && (data.caregiverIsEmergencyContact ?? true)) {
+      const first = (data.outpatientCaregiverFirstName ?? '').trim();
+      const last = (data.outpatientCaregiverLastName ?? '').trim();
+      const phone = (data.outpatientCaregiverPhone ?? '').trim();
+      const fullName = [first, last].filter(Boolean).join(' ');
+      if (fullName || phone) {
+        try {
+          await storage.updatePatient(link.patientId, {
+            emergencyContactName: fullName || null,
+            emergencyContact: phone || null,
+          });
+        } catch (copyError) {
+          logger.error('Error copying caregiver to patient emergency contact:', copyError);
+        }
+      }
+    }
 
     // Note: Audit logging skipped for public submissions (no authenticated user)
     // The submission is already tracked via submittedAt, ipAddress, userAgent in the response record
@@ -1600,13 +1663,26 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
           const hospitalPhone = hospital.companyPhone || null;
           const hospitalEmail = hospital.companyEmail || null;
 
+          // Pre-op info block — only when the link is bound to a surgery,
+          // so general/hospital-token questionnaires keep the lean email.
+          let preOpInfo = null;
+          if (link.surgeryId) {
+            const surgeryRow = await storage.getSurgery(link.surgeryId);
+            preOpInfo = {
+              admissionTimeIso: surgeryRow?.admissionTime ? new Date(surgeryRow.admissionTime).toISOString() : null,
+              defaultAdmissionOffsetMinutes: hospital.defaultAdmissionOffsetMinutes ?? null,
+              helpLinePhone: (hospital as any).questionnairePhone ?? hospital.companyPhone ?? null,
+            };
+          }
+
           const result = await sendQuestionnaireReceivedConfirmation(
             patientEmail,
             hospital.name,
             hospitalPhone,
             hospitalEmail,
             patientFirstName,
-            lang
+            lang,
+            preOpInfo,
           );
           if (!result.success) {
             logger.error(`[Questionnaire] Failed to send confirmation email to ${patientEmail}:`, result.error);

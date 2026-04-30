@@ -90,6 +90,8 @@ interface QuestionnaireConfig {
   patientCity?: string;
   hospitalId: string;
   surgeryId?: string;
+  surgery?: { admissionTime: string | null; plannedDate: string | null; stayType: string | null } | null;
+  hospital?: { name: string | null; phone: string | null; defaultAdmissionOffsetMinutes: number | null } | null;
   existingResponse?: {
     id: string;
     patientFirstName?: string;
@@ -118,6 +120,10 @@ interface QuestionnaireConfig {
     womanHealthNotes?: string;
     additionalNotes?: string;
     questionsForDoctor?: string;
+    outpatientCaregiverFirstName?: string;
+    outpatientCaregiverLastName?: string;
+    outpatientCaregiverPhone?: string;
+    caregiverIsEmergencyContact?: boolean;
     currentStep?: number;
     completedSteps?: string[];
   } | null;
@@ -191,6 +197,7 @@ interface FormData {
   outpatientCaregiverFirstName: string;
   outpatientCaregiverLastName: string;
   outpatientCaregiverPhone: string;
+  caregiverIsEmergencyContact: boolean;
   pregnancyStatus: string;
   breastfeeding: boolean;
   womanHealthNotes: string;
@@ -313,6 +320,10 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.history.ponv.notes": "Additional details",
     "questionnaire.history.outpatient.title": "Outpatient Care Contact",
     "questionnaire.history.outpatient.subtitle": "For ambulatory procedures: Who will accompany you home?",
+    "questionnaire.history.outpatient.subtitleSurgery": "After your surgery, the clinic needs someone to call. Please tell us who will accompany you home.",
+    "questionnaire.history.outpatient.importantBadge": "Important",
+    "questionnaire.history.outpatient.useAsEmergencyContact": "Also save this person as my emergency contact",
+    "questionnaire.history.outpatient.useAsEmergencyContactHint": "If anything happens during or after your surgery, the clinic will contact this person. Uncheck if you'd prefer not to.",
     "questionnaire.history.outpatient.firstName": "First Name",
     "questionnaire.history.outpatient.lastName": "Last Name",
     "questionnaire.history.outpatient.phone": "Phone Number",
@@ -355,6 +366,26 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.summary.dentalStatus": "Dental Status",
     "questionnaire.summary.previousReactions": "Previous Reactions",
     "questionnaire.summary.outpatientContact": "Outpatient Contact",
+    "questionnaire.summary.caregiverMissingTitle": "Please add an emergency contact",
+    "questionnaire.summary.caregiverMissingHint": "After your surgery the clinic needs someone to call. This information is operationally important.",
+    "questionnaire.summary.caregiverMissingAction": "Add now",
+    "questionnaire.preop.title": "Important — please read before signing",
+    "questionnaire.preop.subtitle": "These are the key things you need to know for the day of your procedure.",
+    "questionnaire.preop.arrival.label": "Arrival time (Eintritt)",
+    "questionnaire.preop.arrival.exact": "Please come to the clinic on {time}.",
+    "questionnaire.preop.arrival.generic": "You will receive your arrival time shortly before the procedure. As a rule, you should plan to arrive about {minutes} minutes before your scheduled surgery time.",
+    "questionnaire.preop.fasting.label": "Fasting (Nüchtern)",
+    "questionnaire.preop.fasting.text": "No solid food for 6 hours before the procedure. Clear liquids (water, tea without milk) are allowed up to 2 hours before. Do not chew gum.",
+    "questionnaire.preop.escort.label": "Escort home",
+    "questionnaire.preop.escort.text": "An accompanying adult is required to take you home. You may not drive yourself or travel home alone after anesthesia.",
+    "questionnaire.preop.bring.label": "Please bring with you",
+    "questionnaire.preop.bring.text": "Identity card or passport, your insurance card, and a complete list of your current medications.",
+    "questionnaire.preop.appearance.label": "Before you come",
+    "questionnaire.preop.appearance.text": "Remove make-up, nail polish, contact lenses, and all jewellery (including piercings and rings). Wear loose, comfortable clothing.",
+    "questionnaire.preop.driving.label": "After the procedure",
+    "questionnaire.preop.driving.text": "You may not drive a vehicle, operate machinery, or sign legally binding documents for 24 hours after anesthesia.",
+    "questionnaire.preop.callIfChange.label": "If you cannot make it",
+    "questionnaire.preop.callIfChange.text": "Please call the clinic as soon as possible at {phone}.",
     "questionnaire.summary.documents": "Documents",
     "questionnaire.summary.additionalNotes": "Additional Notes",
     "questionnaire.summary.questionsForDoctor": "Questions for Doctor",
@@ -492,6 +523,10 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.history.ponv.notes": "Zusätzliche Angaben",
     "questionnaire.history.outpatient.title": "Begleitperson für ambulante Eingriffe",
     "questionnaire.history.outpatient.subtitle": "Wer wird Sie nach dem Eingriff nach Hause begleiten?",
+    "questionnaire.history.outpatient.subtitleSurgery": "Nach dem Eingriff braucht die Klinik eine Kontaktperson. Bitte teilen Sie uns mit, wer Sie nach Hause begleitet.",
+    "questionnaire.history.outpatient.importantBadge": "Wichtig",
+    "questionnaire.history.outpatient.useAsEmergencyContact": "Diese Person auch als Notfallkontakt hinterlegen",
+    "questionnaire.history.outpatient.useAsEmergencyContactHint": "Falls während oder nach dem Eingriff etwas vorfällt, kontaktiert die Klinik diese Person. Entfernen Sie das Häkchen, wenn Sie das nicht möchten.",
     "questionnaire.history.outpatient.firstName": "Vorname",
     "questionnaire.history.outpatient.lastName": "Nachname",
     "questionnaire.history.outpatient.phone": "Telefonnummer",
@@ -534,6 +569,26 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.summary.dentalStatus": "Zahnstatus",
     "questionnaire.summary.previousReactions": "Frühere Reaktionen",
     "questionnaire.summary.outpatientContact": "Begleitperson",
+    "questionnaire.summary.caregiverMissingTitle": "Bitte Notfallkontakt ergänzen",
+    "questionnaire.summary.caregiverMissingHint": "Nach Ihrem Eingriff braucht die Klinik eine Kontaktperson. Diese Information ist organisatorisch wichtig.",
+    "questionnaire.summary.caregiverMissingAction": "Jetzt ergänzen",
+    "questionnaire.preop.title": "Wichtig — bitte vor dem Unterschreiben lesen",
+    "questionnaire.preop.subtitle": "Das sind die wichtigsten Punkte, die Sie für den Eingriffstag wissen müssen.",
+    "questionnaire.preop.arrival.label": "Eintrittszeit",
+    "questionnaire.preop.arrival.exact": "Bitte erscheinen Sie am {time} in der Klinik.",
+    "questionnaire.preop.arrival.generic": "Sie erhalten Ihre Eintrittszeit kurz vor dem Eingriff. In der Regel sollten Sie etwa {minutes} Minuten vor Ihrer geplanten Operationszeit eintreffen.",
+    "questionnaire.preop.fasting.label": "Nüchternheit",
+    "questionnaire.preop.fasting.text": "6 Stunden vor dem Eingriff keine feste Nahrung. Klare Flüssigkeiten (Wasser, Tee ohne Milch) sind bis 2 Stunden vorher erlaubt. Kein Kaugummi.",
+    "questionnaire.preop.escort.label": "Begleitperson für die Heimreise",
+    "questionnaire.preop.escort.text": "Eine erwachsene Begleitperson ist Pflicht. Sie dürfen nach der Narkose nicht selbst Auto fahren oder allein nach Hause reisen.",
+    "questionnaire.preop.bring.label": "Bitte mitbringen",
+    "questionnaire.preop.bring.text": "Ausweis oder Pass, Ihre Versicherungskarte und eine vollständige Liste Ihrer aktuellen Medikamente.",
+    "questionnaire.preop.appearance.label": "Vor dem Eingriff",
+    "questionnaire.preop.appearance.text": "Entfernen Sie Make-up, Nagellack, Kontaktlinsen und sämtlichen Schmuck (auch Piercings und Ringe). Tragen Sie lockere, bequeme Kleidung.",
+    "questionnaire.preop.driving.label": "Nach dem Eingriff",
+    "questionnaire.preop.driving.text": "Sie dürfen 24 Stunden nach der Narkose nicht Auto fahren, keine Maschinen bedienen und keine rechtsgültigen Dokumente unterzeichnen.",
+    "questionnaire.preop.callIfChange.label": "Bei Verhinderung",
+    "questionnaire.preop.callIfChange.text": "Bitte rufen Sie umgehend die Klinik unter {phone} an.",
     "questionnaire.summary.documents": "Dokumente",
     "questionnaire.summary.additionalNotes": "Zusätzliche Hinweise",
     "questionnaire.summary.questionsForDoctor": "Fragen an den Arzt",
@@ -671,6 +726,10 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.history.ponv.notes": "Dettagli aggiuntivi",
     "questionnaire.history.outpatient.title": "Contatto per accompagnamento",
     "questionnaire.history.outpatient.subtitle": "Per interventi ambulatoriali: chi La accompagnerà a casa?",
+    "questionnaire.history.outpatient.subtitleSurgery": "Dopo l'intervento la clinica ha bisogno di una persona da contattare. Indichi chi La accompagnerà a casa.",
+    "questionnaire.history.outpatient.importantBadge": "Importante",
+    "questionnaire.history.outpatient.useAsEmergencyContact": "Salva questa persona anche come contatto di emergenza",
+    "questionnaire.history.outpatient.useAsEmergencyContactHint": "Se durante o dopo l'intervento dovesse succedere qualcosa, la clinica contatterà questa persona. Tolga la spunta se preferisce di no.",
     "questionnaire.history.outpatient.firstName": "Nome",
     "questionnaire.history.outpatient.lastName": "Cognome",
     "questionnaire.history.outpatient.phone": "Numero di telefono",
@@ -713,6 +772,26 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.summary.dentalStatus": "Stato dentale",
     "questionnaire.summary.previousReactions": "Reazioni precedenti",
     "questionnaire.summary.outpatientContact": "Contatto accompagnatore",
+    "questionnaire.summary.caregiverMissingTitle": "Aggiunga un contatto di emergenza",
+    "questionnaire.summary.caregiverMissingHint": "Dopo l'intervento la clinica ha bisogno di una persona da contattare. Questa informazione è importante a livello operativo.",
+    "questionnaire.summary.caregiverMissingAction": "Aggiungi ora",
+    "questionnaire.preop.title": "Importante — legga prima di firmare",
+    "questionnaire.preop.subtitle": "Queste sono le informazioni essenziali per il giorno dell'intervento.",
+    "questionnaire.preop.arrival.label": "Orario d'ingresso",
+    "questionnaire.preop.arrival.exact": "Si presenti in clinica il {time}.",
+    "questionnaire.preop.arrival.generic": "L'orario d'ingresso Le verrà comunicato poco prima dell'intervento. Di norma, è bene arrivare circa {minutes} minuti prima dell'orario previsto.",
+    "questionnaire.preop.fasting.label": "Digiuno",
+    "questionnaire.preop.fasting.text": "Nessun cibo solido nelle 6 ore precedenti l'intervento. Liquidi chiari (acqua, tè senza latte) consentiti fino a 2 ore prima. Niente chewing gum.",
+    "questionnaire.preop.escort.label": "Accompagnamento per il rientro",
+    "questionnaire.preop.escort.text": "È obbligatoria una persona adulta che L'accompagni a casa. Dopo l'anestesia non può guidare né viaggiare da solo.",
+    "questionnaire.preop.bring.label": "Da portare con sé",
+    "questionnaire.preop.bring.text": "Documento d'identità o passaporto, tessera dell'assicurazione e un elenco completo dei farmaci che assume.",
+    "questionnaire.preop.appearance.label": "Prima di venire",
+    "questionnaire.preop.appearance.text": "Rimuova trucco, smalto, lenti a contatto e tutti i gioielli (anche piercing e anelli). Indossi abiti comodi.",
+    "questionnaire.preop.driving.label": "Dopo l'intervento",
+    "questionnaire.preop.driving.text": "Per 24 ore dopo l'anestesia non può guidare, usare macchinari né firmare documenti vincolanti.",
+    "questionnaire.preop.callIfChange.label": "In caso di impedimento",
+    "questionnaire.preop.callIfChange.text": "La preghiamo di telefonare subito alla clinica al {phone}.",
     "questionnaire.summary.documents": "Documenti",
     "questionnaire.summary.additionalNotes": "Note aggiuntive",
     "questionnaire.summary.questionsForDoctor": "Domande per il medico",
@@ -850,6 +929,10 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.history.ponv.notes": "Detalles adicionales",
     "questionnaire.history.outpatient.title": "Contacto de acompañante",
     "questionnaire.history.outpatient.subtitle": "Para procedimientos ambulatorios: ¿quién le acompañará a casa?",
+    "questionnaire.history.outpatient.subtitleSurgery": "Tras la intervención, la clínica necesita una persona de contacto. Indique quién le acompañará a casa.",
+    "questionnaire.history.outpatient.importantBadge": "Importante",
+    "questionnaire.history.outpatient.useAsEmergencyContact": "Guardar también esta persona como contacto de emergencia",
+    "questionnaire.history.outpatient.useAsEmergencyContactHint": "Si ocurre algo durante o después de la intervención, la clínica contactará a esta persona. Desmarque si prefiere que no.",
     "questionnaire.history.outpatient.firstName": "Nombre",
     "questionnaire.history.outpatient.lastName": "Apellido",
     "questionnaire.history.outpatient.phone": "Número de teléfono",
@@ -892,6 +975,26 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.summary.dentalStatus": "Estado dental",
     "questionnaire.summary.previousReactions": "Reacciones previas",
     "questionnaire.summary.outpatientContact": "Contacto acompañante",
+    "questionnaire.summary.caregiverMissingTitle": "Añada un contacto de emergencia",
+    "questionnaire.summary.caregiverMissingHint": "Tras la intervención la clínica necesita una persona de contacto. Esta información es importante a nivel operativo.",
+    "questionnaire.summary.caregiverMissingAction": "Añadir ahora",
+    "questionnaire.preop.title": "Importante — lea antes de firmar",
+    "questionnaire.preop.subtitle": "Esta es la información esencial para el día de la intervención.",
+    "questionnaire.preop.arrival.label": "Hora de entrada",
+    "questionnaire.preop.arrival.exact": "Por favor, preséntese en la clínica el {time}.",
+    "questionnaire.preop.arrival.generic": "Recibirá su hora de entrada poco antes de la intervención. Por regla general, debe llegar unos {minutes} minutos antes de la hora prevista.",
+    "questionnaire.preop.fasting.label": "Ayuno",
+    "questionnaire.preop.fasting.text": "Sin comida sólida en las 6 horas previas. Se permiten líquidos claros (agua, té sin leche) hasta 2 horas antes. No mastique chicle.",
+    "questionnaire.preop.escort.label": "Acompañante para el regreso",
+    "questionnaire.preop.escort.text": "Es obligatorio que un adulto le acompañe a casa. Tras la anestesia no puede conducir ni viajar solo.",
+    "questionnaire.preop.bring.label": "Traer consigo",
+    "questionnaire.preop.bring.text": "Documento de identidad o pasaporte, tarjeta del seguro y una lista completa de los medicamentos que toma.",
+    "questionnaire.preop.appearance.label": "Antes de venir",
+    "questionnaire.preop.appearance.text": "Retire maquillaje, esmalte de uñas, lentes de contacto y todas las joyas (incluidos piercings y anillos). Use ropa cómoda.",
+    "questionnaire.preop.driving.label": "Después de la intervención",
+    "questionnaire.preop.driving.text": "Durante 24 horas tras la anestesia no debe conducir, manejar maquinaria ni firmar documentos vinculantes.",
+    "questionnaire.preop.callIfChange.label": "Si no puede acudir",
+    "questionnaire.preop.callIfChange.text": "Llame a la clínica cuanto antes al {phone}.",
     "questionnaire.summary.documents": "Documentos",
     "questionnaire.summary.additionalNotes": "Notas adicionales",
     "questionnaire.summary.questionsForDoctor": "Preguntas para el médico",
@@ -1029,6 +1132,10 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.history.ponv.notes": "Détails supplémentaires",
     "questionnaire.history.outpatient.title": "Contact d'accompagnement",
     "questionnaire.history.outpatient.subtitle": "Pour les procédures ambulatoires : qui vous accompagnera chez vous ?",
+    "questionnaire.history.outpatient.subtitleSurgery": "Après l'intervention, la clinique a besoin d'une personne à contacter. Veuillez indiquer qui vous accompagnera chez vous.",
+    "questionnaire.history.outpatient.importantBadge": "Important",
+    "questionnaire.history.outpatient.useAsEmergencyContact": "Enregistrer aussi cette personne comme contact d'urgence",
+    "questionnaire.history.outpatient.useAsEmergencyContactHint": "Si quelque chose survient pendant ou après l'intervention, la clinique contactera cette personne. Décochez si vous préférez que non.",
     "questionnaire.history.outpatient.firstName": "Prénom",
     "questionnaire.history.outpatient.lastName": "Nom",
     "questionnaire.history.outpatient.phone": "Numéro de téléphone",
@@ -1071,6 +1178,26 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.summary.dentalStatus": "État dentaire",
     "questionnaire.summary.previousReactions": "Réactions précédentes",
     "questionnaire.summary.outpatientContact": "Contact accompagnant",
+    "questionnaire.summary.caregiverMissingTitle": "Veuillez ajouter un contact d'urgence",
+    "questionnaire.summary.caregiverMissingHint": "Après votre intervention, la clinique a besoin d'une personne à contacter. Cette information est importante sur le plan opérationnel.",
+    "questionnaire.summary.caregiverMissingAction": "Ajouter maintenant",
+    "questionnaire.preop.title": "Important — à lire avant de signer",
+    "questionnaire.preop.subtitle": "Voici les informations essentielles pour le jour de votre intervention.",
+    "questionnaire.preop.arrival.label": "Heure d'arrivée",
+    "questionnaire.preop.arrival.exact": "Veuillez vous présenter à la clinique le {time}.",
+    "questionnaire.preop.arrival.generic": "Votre heure d'arrivée vous sera communiquée peu avant l'intervention. En règle générale, prévoyez d'arriver environ {minutes} minutes avant l'horaire prévu.",
+    "questionnaire.preop.fasting.label": "Jeûne",
+    "questionnaire.preop.fasting.text": "Pas de nourriture solide dans les 6 heures précédant l'intervention. Liquides clairs (eau, thé sans lait) autorisés jusqu'à 2 heures avant. Pas de chewing-gum.",
+    "questionnaire.preop.escort.label": "Accompagnement pour le retour",
+    "questionnaire.preop.escort.text": "Une personne adulte doit obligatoirement vous raccompagner. Après l'anesthésie, vous ne pouvez pas conduire ni rentrer seul.",
+    "questionnaire.preop.bring.label": "À apporter",
+    "questionnaire.preop.bring.text": "Pièce d'identité ou passeport, carte d'assurance et liste complète de vos médicaments actuels.",
+    "questionnaire.preop.appearance.label": "Avant de venir",
+    "questionnaire.preop.appearance.text": "Retirez maquillage, vernis à ongles, lentilles de contact et tous les bijoux (y compris piercings et bagues). Portez des vêtements amples.",
+    "questionnaire.preop.driving.label": "Après l'intervention",
+    "questionnaire.preop.driving.text": "Pendant 24 heures après l'anesthésie, vous ne devez pas conduire, utiliser de machines ou signer de documents engageants.",
+    "questionnaire.preop.callIfChange.label": "En cas d'empêchement",
+    "questionnaire.preop.callIfChange.text": "Veuillez appeler la clinique dès que possible au {phone}.",
     "questionnaire.summary.documents": "Documents",
     "questionnaire.summary.additionalNotes": "Notes supplémentaires",
     "questionnaire.summary.questionsForDoctor": "Questions pour le médecin",
@@ -1120,6 +1247,34 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
   const [location] = useLocation();
   const isHospitalToken = isHospitalLink || location.includes('/questionnaire/hospital/');
   const [currentStep, setCurrentStep] = useState(0);
+  // Pills strip ref so we can keep the active pill centred inside its
+  // horizontal scroller as the patient progresses through steps.
+  const pillsContainerRef = useRef<HTMLDivElement>(null);
+  // Reset scroll to top whenever the step changes (back, next, or pill-jump),
+  // so patients don't land mid-page on the new step's content.
+  // On non-touch devices also focus the first focusable control in the new
+  // step — speeds up keyboard-driven completion. Skipped on touch (`pointer:
+  // coarse`) because on phones the popping keyboard hides content.
+  // Also scrolls the step pills strip so the current pill stays visible
+  // (the strip is its own overflow-x-auto container).
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    const container = pillsContainerRef.current;
+    const activePill = container?.children[currentStep] as HTMLElement | undefined;
+    if (container && activePill) {
+      container.scrollTo({
+        left: Math.max(0, activePill.offsetLeft - container.clientWidth / 2 + activePill.offsetWidth / 2),
+        behavior: 'smooth',
+      });
+    }
+    const isTouch = window.matchMedia?.('(pointer: coarse)').matches;
+    if (isTouch) return;
+    const id = window.setTimeout(() => {
+      const card = document.querySelector<HTMLElement>('[data-step-card] input, [data-step-card] textarea, [data-step-card] select, [data-step-card] button:not([data-no-autofocus])');
+      try { card?.focus({ preventScroll: true }); } catch { /* noop */ }
+    }, 60);
+    return () => window.clearTimeout(id);
+  }, [currentStep]);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -1186,6 +1341,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
     outpatientCaregiverFirstName: "",
     outpatientCaregiverLastName: "",
     outpatientCaregiverPhone: "",
+    caregiverIsEmergencyContact: true,
     pregnancyStatus: "",
     breastfeeding: false,
     womanHealthNotes: "",
@@ -1272,6 +1428,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
         outpatientCaregiverFirstName: (existing as any)?.outpatientCaregiverFirstName || "",
         outpatientCaregiverLastName: (existing as any)?.outpatientCaregiverLastName || "",
         outpatientCaregiverPhone: (existing as any)?.outpatientCaregiverPhone || "",
+        caregiverIsEmergencyContact: (existing as any)?.caregiverIsEmergencyContact ?? true,
         pregnancyStatus: existing?.pregnancyStatus || "",
         breastfeeding: existing?.breastfeeding || false,
         womanHealthNotes: existing?.womanHealthNotes || "",
@@ -1328,13 +1485,62 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
       }
       return res.json();
     },
-    onMutate: () => setSaveStatus("saving"),
+    onMutate: () => {
+      // Clear dirty flag on mutate (not onSuccess) so typing-during-save
+      // re-marks dirty correctly via the formData effect.
+      pendingDirtyRef.current = false;
+      setSaveStatus("saving");
+    },
     onSuccess: () => {
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2000);
     },
     onError: () => setSaveStatus("error"),
   });
+
+  // Debounced auto-save: persist progress 1.5s after the last field change so
+  // patients don't lose work if they close the tab between Weiter clicks.
+  // Skip the first render (formData is initialised once from existingResponse)
+  // and skip after submit. `pendingDirtyRef` powers the beforeunload guard.
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipNextAutoSaveRef = useRef(true);
+  const pendingDirtyRef = useRef(false);
+  useEffect(() => {
+    if (skipNextAutoSaveRef.current) {
+      skipNextAutoSaveRef.current = false;
+      return;
+    }
+    if (isSubmitted || !activeToken) return;
+    pendingDirtyRef.current = true;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      saveMutation.mutate(formData);
+    }, 1500);
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [formData, isSubmitted, activeToken, saveMutation]);
+
+  // Reset the skip flag whenever existingResponse repopulates formData so the
+  // hydration write doesn't trigger a redundant save.
+  useEffect(() => {
+    if (config) skipNextAutoSaveRef.current = true;
+  }, [config]);
+
+  // Warn the patient before they close the tab if a save is queued or in-flight.
+  // The autosave covers the common case (1.5s after typing) but won't catch the
+  // "type-and-immediately-close" race; this dialog does.
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isSubmitted) return;
+      if (pendingDirtyRef.current || saveStatus === "saving") {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isSubmitted, saveStatus]);
 
   const submitMutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -1534,6 +1740,11 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
             }, 350);
           }
         }
+      } else {
+        // Other steps: scroll to top so the validation banner (rendered above
+        // the step content) is visible, then the patient knows why Weiter
+        // didn't advance.
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       return;
     }
@@ -1600,7 +1811,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
   if (isSubmitted) {
     const flyers = infoFlyersData?.flyers || [];
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+      <div className="min-h-screen flex items-start justify-center bg-gray-50 dark:bg-gray-900 p-4 py-8">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
             <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
@@ -1608,7 +1819,21 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               {t("questionnaire.success.message")}
             </p>
-            
+
+            {/* Repeat the pre-op info card here so it's the last thing the
+                patient sees on the screen — and they have something to refer
+                back to before the email arrives. Only for surgery-linked. */}
+            {config?.surgeryId && (
+              <div className="text-left mt-4">
+                <PreOpInfoCard
+                  surgery={config?.surgery}
+                  hospital={config?.hospital}
+                  language={language}
+                  t={t}
+                />
+              </div>
+            )}
+
             {flyers.length > 0 && (
               <div className="mt-6 pt-4 border-t">
                 <h3 className="text-lg font-semibold mb-3 flex items-center justify-center gap-2">
@@ -1759,7 +1984,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
           </CardContent>
         </Card>
 
-        <div className="flex overflow-x-auto scrollbar-hide gap-2 mb-4 pb-2">
+        <div ref={pillsContainerRef} className="flex overflow-x-auto scrollbar-hide gap-2 mb-4 pb-2">
           {STEPS.map((step, index) => {
             const Icon = step.icon;
             const isCompleted = formData.completedSteps.includes(step.id);
@@ -1793,8 +2018,20 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
           })}
         </div>
 
-        <Card>
+        <Card data-step-card>
           <CardContent className="pt-6">
+            {/* Validation error banner — shown after a failed Weiter click on
+                non-Personal steps (the Personal step has its own per-field
+                scroll-and-focus). The handleNextClick scrolls to top so this
+                banner is visible. */}
+            {attemptedNext && !isStepValid(currentStep) && STEPS[currentStep]?.id !== 'personal' && (
+              <div
+                className="mb-4 p-3 border border-red-300 rounded-lg bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-300"
+                data-testid="banner-step-validation-error"
+              >
+                {t("questionnaire.validation.completeStep")}
+              </div>
+            )}
             {currentStep === 0 && (
               <PersonalInfoStep
                 formData={formData}
@@ -1854,6 +2091,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
                 formData={formData}
                 updateField={updateField}
                 t={t}
+                surgeryLinked={!!config?.surgeryId}
               />
             )}
             {currentStep === 7 && (
@@ -1865,6 +2103,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
                 allergyList={config?.allergyList}
                 conditionsList={config?.conditionsList}
                 language={language}
+                surgeryLinked={!!config?.surgeryId}
               />
             )}
             {currentStep === 8 && (
@@ -1874,6 +2113,9 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
                 t={t}
                 onOpenSignature={() => setSignatureOpen(true)}
                 submitError={submitError}
+                surgery={config?.surgery}
+                hospital={config?.hospital}
+                language={language}
               />
             )}
           </CardContent>
@@ -1890,11 +2132,6 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
         />
 
         <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t p-4 shadow-lg">
-          {attemptedNext && !isStepValid(currentStep) && STEPS[currentStep]?.id !== 'personal' && (
-            <div className="max-w-2xl mx-auto mb-3 text-sm text-red-600 dark:text-red-400 text-center" data-testid="step-incomplete-message">
-              {t("questionnaire.validation.completeStep")}
-            </div>
-          )}
           <div className="max-w-2xl mx-auto flex gap-3">
             {currentStep > 0 && (
               <Button
@@ -3124,9 +3361,10 @@ interface SummaryStepProps {
   allergyList?: Array<{ id: string; label: string; labelDe?: string; labelEn?: string }>;
   conditionsList?: Array<{ id: string; label: string; labelDe?: string; labelEn?: string }>;
   language: string;
+  surgeryLinked: boolean;
 }
 
-function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditionsList, language }: SummaryStepProps) {
+function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditionsList, language, surgeryLinked }: SummaryStepProps) {
   const getLabel = (item: { label: string; labelDe?: string; labelEn?: string }) => {
     if (language === "en" && item.labelEn) return item.labelEn;
     if (language === "de" && item.labelDe) return item.labelDe;
@@ -3162,12 +3400,46 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
   const ponvItems = Object.entries(formData.ponvTransfusionIssues).filter(([_, v]) => v);
   const drugItems = Object.entries(formData.drugUse).filter(([_, v]) => v);
 
+  const hasCaregiverData =
+    !!formData.outpatientCaregiverFirstName ||
+    !!formData.outpatientCaregiverLastName ||
+    !!formData.outpatientCaregiverPhone;
+
   return (
     <div className="space-y-5">
       <div>
         <h3 className="font-semibold text-lg">{t("questionnaire.summary.title")}</h3>
         <p className="text-sm text-gray-500">{t("questionnaire.summary.subtitle")}</p>
       </div>
+
+      {/* Missing-caregiver banner: surgery-linked questionnaires NEED a Begleitperson
+          for post-op contact. Don't block submit; just nudge the patient back. */}
+      {surgeryLinked && !hasCaregiverData && (
+        <div
+          className="flex items-start gap-3 p-3 border-2 border-amber-400 rounded-lg bg-amber-50 dark:bg-amber-900/20"
+          data-testid="banner-missing-caregiver"
+        >
+          <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+              {t("questionnaire.summary.caregiverMissingTitle")}
+            </p>
+            <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">
+              {t("questionnaire.summary.caregiverMissingHint")}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onEditStep(6)}
+              className="mt-2 border-amber-500 text-amber-900 dark:text-amber-100 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+              data-testid="button-add-caregiver"
+            >
+              <Pencil className="h-3 w-3 mr-1" />
+              {t("questionnaire.summary.caregiverMissingAction")}
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4">
         <div className="border rounded-lg p-3 space-y-1">
@@ -3323,9 +3595,86 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
   );
 }
 
-function NotesStep({ formData, updateField, t }: StepProps) {
+function CaregiverFields({ formData, updateField, t, surgeryLinked }: StepProps & { surgeryLinked: boolean }) {
+  const hasCaregiverData =
+    !!formData.outpatientCaregiverFirstName ||
+    !!formData.outpatientCaregiverLastName ||
+    !!formData.outpatientCaregiverPhone;
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <h3 className="font-semibold">{t("questionnaire.history.outpatient.title")}</h3>
+        {surgeryLinked && (
+          <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+            {t("questionnaire.history.outpatient.importantBadge")}
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-gray-500 mb-3">
+        {surgeryLinked
+          ? t("questionnaire.history.outpatient.subtitleSurgery")
+          : t("questionnaire.history.outpatient.subtitle")}
+      </p>
+      <div className="grid gap-3">
+        <div>
+          <Label htmlFor="outpatientFirstName">{t("questionnaire.history.outpatient.firstName")}</Label>
+          <Input
+            id="outpatientFirstName"
+            value={formData.outpatientCaregiverFirstName}
+            onChange={(e) => updateField("outpatientCaregiverFirstName", e.target.value)}
+            data-testid="input-outpatient-firstname"
+          />
+        </div>
+        <div>
+          <Label htmlFor="outpatientLastName">{t("questionnaire.history.outpatient.lastName")}</Label>
+          <Input
+            id="outpatientLastName"
+            value={formData.outpatientCaregiverLastName}
+            onChange={(e) => updateField("outpatientCaregiverLastName", e.target.value)}
+            data-testid="input-outpatient-lastname"
+          />
+        </div>
+        <div>
+          <Label htmlFor="outpatientPhone">{t("questionnaire.history.outpatient.phone")}</Label>
+          <PhoneInputWithCountry
+            id="outpatientPhone"
+            value={formData.outpatientCaregiverPhone}
+            onChange={(value) => updateField("outpatientCaregiverPhone", value)}
+            data-testid="input-outpatient-phone"
+          />
+        </div>
+        {surgeryLinked && hasCaregiverData && (
+          <div className="flex items-start gap-3 p-3 border rounded-lg bg-blue-50 dark:bg-blue-900/20">
+            <Checkbox
+              id="caregiver-emergency-contact"
+              checked={formData.caregiverIsEmergencyContact}
+              onCheckedChange={(checked) => updateField("caregiverIsEmergencyContact", !!checked)}
+              data-testid="checkbox-caregiver-emergency-contact"
+            />
+            <div>
+              <Label htmlFor="caregiver-emergency-contact" className="cursor-pointer">
+                {t("questionnaire.history.outpatient.useAsEmergencyContact")}
+              </Label>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                {t("questionnaire.history.outpatient.useAsEmergencyContactHint")}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NotesStep({ formData, updateField, t, surgeryLinked }: StepProps & { surgeryLinked: boolean }) {
+  // When the questionnaire is surgery-linked, the Begleitperson is operationally
+  // critical (post-op contact). Hoist it above the optional notes/questions so
+  // patients can't miss it. Otherwise keep the original ordering.
   return (
     <div className="space-y-6">
+      {surgeryLinked && <CaregiverFields formData={formData} updateField={updateField} t={t} surgeryLinked={surgeryLinked} />}
+      {surgeryLinked && <Separator className="my-6" />}
+
       <div>
         <Label htmlFor="additionalNotes">{t("questionnaire.notes.additional")}</Label>
         <p className="text-xs text-gray-500 mb-2">{t("questionnaire.notes.additionalHint")}</p>
@@ -3350,41 +3699,95 @@ function NotesStep({ formData, updateField, t }: StepProps) {
         />
       </div>
 
-      <Separator className="my-6" />
+      {!surgeryLinked && (
+        <>
+          <Separator className="my-6" />
+          <CaregiverFields formData={formData} updateField={updateField} t={t} surgeryLinked={surgeryLinked} />
+        </>
+      )}
+    </div>
+  );
+}
 
-      <div>
-        <h3 className="font-semibold mb-2">{t("questionnaire.history.outpatient.title")}</h3>
-        <p className="text-xs text-gray-500 mb-3">{t("questionnaire.history.outpatient.subtitle")}</p>
-        <div className="grid gap-3">
-          <div>
-            <Label htmlFor="outpatientFirstName">{t("questionnaire.history.outpatient.firstName")}</Label>
-            <Input
-              id="outpatientFirstName"
-              value={formData.outpatientCaregiverFirstName}
-              onChange={(e) => updateField("outpatientCaregiverFirstName", e.target.value)}
-              data-testid="input-outpatient-firstname"
-            />
-          </div>
-          <div>
-            <Label htmlFor="outpatientLastName">{t("questionnaire.history.outpatient.lastName")}</Label>
-            <Input
-              id="outpatientLastName"
-              value={formData.outpatientCaregiverLastName}
-              onChange={(e) => updateField("outpatientCaregiverLastName", e.target.value)}
-              data-testid="input-outpatient-lastname"
-            />
-          </div>
-          <div>
-            <Label htmlFor="outpatientPhone">{t("questionnaire.history.outpatient.phone")}</Label>
-            <PhoneInputWithCountry
-              id="outpatientPhone"
-              value={formData.outpatientCaregiverPhone}
-              onChange={(value) => updateField("outpatientCaregiverPhone", value)}
-              data-testid="input-outpatient-phone"
-            />
-          </div>
-        </div>
+// Pre-op info card — single source of truth for the "what to expect" panel.
+// Rendered above the signature on the Submit step AND on the post-submit
+// confirmation screen. Only shown for surgery-linked questionnaires.
+//
+// Contents (all hardcoded text per design decision A.a — clinical norms are
+// universal; if a clinic differs we add per-hospital editable text later):
+// Eintrittszeit, fasting, Begleitperson, documents, no make-up/jewelry,
+// no driving 24h, who to call.
+interface PreOpInfoCardProps {
+  surgery: { admissionTime: string | null; plannedDate: string | null; stayType: string | null } | null | undefined;
+  hospital: { name: string | null; phone: string | null; defaultAdmissionOffsetMinutes: number | null } | null | undefined;
+  language: string;
+  t: (key: string) => string;
+}
+function PreOpInfoCard({ surgery, hospital, language, t }: PreOpInfoCardProps) {
+  const dtLocale = language === "de" ? "de-CH" : language === "it" ? "it-CH" : language === "fr" ? "fr-CH" : language === "es" ? "es-ES" : "en-GB";
+  const dtFormat = (iso: string | null, withDate: boolean) => {
+    if (!iso) return null;
+    try {
+      const d = new Date(iso);
+      return withDate
+        ? d.toLocaleString(dtLocale, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+        : d.toLocaleTimeString(dtLocale, { hour: "2-digit", minute: "2-digit" });
+    } catch { return null; }
+  };
+
+  const arrivalAbsolute = dtFormat(surgery?.admissionTime ?? null, true);
+  const offsetMinutes = hospital?.defaultAdmissionOffsetMinutes ?? 60;
+
+  return (
+    <div className="border-2 border-amber-400 rounded-lg bg-amber-50 dark:bg-amber-900/20 p-4 space-y-3" data-testid="preop-info-card">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+        <h3 className="font-semibold text-amber-900 dark:text-amber-100">
+          {t("questionnaire.preop.title")}
+        </h3>
       </div>
+      <p className="text-xs text-amber-800 dark:text-amber-200">
+        {t("questionnaire.preop.subtitle")}
+      </p>
+
+      <ul className="space-y-3 text-sm text-amber-900 dark:text-amber-100">
+        <li>
+          <p className="font-semibold">{t("questionnaire.preop.arrival.label")}</p>
+          <p className="text-xs mt-0.5">
+            {arrivalAbsolute
+              ? t("questionnaire.preop.arrival.exact").replace("{time}", arrivalAbsolute)
+              : t("questionnaire.preop.arrival.generic").replace("{minutes}", String(offsetMinutes))}
+          </p>
+        </li>
+        <li>
+          <p className="font-semibold">{t("questionnaire.preop.fasting.label")}</p>
+          <p className="text-xs mt-0.5">{t("questionnaire.preop.fasting.text")}</p>
+        </li>
+        <li>
+          <p className="font-semibold">{t("questionnaire.preop.escort.label")}</p>
+          <p className="text-xs mt-0.5">{t("questionnaire.preop.escort.text")}</p>
+        </li>
+        <li>
+          <p className="font-semibold">{t("questionnaire.preop.bring.label")}</p>
+          <p className="text-xs mt-0.5">{t("questionnaire.preop.bring.text")}</p>
+        </li>
+        <li>
+          <p className="font-semibold">{t("questionnaire.preop.appearance.label")}</p>
+          <p className="text-xs mt-0.5">{t("questionnaire.preop.appearance.text")}</p>
+        </li>
+        <li>
+          <p className="font-semibold">{t("questionnaire.preop.driving.label")}</p>
+          <p className="text-xs mt-0.5">{t("questionnaire.preop.driving.text")}</p>
+        </li>
+        {hospital?.phone && (
+          <li>
+            <p className="font-semibold">{t("questionnaire.preop.callIfChange.label")}</p>
+            <p className="text-xs mt-0.5">
+              {t("questionnaire.preop.callIfChange.text").replace("{phone}", hospital.phone)}
+            </p>
+          </li>
+        )}
+      </ul>
     </div>
   );
 }
@@ -3392,15 +3795,23 @@ function NotesStep({ formData, updateField, t }: StepProps) {
 interface SubmitStepProps extends StepProps {
   onOpenSignature: () => void;
   submitError: boolean;
+  surgery?: QuestionnaireConfig["surgery"];
+  hospital?: QuestionnaireConfig["hospital"];
+  language: string;
 }
 
-function SubmitStep({ formData, updateField, t, onOpenSignature, submitError }: SubmitStepProps) {
+function SubmitStep({ formData, updateField, t, onOpenSignature, submitError, surgery, hospital, language }: SubmitStepProps) {
+  const surgeryLinked = !!surgery;
   return (
     <div className="space-y-6">
       <div className="text-center mb-4">
         <h3 className="text-lg font-semibold">{t("questionnaire.submit.title")}</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400">{t("questionnaire.submit.subtitle")}</p>
       </div>
+
+      {surgeryLinked && (
+        <PreOpInfoCard surgery={surgery} hospital={hospital} language={language} t={t} />
+      )}
 
       <div>
         <Label className="flex items-center gap-2">

@@ -4552,6 +4552,9 @@ export const patientQuestionnaireResponses = pgTable("patient_questionnaire_resp
   outpatientCaregiverFirstName: varchar("outpatient_caregiver_first_name"),
   outpatientCaregiverLastName: varchar("outpatient_caregiver_last_name"),
   outpatientCaregiverPhone: varchar("outpatient_caregiver_phone"),
+  // Patient consent: copy caregiver as the patient's emergency contact on submit
+  // (only honoured when the questionnaire link is bound to a surgery)
+  caregiverIsEmergencyContact: boolean("caregiver_is_emergency_contact").default(true),
   
   // General notes
   additionalNotes: text("additional_notes"),

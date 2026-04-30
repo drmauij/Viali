@@ -1126,13 +1126,20 @@ function buildQuestionnaireSubmittedEmail(
   return { subject, html };
 }
 
+export interface PreOpEmailInfo {
+  admissionTimeIso: string | null;
+  defaultAdmissionOffsetMinutes: number | null;
+  helpLinePhone: string | null;
+}
+
 export async function sendQuestionnaireReceivedConfirmation(
   toEmail: string,
   hospitalName: string,
   hospitalPhone: string | null,
   hospitalEmail: string | null,
   patientFirstName: string,
-  language: 'de' | 'en' = 'de'
+  language: 'de' | 'en' = 'de',
+  preOpInfo?: PreOpEmailInfo | null,
 ) {
   try {
     const { client, fromEmail } = getResendClient();
@@ -1157,6 +1164,64 @@ export async function sendQuestionnaireReceivedConfirmation(
       `;
     }
 
+    // Pre-op info block — same content as the in-form panel and confirmation
+    // screen, kept here as plain HTML so it survives any email client.
+    let preOpHtml = '';
+    if (preOpInfo) {
+      const offset = preOpInfo.defaultAdmissionOffsetMinutes ?? 60;
+      const arrival = preOpInfo.admissionTimeIso
+        ? (() => {
+            try {
+              const d = new Date(preOpInfo.admissionTimeIso!);
+              return d.toLocaleString(isGerman ? 'de-CH' : 'en-GB', {
+                weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
+              });
+            } catch { return null; }
+          })()
+        : null;
+      const arrivalText = arrival
+        ? (isGerman ? `Bitte erscheinen Sie am <strong>${arrival}</strong> in der Klinik.` : `Please come to the clinic on <strong>${arrival}</strong>.`)
+        : (isGerman
+          ? `Sie erhalten Ihre Eintrittszeit kurz vor dem Eingriff. In der Regel sollten Sie etwa <strong>${offset} Minuten</strong> vor Ihrer geplanten Operationszeit eintreffen.`
+          : `You will receive your arrival time shortly before the procedure. As a rule, plan to arrive about <strong>${offset} minutes</strong> before your scheduled surgery time.`);
+
+      const phoneLine = preOpInfo.helpLinePhone
+        ? (isGerman
+          ? `<li><strong>Bei Verhinderung:</strong> Bitte rufen Sie umgehend die Klinik unter <strong>${preOpInfo.helpLinePhone}</strong> an.</li>`
+          : `<li><strong>If you cannot make it:</strong> Please call the clinic as soon as possible at <strong>${preOpInfo.helpLinePhone}</strong>.</li>`)
+        : '';
+
+      preOpHtml = isGerman
+        ? `
+          <div class="preop">
+            <h2 style="margin-top:0;color:#92400e">Wichtig — bitte vor Ihrem Eingriff lesen</h2>
+            <ul>
+              <li><strong>Eintrittszeit:</strong> ${arrivalText}</li>
+              <li><strong>Nüchternheit:</strong> 6 Stunden vor dem Eingriff keine feste Nahrung. Klare Flüssigkeiten (Wasser, Tee ohne Milch) bis 2 Stunden vorher erlaubt. Kein Kaugummi.</li>
+              <li><strong>Begleitperson:</strong> Eine erwachsene Begleitperson ist Pflicht für die Heimreise. Sie dürfen nach der Narkose nicht selbst Auto fahren oder allein nach Hause reisen.</li>
+              <li><strong>Mitbringen:</strong> Ausweis oder Pass, Versicherungskarte und eine vollständige Liste Ihrer aktuellen Medikamente.</li>
+              <li><strong>Vor dem Eingriff:</strong> Entfernen Sie Make-up, Nagellack, Kontaktlinsen und sämtlichen Schmuck (auch Piercings und Ringe). Tragen Sie lockere, bequeme Kleidung.</li>
+              <li><strong>Nach dem Eingriff:</strong> Sie dürfen 24 Stunden nach der Narkose nicht Auto fahren, keine Maschinen bedienen und keine rechtsgültigen Dokumente unterzeichnen.</li>
+              ${phoneLine}
+            </ul>
+          </div>
+        `
+        : `
+          <div class="preop">
+            <h2 style="margin-top:0;color:#92400e">Important — please read before your procedure</h2>
+            <ul>
+              <li><strong>Arrival time:</strong> ${arrivalText}</li>
+              <li><strong>Fasting:</strong> No solid food for 6 hours before the procedure. Clear liquids (water, tea without milk) allowed up to 2 hours before. No chewing gum.</li>
+              <li><strong>Escort home:</strong> An accompanying adult is required. You may not drive yourself or travel home alone after anesthesia.</li>
+              <li><strong>Please bring:</strong> ID card or passport, your insurance card, and a complete list of your current medications.</li>
+              <li><strong>Before you come:</strong> Remove make-up, nail polish, contact lenses, and all jewellery (including piercings and rings). Wear loose, comfortable clothing.</li>
+              <li><strong>After the procedure:</strong> No driving, operating machinery, or signing legally binding documents for 24 hours after anesthesia.</li>
+              ${phoneLine}
+            </ul>
+          </div>
+        `;
+    }
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -1167,6 +1232,9 @@ export async function sendQuestionnaireReceivedConfirmation(
             .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; }
             .content { padding: 30px; background-color: #f9fafb; }
             .details { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb; }
+            .preop { background: #fffbeb; border: 2px solid #f59e0b; padding: 16px 20px; border-radius: 8px; margin: 20px 0; }
+            .preop ul { padding-left: 20px; }
+            .preop li { margin-bottom: 8px; }
             .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
           </style>
         </head>
@@ -1180,6 +1248,7 @@ export async function sendQuestionnaireReceivedConfirmation(
               <p>${isGerman
                 ? 'Vielen Dank! Ihr Fragebogen wurde erfolgreich an uns gesendet. Wir melden uns bei Ihnen.'
                 : 'Thank you! Your questionnaire has been received. We\'ll be in touch soon.'}</p>
+              ${preOpHtml}
               ${contactHtml}
             </div>
             <div class="footer">
