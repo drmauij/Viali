@@ -3339,7 +3339,7 @@ export default function PatientDetail() {
         </TabsContent>
 
         <TabsContent value="tissue-samples" className="space-y-4" data-testid="tab-content-tissue-samples">
-          <PatientTissueSamplesPanel patient={patient} />
+          <PatientTissueSamplesPanel patient={patient} surgeries={surgeries ?? []} />
         </TabsContent>
 
         <TabsContent value="invoices" className="mt-0">
@@ -7386,10 +7386,25 @@ export default function PatientDetail() {
   );
 }
 
-function PatientTissueSamplesPanel({ patient }: { patient: any }) {
+function PatientTissueSamplesPanel({
+  patient,
+  surgeries,
+}: {
+  patient: any;
+  surgeries: SurgeryWithAssistants[];
+}) {
   const { t } = useTranslation();
   const canWrite = useCanWrite();
   const [addOpen, setAddOpen] = useState(false);
+  const surgeryOptions = useMemo(
+    () =>
+      surgeries.map((s) => ({
+        id: s.id,
+        plannedDate: s.plannedDate,
+        plannedSurgery: s.plannedSurgery,
+      })),
+    [surgeries],
+  );
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -7409,6 +7424,7 @@ function PatientTissueSamplesPanel({ patient }: { patient: any }) {
       <TissueSampleList patientId={patient.id} variant="patient" />
       <AddTissueSampleDialog
         patientId={patient.id}
+        availableSurgeries={surgeryOptions}
         open={addOpen}
         onOpenChange={setAddOpen}
       />

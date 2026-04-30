@@ -27,18 +27,36 @@ import {
   type TissueSampleType,
 } from "@shared/tissueSampleTypes";
 import type { TissueSample } from "@shared/schema";
+import { formatDate } from "@/lib/dateUtils";
+
+export interface SurgeryOption {
+  id: string;
+  plannedDate: string | Date;
+  plannedSurgery?: string | null;
+}
 
 interface Props {
   patientId: string;
   extractionSurgeryId?: string | null;
+  /**
+   * When set (and `extractionSurgeryId` is null), the dialog renders an
+   * optional surgery-picker so the user can link the sample to one of the
+   * patient's existing surgeries during manual backfill from the patient tab.
+   * The intraop card path leaves this undefined (the surgery is already
+   * pinned via `extractionSurgeryId`).
+   */
+  availableSurgeries?: SurgeryOption[];
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onCreated?: (sample: TissueSample) => void;
 }
 
+const NO_SURGERY = "__none__";
+
 export function AddTissueSampleDialog({
   patientId,
   extractionSurgeryId,
+  availableSurgeries,
   open,
   onOpenChange,
   onCreated,
@@ -57,6 +75,12 @@ export function AddTissueSampleDialog({
   const [externalLab, setExternalLab] = useState(
     TISSUE_SAMPLE_TYPES[enabledTypes[0]].defaultExternalLab ?? "",
   );
+  const [pickedSurgeryId, setPickedSurgeryId] = useState<string>(NO_SURGERY);
+
+  const showSurgeryPicker =
+    !extractionSurgeryId && Array.isArray(availableSurgeries);
+  const resolvedSurgeryId = extractionSurgeryId
+    ?? (pickedSurgeryId === NO_SURGERY ? null : pickedSurgeryId);
 
   const m = useMutation({
     mutationFn: async (): Promise<TissueSample> => {
@@ -69,7 +93,7 @@ export function AddTissueSampleDialog({
         {
           sampleType,
           notes: notes || null,
-          extractionSurgeryId: extractionSurgeryId ?? null,
+          extractionSurgeryId: resolvedSurgeryId,
           externalLab: externalLab || null,
         },
       );
@@ -77,9 +101,9 @@ export function AddTissueSampleDialog({
     },
     onSuccess: (sample) => {
       qc.invalidateQueries({ queryKey: ["tissue-samples", patientId] });
-      if (extractionSurgeryId) {
+      if (resolvedSurgeryId) {
         qc.invalidateQueries({
-          queryKey: ["tissue-samples", "surgery", extractionSurgeryId],
+          queryKey: ["tissue-samples", "surgery", resolvedSurgeryId],
         });
       }
       toast({
@@ -90,6 +114,7 @@ export function AddTissueSampleDialog({
       onCreated?.(sample);
       onOpenChange(false);
       setNotes("");
+      setPickedSurgeryId(NO_SURGERY);
     },
     onError: (e: Error & { code?: string }) => {
       const code = e?.code;
@@ -142,6 +167,33 @@ export function AddTissueSampleDialog({
               data-testid="input-tissue-sample-external-lab"
             />
           </div>
+          {showSurgeryPicker && (
+            <div>
+              <Label>{t("tissueSamples.linkExtractionSurgery")}</Label>
+              <Select
+                value={pickedSurgeryId}
+                onValueChange={setPickedSurgeryId}
+              >
+                <SelectTrigger data-testid="select-tissue-sample-extraction-surgery">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_SURGERY}>
+                    {t("tissueSamples.noSurgeryLink")}
+                  </SelectItem>
+                  {(availableSurgeries ?? []).map((s) => {
+                    const date = formatDate(s.plannedDate);
+                    const procedure = s.plannedSurgery?.trim() || "—";
+                    return (
+                      <SelectItem key={s.id} value={s.id}>
+                        {date} · {procedure}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             <Label>{t("tissueSamples.notes")}</Label>
             <Textarea

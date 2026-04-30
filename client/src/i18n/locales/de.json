@@ -8518,6 +8518,8 @@
     "notes": "Notizen",
     "extractionSurgery": "Entnahme-Operation",
     "reimplantSurgery": "Reimplantations-Operation",
+    "linkExtractionSurgery": "Entnahme-Operation verknüpfen (optional)",
+    "noSurgeryLink": "Keine Verknüpfung",
     "externalLab": "Externes Labor",
     "createdAt": "Erstellt am",
     "createdBy": "Erstellt von",

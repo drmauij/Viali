@@ -8500,6 +8500,8 @@
     "notes": "Notes",
     "extractionSurgery": "Extraction surgery",
     "reimplantSurgery": "Reimplant surgery",
+    "linkExtractionSurgery": "Link extraction surgery (optional)",
+    "noSurgeryLink": "No link",
     "externalLab": "External lab",
     "createdAt": "Created at",
     "createdBy": "Created by",
