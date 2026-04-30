@@ -201,10 +201,7 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">
-          {t("treatments.title", "Treatments")}
-        </h3>
+      <div className="flex justify-end">
         <Button onClick={handleNewTreatment} disabled={fetchingAppointments} size="sm">
           <Plus className="h-4 w-4 mr-1" />
           {t("treatments.newTreatment", "New Treatment")}

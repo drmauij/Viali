@@ -75,6 +75,9 @@ interface PatientDocumentsSectionProps {
   onEditBrief?: (briefId: string) => void;
   onAuditBrief?: (briefId: string) => void;
   onGenerateBrief?: () => void;
+  /** Hide the "Patient Documents (N)" title and description. Used when the
+   * surrounding context (e.g. an active sidebar tab) already names the section. */
+  hideTitle?: boolean;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -100,6 +103,7 @@ export function PatientDocumentsSection({
   onEditBrief,
   onAuditBrief,
   onGenerateBrief,
+  hideTitle = false,
 }: PatientDocumentsSectionProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -1073,10 +1077,14 @@ export function PatientDocumentsSection({
 
   const headerContent = (
     <div className="flex items-center justify-between w-full">
-      <CardTitle className={`text-lg flex items-center gap-2 ${hasDocuments ? 'text-blue-600 dark:text-blue-400' : ''}`}>
-        <FileText className="h-5 w-5" />
-        {t('anesthesia.patientDetail.patientDocuments', 'Patient Documents')} ({totalItems})
-      </CardTitle>
+      {hideTitle ? (
+        <span /> /* spacer keeps justify-between alignment when title is hidden */
+      ) : (
+        <CardTitle className={`text-lg flex items-center gap-2 ${hasDocuments ? 'text-blue-600 dark:text-blue-400' : ''}`}>
+          <FileText className="h-5 w-5" />
+          {t('anesthesia.patientDetail.patientDocuments', 'Patient Documents')} ({totalItems})
+        </CardTitle>
+      )}
       <div className="flex items-center gap-2">
         <Button
           size="sm"
@@ -1508,9 +1516,11 @@ export function PatientDocumentsSection({
     <Card className={hasDocuments ? "border-blue-400 dark:border-blue-600" : ""}>
       <CardHeader className="pb-3">
         {headerContent}
-        <p className="text-sm text-muted-foreground">
-          {t('anesthesia.patientDetail.patientDocumentsDesc', 'Documents associated with this patient, including files from questionnaires and staff uploads.')}
-        </p>
+        {!hideTitle && (
+          <p className="text-sm text-muted-foreground">
+            {t('anesthesia.patientDetail.patientDocumentsDesc', 'Documents associated with this patient, including files from questionnaires and staff uploads.')}
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         {content}

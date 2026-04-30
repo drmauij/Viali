@@ -3258,6 +3258,7 @@ export default function PatientDetail() {
                 hospitalId={activeHospital.id}
                 canWrite={canWrite}
                 variant="card"
+                hideTitle
                 isAdmin={activeHospital?.role === "admin"}
                 onPreview={(url, fileName, mimeType, siblingImages) => {
                   setPreviewDocument({
@@ -7417,20 +7418,18 @@ function PatientTissueSamplesPanel({
   );
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <h3 className="text-lg font-semibold">{t("tissueSamples.sectionTitle")}</h3>
-        {canWrite && (
+      {canWrite && (
+        <div className="flex justify-end">
           <Button
             size="sm"
             variant="outline"
             onClick={() => setAddOpen(true)}
-            className="ml-auto"
             data-testid="button-add-tissue-sample-manual"
           >
             {t("tissueSamples.addSampleManually")}
           </Button>
-        )}
-      </div>
+        </div>
+      )}
       <TissueSampleList patientId={patient.id} variant="patient" />
       <AddTissueSampleDialog
         patientId={patient.id}
