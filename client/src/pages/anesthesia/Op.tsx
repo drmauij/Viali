@@ -1157,6 +1157,8 @@ export default function Op() {
         onSetApplied={async () => {
           await queryClient.refetchQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
           queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecord?.id] });
+          queryClient.invalidateQueries({ queryKey: [`/api/or-medications/${anesthesiaRecord?.id}`] });
+          queryClient.invalidateQueries({ queryKey: [`/api/administration-groups/${activeHospital.id}?unitType=or`] });
         }}
       />
     )}
