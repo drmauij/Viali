@@ -735,28 +735,30 @@ export default function SettingsPage() {
         <TabsContent value="settings">
         <div className="space-y-4">
           <Tabs defaultValue="company">
-            <TabsList>
-              <TabsTrigger value="company">
-                <i className="fas fa-building mr-2"></i>
-                {t("admin.generalSettings", "General Settings")}
-              </TabsTrigger>
-              <TabsTrigger value="closures">
-                <i className="fas fa-calendar-xmark mr-2"></i>
-                {t("admin.closures", "Closures")}
-              </TabsTrigger>
-              <TabsTrigger value="general">
-                <i className="fas fa-globe mr-2"></i>
-                {t("admin.regionalPreferences", "Regional Preferences")}
-              </TabsTrigger>
-              <TabsTrigger value="runway">
-                <i className="fas fa-boxes-stacked mr-2"></i>
-                {t("admin.inventoryTab", "Inventory")}
-              </TabsTrigger>
-              <TabsTrigger value="tissue-labs">
-                <i className="fas fa-vial mr-2"></i>
-                {t("tissueSamples.labs.tabLabel")}
-              </TabsTrigger>
-            </TabsList>
+            <div className="overflow-x-auto scrollbar-hide">
+              <TabsList className="inline-flex w-auto min-w-full">
+                <TabsTrigger value="company" className="whitespace-nowrap">
+                  <i className="fas fa-building mr-2"></i>
+                  {t("admin.generalSettings", "General Settings")}
+                </TabsTrigger>
+                <TabsTrigger value="closures" className="whitespace-nowrap">
+                  <i className="fas fa-calendar-xmark mr-2"></i>
+                  {t("admin.closures", "Closures")}
+                </TabsTrigger>
+                <TabsTrigger value="general" className="whitespace-nowrap">
+                  <i className="fas fa-globe mr-2"></i>
+                  {t("admin.regionalPreferences", "Regional Preferences")}
+                </TabsTrigger>
+                <TabsTrigger value="runway" className="whitespace-nowrap">
+                  <i className="fas fa-boxes-stacked mr-2"></i>
+                  {t("admin.inventoryTab", "Inventory")}
+                </TabsTrigger>
+                <TabsTrigger value="tissue-labs" className="whitespace-nowrap">
+                  <i className="fas fa-vial mr-2"></i>
+                  {t("tissueSamples.labs.tabLabel")}
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             {/* Closures Sub-Tab */}
             <TabsContent value="closures" className="mt-4">
@@ -1322,16 +1324,18 @@ export default function SettingsPage() {
         {/* Links Tab Content */}
         <TabsContent value="links">
         <Tabs defaultValue="booking" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="booking">
-              <i className="fas fa-calendar-check mr-2"></i>
-              {t("admin.bookingAndAppointments", "Booking & Appointments")}
-            </TabsTrigger>
-            <TabsTrigger value="other-links">
-              <i className="fas fa-link mr-2"></i>
-              {t("admin.otherLinks", "Other Links")}
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto scrollbar-hide mb-4">
+            <TabsList className="inline-flex w-auto min-w-full">
+              <TabsTrigger value="booking" className="whitespace-nowrap">
+                <i className="fas fa-calendar-check mr-2"></i>
+                {t("admin.bookingAndAppointments", "Booking & Appointments")}
+              </TabsTrigger>
+              <TabsTrigger value="other-links" className="whitespace-nowrap">
+                <i className="fas fa-link mr-2"></i>
+                {t("admin.otherLinks", "Other Links")}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="booking">
           <div className="space-y-4">
