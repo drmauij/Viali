@@ -8485,5 +8485,42 @@
       "selectAll": "Select all",
       "deselectAll": "Deselect all"
     }
+  },
+  "tissueSamples": {
+    "tabLabel": "Tissue & Samples",
+    "sectionTitle": "Tissue & Samples",
+    "addSample": "Add sample",
+    "addSampleManually": "Add manually (backfill)",
+    "addSampleDisabledTooltip": "Add a sample from the Intraoperative tab during an in-progress surgery.",
+    "linkReimplant": "Link reimplant",
+    "code": "Code",
+    "type": "Type",
+    "status": "Status",
+    "statusDate": "Status date",
+    "notes": "Notes",
+    "extractionSurgery": "Extraction surgery",
+    "reimplantSurgery": "Reimplant surgery",
+    "externalLab": "External lab",
+    "createdAt": "Created at",
+    "createdBy": "Created by",
+    "empty": "No tissue samples for this patient.",
+    "history": {
+      "title": "Status history",
+      "noteLabel": "Comment"
+    },
+    "destroy": "Destroy",
+    "destroyConfirmTitle": "Destroy sample?",
+    "destroyConfirmDescription": "The status will be set to \"Vernichtet\". The record itself is retained for regulatory reasons.",
+    "codeCopied": "Code copied",
+    "errors": {
+      "missingPrefix": "Set the clinic's sample code prefix in admin settings.",
+      "prefixLocked": "Prefix cannot be changed — tissue samples already exist.",
+      "invalidStatus": "Invalid status for this sample type.",
+      "reimplantNotSupported": "This sample type does not support reimplant linkage."
+    },
+    "admin": {
+      "prefixLabel": "Sample code prefix",
+      "prefixHelp": "3–5 uppercase letters (e.g. PKK). Set once; cannot be changed after the first sample is created."
+    }
   }
 }

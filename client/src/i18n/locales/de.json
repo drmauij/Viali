@@ -8503,5 +8503,42 @@
       "selectAll": "Alle auswählen",
       "deselectAll": "Alle abwählen"
     }
+  },
+  "tissueSamples": {
+    "tabLabel": "Gewebe & Proben",
+    "sectionTitle": "Gewebe & Proben",
+    "addSample": "Probe hinzufügen",
+    "addSampleManually": "Manuell hinzufügen (Backfill)",
+    "addSampleDisabledTooltip": "Während einer laufenden Operation auf dem Intraoperativ-Tab hinzufügen.",
+    "linkReimplant": "Reimplantation verknüpfen",
+    "code": "Code",
+    "type": "Typ",
+    "status": "Status",
+    "statusDate": "Statusdatum",
+    "notes": "Notizen",
+    "extractionSurgery": "Entnahme-Operation",
+    "reimplantSurgery": "Reimplantations-Operation",
+    "externalLab": "Externes Labor",
+    "createdAt": "Erstellt am",
+    "createdBy": "Erstellt von",
+    "empty": "Keine Proben für diesen Patienten.",
+    "history": {
+      "title": "Statusverlauf",
+      "noteLabel": "Kommentar"
+    },
+    "destroy": "Vernichten",
+    "destroyConfirmTitle": "Probe vernichten?",
+    "destroyConfirmDescription": "Der Status wird auf „Vernichtet\" gesetzt. Der Eintrag bleibt aus regulatorischen Gründen erhalten.",
+    "codeCopied": "Code kopiert",
+    "errors": {
+      "missingPrefix": "Sample-Code-Präfix in den Admin-Einstellungen setzen.",
+      "prefixLocked": "Präfix kann nicht mehr geändert werden — es existieren bereits Proben.",
+      "invalidStatus": "Ungültiger Status für diesen Probentyp.",
+      "reimplantNotSupported": "Dieser Probentyp unterstützt keine Reimplantation."
+    },
+    "admin": {
+      "prefixLabel": "Sample-Code-Präfix",
+      "prefixHelp": "3–5 Großbuchstaben (z. B. PKK). Einmalig festgelegt; kann nach der ersten Probe nicht mehr geändert werden."
+    }
   }
 }
