@@ -2130,67 +2130,70 @@ export default function PatientDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Main Content Tabs - Notes, Surgeries, Documents, Invoices, and Medications */}
+      {/* Main Content Tabs - Notes, Appointments, Surgeries, Treatments, Documents, Invoices, Medications, Questionnaire, Tissue & Samples */}
       <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="w-full">
-        <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0 mb-4">
-          <TabsList className="inline-flex w-auto min-w-full">
-            <TabsTrigger value="notes" data-testid="tab-notes" className="whitespace-nowrap">
-              {t('anesthesia.patientDetail.notes', 'Notes')}
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* On md:+ screens this becomes a vertical sidebar; on smaller screens it stays a horizontal scroll strip. */}
+          <TabsList className="flex flex-row md:flex-col h-auto w-full md:w-52 shrink-0 justify-start overflow-x-auto md:overflow-x-visible scrollbar-hide bg-muted/50 md:bg-transparent p-1 md:p-0 md:gap-1">
+            <TabsTrigger value="appointments" data-testid="tab-appointments" className="whitespace-nowrap justify-start md:w-full">
+              <span className="truncate">{t('anesthesia.patientDetail.appointments', 'Appointments')}</span>
+              {patientAppointments.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{patientAppointments.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="notes" data-testid="tab-notes" className="whitespace-nowrap justify-start md:w-full">
+              <span className="truncate">{t('anesthesia.patientDetail.notes', 'Notes')}</span>
               {notesTimeline && notesTimeline.length > 0 && (
                 <Badge variant="secondary" className="ml-1">{notesTimeline.length}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="surgeries" data-testid="tab-surgeries" className="whitespace-nowrap">
-              {t('anesthesia.patientDetail.surgeries', 'Surgeries')}
+            <TabsTrigger value="surgeries" data-testid="tab-surgeries" className="whitespace-nowrap justify-start md:w-full">
+              <span className="truncate">{t('anesthesia.patientDetail.surgeries', 'Surgeries')}</span>
               {surgeries && surgeries.length > 0 && (
                 <Badge variant="secondary" className="ml-1">{surgeries.length}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="treatments" data-testid="tab-treatments" className="whitespace-nowrap">
-              {t("treatments.tab")}
+            <TabsTrigger value="treatments" data-testid="tab-treatments" className="whitespace-nowrap justify-start md:w-full">
+              <span className="truncate">{t("treatments.tab")}</span>
             </TabsTrigger>
-            <TabsTrigger value="documents" data-testid="tab-documents" className="whitespace-nowrap">
-              {t('anesthesia.patientDetail.documents', 'Documents')}
+            <TabsTrigger value="documents" data-testid="tab-documents" className="whitespace-nowrap justify-start md:w-full">
+              <span className="truncate">{t('anesthesia.patientDetail.documents', 'Documents')}</span>
               {(staffDocuments.length + noteAttachmentDocs.length + dischargeBriefs.length) > 0 && (
                 <Badge variant="secondary" className="ml-1">{staffDocuments.length + noteAttachmentDocs.length + dischargeBriefs.length}</Badge>
               )}
-            </TabsTrigger>
-            <TabsTrigger value="tissue-samples" data-testid="tab-tissue-samples" className="whitespace-nowrap">
-              {t("tissueSamples.tabLabel")}
             </TabsTrigger>
             {/* Episodes tab hidden for later use
             <TabsTrigger value="episodes" data-testid="tab-episodes" className="whitespace-nowrap">
               Episodes
             </TabsTrigger>
             */}
-            <TabsTrigger value="invoices" data-testid="tab-invoices" className="whitespace-nowrap">
-              {t('anesthesia.patientDetail.invoices', 'Invoices')}
+            <TabsTrigger value="invoices" data-testid="tab-invoices" className="whitespace-nowrap justify-start md:w-full">
+              <span className="truncate">{t('anesthesia.patientDetail.invoices', 'Invoices')}</span>
               {patientInvoices.length > 0 && (
                 <Badge variant="secondary" className="ml-1">{patientInvoices.length}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="medications" data-testid="tab-medications" className="whitespace-nowrap">
-              {t('anesthesia.patientDetail.medications', 'Medications')}
+            <TabsTrigger value="medications" data-testid="tab-medications" className="whitespace-nowrap justify-start md:w-full">
+              <span className="truncate">{t('anesthesia.patientDetail.medications', 'Medications')}</span>
               {dischargeMedications.length > 0 && (
                 <Badge variant="secondary" className="ml-1">{dischargeMedications.length}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="appointments" data-testid="tab-appointments" className="whitespace-nowrap">
-              {t('anesthesia.patientDetail.appointments', 'Appointments')}
-              {patientAppointments.length > 0 && (
-                <Badge variant="secondary" className="ml-1">{patientAppointments.length}</Badge>
-              )}
-            </TabsTrigger>
             {addons.questionnaire && (
-              <TabsTrigger value="questionnaire" data-testid="tab-questionnaire" className="whitespace-nowrap">
-                {t('questionnaireTab.tabTitle', 'Questionnaire')}
+              <TabsTrigger value="questionnaire" data-testid="tab-questionnaire" className="whitespace-nowrap justify-start md:w-full">
+                <span className="truncate">{t('questionnaireTab.tabTitle', 'Questionnaire')}</span>
                 {submittedQuestionnaires.length > 0 && (
                   <Badge variant="secondary" className="ml-1">{submittedQuestionnaires.length}</Badge>
                 )}
               </TabsTrigger>
             )}
+            <TabsTrigger value="tissue-samples" data-testid="tab-tissue-samples" className="whitespace-nowrap justify-start md:w-full">
+              <span className="truncate">{t("tissueSamples.tabLabel")}</span>
+            </TabsTrigger>
           </TabsList>
-        </div>
+
+          {/* Tab content area */}
+          <div className="flex-1 min-w-0">
 
         {/* Notes Tab - Combined timeline of patient notes and surgery notes */}
         <TabsContent value="notes" className="mt-0 space-y-4">
@@ -3571,6 +3574,8 @@ export default function PatientDetail() {
             defaults={{ patientId: derivedPatientId, patientName: patient ? `${patient.firstName} ${patient.surname}` : '' }}
           />
         </TabsContent>
+          </div>
+        </div>
       </Tabs>
 
       {/* Pre-OP Full Screen Dialog */}
