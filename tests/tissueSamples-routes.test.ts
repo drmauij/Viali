@@ -151,13 +151,13 @@ describe("POST /api/patients/:patientId/tissue-samples", () => {
     expect(res.body.code).toBe("UNKNOWN_SAMPLE_TYPE");
   });
 
-  it("returns 422 TYPE_NOT_ENABLED for a type with enabledInUI=false (e.g. histology)", async () => {
-    const app = buildApp();
-    const res = await request(app)
-      .post(`/api/patients/${testPatientId}/tissue-samples`)
-      .send({ sampleType: "histology", notes: null });
-    expect(res.status).toBe(422);
-    expect(res.body.code).toBe("TYPE_NOT_ENABLED");
+  // Phase A enabled all 14 types, so the TYPE_NOT_ENABLED branch can no
+  // longer be exercised through the public type list. The route still
+  // returns the same error code if a type ever flips enabledInUI=false
+  // again; this test is parked rather than deleted to make that intent
+  // explicit.
+  it.skip("returns 422 TYPE_NOT_ENABLED for a type with enabledInUI=false", async () => {
+    // Intentionally skipped — see comment above.
   });
 });
 
@@ -172,9 +172,9 @@ describe("POST /api/tissue-samples/:id/status", () => {
 
     const res = await request(app)
       .post(`/api/tissue-samples/${create.body.id}/status`)
-      .send({ toStatus: "Versendet an SSCB", note: "courier" });
+      .send({ toStatus: "Versendet", note: "courier" });
     expect(res.status).toBe(200);
-    expect(res.body.status).toBe("Versendet an SSCB");
+    expect(res.body.status).toBe("Versendet");
 
     const history = await db
       .select()

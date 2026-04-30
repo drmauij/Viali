@@ -72,9 +72,10 @@ export function AddTissueSampleDialog({
     enabledTypes[0],
   );
   const [notes, setNotes] = useState("");
-  const [externalLab, setExternalLab] = useState(
-    TISSUE_SAMPLE_TYPES[enabledTypes[0]].defaultExternalLab ?? "",
-  );
+  // Phase A: defaultExternalLab moved out of TISSUE_SAMPLE_TYPES into the
+  // per-clinic labs registry. Phase B will wire the labs API and resolve
+  // the default at runtime; until then start with an empty value.
+  const [externalLab, setExternalLab] = useState("");
   const [pickedSurgeryId, setPickedSurgeryId] = useState<string>(NO_SURGERY);
 
   const showSurgeryPicker =
@@ -143,8 +144,9 @@ export function AddTissueSampleDialog({
               value={sampleType}
               onValueChange={(v) => {
                 setSampleType(v as TissueSampleType);
-                const cfg = TISSUE_SAMPLE_TYPES[v as TissueSampleType];
-                setExternalLab(cfg.defaultExternalLab ?? "");
+                // Phase A: external-lab default no longer comes from the
+                // type config; Phase B will resolve from the labs API.
+                setExternalLab("");
               }}
             >
               <SelectTrigger data-testid="select-tissue-sample-type">

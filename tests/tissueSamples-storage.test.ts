@@ -123,12 +123,12 @@ describe("transitionTissueSampleStatus", () => {
 
     const updated = await transitionTissueSampleStatus({
       sampleId: sample.id,
-      toStatus: "Versendet an SSCB",
+      toStatus: "Versendet",
       changedBy: testUserId,
       note: "to courier",
     });
 
-    expect(updated.status).toBe("Versendet an SSCB");
+    expect(updated.status).toBe("Versendet");
     expect(updated.statusDate.getTime()).toBeGreaterThan(beforeDate.getTime());
 
     const history = await db
@@ -138,7 +138,7 @@ describe("transitionTissueSampleStatus", () => {
       .orderBy(tissueSampleStatusHistory.changedAt);
     expect(history).toHaveLength(2);
     expect(history[1].fromStatus).toBe("Probe entnommen");
-    expect(history[1].toStatus).toBe("Versendet an SSCB");
+    expect(history[1].toStatus).toBe("Versendet");
     expect(history[1].note).toBe("to courier");
   });
 
@@ -163,10 +163,10 @@ describe("transitionTissueSampleStatus", () => {
 
 describe("updateTissueSample", () => {
   it("rejects setting reimplant_surgery_id on a type that does not support reimplant", async () => {
-    // We can't create a histology sample through createTissueSample (the
-    // public API blocks enabledInUI=false earlier in the route, and even at
-    // storage layer histology has no initialStatus). Insert directly to
-    // exercise the supportsReimplant=false branch in updateTissueSample.
+    // Insert directly to exercise the supportsReimplant=false branch in
+    // updateTissueSample. We use the storage layer's transaction-free path
+    // because we want to bypass code minting and surgeon-link rules and
+    // simply seed a histology row that we can then attempt to update.
     const code = `TST-HIST-99999999-${Math.floor(Math.random() * 900 + 100)}`;
     const [row] = await db
       .insert(tissueSamples)
@@ -245,14 +245,14 @@ describe("getTissueSampleWithHistory", () => {
     createdSampleIds.push(sample.id);
     await transitionTissueSampleStatus({
       sampleId: sample.id,
-      toStatus: "Versendet an SSCB",
+      toStatus: "Versendet",
       changedBy: testUserId,
     });
     const result = await getTissueSampleWithHistory(sample.id);
     expect(result).not.toBeNull();
-    expect(result!.sample.status).toBe("Versendet an SSCB");
+    expect(result!.sample.status).toBe("Versendet");
     expect(result!.history).toHaveLength(2);
     expect(result!.history[0].toStatus).toBe("Probe entnommen");
-    expect(result!.history[1].toStatus).toBe("Versendet an SSCB");
+    expect(result!.history[1].toStatus).toBe("Versendet");
   });
 });

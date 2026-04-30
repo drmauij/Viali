@@ -1695,6 +1695,13 @@
       "when": 1779500000000,
       "tag": "0241_tissue_samples",
       "breakpoints": true
+    },
+    {
+      "idx": 242,
+      "version": "7",
+      "when": 1779600000000,
+      "tag": "0242_tissue_sample_labs_and_workflows",
+      "breakpoints": true
     }
   ]
 }

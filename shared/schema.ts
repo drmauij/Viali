@@ -1090,6 +1090,28 @@ export type TissueSample = typeof tissueSamples.$inferSelect;
 export type InsertTissueSample = z.infer<typeof insertTissueSampleSchema>;
 export type TissueSampleStatusHistory = typeof tissueSampleStatusHistory.$inferSelect;
 
+// Per-clinic external labs registry. Replaces the per-type defaultExternalLab
+// constant; the dialog resolves a default at runtime from this table.
+export const tissueSampleExternalLabs = pgTable("tissue_sample_external_labs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: "cascade" }),
+  name: varchar("name").notNull(),
+  applicableSampleTypes: text("applicable_sample_types").array(),
+  contact: text("contact"),
+  isDefault: boolean("is_default").notNull().default(false),
+  isArchived: boolean("is_archived").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_tissue_sample_external_labs_hospital").on(table.hospitalId, table.isArchived),
+]);
+
+export const insertTissueSampleExternalLabSchema = createInsertSchema(tissueSampleExternalLabs).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type TissueSampleExternalLab = typeof tissueSampleExternalLabs.$inferSelect;
+export type InsertTissueSampleExternalLab = z.infer<typeof insertTissueSampleExternalLabSchema>;
+
 // Cases (Episode of Care) - Container for patient hospital stay
 export const cases = pgTable("cases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

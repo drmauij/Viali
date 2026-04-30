@@ -2,10 +2,10 @@
 // feature. Imported by both server (validation, code generation) and client
 // (UI labels, dropdowns, status pickers).
 //
-// To enable a type in v1's UI: set enabledInUI=true, fill statuses[] and
-// initialStatus, and add the i18n labels to client/src/i18n/locales/{de,en}.json.
-// No schema/migration work required — the schema accepts any string for
-// sample_type and status; validation lives at the API boundary in this file.
+// All 14 types ship with a valid status workflow and enabledInUI=true.
+// External labs are no longer modeled here — they live per-hospital in the
+// `tissue_sample_external_labs` table; the dialog resolves a default at
+// runtime from the labs API.
 
 export type TissueSampleType =
   | "fat"
@@ -29,8 +29,7 @@ export interface TissueSampleTypeConfig {
   statuses: readonly string[];           // allowed statuses, in workflow order
   initialStatus: string;                 // status applied on creation
   supportsReimplant: boolean;
-  defaultExternalLab?: string;
-  enabledInUI: boolean;                  // v1: true only for 'fat'
+  enabledInUI: boolean;
 }
 
 export const TISSUE_SAMPLE_TYPES: Record<TissueSampleType, TissueSampleTypeConfig> = {
@@ -39,120 +38,147 @@ export const TISSUE_SAMPLE_TYPES: Record<TissueSampleType, TissueSampleTypeConfi
     label: { de: "Eigenfett", en: "Fat" },
     statuses: [
       "Probe entnommen",
-      "Versendet an SSCB",
-      "Eingelagert bei SSCB",
+      "Versendet",
+      "Eingelagert",
       "Angefordert zur Reimplantation",
       "Reimplantiert",
       "Vernichtet",
     ],
     initialStatus: "Probe entnommen",
     supportsReimplant: true,
-    defaultExternalLab: "Swiss Stem Cells Biotech, Vacallo TI",
     enabledInUI: true,
   },
   histology: {
     code: "HIST",
     label: { de: "Histologie", en: "Histology" },
-    statuses: [],
-    initialStatus: "",
+    statuses: ["Probe entnommen", "Versendet", "Befund eingegangen", "Vernichtet"],
+    initialStatus: "Probe entnommen",
     supportsReimplant: false,
-    enabledInUI: false,
+    enabledInUI: true,
   },
   cytology: {
     code: "CYT",
     label: { de: "Zytologie", en: "Cytology" },
-    statuses: [],
-    initialStatus: "",
+    statuses: ["Probe entnommen", "Versendet", "Befund eingegangen", "Vernichtet"],
+    initialStatus: "Probe entnommen",
     supportsReimplant: false,
-    enabledInUI: false,
+    enabledInUI: true,
   },
   frozen_section: {
     code: "FROZ",
     label: { de: "Schnellschnitt", en: "Frozen Section" },
-    statuses: [],
-    initialStatus: "",
+    statuses: ["Probe entnommen", "Verarbeitet", "Befund verfügbar", "Vernichtet"],
+    initialStatus: "Probe entnommen",
     supportsReimplant: false,
-    enabledInUI: false,
+    enabledInUI: true,
   },
   microbiology: {
     code: "MIC",
     label: { de: "Mikrobiologie", en: "Microbiology" },
-    statuses: [],
-    initialStatus: "",
+    statuses: ["Probe entnommen", "Versendet", "Befund eingegangen", "Vernichtet"],
+    initialStatus: "Probe entnommen",
     supportsReimplant: false,
-    enabledInUI: false,
+    enabledInUI: true,
   },
   blood: {
     code: "BLD",
     label: { de: "Blut", en: "Blood" },
-    statuses: [],
-    initialStatus: "",
+    statuses: ["Probe entnommen", "Versendet", "Befund eingegangen", "Vernichtet"],
+    initialStatus: "Probe entnommen",
     supportsReimplant: false,
-    enabledInUI: false,
+    enabledInUI: true,
   },
   bone_marrow: {
     code: "BM",
     label: { de: "Knochenmark", en: "Bone Marrow" },
-    statuses: [],
-    initialStatus: "",
-    supportsReimplant: false,
-    enabledInUI: false,
+    statuses: [
+      "Probe entnommen",
+      "Versendet",
+      "Eingelagert",
+      "Angefordert zur Reimplantation",
+      "Reimplantiert",
+      "Vernichtet",
+    ],
+    initialStatus: "Probe entnommen",
+    supportsReimplant: true,
+    enabledInUI: true,
   },
   stem_cell: {
     code: "SC",
     label: { de: "Stammzellen", en: "Stem Cells" },
-    statuses: [],
-    initialStatus: "",
+    statuses: [
+      "Probe entnommen",
+      "Versendet",
+      "Eingelagert",
+      "Angefordert zur Reimplantation",
+      "Reimplantiert",
+      "Vernichtet",
+    ],
+    initialStatus: "Probe entnommen",
     supportsReimplant: true,
-    enabledInUI: false,
+    enabledInUI: true,
   },
   oocyte_sperm: {
     code: "RPR",
     label: { de: "Reproduktionsmedizin", en: "Reproductive Cells" },
-    statuses: [],
-    initialStatus: "",
+    statuses: [
+      "Probe entnommen",
+      "Versendet",
+      "Eingelagert",
+      "Angefordert zur Reimplantation",
+      "Reimplantiert",
+      "Vernichtet",
+    ],
+    initialStatus: "Probe entnommen",
     supportsReimplant: true,
-    enabledInUI: false,
+    enabledInUI: true,
   },
   dna_genetics: {
     code: "DNA",
     label: { de: "Genetik / DNA", en: "DNA / Genetics" },
-    statuses: [],
-    initialStatus: "",
+    statuses: ["Probe entnommen", "Versendet", "Befund eingegangen", "Vernichtet"],
+    initialStatus: "Probe entnommen",
     supportsReimplant: false,
-    enabledInUI: false,
+    enabledInUI: true,
   },
   stone: {
     code: "STN",
     label: { de: "Konkrement", en: "Stone" },
-    statuses: [],
-    initialStatus: "",
+    statuses: ["Probe entnommen", "Versendet", "Befund eingegangen", "Vernichtet"],
+    initialStatus: "Probe entnommen",
     supportsReimplant: false,
-    enabledInUI: false,
+    enabledInUI: true,
   },
   foreign_body: {
     code: "FB",
     label: { de: "Fremdkörper", en: "Foreign Body" },
-    statuses: [],
-    initialStatus: "",
+    statuses: ["Probe entnommen", "Versendet", "Befund eingegangen", "Vernichtet"],
+    initialStatus: "Probe entnommen",
     supportsReimplant: false,
-    enabledInUI: false,
+    enabledInUI: true,
   },
   placenta_cord: {
     code: "PLC",
     label: { de: "Plazenta / Nabelschnur", en: "Placenta / Cord" },
-    statuses: [],
-    initialStatus: "",
-    supportsReimplant: false,
-    enabledInUI: false,
+    statuses: [
+      "Probe entnommen",
+      "Versendet",
+      "Eingelagert",
+      "Angefordert zur Reimplantation",
+      "Reimplantiert",
+      "Vernichtet",
+    ],
+    initialStatus: "Probe entnommen",
+    supportsReimplant: true,
+    enabledInUI: true,
   },
   other: {
     code: "OTH",
     label: { de: "Sonstige", en: "Other" },
-    statuses: [],
-    initialStatus: "",
+    statuses: ["Probe entnommen", "Versendet", "Befund eingegangen", "Vernichtet"],
+    initialStatus: "Probe entnommen",
     supportsReimplant: false,
-    enabledInUI: false,
+    enabledInUI: true,
   },
 };
 

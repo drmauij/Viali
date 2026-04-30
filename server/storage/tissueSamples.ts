@@ -37,7 +37,7 @@ export async function createTissueSample(
 
   // Per-type defaults.
   const initialStatus = typeConfig.initialStatus || "Probe entnommen";
-  const externalLab = input.externalLab ?? typeConfig.defaultExternalLab ?? null;
+  const externalLab = input.externalLab ?? null;
 
   return db.transaction(async (tx) => {
     let createdId: string | null = null;
