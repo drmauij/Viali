@@ -6079,6 +6079,9 @@
         "generatedBy": "Generated {{when}} by {{user}}",
         "staleNotice": "This analysis is more than 7 days old.",
         "noDataForRange": "No data in selected range.",
+        "notesLabel": "Optional context for the AI",
+        "notesPlaceholder": "e.g. new surgeon onboarded April 14, Klaviyo flow paused, Meta creative refresh in progress",
+        "notesHint": "Operational context the data can't see. Notes-bearing analyses are not cached.",
         "sections": {
           "summary": "Summary",
           "trends": "Trends",

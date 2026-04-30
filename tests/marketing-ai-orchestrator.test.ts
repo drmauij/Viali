@@ -128,6 +128,41 @@ describe("getOrCreateAnalysis", () => {
     expect(upsertAnalysis).toHaveBeenCalledOnce();
   });
 
+  it("bypasses cache and skips upsert when operatorNotes are present", async () => {
+    // Notes-bearing analyses are ephemeral by design (different operators
+    // would otherwise collide on the per-period unique key) — they must
+    // hit Claude every time and never persist.
+    vi.mocked(getCachedAnalysis).mockResolvedValue({
+      id: "r1",
+      payload: basePayload,
+      generatedAt: new Date(),
+      generatedBy: "u1",
+    } as any);
+    vi.mocked(isFresh).mockReturnValue(true);
+    buildStatsSpy.mockResolvedValue({ funnel: { leads: 5 }, totals: { adSpend: 100 } } as any);
+    runAnalysisSpy.mockResolvedValue(basePayload);
+
+    const result = await getOrCreateAnalysis({
+      hospitalId: "h1",
+      startDate: "2026-03-01",
+      endDate: "2026-03-31",
+      language: "en",
+      userId: "u2",
+      force: false,
+      operatorNotes: "Klaviyo paused",
+    });
+
+    expect(getCachedAnalysis).not.toHaveBeenCalled();
+    expect(runAnalysisSpy).toHaveBeenCalledOnce();
+    expect(runAnalysisSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      "en",
+      "Klaviyo paused",
+    );
+    expect(upsertAnalysis).not.toHaveBeenCalled();
+    expect(result.cached).toBe(false);
+  });
+
   it("returns stub without calling Claude when no leads", async () => {
     vi.mocked(getCachedAnalysis).mockResolvedValue(null);
     buildStatsSpy.mockResolvedValue({

@@ -6175,6 +6175,9 @@
         "generatedBy": "Erstellt {{when}} von {{user}}",
         "staleNotice": "Diese Analyse ist älter als 7 Tage.",
         "noDataForRange": "Keine Daten im gewählten Zeitraum.",
+        "notesLabel": "Optionaler Kontext für die KI",
+        "notesPlaceholder": "z.B. neue Operateurin seit 14. April, Klaviyo-Flow pausiert, Meta-Creative-Refresh läuft",
+        "notesHint": "Operativer Kontext, den die Daten nicht zeigen. Analysen mit Notizen werden nicht zwischengespeichert.",
         "sections": {
           "summary": "Zusammenfassung",
           "trends": "Trends",

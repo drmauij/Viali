@@ -13,6 +13,10 @@ const bodySchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   force: z.boolean().optional(),
+  // Operator-provided context (campaign changes, staffing events, seasonal
+  // factors). Optional, capped to keep the prompt compact. Notes-bearing
+  // results are returned but not persisted to cache.
+  operatorNotes: z.string().max(500).optional(),
 });
 
 function resolveLanguage(req: Request): "en" | "de" {
@@ -100,7 +104,7 @@ export function registerMarketingAiRoutes(app: Express): void {
 
       const parsed = bodySchema.safeParse(req.body);
       if (!parsed.success) return void res.status(400).json({ error: "invalid body" });
-      const { startDate, endDate, force = false } = parsed.data;
+      const { startDate, endDate, force = false, operatorNotes } = parsed.data;
       if (startDate > endDate)
         return void res.status(400).json({ error: "invalid date range" });
 
@@ -118,6 +122,7 @@ export function registerMarketingAiRoutes(app: Express): void {
           language: resolveLanguage(req),
           userId,
           force,
+          operatorNotes,
         });
         return void res.json({
           ...result,

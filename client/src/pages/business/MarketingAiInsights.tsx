@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Loader2, Sparkles, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -51,17 +53,27 @@ export default function MarketingAiInsights({ scope, startDate, endDate }: Props
   });
 
   const [expanded, setExpanded] = useState(false);
+  const [notes, setNotes] = useState("");
+  const NOTES_MAX = 500;
 
   const generate = useMutation({
     mutationFn: async (force: boolean) => {
       const postUrl = funnelsUrl("ai-analysis", scope);
       if (!postUrl) throw new Error("scope not addressable");
-      const res = await apiRequest("POST", postUrl, { startDate, endDate, force });
+      const trimmed = notes.trim();
+      const body: Record<string, unknown> = { startDate, endDate, force };
+      if (trimmed.length > 0) body.operatorNotes = trimmed;
+      const res = await apiRequest("POST", postUrl, body);
       if (!res.ok) throw new Error("generation failed");
       return (await res.json()) as AnalysisResponse;
     },
     onSuccess: (fresh) => {
-      queryClient.setQueryData(key, fresh);
+      // Notes-bearing results aren't cached server-side — keep them in
+      // local mutation state only so the cached baseline (no-notes) view
+      // isn't overwritten in the React Query cache.
+      if (notes.trim().length === 0) {
+        queryClient.setQueryData(key, fresh);
+      }
       setExpanded(true);
     },
   });
@@ -155,6 +167,35 @@ export default function MarketingAiInsights({ scope, startDate, endDate }: Props
       {(!hasResult || expanded) && (
         <CardContent>
           {loadingCache && <div className="text-sm text-muted-foreground">…</div>}
+
+          {!loadingCache && !generate.isPending && (
+            <div className="mb-4 space-y-1.5" data-testid="operator-notes-block">
+              <Label htmlFor="ai-operator-notes" className="text-xs text-muted-foreground">
+                {t("business.marketing.aiInsights.notesLabel", "Optional context for the AI")}
+              </Label>
+              <Textarea
+                id="ai-operator-notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value.slice(0, NOTES_MAX))}
+                placeholder={t(
+                  "business.marketing.aiInsights.notesPlaceholder",
+                  "e.g. new surgeon onboarded April 14, Klaviyo flow paused, Meta creative refresh in progress",
+                )}
+                rows={2}
+                maxLength={NOTES_MAX}
+                className="text-sm"
+                data-testid="operator-notes-input"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                {t(
+                  "business.marketing.aiInsights.notesHint",
+                  "Operational context the data can't see. Notes-bearing analyses are not cached.",
+                )}
+                {" "}
+                ({notes.length}/{NOTES_MAX})
+              </p>
+            </div>
+          )}
 
           {!loadingCache && !current && !generate.isPending && !generate.error && (
             <Button onClick={() => generate.mutate(false)} data-testid="generate-button">
