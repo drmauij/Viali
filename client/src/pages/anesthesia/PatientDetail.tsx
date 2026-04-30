@@ -65,6 +65,8 @@ import AppointmentDetailDialog, { type AppointmentWithDetails, STATUS_COLORS, ge
 import { BookingDialog } from "@/pages/clinic/Appointments";
 import { parseISO } from "date-fns";
 import { TreatmentsTab } from "@/components/treatments/TreatmentsTab";
+import { TissueSampleList } from "@/components/tissueSamples/TissueSampleList";
+import { AddTissueSampleDialog } from "@/components/tissueSamples/AddTissueSampleDialog";
 
 export default function PatientDetail() {
   const { t, i18n } = useTranslation();
@@ -2153,6 +2155,9 @@ export default function PatientDetail() {
                 <Badge variant="secondary" className="ml-1">{staffDocuments.length + noteAttachmentDocs.length + dischargeBriefs.length}</Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="tissue-samples" data-testid="tab-tissue-samples" className="whitespace-nowrap">
+              {t("tissueSamples.tabLabel")}
+            </TabsTrigger>
             {/* Episodes tab hidden for later use
             <TabsTrigger value="episodes" data-testid="tab-episodes" className="whitespace-nowrap">
               Episodes
@@ -3331,6 +3336,10 @@ export default function PatientDetail() {
             )}
 
           </div>
+        </TabsContent>
+
+        <TabsContent value="tissue-samples" className="space-y-4" data-testid="tab-content-tissue-samples">
+          <PatientTissueSamplesPanel patient={patient} />
         </TabsContent>
 
         <TabsContent value="invoices" className="mt-0">
@@ -7373,6 +7382,36 @@ export default function PatientDetail() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+function PatientTissueSamplesPanel({ patient }: { patient: any }) {
+  const { t } = useTranslation();
+  const canWrite = useCanWrite();
+  const [addOpen, setAddOpen] = useState(false);
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <h3 className="text-lg font-semibold">{t("tissueSamples.sectionTitle")}</h3>
+        {canWrite && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setAddOpen(true)}
+            className="ml-auto"
+            data-testid="button-add-tissue-sample-manual"
+          >
+            {t("tissueSamples.addSampleManually")}
+          </Button>
+        )}
+      </div>
+      <TissueSampleList patientId={patient.id} variant="patient" />
+      <AddTissueSampleDialog
+        patientId={patient.id}
+        open={addOpen}
+        onOpenChange={setAddOpen}
+      />
     </div>
   );
 }
