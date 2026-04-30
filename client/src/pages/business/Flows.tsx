@@ -131,23 +131,25 @@ export default function Flows() {
 
       {/* Tabs: Campaigns | Promo Codes */}
       <Tabs defaultValue="campaigns">
-        <TabsList>
-          <TabsTrigger value="campaigns" className="gap-2">
-            <Send className="h-4 w-4" />
-            {t("flows.tabs.campaigns", "Campaigns")}
-            {campaigns.length > 0 && <Badge variant="secondary" className="ml-1">{campaigns.length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="promos" className="gap-2">
-            <Tag className="h-4 w-4" />
-            {t("flows.tabs.promoCodes", "Promo Codes")}
-            {(promoCodes as any[]).length > 0 && <Badge variant="secondary" className="ml-1">{(promoCodes as any[]).length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="automations" className="gap-2">
-            <Zap className="h-4 w-4" />
-            Automatisierungen
-            <Badge className="ml-1 bg-purple-600 text-white hover:bg-purple-600">NEU</Badge>
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto scrollbar-hide">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="campaigns" className="gap-2 whitespace-nowrap">
+              <Send className="h-4 w-4" />
+              {t("flows.tabs.campaigns", "Campaigns")}
+              {campaigns.length > 0 && <Badge variant="secondary" className="ml-1">{campaigns.length}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="promos" className="gap-2 whitespace-nowrap">
+              <Tag className="h-4 w-4" />
+              {t("flows.tabs.promoCodes", "Promo Codes")}
+              {(promoCodes as any[]).length > 0 && <Badge variant="secondary" className="ml-1">{(promoCodes as any[]).length}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="automations" className="gap-2 whitespace-nowrap">
+              <Zap className="h-4 w-4" />
+              Automatisierungen
+              <Badge className="ml-1 bg-purple-600 text-white hover:bg-purple-600">NEU</Badge>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Campaigns Tab */}
         <TabsContent value="campaigns" className="mt-4">

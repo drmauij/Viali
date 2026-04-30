@@ -120,12 +120,14 @@ export default function BusinessGroup() {
       </div>
 
       <Tabs defaultValue="settings" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="settings" data-testid="tab-chain-settings">Settings</TabsTrigger>
-          <TabsTrigger value="team" data-testid="tab-chain-team">Team</TabsTrigger>
-          <TabsTrigger value="services" data-testid="tab-chain-services">Services</TabsTrigger>
-          <TabsTrigger value="booking" data-testid="tab-chain-booking">Booking</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto scrollbar-hide">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="settings" data-testid="tab-chain-settings" className="whitespace-nowrap">Settings</TabsTrigger>
+            <TabsTrigger value="team" data-testid="tab-chain-team" className="whitespace-nowrap">Team</TabsTrigger>
+            <TabsTrigger value="services" data-testid="tab-chain-services" className="whitespace-nowrap">Services</TabsTrigger>
+            <TabsTrigger value="booking" data-testid="tab-chain-booking" className="whitespace-nowrap">Booking</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="settings" className="space-y-6">
           <ChainSettingsForm

@@ -140,18 +140,20 @@ export default function ChainFlows() {
       </div>
 
       <Tabs defaultValue="campaigns">
-        <TabsList>
-          <TabsTrigger value="campaigns" className="gap-2">
-            <Send className="h-4 w-4" />
-            {t("flows.tabs.campaigns", "Campaigns")}
-            {(data?.flows ?? []).length > 0 && <Badge variant="secondary" className="ml-1">{(data?.flows ?? []).length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="promos" className="gap-2">
-            <Tag className="h-4 w-4" />
-            {t("flows.tabs.promoCodes", "Promo Codes")}
-            {promoCodes.length > 0 && <Badge variant="secondary" className="ml-1">{promoCodes.length}</Badge>}
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto scrollbar-hide">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="campaigns" className="gap-2 whitespace-nowrap">
+              <Send className="h-4 w-4" />
+              {t("flows.tabs.campaigns", "Campaigns")}
+              {(data?.flows ?? []).length > 0 && <Badge variant="secondary" className="ml-1">{(data?.flows ?? []).length}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="promos" className="gap-2 whitespace-nowrap">
+              <Tag className="h-4 w-4" />
+              {t("flows.tabs.promoCodes", "Promo Codes")}
+              {promoCodes.length > 0 && <Badge variant="secondary" className="ml-1">{promoCodes.length}</Badge>}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="campaigns" className="mt-4">
           {isLoading ? (

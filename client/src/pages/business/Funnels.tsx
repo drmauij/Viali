@@ -100,20 +100,20 @@ export default function Funnels() {
           {/* Tabs: Leads | Referrals | Conversion | Ad Performance */}
           <Tabs defaultValue="leads" className="space-y-4">
             <div className="overflow-x-auto scrollbar-hide">
-              <TabsList>
-                <TabsTrigger value="leads" data-testid="tab-marketing-leads">
+              <TabsList className="inline-flex w-auto min-w-full">
+                <TabsTrigger value="leads" data-testid="tab-marketing-leads" className="whitespace-nowrap">
                   <Inbox className="h-4 w-4 mr-1" />
                   {t('business.referrals.leadsTab', 'Leads')}
                 </TabsTrigger>
-                <TabsTrigger value="events" data-testid="tab-marketing-events">
+                <TabsTrigger value="events" data-testid="tab-marketing-events" className="whitespace-nowrap">
                   <Activity className="h-4 w-4 mr-1" />
                   {t('business.referrals.eventsTab', 'Referrals')}
                 </TabsTrigger>
-                <TabsTrigger value="conversion" data-testid="tab-marketing-conversion">
+                <TabsTrigger value="conversion" data-testid="tab-marketing-conversion" className="whitespace-nowrap">
                   <CheckCircle2 className="h-4 w-4 mr-1" />
                   {t('business.referrals.conversionTab', 'Konversion')}
                 </TabsTrigger>
-                <TabsTrigger value="ads" data-testid="tab-marketing-ads">
+                <TabsTrigger value="ads" data-testid="tab-marketing-ads" className="whitespace-nowrap">
                   <Megaphone className="h-4 w-4 mr-1" />
                   {t('business.referrals.adsTab', 'Werbeleistung')}
                 </TabsTrigger>

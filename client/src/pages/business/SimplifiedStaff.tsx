@@ -515,17 +515,19 @@ export default function SimplifiedStaff() {
       </div>
 
       <Tabs defaultValue="costs">
-        <TabsList>
-          <TabsTrigger value="costs">{t('business.staff.staffCosts')}</TabsTrigger>
-          <TabsTrigger value="timeoff">
-            {t('business.staff.timeOff')}
-            {pendingTimeOffCount > 0 && (
-              <Badge variant="destructive" className="ml-1.5 h-5 min-w-[20px] px-1.5 text-[10px]">
-                {pendingTimeOffCount}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto scrollbar-hide">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="costs" className="whitespace-nowrap">{t('business.staff.staffCosts')}</TabsTrigger>
+            <TabsTrigger value="timeoff" className="whitespace-nowrap">
+              {t('business.staff.timeOff')}
+              {pendingTimeOffCount > 0 && (
+                <Badge variant="destructive" className="ml-1.5 h-5 min-w-[20px] px-1.5 text-[10px]">
+                  {pendingTimeOffCount}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="costs" className="space-y-6 mt-4">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

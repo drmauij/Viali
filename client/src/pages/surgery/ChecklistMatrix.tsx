@@ -614,16 +614,18 @@ export default function ChecklistMatrix() {
             </div>
             
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="ml-4">
-              <TabsList>
-                <TabsTrigger value="matrix" data-testid="tab-matrix">
-                  <ClipboardCheck className="h-4 w-4 mr-2" />
-                  {t('checklistMatrix.upcoming', 'Upcoming')}
-                </TabsTrigger>
-                <TabsTrigger value="past" data-testid="tab-past">
-                  <History className="h-4 w-4 mr-2" />
-                  {t('checklistMatrix.pastSurgeries', 'Past')}
-                </TabsTrigger>
-              </TabsList>
+              <div className="overflow-x-auto scrollbar-hide">
+                <TabsList className="inline-flex w-auto min-w-full">
+                  <TabsTrigger value="matrix" data-testid="tab-matrix" className="whitespace-nowrap">
+                    <ClipboardCheck className="h-4 w-4 mr-2" />
+                    {t('checklistMatrix.upcoming', 'Upcoming')}
+                  </TabsTrigger>
+                  <TabsTrigger value="past" data-testid="tab-past" className="whitespace-nowrap">
+                    <History className="h-4 w-4 mr-2" />
+                    {t('checklistMatrix.pastSurgeries', 'Past')}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
             </Tabs>
           </div>
           

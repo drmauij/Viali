@@ -233,16 +233,18 @@ export default function ClinicAvailability() {
 
       {selectedProviderId && (
         <Tabs defaultValue="schedule" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="schedule" data-testid="tab-schedule">
-              <Clock className="h-4 w-4 mr-1" />
-              {t('availability.weeklySchedule', 'Weekly Schedule')}
-            </TabsTrigger>
-            <TabsTrigger value="timeoff" data-testid="tab-timeoff">
-              <CalendarOff className="h-4 w-4 mr-1" />
-              {t('availability.timeOff', 'Time Off')}
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto scrollbar-hide">
+            <TabsList className="inline-flex w-auto min-w-full">
+              <TabsTrigger value="schedule" data-testid="tab-schedule" className="whitespace-nowrap">
+                <Clock className="h-4 w-4 mr-1" />
+                {t('availability.weeklySchedule', 'Weekly Schedule')}
+              </TabsTrigger>
+              <TabsTrigger value="timeoff" data-testid="tab-timeoff" className="whitespace-nowrap">
+                <CalendarOff className="h-4 w-4 mr-1" />
+                {t('availability.timeOff', 'Time Off')}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="schedule">
             <Card>

@@ -643,20 +643,22 @@ export default function StaffCosts() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="staff" data-testid="tab-staff">
-            <Users className="h-4 w-4 mr-2" />
-            {t('business.staff.staffList')}
-          </TabsTrigger>
-          <TabsTrigger value="breakdown" data-testid="tab-breakdown">
-            <Activity className="h-4 w-4 mr-2" />
-            {t('business.staff.costBreakdown')}
-          </TabsTrigger>
-          <TabsTrigger value="surgeries" data-testid="tab-surgeries">
-            <Calendar className="h-4 w-4 mr-2" />
-            {t('business.staff.perSurgery')}
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto scrollbar-hide">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="staff" data-testid="tab-staff" className="whitespace-nowrap">
+              <Users className="h-4 w-4 mr-2" />
+              {t('business.staff.staffList')}
+            </TabsTrigger>
+            <TabsTrigger value="breakdown" data-testid="tab-breakdown" className="whitespace-nowrap">
+              <Activity className="h-4 w-4 mr-2" />
+              {t('business.staff.costBreakdown')}
+            </TabsTrigger>
+            <TabsTrigger value="surgeries" data-testid="tab-surgeries" className="whitespace-nowrap">
+              <Calendar className="h-4 w-4 mr-2" />
+              {t('business.staff.perSurgery')}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="staff" className="space-y-4">
           <Card>

@@ -369,22 +369,24 @@ export default function UnitWorklogs() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="pending" className="flex items-center gap-2" data-testid="tab-pending">
-            <Clock className="w-4 h-4" />
-            {t('worklogs.pending')}
-            {pendingEntries.length > 0 && (
-              <Badge variant="secondary" className="ml-1">{pendingEntries.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="countersigned" className="flex items-center gap-2" data-testid="tab-countersigned">
-            <CheckCircle className="w-4 h-4" />
-            {t('worklogs.statusCountersigned')}
-          </TabsTrigger>
-          <TabsTrigger value="links" className="flex items-center gap-2" data-testid="tab-links">
-            {t('worklogs.manageLinks')}
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto scrollbar-hide mb-4">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="pending" className="flex items-center gap-2 whitespace-nowrap" data-testid="tab-pending">
+              <Clock className="w-4 h-4" />
+              {t('worklogs.pending')}
+              {pendingEntries.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{pendingEntries.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="countersigned" className="flex items-center gap-2 whitespace-nowrap" data-testid="tab-countersigned">
+              <CheckCircle className="w-4 h-4" />
+              {t('worklogs.statusCountersigned')}
+            </TabsTrigger>
+            <TabsTrigger value="links" className="flex items-center gap-2 whitespace-nowrap" data-testid="tab-links">
+              {t('worklogs.manageLinks')}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {(activeTab === "pending" || activeTab === "countersigned") && (
           <div className="relative mb-4">

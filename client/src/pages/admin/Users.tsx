@@ -1179,16 +1179,18 @@ export default function Users() {
       ) : (
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "appUsers" | "staffMembers")} className="w-full">
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-            <TabsList>
-              <TabsTrigger value="appUsers" className="flex items-center gap-2" data-testid="tab-app-users">
-                <UsersIcon className="h-4 w-4" />
-                {t("admin.appUsers")} ({appUsersRaw.length})
-              </TabsTrigger>
-              <TabsTrigger value="staffMembers" className="flex items-center gap-2" data-testid="tab-staff-members">
-                <UserCog className="h-4 w-4" />
-                {t("admin.staffMembers")} ({staffMembersRaw.length})
-              </TabsTrigger>
-            </TabsList>
+            <div className="overflow-x-auto scrollbar-hide">
+              <TabsList className="inline-flex w-auto min-w-full">
+                <TabsTrigger value="appUsers" className="flex items-center gap-2 whitespace-nowrap" data-testid="tab-app-users">
+                  <UsersIcon className="h-4 w-4" />
+                  {t("admin.appUsers")} ({appUsersRaw.length})
+                </TabsTrigger>
+                <TabsTrigger value="staffMembers" className="flex items-center gap-2 whitespace-nowrap" data-testid="tab-staff-members">
+                  <UserCog className="h-4 w-4" />
+                  {t("admin.staffMembers")} ({staffMembersRaw.length})
+                </TabsTrigger>
+              </TabsList>
+            </div>
             {activeTab === "appUsers" ? (
               <Button onClick={handleCreateUser} size="sm" data-testid="button-create-user">
                 <i className="fas fa-user-plus mr-2"></i>
