@@ -689,7 +689,7 @@ router.post('/api/patients/:id/documents', isAuthenticated, requireWriteAccess, 
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { category, fileName, fileUrl, mimeType, fileSize, description, documentFolderId } = req.body;
+    const { category, fileName, fileUrl, mimeType, fileSize, description, documentFolderId, tissueSampleId } = req.body;
 
     const patient = await storage.getPatient(id);
 
@@ -714,6 +714,7 @@ router.post('/api/patients/:id/documents', isAuthenticated, requireWriteAccess, 
       description,
       uploadedBy: userId,
       documentFolderId: documentFolderId || null,
+      tissueSampleId: tissueSampleId ?? null,
     });
 
     res.status(201).json(document);

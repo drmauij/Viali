@@ -124,6 +124,7 @@ export function PatientDocumentsSection({
   const [deleteFolderConfirm, setDeleteFolderConfirm] = useState<DocumentFolder | null>(null);
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
   const [uploadFolderId, setUploadFolderId] = useState<string | null>(null);
+  const [uploadTissueSampleId, setUploadTissueSampleId] = useState<string | null>(null);
 
   // Brief state
   const [deleteBriefConfirm, setDeleteBriefConfirm] = useState<DischargeBrief | null>(null);
@@ -228,10 +229,17 @@ export function PatientDocumentsSection({
     enabled: !!patientId,
   });
 
+  const { data: tissueSamplesData } = useQuery<{ id: string; code: string }[]>({
+    queryKey: ["tissue-samples", patientId],
+    queryFn: () =>
+      apiRequest("GET", `/api/patients/${patientId}/tissue-samples`).then((r) => r.json()),
+    enabled: Boolean(patientId),
+  });
+
   // ========== UPLOAD MUTATION (supports multiple files) ==========
 
   const uploadMutation = useMutation({
-    mutationFn: async ({ files, category, description, folderId }: { files: File[]; category: string; description: string; folderId?: string | null }) => {
+    mutationFn: async ({ files, category, description, folderId, tissueSampleId }: { files: File[]; category: string; description: string; folderId?: string | null; tissueSampleId?: string | null }) => {
       await Promise.all(files.map(async (file) => {
         const urlRes = await apiRequest('POST', `/api/patients/${patientId}/documents/upload-url`, {
           filename: file.name,
@@ -260,6 +268,7 @@ export function PatientDocumentsSection({
           description: description || null,
           source: 'staff_upload',
           documentFolderId: folderId || null,
+          tissueSampleId: tissueSampleId ?? null,
         });
       }));
     },
@@ -270,6 +279,7 @@ export function PatientDocumentsSection({
       setUploadCategory('other');
       setUploadDescription('');
       setUploadFolderId(null);
+      setUploadTissueSampleId(null);
       toast({
         title: t('common.success'),
         description: t('anesthesia.patientDetail.documentUploaded', 'Document uploaded successfully'),
@@ -482,7 +492,7 @@ export function PatientDocumentsSection({
 
   const handleUpload = () => {
     if (pendingFiles.length > 0) {
-      uploadMutation.mutate({ files: pendingFiles, category: uploadCategory, description: uploadDescription, folderId: uploadFolderId });
+      uploadMutation.mutate({ files: pendingFiles, category: uploadCategory, description: uploadDescription, folderId: uploadFolderId, tissueSampleId: uploadTissueSampleId });
     }
   };
 
@@ -1245,6 +1255,23 @@ export function PatientDocumentsSection({
                 placeholder={t('anesthesia.patientDetail.descriptionPlaceholder', 'Brief description of the document')}
                 data-testid="input-upload-description"
               />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('tissueSamples.code')}</Label>
+              <Select
+                value={uploadTissueSampleId ?? "none"}
+                onValueChange={(v) => setUploadTissueSampleId(v === "none" ? null : v)}
+              >
+                <SelectTrigger data-testid="select-document-tissue-sample">
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">—</SelectItem>
+                  {(tissueSamplesData ?? []).map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.code}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
