@@ -120,4 +120,42 @@ describe("brandingExtractor", () => {
   it("rejects hostnames that don't resolve", async () => {
     await expect(extractThemeFromUrl("http://nxdomain.example.test/")).rejects.toThrow(/did not resolve/i);
   });
+
+  it("normalises CSS-style font-family fallbacks", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        content: [{ type: "text", text: JSON.stringify({
+          bgColor: "#ffffff",
+          primaryColor: "#000000",
+          secondaryColor: "#333333",
+          headingFont: '"Helvetica Neue", Arial, sans-serif',
+          bodyFont: "Source-Sans-3",
+        }) }],
+      }),
+    });
+    const result = await extractThemeFromUrl("https://real.example.test");
+    // Both should map cleanly via nearestMatch and not throw on hyphens or commas.
+    expect(result.headingFont).toBeTruthy();
+    expect(result.bodyFont).toBeTruthy();
+  });
+
+  it("normalises rgb() and uppercase hex colors from Claude", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        content: [{ type: "text", text: JSON.stringify({
+          bgColor: "rgb(250, 250, 250)",
+          primaryColor: "C89B6B",
+          secondaryColor: "#4A3727FF",
+          headingFont: "Inter",
+          bodyFont: "Inter",
+        }) }],
+      }),
+    });
+    const result = await extractThemeFromUrl("https://real.example.test");
+    expect(result.bgColor).toBe("#fafafa");
+    expect(result.primaryColor).toBe("#c89b6b");
+    expect(result.secondaryColor).toBe("#4a3727");
+  });
 });

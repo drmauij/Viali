@@ -52,11 +52,27 @@ export function BookingThemeStyle({ theme }: Props) {
 
   const cascade: string[] = [];
 
-  // Fonts.
-  if (theme.bodyFont) cascade.push(`[data-booking-root] { font-family: var(--book-body-font); }`);
+  // Fonts. Form elements (<input>, <button>, <select>, <textarea>) don't
+  // inherit font-family from their parent by browser default, so we have to
+  // force inheritance explicitly — otherwise body-font styling applies to
+  // labels and copy but not to inputs/buttons, which looks incoherent.
+  if (theme.bodyFont) {
+    cascade.push(`[data-booking-root] { font-family: var(--book-body-font); }`);
+    cascade.push(
+      `[data-booking-root] input, ` +
+        `[data-booking-root] button, ` +
+        `[data-booking-root] select, ` +
+        `[data-booking-root] textarea { font-family: inherit; }`,
+    );
+  }
   if (theme.headingFont) {
     cascade.push(
-      `[data-booking-root] h1, [data-booking-root] h2, [data-booking-root] h3, [data-booking-root] h4 { font-family: var(--book-heading-font); }`,
+      `[data-booking-root] h1, ` +
+        `[data-booking-root] h2, ` +
+        `[data-booking-root] h3, ` +
+        `[data-booking-root] h4, ` +
+        `[data-booking-root] h5, ` +
+        `[data-booking-root] h6 { font-family: var(--book-heading-font); }`,
     );
   }
 
@@ -134,6 +150,24 @@ export function BookingThemeStyle({ theme }: Props) {
         `[data-booking-root] .hover\\:bg-blue-500\\/20:hover { ` +
         `background-color: color-mix(in srgb, var(--book-primary) 88%, black) !important; ` +
         `color: var(--book-primary-fg) !important; ` +
+        `}`,
+    );
+    // Disabled state — shadcn's base Button has `disabled:opacity-50`, which
+    // on a primary-colored button washes both the background AND the text
+    // into the page bg, leaving the label barely readable. Override with a
+    // pale primary tint background + a dark primary-derived text color so
+    // the button stays on-brand but stays legible. `opacity: 1` undoes the
+    // shadcn base; `!important` is required because the page sets the
+    // background via inline style.
+    cascade.push(
+      `[data-booking-root] button:disabled, ` +
+        `[data-booking-root] button[disabled] { ` +
+        `opacity: 1 !important; ` +
+        `background: color-mix(in srgb, var(--book-primary) 22%, white) !important; ` +
+        `background-color: color-mix(in srgb, var(--book-primary) 22%, white) !important; ` +
+        `color: color-mix(in srgb, var(--book-primary) 75%, black) !important; ` +
+        `box-shadow: none !important; ` +
+        `cursor: not-allowed; ` +
         `}`,
     );
   }

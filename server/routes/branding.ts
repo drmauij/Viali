@@ -226,12 +226,15 @@ router.post(
       res.json(result);
     } catch (err: any) {
       logger.warn(
-        { err: err?.message, url: url.data },
+        { err: err?.message, stack: err?.stack, url: url.data },
         "branding extract failed",
       );
+      const detail =
+        process.env.NODE_ENV !== "production" ? err?.message : undefined;
       res.status(502).json({
         error:
           "Couldn't load that page. Try a direct URL or fill the fields manually.",
+        ...(detail ? { detail } : {}),
       });
     }
   },

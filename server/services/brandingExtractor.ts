@@ -15,6 +15,11 @@ const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 // catalog entry, but if Claude ever returns garbage that incidentally
 // matches the catalog name AND has weird chars, this guards us).
 const FONT_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9 ]*$/;
+// Pre-validation, we normalise Claude's output so common-but-invalid forms
+// (CSS-style font fallbacks, rgb()/rgba() colors, hex without `#`) don't
+// throw. The downstream `nearestMatch` does fuzzy mapping anyway, so the
+// font input just needs to be a clean catalog-style token; for colors we
+// only accept #RGB/#RRGGBB (no alpha) since they're stored as-is.
 const claudeShape = z.object({
   bgColor: z.string().regex(HEX_RE),
   primaryColor: z.string().regex(HEX_RE),
@@ -24,6 +29,36 @@ const claudeShape = z.object({
   cardRadius: z.enum(["sharp", "rounded", "pill"]).optional(),
   buttonStyle: z.enum(["filled", "outline", "ghost"]).optional(),
 });
+
+function normaliseColor(input: unknown): unknown {
+  if (typeof input !== "string") return input;
+  let s = input.trim();
+  // rgb(r, g, b) or rgba(r, g, b, a) → #rrggbb (alpha dropped)
+  const rgbMatch = s.match(
+    /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*[\d.]+)?\s*\)$/i,
+  );
+  if (rgbMatch) {
+    const toHex = (n: string) =>
+      Math.max(0, Math.min(255, parseInt(n, 10)))
+        .toString(16)
+        .padStart(2, "0");
+    return `#${toHex(rgbMatch[1])}${toHex(rgbMatch[2])}${toHex(rgbMatch[3])}`;
+  }
+  if (!s.startsWith("#")) s = `#${s}`;
+  // Strip alpha channel if Claude returns 8-digit hex (#rrggbbaa).
+  if (/^#[0-9a-fA-F]{8}$/.test(s)) s = s.slice(0, 7);
+  return s.toLowerCase();
+}
+
+function normaliseFont(input: unknown): unknown {
+  if (typeof input !== "string") return input;
+  // Take the first entry from a CSS font-family list, strip surrounding
+  // quotes, replace separators (hyphen, underscore, dot) with space, then
+  // collapse whitespace. nearestMatch handles fuzzy mapping after this.
+  let s = input.split(",")[0].trim().replace(/^['"]|['"]$/g, "");
+  s = s.replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim();
+  return s.slice(0, 60);
+}
 
 function isPrivateOrReservedIp(ip: string): boolean {
   if (!isIP(ip)) return false;
@@ -190,15 +225,30 @@ export async function extractThemeFromUrl(url: string): Promise<ExtractResult> {
   const start = candidate.indexOf("{");
   const end = candidate.lastIndexOf("}");
   const jsonText = start >= 0 && end > start ? candidate.slice(start, end + 1) : candidate;
-  let raw: unknown;
+  let raw: any;
   try {
     raw = JSON.parse(jsonText);
   } catch {
     logger.warn({ snippet: text.slice(0, 500) }, "Failed to parse Claude response as JSON");
     throw new Error("Failed to parse Claude response as JSON");
   }
+  if (raw && typeof raw === "object") {
+    raw.bgColor = normaliseColor(raw.bgColor);
+    raw.primaryColor = normaliseColor(raw.primaryColor);
+    raw.secondaryColor = normaliseColor(raw.secondaryColor);
+    raw.headingFont = normaliseFont(raw.headingFont);
+    raw.bodyFont = normaliseFont(raw.bodyFont);
+  }
   const result = claudeShape.safeParse(raw);
-  if (!result.success) throw new Error(`Failed to parse Claude response: ${result.error.message}`);
+  if (!result.success) {
+    logger.warn(
+      { raw, issues: result.error.flatten() },
+      "Claude branding output failed schema validation",
+    );
+    throw new Error(
+      `Claude branding output invalid: ${result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`,
+    );
+  }
 
   const headingMapped = nearestMatch(result.data.headingFont, "heading");
   const bodyMapped = nearestMatch(result.data.bodyFont, "body");
