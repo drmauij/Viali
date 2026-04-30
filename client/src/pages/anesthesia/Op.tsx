@@ -19,10 +19,6 @@ import { CountsSterileTab } from "@/pages/anesthesia/op/CountsSterileTab";
 import { AllergiesDialog } from "@/pages/anesthesia/op/AllergiesDialog";
 import { IntraoperativeMedicationsCard } from "@/components/anesthesia/IntraoperativeMedicationsCard";
 import { OrdersGlanceCard } from "@/components/anesthesia/postop/OrdersGlanceCard";
-import { TissueSampleList } from "@/components/tissueSamples/TissueSampleList";
-import { AddTissueSampleDialog } from "@/components/tissueSamples/AddTissueSampleDialog";
-import { LinkReimplantDialog } from "@/components/tissueSamples/LinkReimplantDialog";
-import { LinkExistingSampleDialog } from "@/components/tissueSamples/LinkExistingSampleDialog";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { PostopTasksPanel } from "@/components/anesthesia/postop/PostopTasksPanel";
 import { OrderSetEditorDialog } from "@/components/anesthesia/postop/OrderSetEditorDialog";
@@ -2347,7 +2343,6 @@ export default function Op() {
                   anesthesiaRecord={anesthesiaRecord}
                   t={t}
                 />
-                <TissueSamplesIntraopCard surgery={surgery} />
               </TabsContent>
               
               {/* Counts & Sterile Goods Tab (Combined) */}
@@ -2418,93 +2413,3 @@ export default function Op() {
   );
 }
 
-function TissueSamplesIntraopCard({ surgery }: { surgery: any }) {
-  const { t } = useTranslation();
-  const canWrite = useCanWrite();
-  const [addOpen, setAddOpen] = useState(false);
-  const [linkOpen, setLinkOpen] = useState(false);
-  const [linkExistingOpen, setLinkExistingOpen] = useState(false);
-
-  const { data: patientSamples } = useQuery<any[]>({
-    queryKey: ["tissue-samples", surgery.patientId],
-    queryFn: () =>
-      apiRequest("GET", `/api/patients/${surgery.patientId}/tissue-samples`).then(
-        (r) => r.json(),
-      ),
-    enabled: Boolean(surgery.patientId),
-  });
-
-  const hasReimplantCandidate = (patientSamples ?? []).some(
-    (s) => s.status === "Angefordert zur Reimplantation",
-  );
-  // Pre-created (e.g. by an OR nurse before the case starts) and not yet
-  // destroyed. The dialog re-applies the same filter, but gating the button
-  // here keeps it hidden when there's nothing to link.
-  const hasUnlinkedSample = (patientSamples ?? []).some(
-    (s) => s.extractionSurgeryId === null && s.status !== "Vernichtet",
-  );
-
-  return (
-    <Card data-testid="card-tissue-samples-intraop">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>{t("tissueSamples.sectionTitle")}</CardTitle>
-        {canWrite && (
-          <div className="flex gap-2">
-            <Button size="sm" onClick={() => setAddOpen(true)} data-testid="button-add-tissue-sample-intraop">
-              {t("tissueSamples.addSample")}
-            </Button>
-            {hasReimplantCandidate && (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => setLinkOpen(true)}
-                data-testid="button-link-reimplant-intraop"
-              >
-                {t("tissueSamples.linkReimplant")}
-              </Button>
-            )}
-            {hasUnlinkedSample && (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => setLinkExistingOpen(true)}
-                data-testid="button-link-existing-sample-intraop"
-              >
-                {t("tissueSamples.linkExistingSample")}
-              </Button>
-            )}
-          </div>
-        )}
-      </CardHeader>
-      <CardContent>
-        <TissueSampleList surgeryId={surgery.id} patientId={surgery.patientId} variant="intraop" />
-      </CardContent>
-
-      {surgery.patientId && (
-        <AddTissueSampleDialog
-          patientId={surgery.patientId}
-          extractionSurgeryId={surgery.id}
-          open={addOpen}
-          onOpenChange={setAddOpen}
-        />
-      )}
-      {surgery.patientId && (
-        <LinkReimplantDialog
-          patientId={surgery.patientId}
-          surgeryId={surgery.id}
-          open={linkOpen}
-          onOpenChange={setLinkOpen}
-        />
-      )}
-      {surgery.patientId && (
-        <LinkExistingSampleDialog
-          patientId={surgery.patientId}
-          surgeryId={surgery.id}
-          patientSamples={patientSamples}
-          open={linkExistingOpen}
-          onOpenChange={setLinkExistingOpen}
-        />
-      )}
-    </Card>
-  );
-}

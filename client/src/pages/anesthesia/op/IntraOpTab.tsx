@@ -12,6 +12,11 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from "@/lib/utils";
 import { OrMedicationsCard } from "@/components/anesthesia/OrMedicationsCard";
 import SignaturePad from "@/components/SignaturePad";
+import { TissueSampleList } from "@/components/tissueSamples/TissueSampleList";
+import { AddTissueSampleDialog } from "@/components/tissueSamples/AddTissueSampleDialog";
+import { LinkReimplantDialog } from "@/components/tissueSamples/LinkReimplantDialog";
+import { LinkExistingSampleDialog } from "@/components/tissueSamples/LinkExistingSampleDialog";
+import { useCanWrite } from "@/hooks/useCanWrite";
 import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -146,6 +151,31 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
   // Signature pad dialogs for surgery module
   const [showIntraOpSignaturePad, setShowIntraOpSignaturePad] = useState<'circulating' | 'instrument' | null>(null);
 
+  // Tissue & Samples (intraop) state
+  const canWrite = useCanWrite();
+  const [tissueSamplesAddOpen, setTissueSamplesAddOpen] = useState(false);
+  const [tissueSamplesLinkReimplantOpen, setTissueSamplesLinkReimplantOpen] = useState(false);
+  const [tissueSamplesLinkExistingOpen, setTissueSamplesLinkExistingOpen] = useState(false);
+  const { data: patientTissueSamples } = useQuery<any[]>({
+    queryKey: ["tissue-samples", surgery?.patientId],
+    queryFn: () =>
+      apiRequest("GET", `/api/patients/${surgery?.patientId}/tissue-samples`).then(
+        (r) => r.json(),
+      ),
+    enabled: Boolean(surgery?.patientId),
+  });
+  const hasReimplantCandidate = (patientTissueSamples ?? []).some(
+    (s) => s.status === "Angefordert zur Reimplantation",
+  );
+  const hasUnlinkedSample = (patientTissueSamples ?? []).some(
+    (s) => s.extractionSurgeryId === null && s.status !== "Vernichtet",
+  );
+  const hasSamplesForThisSurgery = (patientTissueSamples ?? []).some(
+    (s) =>
+      s.extractionSurgeryId === surgery?.id ||
+      s.reimplantSurgeryId === surgery?.id,
+  );
+
   // Intraoperative Data state
   const [intraOpData, setIntraOpData] = useState<IntraOpData>({});
 
@@ -181,6 +211,7 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
     drainage: false,
     xray: false,
     intraoperativeNotes: false,
+    tissueSamples: false,
     signatures: true,
   });
 
@@ -215,6 +246,8 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
         return !!(intraOpData.xray?.used);
       case 'intraoperativeNotes':
         return !!intraOpData.intraoperativeNotes;
+      case 'tissueSamples':
+        return hasSamplesForThisSurgery;
       case 'signatures':
         return !!(intraOpData.signatures?.circulatingNurse || intraOpData.signatures?.instrumentNurse);
       default:
@@ -1753,6 +1786,86 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
         </CardContent>
         )}
       </Card>
+
+      {/* Tissue & Samples Section */}
+      <Card data-testid="card-tissue-samples-intraop">
+        <CardHeader
+          className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => toggleIntraOpSection('tissueSamples')}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CardTitle>{t('tissueSamples.sectionTitle')}</CardTitle>
+              {!expandedIntraOpSections.tissueSamples && hasIntraOpData('tissueSamples') && (
+                <div className="h-2 w-2 rounded-full bg-primary" />
+              )}
+            </div>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.tissueSamples ? '' : '-rotate-90'}`} />
+          </div>
+        </CardHeader>
+        {expandedIntraOpSections.tissueSamples && (
+        <CardContent className="space-y-3">
+          {canWrite && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                onClick={() => setTissueSamplesAddOpen(true)}
+                data-testid="button-add-tissue-sample-intraop"
+              >
+                {t('tissueSamples.addSample')}
+              </Button>
+              {hasReimplantCandidate && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setTissueSamplesLinkReimplantOpen(true)}
+                  data-testid="button-link-reimplant-intraop"
+                >
+                  {t('tissueSamples.linkReimplant')}
+                </Button>
+              )}
+              {hasUnlinkedSample && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setTissueSamplesLinkExistingOpen(true)}
+                  data-testid="button-link-existing-sample-intraop"
+                >
+                  {t('tissueSamples.linkExistingSample')}
+                </Button>
+              )}
+            </div>
+          )}
+          <TissueSampleList surgeryId={surgery?.id} patientId={surgery?.patientId} variant="intraop" />
+        </CardContent>
+        )}
+      </Card>
+
+      {surgery?.patientId && (
+        <AddTissueSampleDialog
+          patientId={surgery.patientId}
+          extractionSurgeryId={surgery.id}
+          open={tissueSamplesAddOpen}
+          onOpenChange={setTissueSamplesAddOpen}
+        />
+      )}
+      {surgery?.patientId && (
+        <LinkReimplantDialog
+          patientId={surgery.patientId}
+          surgeryId={surgery.id}
+          open={tissueSamplesLinkReimplantOpen}
+          onOpenChange={setTissueSamplesLinkReimplantOpen}
+        />
+      )}
+      {surgery?.patientId && (
+        <LinkExistingSampleDialog
+          patientId={surgery.patientId}
+          surgeryId={surgery.id}
+          patientSamples={patientTissueSamples}
+          open={tissueSamplesLinkExistingOpen}
+          onOpenChange={setTissueSamplesLinkExistingOpen}
+        />
+      )}
 
       <Card>
         <CardHeader className="py-3">
