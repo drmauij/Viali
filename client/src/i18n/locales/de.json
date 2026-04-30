@@ -8541,6 +8541,20 @@
     "admin": {
       "prefixLabel": "Sample-Code-Präfix",
       "prefixHelp": "3–5 Großbuchstaben (z. B. PKK). Einmalig festgelegt; kann nach der ersten Probe nicht mehr geändert werden."
+    },
+    "labs": {
+      "tabLabel": "Externe Labore",
+      "add": "Labor hinzufügen",
+      "name": "Name",
+      "applicableTypes": "Probentyp(en)",
+      "applicableTypesAll": "Alle Typen",
+      "contact": "Kontakt",
+      "isDefault": "Standard",
+      "archive": "Archivieren",
+      "archiveConfirm": "Labor archivieren?",
+      "empty": "Keine externen Labore konfiguriert.",
+      "otherLabel": "Anderes Labor (manuell eingeben)",
+      "manualPlaceholder": "Laborname"
     }
   }
 }

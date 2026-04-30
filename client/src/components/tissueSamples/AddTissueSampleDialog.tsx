@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -51,7 +51,15 @@ interface Props {
   onCreated?: (sample: TissueSample) => void;
 }
 
+interface Lab {
+  id: string;
+  name: string;
+  applicableSampleTypes: string[] | null;
+  isDefault: boolean;
+}
+
 const NO_SURGERY = "__none__";
+const OTHER_LAB = "__other__";
 
 export function AddTissueSampleDialog({
   patientId,
@@ -72,16 +80,43 @@ export function AddTissueSampleDialog({
     enabledTypes[0],
   );
   const [notes, setNotes] = useState("");
-  // Phase A: defaultExternalLab moved out of TISSUE_SAMPLE_TYPES into the
-  // per-clinic labs registry. Phase B will wire the labs API and resolve
-  // the default at runtime; until then start with an empty value.
-  const [externalLab, setExternalLab] = useState("");
+  // Phase B: external lab is now a Select sourced from
+  // GET /api/tissue-sample-external-labs?type=<sampleType>. The user can
+  // pick an existing lab or fall back to manual free-text via "__other__".
+  const [pickedLabId, setPickedLabId] = useState<string>("");
+  const [manualLabName, setManualLabName] = useState<string>("");
   const [pickedSurgeryId, setPickedSurgeryId] = useState<string>(NO_SURGERY);
+
+  const labsQuery = useQuery<Lab[]>({
+    queryKey: [`/api/tissue-sample-external-labs?type=${sampleType}`],
+    enabled: open,
+  });
+  const labs = labsQuery.data ?? [];
+
+  // Auto-select the default lab (or the first lab) when the labs list
+  // refreshes and we don't yet have a picked value. If there are no labs at
+  // all, fall back to the manual-entry sentinel.
+  useEffect(() => {
+    if (!open) return;
+    if (labsQuery.isLoading) return;
+    if (pickedLabId) return; // user already chose
+    if (labs.length === 0) {
+      setPickedLabId(OTHER_LAB);
+      return;
+    }
+    const def = labs.find((l) => l.isDefault) ?? labs[0];
+    setPickedLabId(def.id);
+  }, [open, labsQuery.isLoading, labs, pickedLabId]);
 
   const showSurgeryPicker =
     !extractionSurgeryId && Array.isArray(availableSurgeries);
   const resolvedSurgeryId = extractionSurgeryId
     ?? (pickedSurgeryId === NO_SURGERY ? null : pickedSurgeryId);
+
+  const resolvedLabName: string | null =
+    pickedLabId === OTHER_LAB
+      ? manualLabName.trim() || null
+      : labs.find((l) => l.id === pickedLabId)?.name ?? null;
 
   const m = useMutation({
     mutationFn: async (): Promise<TissueSample> => {
@@ -95,7 +130,7 @@ export function AddTissueSampleDialog({
           sampleType,
           notes: notes || null,
           extractionSurgeryId: resolvedSurgeryId,
-          externalLab: externalLab || null,
+          externalLab: resolvedLabName,
         },
       );
       return res.json();
@@ -115,6 +150,7 @@ export function AddTissueSampleDialog({
       onCreated?.(sample);
       onOpenChange(false);
       setNotes("");
+      setManualLabName("");
       setPickedSurgeryId(NO_SURGERY);
     },
     onError: (e: Error & { code?: string }) => {
@@ -144,9 +180,10 @@ export function AddTissueSampleDialog({
               value={sampleType}
               onValueChange={(v) => {
                 setSampleType(v as TissueSampleType);
-                // Phase A: external-lab default no longer comes from the
-                // type config; Phase B will resolve from the labs API.
-                setExternalLab("");
+                // Reset lab selection so the labs query can re-pick the
+                // default for the new type.
+                setPickedLabId("");
+                setManualLabName("");
               }}
             >
               <SelectTrigger data-testid="select-tissue-sample-type">
@@ -163,11 +200,36 @@ export function AddTissueSampleDialog({
           </div>
           <div>
             <Label>{t("tissueSamples.externalLab")}</Label>
-            <Input
-              value={externalLab}
-              onChange={(e) => setExternalLab(e.target.value)}
-              data-testid="input-tissue-sample-external-lab"
-            />
+            <Select
+              value={pickedLabId}
+              onValueChange={(v) => setPickedLabId(v)}
+            >
+              <SelectTrigger data-testid="select-tissue-sample-external-lab">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {labs.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}
+                    {l.isDefault
+                      ? ` · ${t("tissueSamples.labs.isDefault")}`
+                      : ""}
+                  </SelectItem>
+                ))}
+                <SelectItem value={OTHER_LAB}>
+                  {t("tissueSamples.labs.otherLabel")}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            {pickedLabId === OTHER_LAB && (
+              <Input
+                className="mt-2"
+                value={manualLabName}
+                onChange={(e) => setManualLabName(e.target.value)}
+                placeholder={t("tissueSamples.labs.manualPlaceholder")}
+                data-testid="input-tissue-sample-external-lab-manual"
+              />
+            )}
           </div>
           {showSurgeryPicker && (
             <div>

@@ -23,6 +23,7 @@ import QRCode from "qrcode";
 import { LoginAuditLogTab } from "./LoginAuditLog";
 import { BookingTokenSection } from "./components/BookingTokenSection";
 import Branding from "./Branding";
+import { TissueSampleLabsPanel } from "@/components/admin/TissueSampleLabsPanel";
 
 export default function SettingsPage() {
   const { t } = useTranslation();
@@ -751,6 +752,10 @@ export default function SettingsPage() {
                 <i className="fas fa-boxes-stacked mr-2"></i>
                 {t("admin.inventoryTab", "Inventory")}
               </TabsTrigger>
+              <TabsTrigger value="tissue-labs">
+                <i className="fas fa-vial mr-2"></i>
+                {t("tissueSamples.labs.tabLabel")}
+              </TabsTrigger>
             </TabsList>
 
             {/* Closures Sub-Tab */}
@@ -1303,6 +1308,11 @@ export default function SettingsPage() {
                   </Button>
                 </div>
               </div>
+            </TabsContent>
+
+            {/* Tissue Labs Sub-Tab */}
+            <TabsContent value="tissue-labs" className="mt-4">
+              <TissueSampleLabsPanel />
             </TabsContent>
 
           </Tabs>

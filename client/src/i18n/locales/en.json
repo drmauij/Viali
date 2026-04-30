@@ -8523,6 +8523,20 @@
     "admin": {
       "prefixLabel": "Sample code prefix",
       "prefixHelp": "3–5 uppercase letters (e.g. PKK). Set once; cannot be changed after the first sample is created."
+    },
+    "labs": {
+      "tabLabel": "External labs",
+      "add": "Add lab",
+      "name": "Name",
+      "applicableTypes": "Sample type(s)",
+      "applicableTypesAll": "All types",
+      "contact": "Contact",
+      "isDefault": "Default",
+      "archive": "Archive",
+      "archiveConfirm": "Archive lab?",
+      "empty": "No external labs configured.",
+      "otherLabel": "Other lab (specify)",
+      "manualPlaceholder": "Lab name"
     }
   }
 }
