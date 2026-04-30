@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { users, userHospitalRoles, activities, chopProcedures, hinArticles, items, itemCodes, supplierCodes, patientMerges } from "@shared/schema";
+import { users, userHospitalRoles, activities, chopProcedures, hinArticles, items, itemCodes, supplierCodes, patientMerges, hospitals, tissueSamples } from "@shared/schema";
 import { importChopProcedures } from "../scripts/importChop";
 import { eq, and, sql, or, isNotNull, desc, max } from "drizzle-orm";
 import * as XLSX from 'xlsx';
@@ -44,6 +44,7 @@ const updateHospitalSchema = z.object({
   defaultAdmissionOffsetMinutes: z.number().int().min(0).max(1440).optional(),
   treatmentInventorySourceUnitType: z.enum(["clinic", "or"]).optional(),
   clinicKind: z.enum(["aesthetic", "surgical", "mixed"]).optional(),
+  sampleCodePrefix: z.string().min(3).max(8).regex(/^[A-Z0-9]+$/).nullable().optional(),
 });
 
 const updateUnitSchema = z.object({
@@ -135,6 +136,31 @@ router.patch('/api/admin/:hospitalId', isAuthenticated, isAdmin, async (req, res
     const parsed = updateHospitalSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten().fieldErrors });
+    }
+
+    // Set-once enforcement on sampleCodePrefix: once any tissue sample exists
+    // for the hospital, the prefix is locked. Setting from null/empty is allowed.
+    if (parsed.data.sampleCodePrefix !== undefined) {
+      const [existingHospital] = await db
+        .select({ current: hospitals.sampleCodePrefix })
+        .from(hospitals)
+        .where(eq(hospitals.id, hospitalId));
+      if (
+        existingHospital?.current &&
+        existingHospital.current !== parsed.data.sampleCodePrefix
+      ) {
+        const [hasSamples] = await db
+          .select({ id: tissueSamples.id })
+          .from(tissueSamples)
+          .where(eq(tissueSamples.hospitalId, hospitalId))
+          .limit(1);
+        if (hasSamples) {
+          return res.status(422).json({
+            message: "Cannot change prefix: tissue samples already exist.",
+            code: "PREFIX_LOCKED",
+          });
+        }
+      }
     }
 
     const updates: Record<string, any> = {};

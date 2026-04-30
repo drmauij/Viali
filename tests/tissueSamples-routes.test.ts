@@ -22,11 +22,15 @@ vi.mock("../server/auth/google", () => ({
 // tests/access-control-groups.test.ts and tests/patient-detail-audit.test.ts.
 vi.mock("../server/utils", () => ({
   requireWriteAccess: (_req: any, _res: any, next: any) => next(),
+  requireStrictHospitalAccess: (_req: any, _res: any, next: any) => next(),
+  requireResourceAdmin: () => (_req: any, _res: any, next: any) => next(),
   userHasGroupAwareHospitalAccess: async () => true,
 }));
 
 // Import the router AFTER the mocks so it picks up the bypassed middleware.
 import tissueSamplesRouter from "../server/routes/anesthesia/tissueSamples";
+import adminRouter from "../server/routes/admin";
+import { storage } from "../server/storage";
 
 const TEST_HOSPITAL_ID = "93c37796-9d15-4931-aca9-a7f494bd3a16";
 let testPatientId: string;
@@ -241,5 +245,52 @@ describe("PATCH /api/tissue-samples/:id", () => {
       .send({ notes: "after" });
     expect(res.status).toBe(200);
     expect(res.body.notes).toBe("after");
+  });
+});
+
+describe("PATCH hospital sample_code_prefix lock", () => {
+  function buildAdminApp() {
+    const app = express();
+    app.use(express.json());
+    app.use((req: any, _res, next) => {
+      req.user = { id: testUserId ?? "test-user-id" };
+      next();
+    });
+    app.use(adminRouter);
+    return app;
+  }
+
+  it("returns 422 PREFIX_LOCKED when changing prefix after a sample exists", async () => {
+    // Stub admin role check so the PATCH route's isAdmin middleware passes.
+    const spy = vi
+      .spyOn(storage, "getUserHospitals")
+      .mockResolvedValue([
+        { id: TEST_HOSPITAL_ID, role: "admin" } as any,
+      ]);
+
+    try {
+      // Ensure prefix is set to a known value (also covered by beforeAll).
+      await db
+        .update(hospitals)
+        .set({ sampleCodePrefix: "TST" })
+        .where(eq(hospitals.id, TEST_HOSPITAL_ID));
+
+      const tissueApp = buildApp();
+      const create = await request(tissueApp)
+        .post(`/api/patients/${testPatientId}/tissue-samples`)
+        .send({ sampleType: "fat", notes: null });
+      expect(create.status).toBe(201);
+      createdSampleIds.push(create.body.id);
+
+      // Then attempt to change the prefix on the admin route.
+      const adminApp = buildAdminApp();
+      const res = await request(adminApp)
+        .patch(`/api/admin/${TEST_HOSPITAL_ID}`)
+        .send({ sampleCodePrefix: "XXX" });
+      expect(res.status).toBe(422);
+      expect(res.body.code).toBe("PREFIX_LOCKED");
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
