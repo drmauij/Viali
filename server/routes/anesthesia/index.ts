@@ -16,6 +16,7 @@ import postopOrdersRouter from "./postopOrders";
 import postopDeviationAcksRouter from "./postopDeviationAcks";
 import postopMedAdminRouter from "./postopMedAdmin";
 import tissueSamplesRouter from "./tissueSamples";
+import tissueSampleExternalLabsRouter from "./tissueSampleExternalLabs";
 
 const router = Router();
 
@@ -36,5 +37,6 @@ router.use(postopOrdersRouter);
 router.use(postopDeviationAcksRouter);
 router.use(postopMedAdminRouter);
 router.use(tissueSamplesRouter);
+router.use(tissueSampleExternalLabsRouter);
 
 export default router;
