@@ -19,9 +19,18 @@ import {
 const TEST_HOSPITAL_ID = "93c37796-9d15-4931-aca9-a7f494bd3a16";
 let testPatientId: string;
 let testUserId: string;
+let originalPrefix: string | null = null;
 const createdSampleIds: string[] = [];
 
 beforeAll(async () => {
+  // Capture the existing prefix so afterAll can restore it. We don't want
+  // tests to leak "TST" into the dev database.
+  const [original] = await db
+    .select({ p: hospitals.sampleCodePrefix })
+    .from(hospitals)
+    .where(eq(hospitals.id, TEST_HOSPITAL_ID));
+  originalPrefix = original?.p ?? null;
+
   // Ensure the test hospital has a sample_code_prefix.
   await db
     .update(hospitals)
@@ -41,10 +50,21 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (createdSampleIds.length) {
+    // History rows cascade via FK; explicit delete is defensive for the
+    // synthetic histology row that doesn't go through createTissueSample.
+    await db
+      .delete(tissueSampleStatusHistory)
+      .where(inArray(tissueSampleStatusHistory.sampleId, createdSampleIds))
+      .catch(() => {});
     await db
       .delete(tissueSamples)
       .where(inArray(tissueSamples.id, createdSampleIds));
   }
+  // Restore prefix unconditionally (covers both "was null" and "had a value").
+  await db
+    .update(hospitals)
+    .set({ sampleCodePrefix: originalPrefix })
+    .where(eq(hospitals.id, TEST_HOSPITAL_ID));
   await pool.end();
 });
 
@@ -143,10 +163,36 @@ describe("transitionTissueSampleStatus", () => {
 
 describe("updateTissueSample", () => {
   it("rejects setting reimplant_surgery_id on a type that does not support reimplant", async () => {
-    // We can't easily create a histology sample today (enabledInUI=false), but
-    // the storage layer should still enforce the rule based on the type config.
-    // To cover this test, we cheat: create a fat sample, then attempt to set a
-    // non-existent surgery FK. (Integration of supportsReimplant guard.)
+    // We can't create a histology sample through createTissueSample (the
+    // public API blocks enabledInUI=false earlier in the route, and even at
+    // storage layer histology has no initialStatus). Insert directly to
+    // exercise the supportsReimplant=false branch in updateTissueSample.
+    const code = `TST-HIST-99999999-${Math.floor(Math.random() * 900 + 100)}`;
+    const [row] = await db
+      .insert(tissueSamples)
+      .values({
+        hospitalId: TEST_HOSPITAL_ID,
+        patientId: testPatientId,
+        sampleType: "histology",
+        code,
+        status: "Probe entnommen",
+        statusDate: new Date(),
+        notes: null,
+        createdBy: testUserId,
+      })
+      .returning();
+    createdSampleIds.push(row.id);
+
+    // The supportsReimplant guard throws BEFORE the UPDATE runs, so the FK
+    // for reimplantSurgeryId is never enforced here — any UUID works.
+    await expect(
+      updateTissueSample(row.id, {
+        reimplantSurgeryId: "00000000-0000-0000-0000-000000000000",
+      }),
+    ).rejects.toMatchObject({ code: "REIMPLANT_NOT_SUPPORTED" });
+  });
+
+  it("updates notes for a fat sample (positive case)", async () => {
     const sample = await createTissueSample({
       hospitalId: TEST_HOSPITAL_ID,
       patientId: testPatientId,
@@ -155,9 +201,6 @@ describe("updateTissueSample", () => {
       createdBy: testUserId,
     });
     createdSampleIds.push(sample.id);
-    // fat supports reimplant, so this is the *positive* case. Just verify no
-    // throw and the FK is set when the row exists. Find or create a surgery.
-    // For simplicity, leave reimplantSurgeryId alone here and just update notes.
     const updated = await updateTissueSample(sample.id, { notes: "edited" });
     expect(updated.notes).toBe("edited");
   });

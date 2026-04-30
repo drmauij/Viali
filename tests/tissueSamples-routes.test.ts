@@ -20,11 +20,14 @@ vi.mock("../server/auth/google", () => ({
 // Bypass write/access checks; the storage layer is responsible for
 // invariants we care about here. Group-aware access is exercised in
 // tests/access-control-groups.test.ts and tests/patient-detail-audit.test.ts.
+// `mockHasAccess` defaults to true; flip per-call with .mockResolvedValueOnce(false)
+// to exercise the cross-hospital denial path.
+const mockHasAccess = vi.hoisted(() => vi.fn(async () => true));
 vi.mock("../server/utils", () => ({
   requireWriteAccess: (_req: any, _res: any, next: any) => next(),
   requireStrictHospitalAccess: (_req: any, _res: any, next: any) => next(),
   requireResourceAdmin: () => (_req: any, _res: any, next: any) => next(),
-  userHasGroupAwareHospitalAccess: async () => true,
+  userHasGroupAwareHospitalAccess: mockHasAccess,
 }));
 
 // Import the router AFTER the mocks so it picks up the bypassed middleware.
@@ -36,6 +39,7 @@ const TEST_HOSPITAL_ID = "93c37796-9d15-4931-aca9-a7f494bd3a16";
 let testPatientId: string;
 let testUserId: string;
 let testSurgeryId: string;
+let originalPrefix: string | null = null;
 const createdSampleIds: string[] = [];
 
 function buildApp() {
@@ -50,6 +54,14 @@ function buildApp() {
 }
 
 beforeAll(async () => {
+  // Capture the existing prefix so afterAll can restore it. Tests below
+  // mutate this column; we don't want to leak "TST" into the dev database.
+  const [original] = await db
+    .select({ p: hospitals.sampleCodePrefix })
+    .from(hospitals)
+    .where(eq(hospitals.id, TEST_HOSPITAL_ID));
+  originalPrefix = original?.p ?? null;
+
   // Ensure the test hospital has a sample_code_prefix for the happy path.
   await db
     .update(hospitals)
@@ -85,6 +97,11 @@ afterAll(async () => {
       .delete(tissueSamples)
       .where(inArray(tissueSamples.id, createdSampleIds));
   }
+  // Restore prefix unconditionally (covers both "was null" and "had a value").
+  await db
+    .update(hospitals)
+    .set({ sampleCodePrefix: originalPrefix })
+    .where(eq(hospitals.id, TEST_HOSPITAL_ID));
   await pool.end();
 });
 
@@ -292,5 +309,22 @@ describe("PATCH hospital sample_code_prefix lock", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe("cross-hospital access denial", () => {
+  it("returns 403 RESOURCE_ACCESS_DENIED when user has no access to the sample's hospital", async () => {
+    const app = buildApp();
+    const create = await request(app)
+      .post(`/api/patients/${testPatientId}/tissue-samples`)
+      .send({ sampleType: "fat", notes: null });
+    expect(create.status).toBe(201);
+    createdSampleIds.push(create.body.id);
+
+    // Flip the hospital-access mock to false for the next call only.
+    mockHasAccess.mockResolvedValueOnce(false);
+    const res = await request(app).get(`/api/tissue-samples/${create.body.id}`);
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("RESOURCE_ACCESS_DENIED");
   });
 });

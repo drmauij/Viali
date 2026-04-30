@@ -1177,7 +1177,7 @@ export default function SettingsPage() {
                               ...prev,
                               sampleCodePrefix: e.target.value
                                 .toUpperCase()
-                                .replace(/[^A-Z]/g, "")
+                                .replace(/[^A-Z0-9]/g, "")
                                 .slice(0, 5),
                             }))
                           }

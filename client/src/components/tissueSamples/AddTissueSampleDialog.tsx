@@ -60,6 +60,9 @@ export function AddTissueSampleDialog({
 
   const m = useMutation({
     mutationFn: async (): Promise<TissueSample> => {
+      // apiRequest throws via throwIfResNotOk on non-2xx and propagates
+      // the body's `code` onto the thrown Error (see queryClient.ts), which
+      // onError below reads. No manual !res.ok branch needed.
       const res = await apiRequest(
         "POST",
         `/api/patients/${patientId}/tissue-samples`,
@@ -70,14 +73,6 @@ export function AddTissueSampleDialog({
           externalLab: externalLab || null,
         },
       );
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const err: Error & { code?: string } = new Error(
-          body.message ?? `HTTP ${res.status}`,
-        );
-        err.code = body.code;
-        throw err;
-      }
       return res.json();
     },
     onSuccess: (sample) => {
