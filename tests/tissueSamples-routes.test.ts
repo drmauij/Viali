@@ -41,6 +41,10 @@ let testUserId: string;
 let testSurgeryId: string;
 let originalPrefix: string | null = null;
 const createdSampleIds: string[] = [];
+// Tracked separately from createdSampleIds so cleanup deletes them in the
+// right order (samples → surgeries → patients) without violating FKs.
+const otherSurgeryIds: string[] = [];
+const otherPatientIds: string[] = [];
 
 function buildApp() {
   const app = express();
@@ -78,12 +82,28 @@ beforeAll(async () => {
   const [u] = await db.select().from(users).limit(1);
   testUserId = u.id;
 
-  const [s] = await db
+  // Find a surgery that already belongs to `testPatientId` so the PATCH
+  // mismatch guard accepts it. Fall back to creating one inline (and tracking
+  // it for cleanup) if the seed DB doesn't have one.
+  const [existing] = await db
     .select()
     .from(surgeries)
-    .where(eq(surgeries.hospitalId, TEST_HOSPITAL_ID))
+    .where(eq(surgeries.patientId, testPatientId))
     .limit(1);
-  testSurgeryId = s.id;
+  if (existing) {
+    testSurgeryId = existing.id;
+  } else {
+    const [created] = await db
+      .insert(surgeries)
+      .values({
+        hospitalId: TEST_HOSPITAL_ID,
+        patientId: testPatientId,
+        plannedDate: new Date(),
+      } as any)
+      .returning();
+    testSurgeryId = created.id;
+    otherSurgeryIds.push(created.id);
+  }
 });
 
 afterAll(async () => {
@@ -96,6 +116,19 @@ afterAll(async () => {
     await db
       .delete(tissueSamples)
       .where(inArray(tissueSamples.id, createdSampleIds));
+  }
+  // Tear down inline-created surgeries and patients in FK order.
+  if (otherSurgeryIds.length) {
+    await db
+      .delete(surgeries)
+      .where(inArray(surgeries.id, otherSurgeryIds))
+      .catch(() => {});
+  }
+  if (otherPatientIds.length) {
+    await db
+      .delete(patients)
+      .where(inArray(patients.id, otherPatientIds))
+      .catch(() => {});
   }
   // Restore prefix unconditionally (covers both "was null" and "had a value").
   await db
@@ -262,6 +295,102 @@ describe("PATCH /api/tissue-samples/:id", () => {
       .send({ notes: "after" });
     expect(res.status).toBe(200);
     expect(res.body.notes).toBe("after");
+  });
+
+  it("links extractionSurgeryId when surgery belongs to the same patient", async () => {
+    const app = buildApp();
+    // Pre-create a sample with NO extraction surgery (the OR-nurse pre-create
+    // workflow), then PATCH to link it.
+    const create = await request(app)
+      .post(`/api/patients/${testPatientId}/tissue-samples`)
+      .send({ sampleType: "fat", notes: null });
+    expect(create.status).toBe(201);
+    createdSampleIds.push(create.body.id);
+    expect(create.body.extractionSurgeryId).toBeNull();
+
+    const res = await request(app)
+      .patch(`/api/tissue-samples/${create.body.id}`)
+      .send({ extractionSurgeryId: testSurgeryId });
+    expect(res.status).toBe(200);
+    expect(res.body.extractionSurgeryId).toBe(testSurgeryId);
+  });
+
+  it("unlinks extractionSurgeryId when set to null", async () => {
+    const app = buildApp();
+    const create = await request(app)
+      .post(`/api/patients/${testPatientId}/tissue-samples`)
+      .send({
+        sampleType: "fat",
+        notes: null,
+        extractionSurgeryId: testSurgeryId,
+      });
+    expect(create.status).toBe(201);
+    createdSampleIds.push(create.body.id);
+    expect(create.body.extractionSurgeryId).toBe(testSurgeryId);
+
+    const res = await request(app)
+      .patch(`/api/tissue-samples/${create.body.id}`)
+      .send({ extractionSurgeryId: null });
+    expect(res.status).toBe(200);
+    expect(res.body.extractionSurgeryId).toBeNull();
+  });
+
+  it("returns 422 EXTRACTION_SURGERY_PATIENT_MISMATCH when target surgery is for a different patient", async () => {
+    // We need a second patient + a surgery for them. Create both inline so
+    // the test is hermetic regardless of seed-DB shape, then clean up in
+    // afterAll via the local id-tracking arrays.
+    const [otherPatient] = await db
+      .insert(patients)
+      .values({
+        hospitalId: TEST_HOSPITAL_ID,
+        patientNumber: `MISMATCH-${Date.now()}`,
+        surname: "Mismatch",
+        firstName: "Test",
+        birthday: "1990-01-01",
+        sex: "O",
+      } as any)
+      .returning();
+    otherPatientIds.push(otherPatient.id);
+
+    // Surgery for the OTHER patient — using the same hospital; the route's
+    // mismatch guard compares patientId, not hospitalId.
+    const [otherSurgery] = await db
+      .insert(surgeries)
+      .values({
+        hospitalId: TEST_HOSPITAL_ID,
+        patientId: otherPatient.id,
+        plannedDate: new Date(),
+      } as any)
+      .returning();
+    otherSurgeryIds.push(otherSurgery.id);
+
+    const app = buildApp();
+    const create = await request(app)
+      .post(`/api/patients/${testPatientId}/tissue-samples`)
+      .send({ sampleType: "fat", notes: null });
+    expect(create.status).toBe(201);
+    createdSampleIds.push(create.body.id);
+
+    const res = await request(app)
+      .patch(`/api/tissue-samples/${create.body.id}`)
+      .send({ extractionSurgeryId: otherSurgery.id });
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe("EXTRACTION_SURGERY_PATIENT_MISMATCH");
+  });
+
+  it("returns 404 EXTRACTION_SURGERY_NOT_FOUND when target surgery does not exist", async () => {
+    const app = buildApp();
+    const create = await request(app)
+      .post(`/api/patients/${testPatientId}/tissue-samples`)
+      .send({ sampleType: "fat", notes: null });
+    expect(create.status).toBe(201);
+    createdSampleIds.push(create.body.id);
+
+    const res = await request(app)
+      .patch(`/api/tissue-samples/${create.body.id}`)
+      .send({ extractionSurgeryId: "00000000-0000-0000-0000-000000000000" });
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe("EXTRACTION_SURGERY_NOT_FOUND");
   });
 });
 

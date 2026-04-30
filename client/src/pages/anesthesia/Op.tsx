@@ -22,6 +22,7 @@ import { OrdersGlanceCard } from "@/components/anesthesia/postop/OrdersGlanceCar
 import { TissueSampleList } from "@/components/tissueSamples/TissueSampleList";
 import { AddTissueSampleDialog } from "@/components/tissueSamples/AddTissueSampleDialog";
 import { LinkReimplantDialog } from "@/components/tissueSamples/LinkReimplantDialog";
+import { LinkExistingSampleDialog } from "@/components/tissueSamples/LinkExistingSampleDialog";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { PostopTasksPanel } from "@/components/anesthesia/postop/PostopTasksPanel";
 import { OrderSetEditorDialog } from "@/components/anesthesia/postop/OrderSetEditorDialog";
@@ -2422,6 +2423,7 @@ function TissueSamplesIntraopCard({ surgery }: { surgery: any }) {
   const canWrite = useCanWrite();
   const [addOpen, setAddOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
+  const [linkExistingOpen, setLinkExistingOpen] = useState(false);
 
   const { data: patientSamples } = useQuery<any[]>({
     queryKey: ["tissue-samples", surgery.patientId],
@@ -2434,6 +2436,12 @@ function TissueSamplesIntraopCard({ surgery }: { surgery: any }) {
 
   const hasReimplantCandidate = (patientSamples ?? []).some(
     (s) => s.status === "Angefordert zur Reimplantation",
+  );
+  // Pre-created (e.g. by an OR nurse before the case starts) and not yet
+  // destroyed. The dialog re-applies the same filter, but gating the button
+  // here keeps it hidden when there's nothing to link.
+  const hasUnlinkedSample = (patientSamples ?? []).some(
+    (s) => s.extractionSurgeryId === null && s.status !== "Vernichtet",
   );
 
   return (
@@ -2453,6 +2461,16 @@ function TissueSamplesIntraopCard({ surgery }: { surgery: any }) {
                 data-testid="button-link-reimplant-intraop"
               >
                 {t("tissueSamples.linkReimplant")}
+              </Button>
+            )}
+            {hasUnlinkedSample && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setLinkExistingOpen(true)}
+                data-testid="button-link-existing-sample-intraop"
+              >
+                {t("tissueSamples.linkExistingSample")}
               </Button>
             )}
           </div>
@@ -2476,6 +2494,15 @@ function TissueSamplesIntraopCard({ surgery }: { surgery: any }) {
           surgeryId={surgery.id}
           open={linkOpen}
           onOpenChange={setLinkOpen}
+        />
+      )}
+      {surgery.patientId && (
+        <LinkExistingSampleDialog
+          patientId={surgery.patientId}
+          surgeryId={surgery.id}
+          patientSamples={patientSamples}
+          open={linkExistingOpen}
+          onOpenChange={setLinkExistingOpen}
         />
       )}
     </Card>

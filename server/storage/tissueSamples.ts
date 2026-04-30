@@ -119,6 +119,7 @@ export interface UpdateTissueSampleInput {
   notes?: string | null;
   externalLab?: string | null;
   reimplantSurgeryId?: string | null;
+  extractionSurgeryId?: string | null;
 }
 
 export async function updateTissueSample(

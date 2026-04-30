@@ -204,6 +204,39 @@ describe("updateTissueSample", () => {
     const updated = await updateTissueSample(sample.id, { notes: "edited" });
     expect(updated.notes).toBe("edited");
   });
+
+  it("forwards extractionSurgeryId to the UPDATE statement", async () => {
+    // The route layer is responsible for the cross-patient guard; storage
+    // just needs to pass the FK through. Use the patient's first surgery to
+    // satisfy the FK constraint.
+    const { surgeries } = await import("@shared/schema");
+    const [s] = await db
+      .select({ id: surgeries.id })
+      .from(surgeries)
+      .where(eq(surgeries.hospitalId, TEST_HOSPITAL_ID))
+      .limit(1);
+
+    const sample = await createTissueSample({
+      hospitalId: TEST_HOSPITAL_ID,
+      patientId: testPatientId,
+      sampleType: "fat",
+      notes: null,
+      createdBy: testUserId,
+    });
+    createdSampleIds.push(sample.id);
+    expect(sample.extractionSurgeryId).toBeNull();
+
+    const updated = await updateTissueSample(sample.id, {
+      extractionSurgeryId: s.id,
+    });
+    expect(updated.extractionSurgeryId).toBe(s.id);
+
+    // Confirm null path also flows through.
+    const unlinked = await updateTissueSample(sample.id, {
+      extractionSurgeryId: null,
+    });
+    expect(unlinked.extractionSurgeryId).toBeNull();
+  });
 });
 
 describe("getTissueSamplesByPatient", () => {

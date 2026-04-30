@@ -8493,6 +8493,9 @@
     "addSampleManually": "Add manually (backfill)",
     "addSampleDisabledTooltip": "Add a sample from the Intraoperative tab during an in-progress surgery.",
     "linkReimplant": "Link reimplant",
+    "linkExistingSample": "Link existing sample",
+    "linkExistingSampleEmpty": "No unlinked samples for this patient.",
+    "editExtractionSurgery": "Edit extraction surgery",
     "code": "Code",
     "type": "Type",
     "status": "Status",
@@ -8518,7 +8521,9 @@
       "missingPrefix": "Set the clinic's sample code prefix in admin settings.",
       "prefixLocked": "Prefix cannot be changed — tissue samples already exist.",
       "invalidStatus": "Invalid status for this sample type.",
-      "reimplantNotSupported": "This sample type does not support reimplant linkage."
+      "reimplantNotSupported": "This sample type does not support reimplant linkage.",
+      "surgeryPatientMismatch": "Surgery belongs to a different patient.",
+      "surgeryNotFound": "Surgery not found."
     },
     "admin": {
       "prefixLabel": "Sample code prefix",

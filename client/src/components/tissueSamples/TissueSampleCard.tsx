@@ -27,11 +27,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, Copy, RotateCcw, Trash2 } from "lucide-react";
+import { ChevronDown, Copy, Link2, RotateCcw, Trash2 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/dateUtils";
 import type { TissueSample, TissueSampleStatusHistory } from "@shared/schema";
 import { TISSUE_SAMPLE_TYPES } from "@shared/tissueSampleTypes";
 import { UpdateStatusDialog } from "./UpdateStatusDialog";
+import { EditExtractionSurgeryDialog } from "./EditExtractionSurgeryDialog";
 
 interface Props {
   sample: TissueSample;
@@ -45,6 +46,7 @@ export function TissueSampleCard({ sample, onClickSurgery }: Props) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [editExtractionOpen, setEditExtractionOpen] = useState(false);
 
   const typeConfig =
     TISSUE_SAMPLE_TYPES[sample.sampleType as keyof typeof TISSUE_SAMPLE_TYPES];
@@ -148,6 +150,17 @@ export function TissueSampleCard({ sample, onClickSurgery }: Props) {
               {t("tissueSamples.status")}
             </Button>
           )}
+          {canWrite && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setEditExtractionOpen(true)}
+              data-testid={`tissue-sample-edit-extraction-${sample.id}`}
+            >
+              <Link2 className="h-3 w-3 mr-1" />
+              {t("tissueSamples.editExtractionSurgery")}
+            </Button>
+          )}
           {canWrite && sample.status !== "Vernichtet" && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -216,6 +229,11 @@ export function TissueSampleCard({ sample, onClickSurgery }: Props) {
         sample={sample}
         open={statusDialogOpen}
         onOpenChange={setStatusDialogOpen}
+      />
+      <EditExtractionSurgeryDialog
+        sample={sample}
+        open={editExtractionOpen}
+        onOpenChange={setEditExtractionOpen}
       />
     </Card>
   );

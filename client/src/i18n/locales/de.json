@@ -8511,6 +8511,9 @@
     "addSampleManually": "Manuell hinzufügen (Backfill)",
     "addSampleDisabledTooltip": "Während einer laufenden Operation auf dem Intraoperativ-Tab hinzufügen.",
     "linkReimplant": "Reimplantation verknüpfen",
+    "linkExistingSample": "Bestehende Probe verknüpfen",
+    "linkExistingSampleEmpty": "Keine unverknüpften Proben für diesen Patienten.",
+    "editExtractionSurgery": "Entnahme-Operation bearbeiten",
     "code": "Code",
     "type": "Typ",
     "status": "Status",
@@ -8536,7 +8539,9 @@
       "missingPrefix": "Sample-Code-Präfix in den Admin-Einstellungen setzen.",
       "prefixLocked": "Präfix kann nicht mehr geändert werden — es existieren bereits Proben.",
       "invalidStatus": "Ungültiger Status für diesen Probentyp.",
-      "reimplantNotSupported": "Dieser Probentyp unterstützt keine Reimplantation."
+      "reimplantNotSupported": "Dieser Probentyp unterstützt keine Reimplantation.",
+      "surgeryPatientMismatch": "Diese Operation gehört zu einem anderen Patienten.",
+      "surgeryNotFound": "Operation nicht gefunden."
     },
     "admin": {
       "prefixLabel": "Sample-Code-Präfix",

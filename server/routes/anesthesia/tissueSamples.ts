@@ -41,6 +41,7 @@ const patchBody = z.object({
   notes: z.string().nullable().optional(),
   externalLab: z.string().nullable().optional(),
   reimplantSurgeryId: z.string().nullable().optional(),
+  extractionSurgeryId: z.string().nullable().optional(),
 });
 
 const statusBody = z.object({
@@ -243,6 +244,36 @@ router.patch(
           .status(422)
           .json({ message: "Invalid body", errors: parsed.error.flatten() });
       }
+
+      // Defensive cross-patient guard: re-linking a sample to a surgery
+      // belonging to another patient would silently corrupt the lineage. The
+      // UI never offers such a target, but the server enforces the invariant
+      // independently. `null` (unlink) bypasses the lookup.
+      if (
+        Object.prototype.hasOwnProperty.call(parsed.data, "extractionSurgeryId") &&
+        parsed.data.extractionSurgeryId != null
+      ) {
+        const [targetSurgery] = await db
+          .select({
+            id: surgeries.id,
+            patientId: surgeries.patientId,
+          })
+          .from(surgeries)
+          .where(eq(surgeries.id, parsed.data.extractionSurgeryId));
+        if (!targetSurgery) {
+          return res.status(404).json({
+            message: "Surgery not found.",
+            code: "EXTRACTION_SURGERY_NOT_FOUND",
+          });
+        }
+        if (targetSurgery.patientId !== sample.patientId) {
+          return res.status(422).json({
+            message: "Surgery belongs to a different patient.",
+            code: "EXTRACTION_SURGERY_PATIENT_MISMATCH",
+          });
+        }
+      }
+
       const updated = await updateTissueSample(req.params.id, parsed.data);
       res.json(updated);
     } catch (e: any) {
