@@ -51,6 +51,7 @@ export default function SettingsPage() {
     companyWebsite: "",
     companyLogoUrl: "",
     companyJurisdiction: "",
+    sampleCodePrefix: "",
     companyGln: "",
     companyZsr: "",
     defaultTpValue: "",
@@ -163,6 +164,7 @@ export default function SettingsPage() {
         companyWebsite: fullHospitalData.companyWebsite || "",
         companyLogoUrl: fullHospitalData.companyLogoUrl || "",
         companyJurisdiction: fullHospitalData.companyJurisdiction || "",
+        sampleCodePrefix: fullHospitalData.sampleCodePrefix || "",
         companyGln: fullHospitalData.companyGln || "",
         companyZsr: fullHospitalData.companyZsr || "",
         defaultTpValue: fullHospitalData.defaultTpValue || "",
@@ -538,7 +540,11 @@ export default function SettingsPage() {
       toast({ title: t("common.error"), description: t("admin.hospitalNameRequired"), variant: "destructive" });
       return;
     }
-    updateHospitalMutation.mutate(hospitalForm);
+    const trimmedPrefix = hospitalForm.sampleCodePrefix.trim();
+    updateHospitalMutation.mutate({
+      ...hospitalForm,
+      sampleCodePrefix: trimmedPrefix === "" ? (null as unknown as string) : trimmedPrefix,
+    });
   };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1159,6 +1165,28 @@ export default function SettingsPage() {
                           placeholder="Zürich"
                           data-testid="input-company-jurisdiction-inline"
                         />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="sample-code-prefix">{t("tissueSamples.admin.prefixLabel")}</Label>
+                        <Input
+                          id="sample-code-prefix"
+                          value={hospitalForm.sampleCodePrefix}
+                          onChange={(e) =>
+                            setHospitalForm(prev => ({
+                              ...prev,
+                              sampleCodePrefix: e.target.value
+                                .toUpperCase()
+                                .replace(/[^A-Z]/g, "")
+                                .slice(0, 5),
+                            }))
+                          }
+                          data-testid="input-sample-code-prefix"
+                          placeholder="PKK"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {t("tissueSamples.admin.prefixHelp")}
+                        </p>
                       </div>
 
                     </div>
