@@ -117,6 +117,7 @@ export const hospitals = pgTable("hospitals", {
   companyWebsite: varchar("company_website"),
   companyLogoUrl: varchar("company_logo_url"),
   companyJurisdiction: varchar("company_jurisdiction"), // Legal venue / Gerichtsstand for contract templates (e.g. "Zürich")
+  sampleCodePrefix: varchar("sample_code_prefix", { length: 8 }).unique(), // 3–5 uppercase chars, set-once-immutable
   bookingTheme: jsonb("booking_theme"), // Custom /book page theme — see docs/superpowers/specs/2026-04-26-booking-page-theming-design.md
   // TARDOC billing identifiers
   companyGln: varchar("company_gln"), // 13-digit GLN for the facility
@@ -964,11 +965,13 @@ export const patientDocuments = pgTable("patient_documents", {
   questionnaireUploadId: varchar("questionnaire_upload_id"),
   episodeId: varchar("episode_id"),
   episodeFolderId: varchar("episode_folder_id"),
+  tissueSampleId: varchar("tissue_sample_id").references((): any => tissueSamples.id, { onDelete: "set null" }), // Forward reference — tissueSamples declared below
   documentFolderId: varchar("document_folder_id"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_patient_documents_hospital").on(table.hospitalId),
   index("idx_patient_documents_patient").on(table.patientId),
+  index("idx_patient_documents_tissue_sample").on(table.tissueSampleId),
 ]);
 
 // Patient Episodes - Clinical journey grouping (broader than hospital admission)
@@ -1040,6 +1043,52 @@ export const insertPatientDocumentFolderSchema = createInsertSchema(patientDocum
 });
 export type InsertPatientDocumentFolder = z.infer<typeof insertPatientDocumentFolderSchema>;
 export type PatientDocumentFolder = typeof patientDocumentFolders.$inferSelect;
+
+// Tissue & Samples - banked tissue/specimens with status lifecycle
+export const tissueSamples = pgTable("tissue_samples", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: "cascade" }),
+  sampleType: varchar("sample_type").notNull(),
+  code: varchar("code").notNull(),
+  status: varchar("status").notNull(),
+  statusDate: timestamp("status_date").notNull().defaultNow(),
+  notes: text("notes"),
+  extractionSurgeryId: varchar("extraction_surgery_id").references(() => surgeries.id, { onDelete: "set null" }),
+  reimplantSurgeryId: varchar("reimplant_surgery_id").references(() => surgeries.id, { onDelete: "set null" }),
+  externalLab: varchar("external_lab"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("tissue_samples_code_unique").on(table.code),
+  index("idx_tissue_samples_hospital_patient").on(table.hospitalId, table.patientId),
+  index("idx_tissue_samples_extraction_surgery").on(table.extractionSurgeryId),
+  index("idx_tissue_samples_reimplant_surgery").on(table.reimplantSurgeryId),
+  index("idx_tissue_samples_status").on(table.status),
+]);
+
+export const tissueSampleStatusHistory = pgTable("tissue_sample_status_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sampleId: varchar("sample_id").notNull().references(() => tissueSamples.id, { onDelete: "cascade" }),
+  fromStatus: varchar("from_status"),
+  toStatus: varchar("to_status").notNull(),
+  changedAt: timestamp("changed_at").notNull().defaultNow(),
+  changedBy: varchar("changed_by").notNull().references(() => users.id),
+  note: text("note"),
+}, (table) => [
+  index("idx_tissue_sample_status_history_sample").on(table.sampleId, table.changedAt),
+]);
+
+export const insertTissueSampleSchema = createInsertSchema(tissueSamples).omit({
+  id: true, code: true, statusDate: true, createdAt: true, updatedAt: true,
+});
+export const insertTissueSampleStatusHistorySchema = createInsertSchema(tissueSampleStatusHistory).omit({
+  id: true, changedAt: true,
+});
+export type TissueSample = typeof tissueSamples.$inferSelect;
+export type InsertTissueSample = z.infer<typeof insertTissueSampleSchema>;
+export type TissueSampleStatusHistory = typeof tissueSampleStatusHistory.$inferSelect;
 
 // Cases (Episode of Care) - Container for patient hospital stay
 export const cases = pgTable("cases", {

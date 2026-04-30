@@ -1688,6 +1688,13 @@
       "when": 1779400000000,
       "tag": "0240_hospital_company_jurisdiction",
       "breakpoints": true
+    },
+    {
+      "idx": 241,
+      "version": "7",
+      "when": 1779500000000,
+      "tag": "0241_tissue_samples",
+      "breakpoints": true
     }
   ]
 }
