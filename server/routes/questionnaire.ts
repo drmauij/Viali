@@ -15,6 +15,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../sms";
 import { sendQuestionnaireSubmittedNotificationBatch, sendQuestionnaireReceivedConfirmation } from "../resend";
+import { computeAdmission, computeAdmissionISO } from "@shared/admissionTime";
 import { notifyQuestionnaireSubmitted } from "../socket";
 import { inArray } from "drizzle-orm";
 import logger from "../logger";
@@ -1222,7 +1223,7 @@ router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async 
       ]);
       if (surgeryRow) {
         surgeryInfo = {
-          admissionTime: surgeryRow.admissionTime ? new Date(surgeryRow.admissionTime).toISOString() : null,
+          admissionTime: computeAdmissionISO(surgeryRow.plannedDate ?? null, hospitalRow?.defaultAdmissionOffsetMinutes ?? null),
           plannedDate: surgeryRow.plannedDate ? new Date(surgeryRow.plannedDate).toISOString() : null,
           stayType: surgeryRow.stayType ?? null,
         };
@@ -1669,7 +1670,7 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
           if (link.surgeryId) {
             const surgeryRow = await storage.getSurgery(link.surgeryId);
             preOpInfo = {
-              admissionTimeIso: surgeryRow?.admissionTime ? new Date(surgeryRow.admissionTime).toISOString() : null,
+              admissionTimeIso: computeAdmissionISO(surgeryRow?.plannedDate ?? null, hospital.defaultAdmissionOffsetMinutes ?? null),
               defaultAdmissionOffsetMinutes: hospital.defaultAdmissionOffsetMinutes ?? null,
               helpLinePhone: (hospital as any).questionnairePhone ?? hospital.companyPhone ?? null,
             };
@@ -2417,7 +2418,7 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
         
         surgeryInfo = {
           plannedDate: surgery.plannedDate,
-          admissionTime: surgery.admissionTime,
+          admissionTime: computeAdmission(surgery.plannedDate, hospital.defaultAdmissionOffsetMinutes ?? null),
           procedure: surgery.plannedSurgery,
           roomName,
           anesthesiaType,

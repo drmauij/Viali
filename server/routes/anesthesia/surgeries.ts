@@ -17,7 +17,7 @@ import { eq, ilike, or, and, desc } from "drizzle-orm";
 import { z } from "zod";
 import { requireWriteAccess, requireStrictHospitalAccess, requireSurgeryPlanAccess, userHasPermission } from "../../utils";
 import logger from "../../logger";
-import { maybeShiftAdmissionTime } from "./surgeryAdmissionFallback";
+import { computeAdmissionISO } from "@shared/admissionTime";
 
 const router = Router();
 
@@ -132,7 +132,6 @@ router.get('/api/anesthesia/surgeries/search', isAuthenticated, requireStrictHos
         patientFirstName: patients.firstName,
         patientSurname: patients.surname,
         plannedDate: surgeriesTable.plannedDate,
-        admissionTime: surgeriesTable.admissionTime,
         plannedSurgery: surgeriesTable.plannedSurgery,
         roomName: surgeryRooms.name,
         patientId: surgeriesTable.patientId,
@@ -152,12 +151,15 @@ router.get('/api/anesthesia/surgeries/search', isAuthenticated, requireStrictHos
       .orderBy(desc(surgeriesTable.plannedDate))
       .limit(20);
 
+    const hospital = await storage.getHospital(hospitalId as string);
+    const offsetMinutes = hospital?.defaultAdmissionOffsetMinutes ?? null;
+
     return res.json(results.map(r => ({
       id: r.id,
       patientId: r.patientId,
       patientName: [r.patientFirstName, r.patientSurname].filter(Boolean).join(" "),
       date: r.plannedDate instanceof Date ? r.plannedDate.toISOString().slice(0, 10) : r.plannedDate,
-      time: r.admissionTime || null,
+      time: computeAdmissionISO(r.plannedDate, offsetMinutes),
       procedure: r.plannedSurgery,
       room: r.roomName || null,
     })));
@@ -356,6 +358,9 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
     }
 
     const updateData = { ...req.body };
+    // admissionTime is no longer settable per-surgery — it is derived from
+    // plannedDate − hospital.defaultAdmissionOffsetMinutes at read time.
+    delete updateData.admissionTime;
     if (updateData.plannedDate && typeof updateData.plannedDate === 'string') {
       updateData.plannedDate = new Date(updateData.plannedDate);
     }
@@ -365,9 +370,6 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
     if (updateData.actualStartTime && typeof updateData.actualStartTime === 'string') {
       updateData.actualStartTime = new Date(updateData.actualStartTime);
     }
-    if (updateData.admissionTime && typeof updateData.admissionTime === 'string') {
-      updateData.admissionTime = new Date(updateData.admissionTime);
-    }
 
     // Patient location is mutually exclusive: a patient is either in the
     // clinic waiting room OR assigned to a PACU bed, never both.
@@ -376,21 +378,6 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
     }
     if (Object.prototype.hasOwnProperty.call(req.body, 'clinicRoomId') && req.body.clinicRoomId) {
       updateData.pacuBedId = null;
-    }
-
-    if (updateData.plannedDate instanceof Date) {
-      const hospital = await storage.getHospital(surgery.hospitalId);
-      if (hospital) {
-        const { shifted } = maybeShiftAdmissionTime({
-          reqBody: req.body,
-          updateData,
-          storedSurgery: surgery,
-          hospital,
-        });
-        if (shifted) {
-          logger.info(`[surgeries.PATCH] Auto-shifted admission time for surgery ${id} (old day ≠ new day)`);
-        }
-      }
     }
 
     if (updateData.isSuspended === true && !surgery.isSuspended) {

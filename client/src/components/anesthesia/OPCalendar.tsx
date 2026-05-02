@@ -38,7 +38,6 @@ import { cn } from "@/lib/utils";
 import { draggedRequest } from "@/components/surgery/useExternalRequestDrag";
 import CalendarSearch from "@/components/shared/CalendarSearch";
 import type { CalendarSearchResult } from "@/components/shared/CalendarSearch";
-import { checkAdmissionCongruence } from "@shared/admissionCongruence";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
@@ -292,14 +291,6 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
   const { toast } = useToast();
   const [staffBoxOpen, setStaffBoxOpen] = useState(true);
   const preSearchDateRef = useRef<Date | null>(null);
-
-  // Fetch hospital config for timezone + admission offset
-  const { data: hospitalConfig } = useQuery<{ timezone?: string; defaultAdmissionOffsetMinutes?: number }>({
-    queryKey: [`/api/admin/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id,
-  });
-  const hospitalTimeZone = hospitalConfig?.timezone || "Europe/Zurich";
-  const defaultOffsetMinutes = hospitalConfig?.defaultAdmissionOffsetMinutes ?? 60;
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -990,15 +981,16 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     }
   };
 
-  // Shared PATCH helper for rescheduling (drop + resize)
+  // Shared PATCH helper for rescheduling (drop + resize). admissionTime is
+  // derived from plannedDate − hospital.defaultAdmissionOffsetMinutes at
+  // read time, so we never send it.
   const sendReschedulePatch = useCallback(async ({
-    surgeryId, start, end, newRoomId, admissionOverrideISO,
+    surgeryId, start, end, newRoomId,
   }: {
     surgeryId: string;
     start: Date;
     end: Date;
     newRoomId: string | null;
-    admissionOverrideISO: string | null | undefined;
   }) => {
     try {
       const body: any = {
@@ -1006,7 +998,6 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         actualEndTime: end.toISOString(),
       };
       if (newRoomId !== null) body.surgeryRoomId = newRoomId;
-      if (admissionOverrideISO !== undefined) body.admissionTime = admissionOverrideISO;
 
       await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, body);
 
@@ -1025,76 +1016,15 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     if (!canPlanSurgery) return;
     const surgeryId = event.surgeryId;
     const newRoomId = resourceId || event.resource || null;
-
-    const storedAdmission = event.admissionTime ? new Date(event.admissionTime) : null;
-    const storedPlanned = event.start ? new Date(event.start) : null;
-
-    const result = checkAdmissionCongruence({
-      oldPlannedDate: storedPlanned,
-      oldAdmissionTime: storedAdmission,
-      newPlannedDate: start,
-      defaultOffsetMinutes,
-      hospitalTimeZone,
-    });
-
-    if (result.severity !== "none") {
-      await sendReschedulePatch({
-        surgeryId,
-        start,
-        end,
-        newRoomId,
-        admissionOverrideISO: result.suggestedAdmission.toISOString(),
-      });
-      toast({
-        variant: "warning",
-        title: t("admissionCongruence.toastAdjusted"),
-        description: t("admissionCongruence.toastAdjustedDesc", { offset: defaultOffsetMinutes }),
-      });
-      return;
-    }
-
-    await sendReschedulePatch({ surgeryId, start, end, newRoomId, admissionOverrideISO: undefined });
-  }, [toast, canPlanSurgery, defaultOffsetMinutes, hospitalTimeZone, t, sendReschedulePatch]);
+    await sendReschedulePatch({ surgeryId, start, end, newRoomId });
+  }, [canPlanSurgery, sendReschedulePatch]);
 
   // Handle event resize
   const handleEventResize = useCallback(async ({ event, start, end }: any) => {
     if (!canPlanSurgery) return;
     const surgeryId = event.surgeryId;
-
-    const startChanged = event.start && new Date(event.start).getTime() !== start.getTime();
-    if (!startChanged) {
-      await sendReschedulePatch({ surgeryId, start, end, newRoomId: null, admissionOverrideISO: undefined });
-      return;
-    }
-
-    const storedAdmission = event.admissionTime ? new Date(event.admissionTime) : null;
-    const storedPlanned = event.start ? new Date(event.start) : null;
-    const result = checkAdmissionCongruence({
-      oldPlannedDate: storedPlanned,
-      oldAdmissionTime: storedAdmission,
-      newPlannedDate: start,
-      defaultOffsetMinutes,
-      hospitalTimeZone,
-    });
-
-    if (result.severity !== "none") {
-      await sendReschedulePatch({
-        surgeryId,
-        start,
-        end,
-        newRoomId: null,
-        admissionOverrideISO: result.suggestedAdmission.toISOString(),
-      });
-      toast({
-        variant: "warning",
-        title: t("admissionCongruence.toastAdjusted"),
-        description: t("admissionCongruence.toastAdjustedDesc", { offset: defaultOffsetMinutes }),
-      });
-      return;
-    }
-
-    await sendReschedulePatch({ surgeryId, start, end, newRoomId: null, admissionOverrideISO: undefined });
-  }, [toast, canPlanSurgery, defaultOffsetMinutes, hospitalTimeZone, t, sendReschedulePatch]);
+    await sendReschedulePatch({ surgeryId, start, end, newRoomId: null });
+  }, [canPlanSurgery, sendReschedulePatch]);
 
   // Detect if the currently selected day falls within a closure
   const dayClosure = useMemo(() => {

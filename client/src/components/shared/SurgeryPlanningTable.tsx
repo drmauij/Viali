@@ -833,90 +833,6 @@ function EditableCheckboxCell({ value, surgeryId, field, onUpdate, isPending }: 
   );
 }
 
-interface EditableTimeCellProps {
-  value: string | Date | null | undefined;
-  surgeryId: string;
-  plannedDate: string | Date | null | undefined;
-  field: string;
-  onUpdate: (id: string, field: string, value: string | null) => void;
-  isPending: boolean;
-}
-
-function EditableTimeCell({ value, surgeryId, plannedDate, field, onUpdate, isPending }: EditableTimeCellProps) {
-  const { t } = useTranslation();
-  const [isEditing, setIsEditing] = useState(false);
-  const [inputValue, setInputValue] = useState("");
-
-  const canEdit = !!plannedDate;
-
-  const handleStartEdit = () => {
-    if (!canEdit) return;
-    if (value) {
-      const date = typeof value === "string" ? parseISO(value) : value;
-      setInputValue(formatTime(date));
-    } else {
-      setInputValue("");
-    }
-    setIsEditing(true);
-  };
-
-  const handleSave = () => {
-    if (inputValue && plannedDate) {
-      const baseDate = typeof plannedDate === "string" ? parseISO(plannedDate) : plannedDate;
-      const [hours, minutes] = inputValue.split(':').map(Number);
-      const newDate = new Date(baseDate);
-      newDate.setHours(hours, minutes, 0, 0);
-      onUpdate(surgeryId, field, newDate.toISOString());
-    } else if (!inputValue) {
-      onUpdate(surgeryId, field, null);
-    }
-    setIsEditing(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSave();
-    } else if (e.key === "Escape") {
-      setIsEditing(false);
-    }
-  };
-
-  if (isEditing && canEdit) {
-    return (
-      <Input
-        type="text"
-        inputMode="numeric"
-        placeholder="HH:mm"
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        onBlur={handleSave}
-        onKeyDown={handleKeyDown}
-        className="h-8 w-24"
-        autoFocus
-        data-testid={`input-${field}-${surgeryId}`}
-      />
-    );
-  }
-
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="h-8 px-2 justify-start font-normal w-full"
-      disabled={isPending || !canEdit}
-      onClick={handleStartEdit}
-      title={!canEdit ? t('surgeryPlanning.setSurgeryDateFirst', 'Set surgery date first') : undefined}
-      data-testid={`button-edit-${field}-${surgeryId}`}
-    >
-      {isPending ? (
-        <Loader2 className="h-3 w-3 animate-spin" />
-      ) : (
-        formatTime(value)
-      )}
-    </Button>
-  );
-}
-
 interface SortableHeaderProps {
   label: string;
   field: SortField;
@@ -1783,15 +1699,8 @@ export function SurgeryPlanningTable({
                   {showScheduling && (
                     <>
                       {!hideRoomAndAdmission && (
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <EditableTimeCell
-                            value={surgery.admissionTime}
-                            surgeryId={surgery.id}
-                            plannedDate={surgery.plannedDate}
-                            field="admissionTime"
-                            onUpdate={handleUpdate}
-                            isPending={isFieldPending(surgery.id, "admissionTime")}
-                          />
+                        <TableCell className="text-muted-foreground" title={t("surgeryPlanning.admissionDerivedTooltip", "Admission time is derived from the clinic-wide offset (Settings → Inventory → Default admission offset).")}>
+                          {surgery.admissionTime ? formatTime(surgery.admissionTime) : "-"}
                         </TableCell>
                       )}
                       {/* Status cell hidden for now

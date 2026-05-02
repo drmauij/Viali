@@ -73,7 +73,6 @@ export default function QuickCreateSurgeryDialog({
   const [surgeryDate, setSurgeryDate] = useState(formatDateOnly(initialDate));
   const [startTime, setStartTime] = useState(formatTimeOnly(initialDate));
   const [duration, setDuration] = useState<number>(getDefaultDuration());
-  const [admissionTime, setAdmissionTime] = useState("");
   const [plannedSurgery, setPlannedSurgery] = useState("");
   const [selectedChopCode, setSelectedChopCode] = useState("");
   const [surgeonId, setSurgeonId] = useState("");
@@ -248,7 +247,6 @@ export default function QuickCreateSurgeryDialog({
     setSurgeryDate(formatDateOnly(initialDate));
     setStartTime(formatTimeOnly(initialDate));
     setDuration(getDefaultDuration());
-    setAdmissionTime("");
     setPlannedSurgery("");
     setSelectedChopCode("");
     setSurgeonId("");
@@ -329,13 +327,6 @@ export default function QuickCreateSurgeryDialog({
 
     const matchedSurgeon = surgeons.find(s => s.id === surgeonId);
 
-    let admissionTimeISO = undefined;
-    if (admissionTime) {
-      const [admHour, admMinute] = admissionTime.split(':').map(Number);
-      const admissionDate = new Date(year, month - 1, day, admHour, admMinute);
-      admissionTimeISO = admissionDate.toISOString();
-    }
-
     createSurgeryMutation.mutate({
       hospitalId,
       patientId: isSlotReservation ? null : selectedPatientId,
@@ -349,7 +340,6 @@ export default function QuickCreateSurgeryDialog({
       notes: notes.trim() || undefined,
       diagnosis: diagnosis.trim() || undefined,
       coverageType: coverageType.trim() || undefined,
-      admissionTime: admissionTimeISO,
       implantDetails: implantDetails.trim() || undefined,
       noPreOpRequired: noPreOpRequired,
       surgerySide: surgerySide || undefined,
@@ -587,7 +577,6 @@ export default function QuickCreateSurgeryDialog({
             surgeryDate={surgeryDate}
             startTime={startTime}
             duration={duration}
-            admissionTime={admissionTime}
             plannedSurgery={plannedSurgery}
             selectedChopCode={selectedChopCode}
             surgeonId={surgeonId}
@@ -606,7 +595,6 @@ export default function QuickCreateSurgeryDialog({
             onSurgeryDateChange={setSurgeryDate}
             onStartTimeChange={setStartTime}
             onDurationChange={setDuration}
-            onAdmissionTimeChange={setAdmissionTime}
             onPlannedSurgeryChange={setPlannedSurgery}
             onSelectedChopCodeChange={setSelectedChopCode}
             onSurgeonIdChange={setSurgeonId}

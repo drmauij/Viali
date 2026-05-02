@@ -43,7 +43,6 @@ type ParsedRow = {
   firstName: string;
   dob: string;
   surgeryDate: string;
-  admissionTime: string | null;
   startTime: string;
   duration: number;
   procedure: string;
@@ -242,7 +241,6 @@ export default function ExcelImportDialog({
           firstName: columns[2] || '',
           dob: '',
           surgeryDate: '',
-          admissionTime: null,
           startTime: '',
           duration: 120,
           procedure: '',
@@ -270,7 +268,7 @@ export default function ExcelImportDialog({
       const firstName = columns[2]?.trim() || 'UNDEFINED';
       const dob = parseDateDDMMYYYY(columns[3]) || '1900-01-01';
       const surgeryDate = parseDateDDMMYYYY(columns[4]) || '';
-      const admissionTime = parseTimeHHMM(columns[5]) || null;
+      // Column 5 is the legacy admission time — ignored; admission is now derived from the clinic-wide offset.
       const startTime = parseTimeHHMM(columns[6]) || parseTimeHHMM(columns[5]) || '';
       const duration = parseDuration(columns[7] || '');
       const procedure = columns[8]?.trim() || '';
@@ -300,7 +298,6 @@ export default function ExcelImportDialog({
         firstName,
         dob,
         surgeryDate,
-        admissionTime,
         startTime,
         duration,
         procedure,
@@ -393,10 +390,6 @@ export default function ExcelImportDialog({
         const endTimeStr = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}:00`;
         const endDateStr = `${row.surgeryDate}T${endTimeStr}`;
 
-        const admissionTimeStr = row.admissionTime 
-          ? `${row.surgeryDate}T${row.admissionTime}:00`
-          : undefined;
-
         await createSurgeryMutation.mutateAsync({
           hospitalId,
           patientId,
@@ -408,7 +401,6 @@ export default function ExcelImportDialog({
           surgeonId: row.matchedSurgeon?.id || undefined,
           notes: row.notes || undefined,
           status: "planned",
-          admissionTime: admissionTimeStr,
           price: row.price || undefined,
           quoteSentDate: row.quoteSentDate || undefined,
           invoiceSentDate: row.invoiceSentDate || undefined,

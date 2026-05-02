@@ -49,7 +49,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [surgeryDate, setSurgeryDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [duration, setDuration] = useState(90);
-  const [admissionTime, setAdmissionTime] = useState("");
   const [plannedSurgery, setPlannedSurgery] = useState("");
   const [surgeryRoomId, setSurgeryRoomId] = useState("");
   const [surgeonId, setSurgeonId] = useState("");
@@ -79,40 +78,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     enabled: !!surgeryId,
   });
 
-  // Fetch hospital for timezone + defaultAdmissionOffsetMinutes
-  const { data: hospital } = useQuery<{ timezone?: string; defaultAdmissionOffsetMinutes?: number }>({
-    queryKey: [`/api/admin/${surgery?.hospitalId}`],
-    enabled: !!surgery?.hospitalId,
-  });
-  const defaultOffsetMinutes = hospital?.defaultAdmissionOffsetMinutes ?? 60;
-
   // Saving state (replaces updateMutation.isPending in the UI)
   const [isSaving, setIsSaving] = useState(false);
-
-  // Inline notice shown under the admission field after auto-adjustment
-  const [admissionAdjustedNotice, setAdmissionAdjustedNotice] = useState<string | null>(null);
-
-  function handleStartTimeChange(newStart: string) {
-    setStartTime(newStart);
-    const match = /^(\d{2}):(\d{2})$/.exec(newStart);
-    if (!match) return;
-    const startMinutes = parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
-    const admMinutes = startMinutes - defaultOffsetMinutes;
-    if (admMinutes < 0) return;
-    const ah = Math.floor(admMinutes / 60);
-    const am = admMinutes % 60;
-    const nextAdmission = `${String(ah).padStart(2, "0")}:${String(am).padStart(2, "0")}`;
-    if (nextAdmission === admissionTime) return;
-    setAdmissionTime(nextAdmission);
-    setAdmissionAdjustedNotice(
-      t("admissionCongruence.inlineAdjusted", { offset: defaultOffsetMinutes }),
-    );
-  }
-
-  function handleAdmissionTimeChange(v: string) {
-    setAdmissionTime(v);
-    setAdmissionAdjustedNotice(null);
-  }
 
   // Fetch surgery rooms (only OP type for surgery room assignment)
   const { data: allSurgeryRooms = [] } = useQuery<any[]>({
@@ -256,21 +223,12 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       setRightArmPosition(surgery.rightArmPosition || "");
       setSelectedPatientId(surgery.patientId || "");
       setAssistantIds((surgery.assistants ?? []).map((a: any) => a.userId));
-
-      if (surgery.admissionTime) {
-        const admissionDateObj = new Date(surgery.admissionTime);
-        const aHours = String(admissionDateObj.getHours()).padStart(2, '0');
-        const aMinutes = String(admissionDateObj.getMinutes()).padStart(2, '0');
-        setAdmissionTime(`${aHours}:${aMinutes}`);
-      } else {
-        setAdmissionTime("");
-      }
     }
   }, [surgery]);
 
-  // Build the PATCH payload. If overrideAdmissionISO is provided (including null),
-  // it is used as-is; otherwise the admission time is derived from form state.
-  function buildPayload(overrideAdmissionISO?: string | null): { body: Record<string, unknown>; newPlannedDate: Date } {
+  // Build the PATCH payload. admissionTime is derived server-side from
+  // plannedDate − hospital.defaultAdmissionOffsetMinutes, so we never send it.
+  function buildPayload(): { body: Record<string, unknown> } {
     const [year, month, day] = surgeryDate.split('-').map(Number);
     const [hour, minute] = startTime.split(':').map(Number);
     const newPlannedDate = new Date(year, month - 1, day, hour, minute);
@@ -279,16 +237,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     endDate.setMinutes(endDate.getMinutes() + duration);
 
     const matchedSurgeon = surgeons.find((s: any) => s.id === surgeonId);
-
-    let admissionTimeISO: string | null;
-    if (overrideAdmissionISO !== undefined) {
-      admissionTimeISO = overrideAdmissionISO;
-    } else if (admissionTime) {
-      const [admHour, admMinute] = admissionTime.split(':').map(Number);
-      admissionTimeISO = new Date(year, month - 1, day, admHour, admMinute).toISOString();
-    } else {
-      admissionTimeISO = null;
-    }
 
     const body: Record<string, unknown> = {
       plannedDate: newPlannedDate.toISOString(),
@@ -302,7 +250,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       diagnosis: diagnosis || null,
       coverageType: coverageType || null,
       stayType: stayType || null,
-      admissionTime: admissionTimeISO,
       implantDetails: implantDetails || null,
       status: surgeryStatus,
       planningStatus,
@@ -315,7 +262,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       rightArmPosition: rightArmPosition || null,
       assistantIds,
     };
-    return { body, newPlannedDate };
+    return { body };
   }
 
   async function performPatch(body: Record<string, unknown>) {
@@ -323,10 +270,10 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     return response.json();
   }
 
-  async function runSave(overrideISO?: string | null) {
+  async function runSave() {
     setIsSaving(true);
     try {
-      const { body } = buildPayload(overrideISO);
+      const { body } = buildPayload();
       await performPatch(body);
       queryClient.invalidateQueries({
         predicate: (query) => {
@@ -648,7 +595,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 surgeryDate={surgeryDate}
                 startTime={startTime}
                 duration={duration}
-                admissionTime={admissionTime}
                 plannedSurgery={plannedSurgery}
                 selectedChopCode={selectedChopCode}
                 surgeonId={surgeonId}
@@ -665,9 +611,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 rightArmPosition={rightArmPosition}
                 onSurgeryRoomIdChange={setSurgeryRoomId}
                 onSurgeryDateChange={setSurgeryDate}
-                onStartTimeChange={handleStartTimeChange}
+                onStartTimeChange={setStartTime}
                 onDurationChange={setDuration}
-                onAdmissionTimeChange={handleAdmissionTimeChange}
                 onPlannedSurgeryChange={setPlannedSurgery}
                 onSelectedChopCodeChange={setSelectedChopCode}
                 onSurgeonIdChange={setSurgeonId}
@@ -691,7 +636,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 onAssistantIdsChange={setAssistantIds}
                 disabled={!canWrite}
                 testIdPrefix="edit-"
-                admissionAdjustedNoticeText={admissionAdjustedNotice}
               />
 
               </TabsContent>

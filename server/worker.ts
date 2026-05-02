@@ -9,6 +9,7 @@ import { decryptCredential } from './utils/encryption';
 import { randomUUID } from 'crypto';
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from './sms';
 import { resolveQuestionnaireLinkForDispatch } from "./services/questionnaire-dispatch";
+import { computeAdmission } from "@shared/admissionTime";
 import logger from "./logger";
 
 const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
@@ -1936,6 +1937,8 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
 
       // Format surgery date for display
       const surgeryDate = new Date(surgery.plannedDate);
+      // Admission time = surgery start − clinic-wide offset (single source of truth)
+      const admissionTime = computeAdmission(surgery.plannedDate, hospital?.defaultAdmissionOffsetMinutes ?? null);
       
       // Look up patient portal link
       let portalUrl = '';
@@ -1979,12 +1982,11 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
       // Try SMS first (preferred for urgent reminders)
       let sentMessageText = '';
       if (hasPhone && (await isSmsConfiguredForHospital(hospitalId))) {
-        // Build SMS message - only include time if admissionTime is provided
-        const surgeryInfoDe = surgery.admissionTime
-          ? `Erinnerung an Ihre OP morgen. Bitte kommen Sie um ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: tz })} in die Klinik.`
+        const surgeryInfoDe = admissionTime
+          ? `Erinnerung an Ihre OP morgen. Bitte kommen Sie um ${admissionTime.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: tz })} in die Klinik.`
           : `Erinnerung an Ihre OP morgen.`;
-        const surgeryInfoEn = surgery.admissionTime
-          ? `Reminder: Your surgery tomorrow. Please arrive at the clinic by ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: tz })}.`
+        const surgeryInfoEn = admissionTime
+          ? `Reminder: Your surgery tomorrow. Please arrive at the clinic by ${admissionTime.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: tz })}.`
           : `Reminder: Your surgery tomorrow.`;
 
         let smsMessage: string;
@@ -2021,7 +2023,7 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
           patientName,
           hospitalName,
           surgeryDate,
-          surgery.admissionTime ? new Date(surgery.admissionTime) : null,
+          admissionTime,
           portalUrl,
           isLASurgery,
           tz
@@ -2032,8 +2034,8 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
           usedMethod = 'email';
           // Build email summary text for patient communication history
           const dateStr = surgeryDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz });
-          const admissionTimeStr = surgery.admissionTime
-            ? new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: tz })
+          const admissionTimeStr = admissionTime
+            ? admissionTime.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: tz })
             : '';
           if (isLASurgery) {
             sentMessageText = `[Automatisch / Automatic] OP-Erinnerung / Surgery Reminder\n\n${dateStr}${admissionTimeStr ? ` um ${admissionTimeStr}` : ''}`;

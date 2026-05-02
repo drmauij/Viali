@@ -25,7 +25,6 @@ export interface SurgeryFormFieldsProps {
   surgeryDate: string;
   startTime: string;
   duration: number;
-  admissionTime: string;
   stayType: string;
   plannedSurgery: string;
   selectedChopCode: string;
@@ -46,7 +45,6 @@ export interface SurgeryFormFieldsProps {
   onSurgeryDateChange: (v: string) => void;
   onStartTimeChange: (v: string) => void;
   onDurationChange: (v: number) => void;
-  onAdmissionTimeChange: (v: string) => void;
   onStayTypeChange: (v: string) => void;
   onPlannedSurgeryChange: (v: string) => void;
   onSelectedChopCodeChange: (v: string) => void;
@@ -72,16 +70,15 @@ export interface SurgeryFormFieldsProps {
   isRoomBlock?: boolean;
   disabled?: boolean;
   testIdPrefix?: string;
-  admissionAdjustedNoticeText?: string | null;
 }
 
 export function SurgeryFormFields({
-  surgeryRoomId, surgeryDate, startTime, duration, admissionTime, stayType,
+  surgeryRoomId, surgeryDate, startTime, duration, stayType,
   plannedSurgery, selectedChopCode, surgeonId, notes, diagnosis, coverageType, implantDetails,
   surgerySide, noPreOpRequired, antibioseProphylaxe,
   patientPosition, leftArmPosition, rightArmPosition,
   onSurgeryRoomIdChange, onSurgeryDateChange, onStartTimeChange,
-  onDurationChange, onAdmissionTimeChange, onStayTypeChange, onPlannedSurgeryChange,
+  onDurationChange, onStayTypeChange, onPlannedSurgeryChange,
   onSelectedChopCodeChange, onSurgeonIdChange, onNotesChange, onDiagnosisChange,
   onCoverageTypeChange, onImplantDetailsChange, onSurgerySideChange, onNoPreOpRequiredChange,
   onAntibioseProphylaxeChange, onPatientPositionChange,
@@ -90,7 +87,6 @@ export function SurgeryFormFields({
   surgeryRooms, surgeons, hospitalId,
   isSlotReservation = false, isRoomBlock = false,
   disabled = false, testIdPrefix = "",
-  admissionAdjustedNoticeText = null,
 }: SurgeryFormFieldsProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -272,25 +268,6 @@ export function SurgeryFormFields({
             data-testid={tid("input-duration")}
           />
         </div>
-        {!isSlotReservation && (
-          <div className="space-y-1">
-            <Label>{t('anesthesia.quickSchedule.admissionTime', 'Admission')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'opt.')})</span></Label>
-            <TimeInput
-              value={admissionTime}
-              onChange={(v) => onAdmissionTimeChange(v)}
-              disabled={disabled}
-              data-testid={tid("input-admission-time")}
-            />
-            {admissionAdjustedNoticeText && (
-              <p
-                className="text-xs text-amber-600 dark:text-amber-400 mt-1"
-                data-testid={tid("text-admission-adjusted-notice")}
-              >
-                {admissionAdjustedNoticeText}
-              </p>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Stay Type (Ambulant / Übernachtung) */}

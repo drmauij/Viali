@@ -154,6 +154,7 @@ import {
   type DischargeMedicationTemplateItem,
   type InsertOrMedication,
 } from "@shared/schema";
+import { computeAdmission, computeAdmissionISO } from "@shared/admissionTime";
 import logger from "../logger";
 
 // ========== SURGERY ASSISTANT TYPES ==========
@@ -535,14 +536,20 @@ export async function getSurgeries(hospitalId: string, filters?: {
   if (filters?.dateFrom) conditions.push(gte(surgeries.plannedDate, filters.dateFrom));
   if (filters?.dateTo) conditions.push(lte(surgeries.plannedDate, filters.dateTo));
 
-  const result = await db
-    .select({ surgery: surgeries })
-    .from(surgeries)
-    .leftJoin(patients, eq(surgeries.patientId, patients.id))
-    .where(and(...conditions))
-    .orderBy(desc(surgeries.plannedDate));
+  const [result, offsetMinutes] = await Promise.all([
+    db
+      .select({ surgery: surgeries })
+      .from(surgeries)
+      .leftJoin(patients, eq(surgeries.patientId, patients.id))
+      .where(and(...conditions))
+      .orderBy(desc(surgeries.plannedDate)),
+    getHospitalAdmissionOffset(hospitalId),
+  ]);
 
-  const surgeryList = result.map(r => r.surgery);
+  const surgeryList = result.map(r => ({
+    ...r.surgery,
+    admissionTime: computeAdmission(r.surgery.plannedDate, offsetMinutes),
+  }));
 
   const surgeryIds = surgeryList.map(s => s.id);
   const assistantsBySurgery = new Map<string, AssistantInfo[]>();
@@ -592,8 +599,15 @@ export async function getSurgeryAssistants(surgeryId: string): Promise<Assistant
 export async function getSurgery(id: string): Promise<SurgeryWithAssistants | undefined> {
   const [surgery] = await db.select().from(surgeries).where(eq(surgeries.id, id));
   if (!surgery) return undefined;
-  const assistants = await getSurgeryAssistants(id);
-  return { ...surgery, assistants };
+  const [assistants, offsetMinutes] = await Promise.all([
+    getSurgeryAssistants(id),
+    getHospitalAdmissionOffset(surgery.hospitalId),
+  ]);
+  return {
+    ...surgery,
+    admissionTime: computeAdmission(surgery.plannedDate, offsetMinutes),
+    assistants,
+  };
 }
 
 export async function setSurgeryAssistants(surgeryId: string, userIds: string[]): Promise<void> {
@@ -1018,6 +1032,9 @@ export async function unlockAnesthesiaRecord(id: string, userId: string, reason:
 
 // ========== PACU PATIENTS ==========
 
+// NOTE: admissionTime in the response is derived from plannedDate −
+// hospital.defaultAdmissionOffsetMinutes (the per-surgery admission_time column
+// is dormant — see shared/admissionTime.ts).
 export async function getPacuPatients(hospitalId: string): Promise<Array<{
   anesthesiaRecordId: string;
   surgeryId: string;
@@ -1039,6 +1056,9 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
   admissionTime: string | null;
 }>> {
   const clinicRoom = alias(surgeryRooms, "clinic_room");
+
+  const [hospitalRow] = await db.select({ offset: hospitals.defaultAdmissionOffsetMinutes }).from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
+  const offsetMinutes = hospitalRow?.offset ?? null;
 
   const results = await db
     .select({
@@ -1218,7 +1238,7 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
         clinicRoomId: row.surgery.clinicRoomId || null,
         clinicRoomName: row.clinic_room?.name || null,
         plannedTime: row.surgery.plannedDate ? new Date(row.surgery.plannedDate).toISOString() : null,
-        admissionTime: row.surgery.admissionTime ? new Date(row.surgery.admissionTime).toISOString() : null,
+        admissionTime: computeAdmissionISO(row.surgery.plannedDate, offsetMinutes),
       };
     });
 
@@ -4593,23 +4613,36 @@ export async function saveSurgeryPreOpChecklistEntry(
 
 // ========== CHECKLIST MATRIX ==========
 
+async function getHospitalAdmissionOffset(hospitalId: string): Promise<number | null> {
+  const [row] = await db
+    .select({ offset: hospitals.defaultAdmissionOffsetMinutes })
+    .from(hospitals)
+    .where(eq(hospitals.id, hospitalId))
+    .limit(1);
+  return row?.offset ?? null;
+}
+
 export async function getFutureSurgeriesWithPatients(hospitalId: string): Promise<(Surgery & { patient?: Patient })[]> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const surgeriesWithPatients = await db
-    .select()
-    .from(surgeries)
-    .leftJoin(patients, eq(surgeries.patientId, patients.id))
-    .where(and(
-      eq(surgeries.hospitalId, hospitalId),
-      gte(surgeries.plannedDate, today),
-      eq(surgeries.isArchived, false)
-    ))
-    .orderBy(asc(surgeries.plannedDate));
+  const [surgeriesWithPatients, offsetMinutes] = await Promise.all([
+    db
+      .select()
+      .from(surgeries)
+      .leftJoin(patients, eq(surgeries.patientId, patients.id))
+      .where(and(
+        eq(surgeries.hospitalId, hospitalId),
+        gte(surgeries.plannedDate, today),
+        eq(surgeries.isArchived, false)
+      ))
+      .orderBy(asc(surgeries.plannedDate)),
+    getHospitalAdmissionOffset(hospitalId),
+  ]);
 
   return surgeriesWithPatients.map(row => ({
     ...row.surgeries,
+    admissionTime: computeAdmission(row.surgeries.plannedDate, offsetMinutes),
     patient: row.patients || undefined,
   }));
 }
@@ -4618,20 +4651,24 @@ export async function getPastSurgeriesWithPatients(hospitalId: string, limit: nu
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const surgeriesWithPatients = await db
-    .select()
-    .from(surgeries)
-    .leftJoin(patients, eq(surgeries.patientId, patients.id))
-    .where(and(
-      eq(surgeries.hospitalId, hospitalId),
-      lt(surgeries.plannedDate, today),
-      eq(surgeries.isArchived, false)
-    ))
-    .orderBy(desc(surgeries.plannedDate))
-    .limit(limit);
+  const [surgeriesWithPatients, offsetMinutes] = await Promise.all([
+    db
+      .select()
+      .from(surgeries)
+      .leftJoin(patients, eq(surgeries.patientId, patients.id))
+      .where(and(
+        eq(surgeries.hospitalId, hospitalId),
+        lt(surgeries.plannedDate, today),
+        eq(surgeries.isArchived, false)
+      ))
+      .orderBy(desc(surgeries.plannedDate))
+      .limit(limit),
+    getHospitalAdmissionOffset(hospitalId),
+  ]);
 
   return surgeriesWithPatients.map(row => ({
     ...row.surgeries,
+    admissionTime: computeAdmission(row.surgeries.plannedDate, offsetMinutes),
     patient: row.patients || undefined,
   }));
 }

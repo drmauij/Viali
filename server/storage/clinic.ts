@@ -2197,7 +2197,6 @@ export async function getSurgeriesForPreSurgeryReminder(hospitalId: string, hour
       patientEmail: patients.email,
       patientPhone: patients.phone,
       plannedDate: surgeries.plannedDate,
-      admissionTime: surgeries.admissionTime,
       surgeryRoomId: surgeries.surgeryRoomId,
       noPreOpRequired: surgeries.noPreOpRequired,
       reminderSent: surgeries.reminderSent,
@@ -2214,9 +2213,12 @@ export async function getSurgeriesForPreSurgeryReminder(hospitalId: string, hour
       eq(surgeries.isSuspended, false),
     ));
 
+  // admissionTime is derived per-call from hospital.defaultAdmissionOffsetMinutes;
+  // we no longer surface the dormant per-surgery column.
   return results.map(r => ({
     ...r,
     patientId: r.patientId!, // innerJoin guarantees non-null
+    admissionTime: null,
     reminderSent: r.reminderSent ?? false,
   }));
 }

@@ -660,7 +660,7 @@ router.get('/api/external-surgery-requests/:id/patient-matches', isAuthenticated
 router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
   try {
     const { id } = req.params;
-    const { plannedDate, surgeryRoomId, admissionTime, sendConfirmation, surgeonId: overrideSurgeonId, createNewSurgeon, surgeryDurationMinutes, existingPatientId } = req.body;
+    const { plannedDate, surgeryRoomId, sendConfirmation, surgeonId: overrideSurgeonId, createNewSurgeon, surgeryDurationMinutes, existingPatientId } = req.body;
     const userId = req.user.id;
 
     // Validate existingPatientId format if provided
@@ -834,7 +834,6 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       surgeonId: surgeonUserId,
       notes: request.surgeryNotes || '',
       anesthesiaNotes: request.anesthesiaNotes || null,
-      admissionTime: admissionTime ? new Date(admissionTime) : undefined,
       patientPosition: request.patientPosition || null,
       leftArmPosition: request.leftArmPosition || null,
       rightArmPosition: request.rightArmPosition || null,
