@@ -107,6 +107,27 @@ export function SurgeryFormFields({
 
   const tid = (base: string) => `${testIdPrefix}${base}`;
 
+  // Clinic-wide admission offset — drives the inline notice that shows the
+  // auto-derived admission time below the scheduling fields.
+  const { data: schedulingConfig } = useQuery<{ defaultAdmissionOffsetMinutes: number }>({
+    queryKey: [`/api/hospitals/${hospitalId}/scheduling-config`],
+    enabled: !!hospitalId,
+    staleTime: 5 * 60 * 1000,
+  });
+  const admissionOffsetMinutes = schedulingConfig?.defaultAdmissionOffsetMinutes ?? null;
+
+  const computedAdmissionLabel = useMemo(() => {
+    if (admissionOffsetMinutes == null) return null;
+    const m = /^(\d{2}):(\d{2})$/.exec(startTime || "");
+    if (!m) return null;
+    const startMinutes = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+    const admMinutes = startMinutes - admissionOffsetMinutes;
+    if (admMinutes < 0) return null;
+    const hh = Math.floor(admMinutes / 60) % 24;
+    const mm = admMinutes % 60;
+    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  }, [startTime, admissionOffsetMinutes]);
+
   // CHOP procedure search query
   const { data: chopProcedures = [], isLoading: isLoadingChop } = useQuery<Array<{
     id: string;
@@ -246,8 +267,11 @@ export function SurgeryFormFields({
         </div>
       </div>
 
-      {/* Start Time, Duration & Admission */}
-      <div className={cn("grid gap-3", isSlotReservation ? "grid-cols-2" : "grid-cols-3")}>
+      {/* Start Time, Duration & Stay Type */}
+      <div className={cn(
+        "grid gap-3",
+        isSlotReservation ? "grid-cols-2" : (isRoomBlock ? "grid-cols-2" : "grid-cols-3")
+      )}>
         <div className="space-y-1">
           <Label>{t('anesthesia.quickSchedule.startTime')} *</Label>
           <TimeInput
@@ -268,22 +292,29 @@ export function SurgeryFormFields({
             data-testid={tid("input-duration")}
           />
         </div>
+        {!isSlotReservation && !isRoomBlock && (
+          <div className="space-y-1">
+            <Label>{t('anesthesia.stayType', 'Stay Type')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'opt.')})</span></Label>
+            <Select value={stayType || undefined} onValueChange={onStayTypeChange} disabled={disabled}>
+              <SelectTrigger data-testid={tid("select-stay-type")}>
+                <SelectValue placeholder={t('surgery.externalRequest.stayTypePlaceholder', 'Select...')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ambulant">{t('anesthesia.stayTypeAmbulant', 'Outpatient')}</SelectItem>
+                <SelectItem value="overnight">{t('anesthesia.stayTypeOvernight', 'Overnight Stay')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
-      {/* Stay Type (Ambulant / Übernachtung) */}
-      {!isSlotReservation && !isRoomBlock && (
-        <div className="space-y-1">
-          <Label>{t('anesthesia.stayType', 'Stay Type')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'opt.')})</span></Label>
-          <Select value={stayType || undefined} onValueChange={onStayTypeChange} disabled={disabled}>
-            <SelectTrigger data-testid={tid("select-stay-type")}>
-              <SelectValue placeholder={t('surgery.externalRequest.stayTypePlaceholder', 'Select...')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ambulant">{t('anesthesia.stayTypeAmbulant', 'Outpatient')}</SelectItem>
-              <SelectItem value="overnight">{t('anesthesia.stayTypeOvernight', 'Overnight Stay')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      {!isSlotReservation && !isRoomBlock && computedAdmissionLabel && admissionOffsetMinutes != null && (
+        <p className="text-xs text-muted-foreground" data-testid={tid("text-admission-derived-notice")}>
+          {t('anesthesia.quickSchedule.admissionDerivedNotice', 'Admission time auto-set to {{time}} ({{minutes}} min before start, per clinic settings).', {
+            time: computedAdmissionLabel,
+            minutes: admissionOffsetMinutes,
+          })}
+        </p>
       )}
 
       {!isSlotReservation && (

@@ -840,11 +840,11 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     variant="outline"
                     onClick={onClose}
                     disabled={archiveMutation.isPending || isSaving || suspendMutation.isPending}
-                    data-testid="button-cancel-surgery"
+                    data-testid="button-close-edit-surgery"
                     className="w-full sm:flex-1"
                   >
                     <X className="mr-2 h-4 w-4" />
-                    {t('common.cancel')}
+                    {t('common.close')}
                   </Button>
                   {surgery?.isSuspended ? (
                     <Button

@@ -3646,6 +3646,25 @@ router.get('/api/clinic/:hospitalId/bookable-providers', isAuthenticated, requir
   }
 });
 
+// Lightweight scheduling-related hospital config visible to any user with
+// access — surgery dialogs need defaultAdmissionOffsetMinutes to display
+// the auto-derived admission time without exposing the full admin payload.
+router.get('/api/hospitals/:hospitalId/scheduling-config', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const hospital = await storage.getHospital(hospitalId);
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+    res.json({
+      defaultAdmissionOffsetMinutes: hospital.defaultAdmissionOffsetMinutes ?? 60,
+    });
+  } catch (error) {
+    logger.error("Error fetching scheduling config:", error);
+    res.status(500).json({ message: "Failed to fetch scheduling config" });
+  }
+});
+
 // Search hospital users for internal booking (colleague search)
 router.get('/api/hospitals/:hospitalId/users', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
