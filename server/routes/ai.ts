@@ -126,55 +126,104 @@ router.post('/api/parse-drug-command', isAuthenticated, requireWriteAccess, asyn
   }
 });
 
+const TRANSLATE_BATCH_SIZE = 50;
+const SUPPORTED_TRANSLATE_LANGS = ['de', 'en', 'it', 'es', 'fr', 'zh'] as const;
+
+const translateItemSchema = z.object({
+  id: z.string().min(1),
+  field: z.enum(['label', 'patientLabel', 'patientHelpText']),
+  text: z.string().min(1),
+});
+
+const translateRequestSchema = z.object({
+  items: z.array(translateItemSchema).min(1),
+  sourceLang: z.enum(SUPPORTED_TRANSLATE_LANGS),
+  targetLangs: z.array(z.enum(SUPPORTED_TRANSLATE_LANGS)).min(1),
+});
+
 router.post('/api/translate', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  let parsed;
   try {
-    const translateSchema = z.object({
-      items: z.array(z.string()).min(1, "Items array is required"),
-    });
-    let parsedTranslate;
-    try {
-      parsedTranslate = translateSchema.parse(req.body);
-    } catch (err) {
-      if (err instanceof ZodError) {
-        return res.status(400).json({ message: "Invalid request body", details: err.errors });
-      }
-      throw err;
+    parsed = translateRequestSchema.parse(req.body);
+  } catch (err) {
+    if (err instanceof ZodError) {
+      return res.status(400).json({ message: "Invalid request body", details: err.errors });
     }
-    const { items } = parsedTranslate;
-
-    const mistral = getMistralTextClient();
-
-    const itemsList = items.join('\n');
-    const response = await mistral.chat.completions.create({
-      model: getMistralTextModel(),
-      messages: [
-        {
-          role: "system",
-          content: `You are a medical translator. Translate the given medical terms between English and German.
-            - If the terms are in English, translate to German
-            - If the terms are in German, translate to English
-            - Keep medical terminology accurate
-            - Return ONLY the translated terms, one per line, in the same order as input
-            - Do not add any explanations or numbering`
-        },
-        {
-          role: "user",
-          content: itemsList
-        }
-      ],
-      temperature: 0.3,
-    });
-
-    const translatedText = response.choices[0]?.message?.content || '';
-    const translations = translatedText.split('\n').filter(line => line.trim());
-    if (translations.length !== items.length) {
-      logger.warn('Translation count mismatch:', { input: items.length, output: translations.length });
-    }
-    res.json({ translations });
-  } catch (error: any) {
-    logger.error("Error translating items:", error);
-    res.status(500).json({ message: error.message || "Failed to translate items" });
+    throw err;
   }
+  const { items, sourceLang, targetLangs } = parsed;
+
+  if (targetLangs.includes(sourceLang)) {
+    return res.status(400).json({ message: "targetLangs must not include sourceLang" });
+  }
+
+  const langNames: Record<string, string> = {
+    de: 'German', en: 'English', it: 'Italian',
+    es: 'Spanish', fr: 'French', zh: 'Simplified Chinese',
+  };
+  const targetList = targetLangs.map(l => `"${l}" (${langNames[l]})`).join(', ');
+
+  const mistral = getMistralTextClient();
+  const merged: Record<string, Partial<Record<string, string>>> = {};
+
+  for (let i = 0; i < items.length; i += TRANSLATE_BATCH_SIZE) {
+    const batch = items.slice(i, i + TRANSLATE_BATCH_SIZE);
+    const inputJson = JSON.stringify(batch.map(it => ({ key: `${it.id}:${it.field}`, text: it.text })));
+
+    let response;
+    try {
+      response = await mistral.chat.completions.create({
+        model: getMistralTextModel(),
+        messages: [
+          {
+            role: "system",
+            content: `You are a medical translator. Translate the given medical terms from ${langNames[sourceLang]} into the following target languages: ${targetList}.
+
+Return ONLY a JSON object whose keys are the input "key" values and whose values are objects mapping each target language code to the translated string. Example:
+{"abc:label": {"en": "Hypertension", "it": "Ipertensione"}}
+
+Rules:
+- Keep medical terminology accurate and use clinically standard terms.
+- For patient-facing fields (key ends in :patientLabel or :patientHelpText), use everyday language a non-medical patient understands.
+- Do not include the source language in the output.
+- Do not add explanations, code fences, or any text outside the JSON object.`,
+          },
+          { role: "user", content: inputJson },
+        ],
+        temperature: 0.2,
+        response_format: { type: "json_object" } as any,
+      });
+    } catch (error: any) {
+      logger.error("Translation Mistral call failed:", error);
+      return res.status(502).json({ message: "Upstream translation provider failed" });
+    }
+
+    const raw = response.choices[0]?.message?.content || '{}';
+    let parsedJson: any;
+    try {
+      parsedJson = JSON.parse(raw);
+    } catch {
+      logger.warn('Translation JSON parse failed, skipping batch', { raw: raw.slice(0, 500) });
+      continue;
+    }
+
+    for (const it of batch) {
+      const key = `${it.id}:${it.field}`;
+      const got = parsedJson?.[key];
+      if (!got || typeof got !== 'object') {
+        logger.warn('Translation response missing key', { key });
+        continue;
+      }
+      const langs: Partial<Record<string, string>> = {};
+      for (const target of targetLangs) {
+        const v = got[target];
+        if (typeof v === 'string' && v.trim().length > 0) langs[target] = v.trim();
+      }
+      if (Object.keys(langs).length > 0) merged[key] = langs;
+    }
+  }
+
+  res.json({ translations: merged });
 });
 
 router.post('/api/translate-message', isAuthenticated, requireWriteAccess, async (req: any, res) => {
