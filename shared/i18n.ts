@@ -8,3 +8,31 @@ export type TranslatableField = 'label' | 'patientLabel' | 'patientHelpText';
 
 export type LangMap = Partial<Record<Lang, string>>;
 export type OverrideMap = Partial<Record<Lang, true>>;
+
+import type { IllnessListItem } from './schema';
+
+const TRANSLATIONS_KEY: Record<TranslatableField, keyof IllnessListItem> = {
+  label: 'labelTranslations',
+  patientLabel: 'patientLabelTranslations',
+  patientHelpText: 'patientHelpTextTranslations',
+};
+
+export function resolveLocalized(
+  item: IllnessListItem,
+  lang: Lang,
+  field: TranslatableField = 'label',
+): string | undefined {
+  const sourceText = item[field] as string | undefined;
+  const translations = item[TRANSLATIONS_KEY[field]] as LangMap | undefined;
+  const sourceLang = item.labelSourceLang;
+
+  const explicit = translations?.[lang];
+  if (explicit && explicit.length > 0) return explicit;
+
+  if (sourceLang && lang === sourceLang && sourceText) return sourceText;
+
+  const englishFallback = translations?.en;
+  if (englishFallback && englishFallback.length > 0) return englishFallback;
+
+  return sourceText && sourceText.length > 0 ? sourceText : undefined;
+}
