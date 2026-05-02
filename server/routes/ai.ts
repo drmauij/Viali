@@ -9,6 +9,7 @@ import {
 import { z, ZodError } from "zod";
 import OpenAI from "openai";
 import logger from "../logger";
+import { SUPPORTED_QUESTIONNAIRE_LANGS, LANG_DISPLAY_NAMES, type Lang } from "@shared/i18n";
 
 const MISTRAL_TEXT_BASE_URL = "https://api.mistral.ai/v1";
 
@@ -127,7 +128,6 @@ router.post('/api/parse-drug-command', isAuthenticated, requireWriteAccess, asyn
 });
 
 const TRANSLATE_BATCH_SIZE = 50;
-const SUPPORTED_TRANSLATE_LANGS = ['de', 'en', 'it', 'es', 'fr', 'zh'] as const;
 
 const translateItemSchema = z.object({
   id: z.string().min(1),
@@ -137,8 +137,8 @@ const translateItemSchema = z.object({
 
 const translateRequestSchema = z.object({
   items: z.array(translateItemSchema).min(1),
-  sourceLang: z.enum(SUPPORTED_TRANSLATE_LANGS),
-  targetLangs: z.array(z.enum(SUPPORTED_TRANSLATE_LANGS)).min(1),
+  sourceLang: z.enum(SUPPORTED_QUESTIONNAIRE_LANGS),
+  targetLangs: z.array(z.enum(SUPPORTED_QUESTIONNAIRE_LANGS)).min(1),
 });
 
 router.post('/api/translate', isAuthenticated, requireWriteAccess, async (req: any, res) => {
@@ -157,11 +157,7 @@ router.post('/api/translate', isAuthenticated, requireWriteAccess, async (req: a
     return res.status(400).json({ message: "targetLangs must not include sourceLang" });
   }
 
-  const langNames: Record<string, string> = {
-    de: 'German', en: 'English', it: 'Italian',
-    es: 'Spanish', fr: 'French', zh: 'Simplified Chinese',
-  };
-  const targetList = targetLangs.map(l => `"${l}" (${langNames[l]})`).join(', ');
+  const targetList = targetLangs.map(l => `"${l}" (${LANG_DISPLAY_NAMES[l]})`).join(', ');
 
   const mistral = getMistralTextClient();
   const merged: Record<string, Partial<Record<string, string>>> = {};
@@ -177,7 +173,7 @@ router.post('/api/translate', isAuthenticated, requireWriteAccess, async (req: a
         messages: [
           {
             role: "system",
-            content: `You are a medical translator. Translate the given medical terms from ${langNames[sourceLang]} into the following target languages: ${targetList}.
+            content: `You are a medical translator. Translate the given medical terms from ${LANG_DISPLAY_NAMES[sourceLang]} into the following target languages: ${targetList}.
 
 Return ONLY a JSON object whose keys are the input "key" values and whose values are objects mapping each target language code to the translated string. Example:
 {"abc:label": {"en": "Hypertension", "it": "Ipertensione"}}
@@ -244,14 +240,6 @@ router.post('/api/translate-message', isAuthenticated, requireWriteAccess, async
     }
     const { text, targetLanguage, knownValues } = parsed;
 
-    const langNames: Record<string, string> = {
-      de: 'German',
-      en: 'English',
-      it: 'Italian',
-      es: 'Spanish',
-      fr: 'French',
-    };
-
     // Anonymize PII before sending to external AI (known-values + regex + OpenMed ML)
     const { text: safeText, restore, summary } = await anonymizeWithOpenMed(text, { knownValues });
 
@@ -270,7 +258,7 @@ router.post('/api/translate-message', isAuthenticated, requireWriteAccess, async
       messages: [
         {
           role: "system",
-          content: `You are a professional translator for a medical clinic. Translate the following message to ${langNames[targetLanguage]}.
+          content: `You are a professional translator for a medical clinic. Translate the following message to ${LANG_DISPLAY_NAMES[targetLanguage]}.
             - Preserve the original formatting, line breaks, and any URLs exactly as they are
             - Keep the tone professional but friendly, suitable for patient communication
             - Do NOT translate or modify any text inside square brackets like [NAME_1], [DATE_1], [LINK_1] — keep them exactly as they are

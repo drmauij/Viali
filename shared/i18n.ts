@@ -9,6 +9,15 @@ export type TranslatableField = 'label' | 'patientLabel' | 'patientHelpText';
 export type LangMap = Partial<Record<Lang, string>>;
 export type OverrideMap = Partial<Record<Lang, true>>;
 
+export const LANG_DISPLAY_NAMES: Record<Lang, string> = {
+  de: 'German',
+  en: 'English',
+  it: 'Italian',
+  es: 'Spanish',
+  fr: 'French',
+  zh: 'Simplified Chinese',
+};
+
 import type { IllnessListItem } from './schema';
 
 const TRANSLATIONS_KEY: Record<TranslatableField, keyof IllnessListItem> = {
