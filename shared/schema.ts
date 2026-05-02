@@ -21,6 +21,7 @@ import { relations } from 'drizzle-orm';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import type { PostopOrderItem } from "./postopOrderItems";
+import type { Lang, LangMap, OverrideMap } from "./i18n";
 
 // Session storage table (mandatory for Replit Auth)
 export const sessions = pgTable(
@@ -827,9 +828,26 @@ export const medicationConfigs = pgTable("medication_configs", {
 export type IllnessListItem = {
   id: string;
   label: string; // Professional label (shown to doctors)
+  labelSourceLang?: Lang;
+  labelTranslations?: LangMap;
+  labelOverrides?: OverrideMap;
+
   patientVisible?: boolean; // Whether to show in patient questionnaire
   patientLabel?: string; // Patient-friendly label for questionnaire
+  patientLabelTranslations?: LangMap;
+  patientLabelOverrides?: OverrideMap;
   patientHelpText?: string; // Explanation/tooltip for patients
+  patientHelpTextTranslations?: LangMap;
+  patientHelpTextOverrides?: OverrideMap;
+};
+
+// Minimal localized list item for medication lists and checklist items
+export type LocalizedListItem = {
+  id: string;
+  label: string;
+  labelSourceLang?: Lang;
+  labelTranslations?: LangMap;
+  labelOverrides?: OverrideMap;
 };
 
 // Hospital Anesthesia Settings (customizable illness lists and checklist items)
@@ -844,8 +862,8 @@ export const hospitalAnesthesiaSettings = pgTable("hospital_anesthesia_settings"
   // Customizable medication lists (JSONB for flexibility)
   // Each item has a stable ID and translatable label
   medicationLists: jsonb("medication_lists").$type<{
-    anticoagulation?: Array<{ id: string; label: string }>;
-    general?: Array<{ id: string; label: string }>;
+    anticoagulation?: Array<LocalizedListItem>;
+    general?: Array<LocalizedListItem>;
   }>(),
   
   // Customizable illness lists per medical system (JSONB for flexibility)
@@ -873,9 +891,9 @@ export const hospitalAnesthesiaSettings = pgTable("hospital_anesthesia_settings"
   // Customizable WHO checklist items (JSONB for flexibility)
   // Each item has a stable ID and translatable label
   checklistItems: jsonb("checklist_items").$type<{
-    signIn?: Array<{ id: string; label: string }>;
-    timeOut?: Array<{ id: string; label: string }>;
-    signOut?: Array<{ id: string; label: string }>;
+    signIn?: Array<LocalizedListItem>;
+    timeOut?: Array<LocalizedListItem>;
+    signOut?: Array<LocalizedListItem>;
   }>(),
   
   createdAt: timestamp("created_at").defaultNow(),
