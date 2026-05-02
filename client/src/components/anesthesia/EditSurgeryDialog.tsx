@@ -9,7 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useState, useEffect, useMemo } from "react";
-import { Loader2, Archive, Save, X, Eye, ClipboardList, FileEdit, StickyNote, Plus, Pencil, Trash2, ListTodo, Check, ChevronsUpDown, Ban, RotateCcw } from "lucide-react";
+import { Loader2, Archive, Save, Eye, ClipboardList, FileEdit, StickyNote, Plus, Pencil, Trash2, ListTodo, Check, ChevronsUpDown, Ban, RotateCcw, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -818,81 +819,84 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
 
           {/* Sticky Action Buttons Footer */}
           {!isLoading && (
-            <div className="sticky bottom-0 bg-background border-t p-4 shrink-0 flex flex-col sm:flex-row gap-2">
+            <div className="sticky bottom-0 bg-background border-t p-4 shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               {canWrite ? (
                 <>
-                  <Button
-                    onClick={handleUpdate}
-                    disabled={isSaving || archiveMutation.isPending}
-                    data-testid="button-update-surgery"
-                    className="w-full sm:flex-1"
-                  >
-                    {isSaving ? (
-                      <>{t('anesthesia.editSurgery.updating')}</>
-                    ) : (
-                      <>
-                        <Save className="mr-2 h-4 w-4" />
-                        {t('anesthesia.editSurgery.update')}
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={onClose}
-                    disabled={archiveMutation.isPending || isSaving || suspendMutation.isPending}
-                    data-testid="button-close-edit-surgery"
-                    className="w-full sm:flex-1"
-                  >
-                    <X className="mr-2 h-4 w-4" />
-                    {t('common.close')}
-                  </Button>
-                  {surgery?.isSuspended ? (
-                    <Button
-                      variant="outline"
-                      onClick={() => suspendMutation.mutate({ isSuspended: false, suspendedReason: null })}
-                      disabled={archiveMutation.isPending || isSaving || suspendMutation.isPending}
-                      data-testid="button-unsuspend-surgery"
-                      className="w-full sm:flex-1 border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950"
-                    >
-                      {suspendMutation.isPending ? (
-                        <>{t('anesthesia.editSurgery.suspendReactivating', 'Reactivating...')}</>
-                      ) : (
-                        <>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        disabled={archiveMutation.isPending || isSaving || suspendMutation.isPending}
+                        data-testid="button-surgery-actions"
+                        className="w-full sm:w-auto"
+                      >
+                        <ChevronDown className="mr-1 h-4 w-4" />
+                        {t('common.actions', 'Actions')}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                      {surgery?.isSuspended ? (
+                        <DropdownMenuItem
+                          onClick={() => suspendMutation.mutate({ isSuspended: false, suspendedReason: null })}
+                          disabled={suspendMutation.isPending}
+                          className="text-green-700 dark:text-green-400 focus:text-green-700 dark:focus:text-green-400"
+                          data-testid="menu-unsuspend-surgery"
+                        >
                           <RotateCcw className="mr-2 h-4 w-4" />
-                          {t('anesthesia.editSurgery.suspendReactivate', 'Reaktivieren')}
-                        </>
+                          {suspendMutation.isPending
+                            ? t('anesthesia.editSurgery.suspendReactivating', 'Reactivating...')
+                            : t('anesthesia.editSurgery.suspendReactivate', 'Reaktivieren')}
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          onClick={() => setShowSuspendDialog(true)}
+                          className="text-amber-700 dark:text-amber-400 focus:text-amber-700 dark:focus:text-amber-400"
+                          data-testid="menu-suspend-surgery"
+                        >
+                          <Ban className="mr-2 h-4 w-4" />
+                          {t('anesthesia.editSurgery.suspendButton', 'Absetzen')}
+                        </DropdownMenuItem>
                       )}
-                    </Button>
-                  ) : (
+                      {canPlanOps && (
+                        <DropdownMenuItem
+                          onClick={handleArchive}
+                          disabled={archiveMutation.isPending}
+                          data-testid="menu-archive-surgery"
+                        >
+                          <Archive className="mr-2 h-4 w-4" />
+                          {archiveMutation.isPending
+                            ? t('anesthesia.editSurgery.archiving', 'Archiving...')
+                            : t('anesthesia.editSurgery.archiveSurgery', 'Archive')}
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     <Button
                       variant="outline"
-                      onClick={() => setShowSuspendDialog(true)}
+                      onClick={onClose}
                       disabled={archiveMutation.isPending || isSaving || suspendMutation.isPending}
-                      data-testid="button-suspend-surgery"
-                      className="w-full sm:flex-1 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
+                      data-testid="button-close-edit-surgery"
+                      className="w-full sm:w-auto"
                     >
-                      <Ban className="mr-2 h-4 w-4" />
-                      {t('anesthesia.editSurgery.suspendButton', 'Absetzen')}
+                      {t('common.close')}
                     </Button>
-                  )}
-                  {canPlanOps && (
                     <Button
-                      variant="outline"
-                      onClick={handleArchive}
-                      disabled={archiveMutation.isPending || isSaving || suspendMutation.isPending}
-                      data-testid="button-archive-surgery"
-                      className="w-full sm:flex-1"
+                      onClick={handleUpdate}
+                      disabled={isSaving || archiveMutation.isPending}
+                      data-testid="button-update-surgery"
+                      className="w-full sm:w-auto"
                     >
-                      {archiveMutation.isPending ? (
-                        <>{t('anesthesia.editSurgery.archiving', 'Archiving...')}</>
+                      {isSaving ? (
+                        <>{t('anesthesia.editSurgery.updating')}</>
                       ) : (
                         <>
-                          <Archive className="mr-2 h-4 w-4" />
-                          {t('anesthesia.editSurgery.archiveSurgery', 'Archive')}
+                          <Save className="mr-2 h-4 w-4" />
+                          {t('anesthesia.editSurgery.update')}
                         </>
                       )}
                     </Button>
-                  )}
+                  </div>
                 </>
               ) : (
                 <Button
@@ -901,7 +905,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   data-testid="button-close-surgery"
                   className="w-full"
                 >
-                  <X className="mr-2 h-4 w-4" />
                   {t('common.close')}
                 </Button>
               )}
