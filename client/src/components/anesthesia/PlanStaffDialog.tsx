@@ -7,27 +7,22 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Search, 
-  Plus, 
-  Check, 
-  User, 
-  UserCog, 
-  Stethoscope, 
-  Syringe, 
-  HeartPulse, 
-  Users, 
+import {
+  Search,
+  Check,
+  User,
+  UserCog,
+  Stethoscope,
+  Syringe,
+  HeartPulse,
+  Users,
   BedDouble,
-  UserPlus,
-  FileText,
   AlertTriangle,
   XCircle
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Link } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
 import { useActiveHospital } from '@/hooks/useActiveHospital';
 import { apiRequest } from '@/lib/queryClient';
 import { formatDateHeader } from '@/lib/dateUtils';
@@ -72,12 +67,9 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
   const activeHospital = useActiveHospital();
   const queryClient = useQueryClient();
   const isAdmin = activeHospital?.role === 'admin';
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [newStaffName, setNewStaffName] = useState('');
-  const [newStaffRole, setNewStaffRole] = useState<StaffRole | ''>('');
-  const [showCreateOptions, setShowCreateOptions] = useState(false);
   
   const dateString = useMemo(() => {
     const d = new Date(selectedDate);
@@ -187,19 +179,9 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
     },
   });
   
-  const createQuickStaffUser = useMutation({
-    mutationFn: async (data: { name: string; staffRole: StaffRole }) => {
-      const res = await apiRequest('POST', `/api/anesthesia/staff-user/${hospitalId}`, data);
-      return res.json();
-    },
-  });
-  
   const handleClose = () => {
     setSearchQuery('');
     setSelectedIds(new Set());
-    setNewStaffName('');
-    setNewStaffRole('');
-    setShowCreateOptions(false);
     onOpenChange(false);
   };
   
@@ -233,47 +215,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
     
     await addToPoolMutation.mutateAsync(staffToAdd);
   };
-  
-  const handleCreateNewStaff = () => {
-    if (!newStaffName.trim()) return;
-    setShowCreateOptions(true);
-  };
-  
-  const handleCreateAsStaffUser = async () => {
-    if (!newStaffName.trim() || !newStaffRole) return;
 
-    try {
-      const result = await createQuickStaffUser.mutateAsync({
-        name: newStaffName.trim(),
-        staffRole: newStaffRole,
-      });
-
-      await addToPoolMutation.mutateAsync([{
-        name: newStaffName.trim(),
-        role: newStaffRole,
-        userId: result.id,
-      }]);
-
-      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/all-staff-options', hospitalId] });
-    } catch (error) {
-      toast({
-        title: t('common.error'),
-        description: t('surgery.staff.createUserError'),
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleCreateAsText = async () => {
-    if (!newStaffName.trim() || !newStaffRole) return;
-
-    await addToPoolMutation.mutateAsync([{
-      name: newStaffName.trim(),
-      role: newStaffRole,
-      userId: null,
-    }]);
-  };
-  
   const selectedCount = selectedIds.size;
   
   const handleOpenChange = (newOpen: boolean) => {
@@ -440,86 +382,25 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
           </div>
         </ScrollArea>
         
-        {isAdmin && (
-          <>
-            <Separator />
-            {!showCreateOptions ? (
-              <div className="flex gap-2">
-                <Input
-                  placeholder={t('staffPool.newStaffName', 'New staff name...')}
-                  value={newStaffName}
-                  onChange={(e) => setNewStaffName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreateNewStaff()}
-                  data-testid="input-new-staff-name"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCreateNewStaff}
-                  disabled={!newStaffName.trim()}
-                  data-testid="button-create-new-staff"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  {t('staffPool.createChoice', { name: newStaffName })}
-                </p>
-                <Select value={newStaffRole} onValueChange={(v) => setNewStaffRole(v as StaffRole)}>
-                  <SelectTrigger className="h-9" data-testid="select-new-staff-role">
-                    <SelectValue placeholder={t('surgery.staff.selectRole', 'Select role')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(ROLE_CONFIG) as StaffRole[]).map(r => (
-                      <SelectItem key={r} value={r}>
-                        {t(ROLE_CONFIG[r].labelKey)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={handleCreateAsStaffUser}
-                    disabled={addToPoolMutation.isPending || !newStaffRole}
-                    data-testid="button-create-as-user"
-                  >
-                    <UserPlus className="h-4 w-4 mr-1" />
-                    {t('staffPool.createAsUser', 'As User')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={handleCreateAsText}
-                    disabled={addToPoolMutation.isPending || !newStaffRole}
-                    data-testid="button-create-as-text"
-                  >
-                    <FileText className="h-4 w-4 mr-1" />
-                    {t('staffPool.createAsText', 'Text Only')}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setShowCreateOptions(false);
-                      setNewStaffName('');
-                      setNewStaffRole('');
-                    }}
-                    data-testid="button-cancel-create"
-                  >
-                    {t('common.cancel', 'Cancel')}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-        
+        <p className="text-xs text-muted-foreground">
+          {isAdmin ? (
+            <>
+              {t('staffPool.addNewHintAdminPrefix', 'Need someone not in the list? ')}
+              <Link
+                href="/admin/users?tab=staffMembers"
+                className="underline text-primary hover:text-primary/80"
+                onClick={handleClose}
+                data-testid="link-manage-staff"
+              >
+                {t('staffPool.addNewHintAdminLink', 'Add them in Admin → Users')}
+              </Link>
+              {t('staffPool.addNewHintAdminSuffix', ' first.')}
+            </>
+          ) : (
+            t('staffPool.addNewHint', 'Need someone not in the list? Ask an admin to add them in Admin → Users first.')
+          )}
+        </p>
+
         <DialogFooter className="flex-row gap-2 sm:gap-2">
           <Button variant="outline" onClick={handleClose} data-testid="button-cancel-plan-staff">
             {t('common.cancel', 'Cancel')}

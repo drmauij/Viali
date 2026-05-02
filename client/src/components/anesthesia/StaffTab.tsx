@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,9 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, X, User, UserCog, Stethoscope, Syringe, HeartPulse, Users, ChevronDown, Edit2, Trash2, BedDouble, UserPlus, FileText, ClipboardCopy, CalendarClock } from 'lucide-react';
+import { Plus, X, User, UserCog, Stethoscope, Syringe, HeartPulse, Users, Edit2, BedDouble, FileText, ClipboardCopy, CalendarClock, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveHospital } from '@/hooks/useActiveHospital';
@@ -46,11 +47,6 @@ const ROLE_ORDER: StaffRole[] = [
   'pacuNurse',
 ];
 
-interface CreateStaffChoice {
-  name: string;
-  role: StaffRole;
-}
-
 export function StaffTab({
   anesthesiaRecordId,
   hospitalId,
@@ -70,7 +66,6 @@ export function StaffTab({
   const [editingEntry, setEditingEntry] = useState<SurgeryStaffEntry | null>(null);
   const [editName, setEditName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<SurgeryStaffEntry | null>(null);
-  const [createStaffChoice, setCreateStaffChoice] = useState<CreateStaffChoice | null>(null);
 
   const { data: staffEntries = [], isLoading } = useQuery<SurgeryStaffEntry[]>({
     queryKey: [`/api/anesthesia/staff/${anesthesiaRecordId}`],
@@ -102,21 +97,6 @@ export function StaffTab({
   const createStaff = useCreateStaff(anesthesiaRecordId);
   const updateStaff = useUpdateStaff(anesthesiaRecordId);
   const deleteStaff = useDeleteStaff(anesthesiaRecordId);
-
-  const createQuickStaffUser = useMutation({
-    mutationFn: async (data: { name: string; staffRole: StaffRole }): Promise<{ id: string; name: string; email: string; role: string; unitId: string }> => {
-      const res = await apiRequest('POST', `/api/anesthesia/staff-user/${hospitalId}`, data);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        predicate: (query) => {
-          const key = query.queryKey;
-          return Array.isArray(key) && typeof key[0] === 'string' && key[0].startsWith(`/api/anesthesia/staff-options/${hospitalId}`);
-        },
-      });
-    },
-  });
 
   const staffByRole = useMemo(() => {
     const grouped: Record<StaffRole, SurgeryStaffEntry[]> = {
@@ -201,34 +181,9 @@ export function StaffTab({
     },
   });
 
-  const handleAddStaff = async (role: StaffRole, name: string, userId?: string | null) => {
-    if (!anesthesiaRecordId || !name.trim()) return;
-
-    // If no userId is provided (custom name not in system), automatically create as Staff User
-    // This ensures all staff entries can have hourly rates for cost calculations
-    if (!userId && hospitalId) {
-      setOpenPopover(null);
-      try {
-        const result = await createQuickStaffUser.mutateAsync({
-          name: name.trim(),
-          staffRole: role,
-        });
-        await addStaffEntry(role, name.trim(), result.id);
-        toast({
-          title: t('common.success'),
-          description: t('surgery.staff.createdAsUser'),
-        });
-      } catch (error) {
-        toast({
-          title: t('common.error'),
-          description: t('surgery.staff.createUserError'),
-          variant: 'destructive',
-        });
-      }
-      return;
-    }
-
-    await addStaffEntry(role, name.trim(), userId || null);
+  const handleAddStaff = async (role: StaffRole, name: string, userId: string) => {
+    if (!anesthesiaRecordId || !name.trim() || !userId) return;
+    await addStaffEntry(role, name.trim(), userId);
   };
 
   const addStaffEntry = async (role: StaffRole, name: string, userId: string | null) => {
@@ -255,36 +210,6 @@ export function StaffTab({
         variant: 'destructive',
       });
     }
-  };
-
-  const handleCreateAsStaffUser = async () => {
-    if (!createStaffChoice || !hospitalId) return;
-
-    try {
-      const result = await createQuickStaffUser.mutateAsync({
-        name: createStaffChoice.name,
-        staffRole: createStaffChoice.role,
-      });
-
-      await addStaffEntry(createStaffChoice.role, createStaffChoice.name, result.id);
-      setCreateStaffChoice(null);
-      toast({
-        title: t('common.success'),
-        description: t('surgery.staff.createdAsUser'),
-      });
-    } catch (error) {
-      toast({
-        title: t('common.error'),
-        description: t('surgery.staff.createUserError'),
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleCreateAsText = async () => {
-    if (!createStaffChoice) return;
-    await addStaffEntry(createStaffChoice.role, createStaffChoice.name, null);
-    setCreateStaffChoice(null);
   };
 
   const handleUpdateStaff = async () => {
@@ -421,41 +346,31 @@ export function StaffTab({
                     <PopoverContent className="w-72 p-0" align="end">
                       <Command>
                         <CommandInput
-                          placeholder={t('surgery.staff.searchOrEnter')}
+                          placeholder={t('surgery.staff.searchUsers', 'Search staff...')}
                           value={searchInput}
                           onValueChange={setSearchInput}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && searchInput.trim()) {
-                              e.preventDefault();
-                              handleAddStaff(role, searchInput.trim());
-                            }
-                          }}
                         />
                         <CommandList>
                           <CommandEmpty>
-                            {searchInput.trim() && (
-                              <Button
-                                variant="ghost"
-                                className="w-full justify-start text-left"
-                                onClick={() => handleAddStaff(role, searchInput.trim())}
-                                data-testid={`button-add-custom-staff-${role}`}
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                {t('surgery.staff.addCustom', { name: searchInput.trim() })}
-                              </Button>
-                            )}
+                            <div className="px-3 py-3 text-xs text-muted-foreground space-y-2">
+                              <p>{t('surgery.staff.noUsersFound', 'No staff member found.')}</p>
+                              {isAdmin ? (
+                                <Link
+                                  href="/admin/users?tab=staffMembers"
+                                  className="inline-flex items-center gap-1 text-primary hover:underline"
+                                  onClick={() => setOpenPopover(null)}
+                                  data-testid={`link-manage-staff-${role}`}
+                                >
+                                  <ExternalLink className="h-3 w-3" />
+                                  {t('surgery.staff.openAdminUsers', 'Add a new staff member in Admin → Users')}
+                                </Link>
+                              ) : (
+                                <p>
+                                  {t('surgery.staff.askAdmin', 'Ask an admin to add them in Admin → Users.')}
+                                </p>
+                              )}
+                            </div>
                           </CommandEmpty>
-                          {searchInput.trim() && (
-                            <CommandGroup heading={t('surgery.staff.addAsNew')}>
-                              <CommandItem
-                                onSelect={() => handleAddStaff(role, searchInput.trim())}
-                                className="cursor-pointer"
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                <span className="font-medium">{searchInput.trim()}</span>
-                              </CommandItem>
-                            </CommandGroup>
-                          )}
                           {filteredUsers.length > 0 && (
                             <CommandGroup heading={t('surgery.staff.systemUsers')}>
                               {filteredUsers.map((u) => (
@@ -577,53 +492,6 @@ export function StaffTab({
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={!!createStaffChoice} onOpenChange={(open) => !open && setCreateStaffChoice(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t('surgery.staff.createStaffChoice')}</DialogTitle>
-            <DialogDescription>
-              {t('surgery.staff.createStaffChoiceDesc', { name: createStaffChoice?.name })}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3 py-4">
-            <Button
-              variant="outline"
-              className="h-auto py-4 px-4 justify-start w-full"
-              onClick={handleCreateAsStaffUser}
-              disabled={createQuickStaffUser.isPending}
-              data-testid="button-create-as-staff-user"
-            >
-              <UserPlus className="h-5 w-5 mr-3 flex-shrink-0 text-primary" />
-              <div className="text-left min-w-0 flex-1">
-                <div className="font-medium">{t('surgery.staff.createAsStaffUser')}</div>
-                <div className="text-xs text-muted-foreground whitespace-normal">
-                  {t('surgery.staff.createAsStaffUserDesc')}
-                </div>
-              </div>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-auto py-4 px-4 justify-start w-full"
-              onClick={handleCreateAsText}
-              disabled={createQuickStaffUser.isPending}
-              data-testid="button-create-as-text"
-            >
-              <FileText className="h-5 w-5 mr-3 flex-shrink-0 text-muted-foreground" />
-              <div className="text-left min-w-0 flex-1">
-                <div className="font-medium">{t('surgery.staff.createAsText')}</div>
-                <div className="text-xs text-muted-foreground whitespace-normal">
-                  {t('surgery.staff.createAsTextDesc')}
-                </div>
-              </div>
-            </Button>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setCreateStaffChoice(null)} data-testid="button-cancel-create-staff">
-              {t('common.cancel')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
