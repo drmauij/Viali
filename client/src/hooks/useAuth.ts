@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import * as Sentry from "@sentry/react";
 import type { User } from "@shared/schema";
 
 /**
@@ -18,6 +20,14 @@ export function useAuth() {
     queryKey: ["/api/auth/user"],
     retry: false,
   });
+
+  useEffect(() => {
+    if (user) {
+      Sentry.setUser({ id: user.id, email: user.email || undefined });
+    } else if (!isLoading) {
+      Sentry.setUser(null);
+    }
+  }, [user, isLoading]);
 
   return {
     user,
