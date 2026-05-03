@@ -130,17 +130,17 @@ interface QuestionnaireConfig {
   conditionsList: Array<{
     id: string;
     label: string;
-    labelDe?: string;
-    labelEn?: string;
-    helpText?: string;
+    patientLabel?: string;
+    patientHelpText?: string;
+    patientVisible?: boolean;
     category: string;
   }>;
   allergyList: Array<{
     id: string;
     label: string;
-    labelDe?: string;
-    labelEn?: string;
-    helpText?: string;
+    patientLabel?: string;
+    patientHelpText?: string;
+    patientVisible?: boolean;
   }>;
   medicationsList?: Array<{
     id: string;
@@ -1362,13 +1362,14 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
       : `/api/public/questionnaire/${token}`;
 
   const { data: config, isLoading, error } = useQuery<QuestionnaireConfig>({
-    queryKey: ["/api/public/questionnaire", linkToken || token, isHospitalToken && !linkToken ? "hospital" : "direct"],
+    queryKey: ["/api/public/questionnaire", linkToken || token, isHospitalToken && !linkToken ? "hospital" : "direct", language],
     queryFn: async () => {
-      const endpoint = linkToken 
+      const baseEndpoint = linkToken
         ? `/api/public/questionnaire/${linkToken}`
-        : isHospitalToken 
+        : isHospitalToken
           ? `/api/public/questionnaire/hospital/${token}`
           : `/api/public/questionnaire/${token}`;
+      const endpoint = `${baseEndpoint}?lang=${encodeURIComponent(language)}`;
       const res = await fetch(endpoint);
       if (!res.ok) {
         const data = await res.json();
@@ -1958,6 +1959,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
                   <SelectItem value="it">IT Italiano</SelectItem>
                   <SelectItem value="es">ES Español</SelectItem>
                   <SelectItem value="fr">FR Français</SelectItem>
+                  <SelectItem value="zh">ZH 中文</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -2384,18 +2386,12 @@ function PersonalInfoStep({ formData, updateField, t, attemptedNext }: StepProps
 }
 
 interface ConditionsStepProps extends StepProps {
-  conditions: Array<{ id: string; label: string; labelDe?: string; labelEn?: string; helpText?: string; category: string }>;
+  conditions: Array<{ id: string; label: string; patientLabel?: string; patientHelpText?: string; patientVisible?: boolean; category: string }>;
   language: string;
   onNoneChecked: () => void;
 }
 
 function ConditionsStep({ formData, updateField, conditions, t, language, onNoneChecked }: ConditionsStepProps) {
-  const getLabel = (item: { label: string; labelDe?: string; labelEn?: string }) => {
-    if (language === "en" && item.labelEn) return item.labelEn;
-    if (language === "de" && item.labelDe) return item.labelDe;
-    return item.label;
-  };
-  
   const categoryOrder = [
     "cardiovascular", "heart", "pulmonary", "lung", "gi", "gastrointestinal", 
     "kidney", "renal", "metabolic", "neurological", "neuro", "psychiatry", "psych",
@@ -2533,12 +2529,12 @@ function ConditionsStep({ formData, updateField, conditions, t, language, onNone
                               htmlFor={`condition-${condition.id}`}
                               className="font-normal cursor-pointer"
                             >
-                              {getLabel(condition)}
+                              {condition.label}
                             </Label>
-                            {condition.helpText && (
+                            {condition.patientHelpText && (
                               <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                                 <Info className="h-3 w-3" />
-                                {condition.helpText}
+                                {condition.patientHelpText}
                               </p>
                             )}
                           </div>
@@ -2883,17 +2879,12 @@ function MedicationsStep({ formData, updateField, t, medicationsList, onNoneChec
 }
 
 interface AllergiesStepProps extends StepProps {
-  allergyList: Array<{ id: string; label: string; labelDe?: string; labelEn?: string; helpText?: string }>;
+  allergyList: Array<{ id: string; label: string; patientLabel?: string; patientHelpText?: string; patientVisible?: boolean }>;
   language: string;
   onNoneChecked: () => void;
 }
 
 function AllergiesStep({ formData, updateField, allergyList, t, language, onNoneChecked }: AllergiesStepProps) {
-  const getLabel = (item: { label: string; labelDe?: string; labelEn?: string }) => {
-    if (language === "en" && item.labelEn) return item.labelEn;
-    if (language === "de" && item.labelDe) return item.labelDe;
-    return item.label;
-  };
   const toggleAllergy = (id: string) => {
     const current = formData.allergies;
     if (current.includes(id)) {
@@ -2942,10 +2933,10 @@ function AllergiesStep({ formData, updateField, allergyList, t, language, onNone
                   />
                   <div>
                     <Label htmlFor={`allergy-${allergy.id}`} className="font-normal cursor-pointer">
-                      {getLabel(allergy)}
+                      {allergy.label}
                     </Label>
-                    {allergy.helpText && (
-                      <p className="text-xs text-gray-500">{allergy.helpText}</p>
+                    {allergy.patientHelpText && (
+                      <p className="text-xs text-gray-500">{allergy.patientHelpText}</p>
                     )}
                   </div>
                 </div>
@@ -3358,19 +3349,13 @@ interface SummaryStepProps {
   t: (key: string) => string;
   uploads: FileUpload[];
   onEditStep: (stepIndex: number) => void;
-  allergyList?: Array<{ id: string; label: string; labelDe?: string; labelEn?: string }>;
-  conditionsList?: Array<{ id: string; label: string; labelDe?: string; labelEn?: string }>;
+  allergyList?: Array<{ id: string; label: string; patientLabel?: string; patientHelpText?: string; patientVisible?: boolean }>;
+  conditionsList?: Array<{ id: string; label: string; patientLabel?: string; patientHelpText?: string; patientVisible?: boolean }>;
   language: string;
   surgeryLinked: boolean;
 }
 
 function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditionsList, language, surgeryLinked }: SummaryStepProps) {
-  const getLabel = (item: { label: string; labelDe?: string; labelEn?: string }) => {
-    if (language === "en" && item.labelEn) return item.labelEn;
-    if (language === "de" && item.labelDe) return item.labelDe;
-    return item.label;
-  };
-
   const NoneBadge = () => (
     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
       <CheckCircle className="h-3 w-3" />
@@ -3464,7 +3449,7 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
                 <div className="flex flex-wrap gap-1 mt-1">
                   {selectedAllergies.map(a => (
                     <span key={a.id} className="px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 rounded-full text-xs">
-                      {getLabel(a)}
+                      {a.label}
                     </span>
                   ))}
                 </div>
@@ -3484,7 +3469,7 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
             <div className="flex flex-wrap gap-1">
               {checkedConditions.map(c => (
                 <span key={c.id} className="px-2 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 rounded-full text-xs">
-                  {getLabel(c)}
+                  {c.label}
                 </span>
               ))}
             </div>
