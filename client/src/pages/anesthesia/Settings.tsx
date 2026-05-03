@@ -37,6 +37,45 @@ import {
 import type { Lang } from "@shared/i18n";
 import { collectItemsForTab, buildTranslateRequest, applyTranslationsToSettings, ALL_LANGS, type TabKey } from "@/lib/translateBulk";
 
+function TabBulkTranslateButton({
+  tab,
+  isTranslating,
+  onTranslate,
+}: {
+  tab: TabKey;
+  isTranslating: TabKey | null;
+  onTranslate: (tab: TabKey, force?: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  const busy = isTranslating === tab;
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onTranslate(tab)}
+        disabled={busy}
+        data-testid={`button-translate-${tab}`}
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Languages className="h-4 w-4 mr-2" />}
+        {t('anesthesia.settings.translateToAllLanguages')}
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" disabled={busy}>
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={() => onTranslate(tab, true)}>
+            {t('anesthesia.settings.retranslateEverything')}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 type MedicationGroup = {
   id: string;
   name: string;
@@ -853,32 +892,7 @@ export default function AnesthesiaSettings() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 mb-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => translateTab('allergies')}
-              disabled={isTranslating === 'allergies'}
-              data-testid="button-translate-allergies"
-            >
-              {isTranslating === 'allergies'
-                ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                : <Languages className="h-4 w-4 mr-2" />}
-              {t('anesthesia.settings.translateToAllLanguages')}
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" disabled={isTranslating === 'allergies'}>
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => translateTab('allergies', true)}>
-                  {t('anesthesia.settings.retranslateEverything')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <TabBulkTranslateButton tab="allergies" isTranslating={isTranslating} onTranslate={translateTab} />
 
           <div className="flex gap-2 mb-4">
             <Input
@@ -943,32 +957,7 @@ export default function AnesthesiaSettings() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 mb-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => translateTab('medications')}
-              disabled={isTranslating === 'medications'}
-              data-testid="button-translate-medications"
-            >
-              {isTranslating === 'medications'
-                ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                : <Languages className="h-4 w-4 mr-2" />}
-              {t('anesthesia.settings.translateToAllLanguages')}
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" disabled={isTranslating === 'medications'}>
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => translateTab('medications', true)}>
-                  {t('anesthesia.settings.retranslateEverything')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <TabBulkTranslateButton tab="medications" isTranslating={isTranslating} onTranslate={translateTab} />
 
           <div className="space-y-6">
             <div>
@@ -1091,32 +1080,7 @@ export default function AnesthesiaSettings() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 mb-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => translateTab('illness')}
-              disabled={isTranslating === 'illness'}
-              data-testid="button-translate-illness"
-            >
-              {isTranslating === 'illness'
-                ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                : <Languages className="h-4 w-4 mr-2" />}
-              {t('anesthesia.settings.translateToAllLanguages')}
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" disabled={isTranslating === 'illness'}>
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => translateTab('illness', true)}>
-                  {t('anesthesia.settings.retranslateEverything')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <TabBulkTranslateButton tab="illness" isTranslating={isTranslating} onTranslate={translateTab} />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[

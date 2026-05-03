@@ -72,8 +72,17 @@ export function applyTranslationsToSettings(
     const incoming = agg[key];
     if (!incoming) return item;
     const tKey = `${field}Translations` as const;
+    const oKey = `${field}Overrides` as const;
     const existing = ((item as any)[tKey] as LangMap | undefined) || {};
-    return { ...item, [tKey]: { ...existing, ...incoming } } as T;
+    const overrides = ((item as any)[oKey] as OverrideMap | undefined) || {};
+    // Strip any incoming langs that are manually overridden — they must not be silently overwritten.
+    const filtered: LangMap = {};
+    for (const [lang, text] of Object.entries(incoming)) {
+      if (overrides[lang as keyof OverrideMap]) continue;
+      filtered[lang as keyof LangMap] = text as string;
+    }
+    if (Object.keys(filtered).length === 0) return item;
+    return { ...item, [tKey]: { ...existing, ...filtered } } as T;
   };
   const mergeItem = <T extends AnyItem>(it: T): T =>
     TRANSLATABLE_FIELDS.reduce((acc, f) => mergeField(acc, f), it);
