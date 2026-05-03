@@ -2529,7 +2529,7 @@ function ConditionsStep({ formData, updateField, conditions, t, language, onNone
                               htmlFor={`condition-${condition.id}`}
                               className="font-normal cursor-pointer"
                             >
-                              {condition.label}
+                              {condition.patientLabel || condition.label}
                             </Label>
                             {condition.patientHelpText && (
                               <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
@@ -2933,7 +2933,7 @@ function AllergiesStep({ formData, updateField, allergyList, t, language, onNone
                   />
                   <div>
                     <Label htmlFor={`allergy-${allergy.id}`} className="font-normal cursor-pointer">
-                      {allergy.label}
+                      {allergy.patientLabel || allergy.label}
                     </Label>
                     {allergy.patientHelpText && (
                       <p className="text-xs text-gray-500">{allergy.patientHelpText}</p>
@@ -3449,7 +3449,7 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
                 <div className="flex flex-wrap gap-1 mt-1">
                   {selectedAllergies.map(a => (
                     <span key={a.id} className="px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 rounded-full text-xs">
-                      {a.label}
+                      {a.patientLabel || a.label}
                     </span>
                   ))}
                 </div>
@@ -3469,7 +3469,7 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
             <div className="flex flex-wrap gap-1">
               {checkedConditions.map(c => (
                 <span key={c.id} className="px-2 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 rounded-full text-xs">
-                  {c.label}
+                  {c.patientLabel || c.label}
                 </span>
               ))}
             </div>
