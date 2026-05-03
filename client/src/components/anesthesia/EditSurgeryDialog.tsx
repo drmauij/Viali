@@ -416,6 +416,11 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
           <div className="p-6 border-b shrink-0">
             <DialogHeader>
               <DialogTitle>{t('anesthesia.editSurgery.title')}</DialogTitle>
+              {surgery?.createdAt && (
+                <div className="text-xs text-muted-foreground" data-testid="text-surgery-created-at">
+                  {t('anesthesia.editSurgery.plannedOn', 'Planned on')} {formatDateTime(new Date(surgery.createdAt))}
+                </div>
+              )}
             </DialogHeader>
           </div>
 
