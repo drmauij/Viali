@@ -3026,7 +3026,13 @@
       "removeAllFromAnesthesia": "Remove all from anesthesia",
       "itemsConfigured": "items configured",
       "dragToReorder": "Drag to reorder",
-      "integrations": "Integrations"
+      "integrations": "Integrations",
+      "translateToAllLanguages": "Translate to all languages",
+      "retranslateEverything": "Re-translate everything",
+      "translationComplete": "Translation complete",
+      "translationCompleteDesc": "{{count}} field(s) translated",
+      "nothingToTranslate": "Nothing to translate",
+      "allUpToDate": "All translations are up to date"
     },
     "reports": {
       "title": "Reports & Analytics",
@@ -5344,14 +5350,7 @@
     },
     "backToChain": "Back to Chain overview",
     "tabs": {
-      "overview": "Overview",
-      "treatments": "Treatments",
-      "surgeries": "Surgeries",
-      "costs": "Costs",
-      "inventory": "Inventory",
-      "money": "Money",
-      "pipeline": "Pipeline",
-      "treatmentsPlaceholder": "Detailed treatment analytics coming soon."
+      "costs": "Costs"
     },
     "money": {
       "helperText": "Did we make money? Revenue, costs, and margin for the selected period.",
@@ -6041,9 +6040,6 @@
       "surgeryMaterials": "Surgery Materials",
       "totalCost": "Total Cost",
       "patientPayment": "Patient Payment"
-    },
-    "tabs": {
-      "costs": "Costs"
     },
     "funnel": {
       "title": "Conversion Funnel",

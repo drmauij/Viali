@@ -3107,7 +3107,13 @@
       "removeAllFromAnesthesia": "Alle aus Anästhesie entfernen",
       "itemsConfigured": "Artikel konfiguriert",
       "dragToReorder": "Ziehen zum Sortieren",
-      "integrations": "Integrationen"
+      "integrations": "Integrationen",
+      "translateToAllLanguages": "In alle Sprachen übersetzen",
+      "retranslateEverything": "Alles neu übersetzen",
+      "translationComplete": "Übersetzung abgeschlossen",
+      "translationCompleteDesc": "{{count}} Feld(er) übersetzt",
+      "nothingToTranslate": "Nichts zu übersetzen",
+      "allUpToDate": "Alle Übersetzungen sind aktuell"
     },
     "reports": {
       "title": "Berichte & Analysen",
@@ -5425,14 +5431,7 @@
     },
     "backToChain": "Zurück zur Ketten-Übersicht",
     "tabs": {
-      "overview": "Übersicht",
-      "treatments": "Behandlungen",
-      "surgeries": "Operationen",
-      "costs": "Kosten",
-      "inventory": "Lager",
-      "money": "Finanzen",
-      "pipeline": "Pipeline",
-      "treatmentsPlaceholder": "Detaillierte Behandlungsanalyse kommt bald."
+      "costs": "Kosten"
     },
     "money": {
       "helperText": "Haben wir Geld verdient? Umsatz, Kosten und Marge für den gewählten Zeitraum.",
@@ -6137,9 +6136,6 @@
       "surgeryMaterials": "OP-Material",
       "totalCost": "Gesamtkosten",
       "patientPayment": "Patientenzahlung"
-    },
-    "tabs": {
-      "costs": "Kosten"
     },
     "funnel": {
       "title": "Konversionstrichter",
@@ -8409,7 +8405,12 @@
     "unitPrice": "Einzelpreis",
     "zones": "Zonen",
     "notes": "Besonderheiten",
-    "status": "Status",
+    "status": {
+      "draft": "Entwurf",
+      "signed": "Signiert",
+      "invoiced": "Verrechnet",
+      "amended": "Geändert"
+    },
     "noTreatments": "Noch keine Behandlungen erfasst.",
     "unknownItem": "Artikel",
     "unitPlaceholder": "Einheiten",
@@ -8428,12 +8429,6 @@
       "total": "Gesamt"
     },
     "statusLabel": "Status",
-    "status": {
-      "draft": "Entwurf",
-      "signed": "Signiert",
-      "invoiced": "Verrechnet",
-      "amended": "Geändert"
-    },
     "linkAppointmentDialog": {
       "title": "Heutigen Termin verknüpfen?",
       "prompt": "Diese Patientin/dieser Patient hat heute einen Termin. Mit dieser Behandlung verknüpfen?",

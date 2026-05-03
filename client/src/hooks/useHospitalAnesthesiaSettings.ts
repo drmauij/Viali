@@ -1,36 +1,37 @@
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "./useActiveHospital";
+import type { IllnessListItem, LocalizedListItem } from "@shared/schema";
 
 export type HospitalAnesthesiaSettings = {
   id: string;
   hospitalId: string;
-  allergyList?: Array<{ id: string; label: string }>;
+  allergyList?: Array<IllnessListItem>;
   medicationLists?: {
-    anticoagulation?: Array<{ id: string; label: string }>;
-    general?: Array<{ id: string; label: string }>;
+    anticoagulation?: Array<LocalizedListItem>;
+    general?: Array<LocalizedListItem>;
   };
   illnessLists?: {
-    cardiovascular?: Array<{ id: string; label: string }>;
-    pulmonary?: Array<{ id: string; label: string }>;
-    gastrointestinal?: Array<{ id: string; label: string }>;
-    kidney?: Array<{ id: string; label: string }>;
-    metabolic?: Array<{ id: string; label: string }>;
-    neurological?: Array<{ id: string; label: string }>;
-    psychiatric?: Array<{ id: string; label: string }>;
-    skeletal?: Array<{ id: string; label: string }>;
-    coagulation?: Array<{ id: string; label: string }>;
-    infectious?: Array<{ id: string; label: string }>;
-    woman?: Array<{ id: string; label: string }>;
-    noxen?: Array<{ id: string; label: string }>;
-    children?: Array<{ id: string; label: string }>;
-    anesthesiaHistory?: Array<{ id: string; label: string }>;
-    dental?: Array<{ id: string; label: string }>;
-    ponvTransfusion?: Array<{ id: string; label: string }>;
+    cardiovascular?: Array<IllnessListItem>;
+    pulmonary?: Array<IllnessListItem>;
+    gastrointestinal?: Array<IllnessListItem>;
+    kidney?: Array<IllnessListItem>;
+    metabolic?: Array<IllnessListItem>;
+    neurological?: Array<IllnessListItem>;
+    psychiatric?: Array<IllnessListItem>;
+    skeletal?: Array<IllnessListItem>;
+    coagulation?: Array<IllnessListItem>;
+    infectious?: Array<IllnessListItem>;
+    woman?: Array<IllnessListItem>;
+    noxen?: Array<IllnessListItem>;
+    children?: Array<IllnessListItem>;
+    anesthesiaHistory?: Array<IllnessListItem>;
+    dental?: Array<IllnessListItem>;
+    ponvTransfusion?: Array<IllnessListItem>;
   };
   checklistItems?: {
-    signIn?: Array<{ id: string; label: string }>;
-    timeOut?: Array<{ id: string; label: string }>;
-    signOut?: Array<{ id: string; label: string }>;
+    signIn?: Array<LocalizedListItem>;
+    timeOut?: Array<LocalizedListItem>;
+    signOut?: Array<LocalizedListItem>;
   };
   createdAt: string;
   updatedAt: string;

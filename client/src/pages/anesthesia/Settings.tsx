@@ -26,8 +26,16 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, X, ChevronUp, ChevronDown, Pencil, Trash2, Languages, LayoutGrid, Syringe, Pill, HeartPulse, ClipboardCheck } from "lucide-react";
+import { Loader2, Plus, X, ChevronUp, ChevronDown, Pencil, Trash2, Languages, LayoutGrid, Syringe, Pill, HeartPulse, ClipboardCheck, MoreVertical } from "lucide-react";
 import { arrayMove } from "@dnd-kit/sortable";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import type { Lang } from "@shared/i18n";
+import { collectItemsForTab, buildTranslateRequest, applyTranslationsToSettings, ALL_LANGS, type TabKey } from "@/lib/translateBulk";
 
 type MedicationGroup = {
   id: string;
@@ -145,7 +153,7 @@ export default function AnesthesiaSettings() {
   const [patientHelpTextForm, setPatientHelpTextForm] = useState('');
 
   // State for translation
-  const [isTranslating, setIsTranslating] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState<TabKey | null>(null);
 
   // Split items into available and selected
   const anesthesiaItemIds = new Set(anesthesiaItems.map(item => item.id));
@@ -444,109 +452,57 @@ export default function AnesthesiaSettings() {
     setPatientHelpTextForm('');
   };
 
-  // Translation function using OpenAI
-  const translateSection = async (section: 'allergies' | 'anticoagulation' | 'general' | 'illness' | 'checklist', category?: string) => {
+  // Bulk translate all items in a tab to all supported languages
+  const translateTab = async (tab: TabKey, force = false) => {
     if (!anesthesiaSettings) return;
-    
-    const sectionKey = category ? `${section}-${category}` : section;
-    setIsTranslating(sectionKey);
-    
+    setIsTranslating(tab);
+
+    const collected = collectItemsForTab(tab, anesthesiaSettings);
+
+    // Bucket items by source language so each request has uniform sourceLang.
+    const buckets = new Map<Lang, typeof collected>();
+    for (const c of collected) {
+      const sl = (c.item.labelSourceLang || 'de') as Lang;
+      if (!buckets.has(sl)) buckets.set(sl, []);
+      buckets.get(sl)!.push(c);
+    }
+
+    const aggregated: Record<string, Partial<Record<Lang, string>>> = {};
+
     try {
-      let items: string[] = [];
-      
-      if (section === 'allergies') {
-        items = (anesthesiaSettings.allergyList || []).map((i) => i.label);
-      } else if (section === 'anticoagulation') {
-        items = (anesthesiaSettings.medicationLists?.anticoagulation || []).map((i) => i.label);
-      } else if (section === 'general') {
-        items = (anesthesiaSettings.medicationLists?.general || []).map((i) => i.label);
-      } else if (section === 'illness' && category) {
-        items = ((anesthesiaSettings.illnessLists as any)?.[category] || []).map((i: any) => i.label);
-      } else if (section === 'checklist' && category) {
-        items = (anesthesiaSettings.checklistItems?.[category as 'signIn' | 'timeOut' | 'signOut'] || []).map((i) => i.label);
+      for (const [sl, group] of buckets) {
+        const { items, targetLangsByItem } = buildTranslateRequest(group, force);
+        if (items.length === 0) continue;
+        const targetLangs = ALL_LANGS.filter(l => l !== sl);
+        const res = await apiRequest('POST', '/api/translate', { items, sourceLang: sl, targetLangs });
+        const data = await res.json() as { translations: Record<string, Partial<Record<Lang, string>>> };
+        for (const [k, v] of Object.entries(data.translations)) {
+          const wanted = new Set(targetLangsByItem.get(k) || []);
+          const filtered: Partial<Record<Lang, string>> = {};
+          for (const [lang, text] of Object.entries(v)) {
+            if (wanted.has(lang as Lang)) filtered[lang as Lang] = text;
+          }
+          aggregated[k] = { ...(aggregated[k] || {}), ...filtered };
+        }
       }
-      
-      if (items.length === 0) {
+
+      if (Object.keys(aggregated).length === 0) {
         toast({
-          title: t('anesthesia.settings.noItemsToTranslate'),
-          description: t('anesthesia.settings.addItemsFirst'),
+          title: t('anesthesia.settings.nothingToTranslate'),
+          description: t('anesthesia.settings.allUpToDate'),
         });
-        setIsTranslating(null);
         return;
       }
-      
-      const response = await apiRequest('POST', '/api/translate', { items });
-      const data = await response.json();
-      const translatedItems: string[] = data.translations;
-      
-      if (section === 'allergies') {
-        const currentItems = anesthesiaSettings.allergyList || [];
-        const updatedItems = currentItems.map((item, index) => ({
-          id: item.id,
-          label: translatedItems[index] || item.label,
-        }));
-        updateSettingsMutation.mutate({ allergyList: updatedItems });
-      } else if (section === 'anticoagulation') {
-        const currentItems = anesthesiaSettings.medicationLists?.anticoagulation || [];
-        const updatedItems = currentItems.map((item, index) => ({
-          id: item.id,
-          label: translatedItems[index] || item.label,
-        }));
-        updateSettingsMutation.mutate({
-          medicationLists: {
-            ...anesthesiaSettings.medicationLists,
-            anticoagulation: updatedItems,
-          },
-        });
-      } else if (section === 'general') {
-        const currentItems = anesthesiaSettings.medicationLists?.general || [];
-        const updatedItems = currentItems.map((item, index) => ({
-          id: item.id,
-          label: translatedItems[index] || item.label,
-        }));
-        updateSettingsMutation.mutate({
-          medicationLists: {
-            ...anesthesiaSettings.medicationLists,
-            general: updatedItems,
-          },
-        });
-      } else if (section === 'illness' && category) {
-        const currentLists = anesthesiaSettings.illnessLists || {};
-        const currentItems = (currentLists as any)[category] || [];
-        const updatedItems = currentItems.map((item: any, index: number) => ({
-          id: item.id,
-          label: translatedItems[index] || item.label,
-        }));
-        updateSettingsMutation.mutate({
-          illnessLists: {
-            ...currentLists,
-            [category]: updatedItems,
-          },
-        });
-      } else if (section === 'checklist' && category) {
-        const currentItems = anesthesiaSettings.checklistItems?.[category as 'signIn' | 'timeOut' | 'signOut'] || [];
-        const updatedItems = currentItems.map((item, index) => ({
-          id: item.id,
-          label: translatedItems[index] || item.label,
-        }));
-        updateSettingsMutation.mutate({
-          checklistItems: {
-            ...anesthesiaSettings.checklistItems,
-            [category]: updatedItems,
-          },
-        });
-      }
-      
+
+      const next = applyTranslationsToSettings(anesthesiaSettings, tab, aggregated);
+      updateSettingsMutation.mutate(next);
+
       toast({
         title: t('anesthesia.settings.translationComplete'),
-        description: t('anesthesia.settings.itemsTranslated'),
+        description: t('anesthesia.settings.translationCompleteDesc', { count: Object.keys(aggregated).length }),
       });
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: t('common.error'),
-        description: error.message || t('anesthesia.settings.translationFailed'),
-      });
+      toast({ variant: 'destructive', title: t('common.error'), description: error.message });
     } finally {
       setIsTranslating(null);
     }
@@ -890,27 +846,38 @@ export default function AnesthesiaSettings() {
         </TabsContent>
 
         <TabsContent value="allergies" className="space-y-4">
-          <div className="mb-4 flex items-start justify-between">
-            <div>
-              <h3 className="text-lg font-medium">{t('anesthesia.settings.commonAllergies')}</h3>
-              <p className="text-sm text-muted-foreground">
-                {t('anesthesia.settings.commonAllergiesDescription')}
-              </p>
-            </div>
+          <div className="mb-4">
+            <h3 className="text-lg font-medium">{t('anesthesia.settings.commonAllergies')}</h3>
+            <p className="text-sm text-muted-foreground">
+              {t('anesthesia.settings.commonAllergiesDescription')}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 mb-4">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => translateSection('allergies')}
+              onClick={() => translateTab('allergies')}
               disabled={isTranslating === 'allergies'}
               data-testid="button-translate-allergies"
             >
-              {isTranslating === 'allergies' ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Languages className="h-4 w-4 mr-2" />
-              )}
-              EN ↔ DE
+              {isTranslating === 'allergies'
+                ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                : <Languages className="h-4 w-4 mr-2" />}
+              {t('anesthesia.settings.translateToAllLanguages')}
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" disabled={isTranslating === 'allergies'}>
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => translateTab('allergies', true)}>
+                  {t('anesthesia.settings.retranslateEverything')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <div className="flex gap-2 mb-4">
@@ -976,24 +943,37 @@ export default function AnesthesiaSettings() {
             </p>
           </div>
 
+          <div className="flex items-center gap-2 mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => translateTab('medications')}
+              disabled={isTranslating === 'medications'}
+              data-testid="button-translate-medications"
+            >
+              {isTranslating === 'medications'
+                ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                : <Languages className="h-4 w-4 mr-2" />}
+              {t('anesthesia.settings.translateToAllLanguages')}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" disabled={isTranslating === 'medications'}>
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => translateTab('medications', true)}>
+                  {t('anesthesia.settings.retranslateEverything')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
           <div className="space-y-6">
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-medium">{t('anesthesia.settings.anticoagulationMedications')}</h4>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => translateSection('anticoagulation')}
-                  disabled={isTranslating === 'anticoagulation'}
-                  data-testid="button-translate-anticoagulation"
-                >
-                  {isTranslating === 'anticoagulation' ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Languages className="h-4 w-4 mr-2" />
-                  )}
-                  EN ↔ DE
-                </Button>
               </div>
               <div className="flex gap-2 mb-3">
                 <Input
@@ -1049,20 +1029,6 @@ export default function AnesthesiaSettings() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-medium">{t('anesthesia.settings.generalMedications')}</h4>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => translateSection('general')}
-                  disabled={isTranslating === 'general'}
-                  data-testid="button-translate-general"
-                >
-                  {isTranslating === 'general' ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Languages className="h-4 w-4 mr-2" />
-                  )}
-                  EN ↔ DE
-                </Button>
               </div>
               <div className="flex gap-2 mb-3">
                 <Input
@@ -1125,6 +1091,33 @@ export default function AnesthesiaSettings() {
             </p>
           </div>
 
+          <div className="flex items-center gap-2 mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => translateTab('illness')}
+              disabled={isTranslating === 'illness'}
+              data-testid="button-translate-illness"
+            >
+              {isTranslating === 'illness'
+                ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                : <Languages className="h-4 w-4 mr-2" />}
+              {t('anesthesia.settings.translateToAllLanguages')}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" disabled={isTranslating === 'illness'}>
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => translateTab('illness', true)}>
+                  {t('anesthesia.settings.retranslateEverything')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
               { key: 'anesthesiaHistory', label: t('anesthesia.settings.anesthesiaHistory') },
@@ -1147,19 +1140,6 @@ export default function AnesthesiaSettings() {
               <div key={key} className="border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium">{label}</h4>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => translateSection('illness', key)}
-                    disabled={isTranslating === `illness-${key}`}
-                    data-testid={`button-translate-illness-${key}`}
-                  >
-                    {isTranslating === `illness-${key}` ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Languages className="h-3 w-3" />
-                    )}
-                  </Button>
                 </div>
                 <div className="flex gap-2 mb-3">
                   <Input
@@ -1245,20 +1225,6 @@ export default function AnesthesiaSettings() {
               <div key={key} className="border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium">{label}</h4>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => translateSection('checklist', key)}
-                    disabled={isTranslating === `checklist-${key}`}
-                    data-testid={`button-translate-checklist-${key}`}
-                  >
-                    {isTranslating === `checklist-${key}` ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Languages className="h-4 w-4 mr-2" />
-                    )}
-                    EN ↔ DE
-                  </Button>
                 </div>
                 <div className="flex gap-2 mb-3">
                   <Input
