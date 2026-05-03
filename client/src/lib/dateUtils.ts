@@ -30,8 +30,8 @@ export const toProperCase = (str: string): string => {
  * Also returns the display format (dd.MM.yyyy) for UI
  */
 export const parseFlexibleDate = (input: string): { isoDate: string; displayDate: string } | null => {
-  if (!input) return null;
-  
+  if (!input || typeof input !== 'string') return null;
+
   const cleaned = input.trim();
   if (!cleaned) return null;
   
@@ -100,7 +100,7 @@ export const parseFlexibleDate = (input: string): { isoDate: string; displayDate
  * Format ISO date (YYYY-MM-DD) to display format (dd.MM.yyyy)
  */
 export const isoToDisplayDate = (isoDate: string): string => {
-  if (!isoDate) return '';
+  if (!isoDate || typeof isoDate !== 'string') return '';
   const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!match) return isoDate;
   return `${match[3]}.${match[2]}.${match[1]}`;

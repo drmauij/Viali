@@ -28,12 +28,13 @@ export function FlexibleDateInput({
   useEffect(() => {
     if (!isFocused && value !== lastExternalValue.current) {
       lastExternalValue.current = value;
-      if (value) {
-        const parsed = parseFlexibleDate(value);
+      const safe = typeof value === 'string' ? value : '';
+      if (safe) {
+        const parsed = parseFlexibleDate(safe);
         if (parsed) {
           setDisplayValue(parsed.displayDate);
         } else {
-          setDisplayValue(isoToDisplayDate(value) || value);
+          setDisplayValue(isoToDisplayDate(safe) || safe);
         }
       } else {
         setDisplayValue("");
@@ -43,11 +44,13 @@ export function FlexibleDateInput({
 
   useEffect(() => {
     if (!displayValue && value) {
-      const parsed = parseFlexibleDate(value);
+      const safe = typeof value === 'string' ? value : '';
+      if (!safe) return;
+      const parsed = parseFlexibleDate(safe);
       if (parsed) {
         setDisplayValue(parsed.displayDate);
       } else {
-        setDisplayValue(isoToDisplayDate(value) || value);
+        setDisplayValue(isoToDisplayDate(safe) || safe);
       }
     }
   }, []);
