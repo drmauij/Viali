@@ -2,11 +2,33 @@ import React from "react";
 import * as Sentry from "@sentry/react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle } from "lucide-react";
+import { queryClient } from "@/lib/queryClient";
+import type { AuthUser } from "@/hooks/useAuth";
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
   onReset?: () => void;
+}
+
+// Public-facing routes where we should NOT prompt patients/anonymous users for crash feedback.
+const PUBLIC_ROUTE_PREFIXES = [
+  "/patient/",
+  "/questionnaire/",
+  "/q/",
+  "/external-surgery/",
+  "/surgeon-portal/",
+  "/contract/",
+  "/worklog/",
+  "/kiosk/",
+  "/manage-appointment/",
+  "/cancel-appointment/",
+  "/book/",
+  "/api",
+];
+
+function isStaffRoute(pathname: string): boolean {
+  return !PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
 interface ErrorBoundaryState {
@@ -60,9 +82,24 @@ class ErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
-    Sentry.captureException(error, {
+    const eventId = Sentry.captureException(error, {
       contexts: { react: { componentStack: errorInfo.componentStack } },
     });
+    // Crash-report modal: only prompt staff users on the staff app — patients on
+    // public routes shouldn't see "report a bug" prompts. Pre-fill name/email
+    // from the cached auth user so the staffer doesn't have to type it.
+    if (eventId && isStaffRoute(window.location.pathname)) {
+      const u = queryClient.getQueryData<AuthUser | null>(["/api/auth/user"]);
+      Sentry.showReportDialog({
+        eventId,
+        user: u
+          ? {
+              name: [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email || "",
+              email: u.email || "",
+            }
+          : undefined,
+      });
+    }
   }
 
   handleReset = () => {

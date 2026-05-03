@@ -19,9 +19,15 @@ const EXPECTED_FETCH_NOISE: Array<{
   { method: "GET", statuses: [404], pattern: /^\/api\/patient-portal\/[^/]+\/consent-data$/ },
   { method: "GET", statuses: [404], pattern: /^\/api\/public\/questionnaire\/[^/]+\/info-flyers$/ },
   { method: "GET", statuses: [404], pattern: /^\/api\/business\/[^/]+\/ai-analysis$/ },
-  // Token-gated public / portal routes — 403 is "invalid or expired token"
-  { method: "GET", statuses: [403, 404], pattern: /^\/api\/public\/questionnaire\/[^/]+$/ },
+  // Token-gated public / portal routes — 403 is "invalid or expired token", 410 is "link expired"
+  { method: "GET", statuses: [403, 404, 410], pattern: /^\/api\/public\/questionnaire\/[^/]+$/ },
+  { method: "POST", statuses: [410], pattern: /^\/api\/public\/questionnaire\/[^/]+\/(save|submit|upload(-url)?(\/[^/]+)?)$/ },
   { method: "GET", statuses: [403, 404], pattern: /^\/api\/patient-portal\/[^/]+$/ },
+  // Patient cancel-appointment landing — 404 = stale link or already-deleted appointment
+  { method: "GET", statuses: [404], pattern: /^\/api\/clinic\/appointments\/cancel-info\/[^/]+$/ },
+  // Staff-pool race conditions — admin removed a row, lingering UI tries to PATCH/DELETE it
+  { method: "PATCH", statuses: [404], pattern: /^\/api\/staff-pool\/[^/]+\/role$/ },
+  { method: "DELETE", statuses: [404], pattern: /^\/api\/staff-pool\/[^/]+$/ },
   { method: "GET", statuses: [403], pattern: /^\/api\/surgeon-portal\/[^/]+\/surgeries$/ },
   { method: "GET", statuses: [403], pattern: /^\/api\/admin\/[^/]+\/questionnaire-token$/ },
   // Patient portal login — 400 on wrong verification code is user input, not a bug
