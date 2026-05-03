@@ -35,7 +35,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Lang } from "@shared/i18n";
+import type { IllnessListItem } from "@shared/schema";
 import { collectItemsForTab, buildTranslateRequest, applyTranslationsToSettings, ALL_LANGS, type TabKey } from "@/lib/translateBulk";
+import { TranslationsEditor } from "@/components/anesthesia/TranslationsEditor";
 
 function TabBulkTranslateButton({
   tab,
@@ -193,6 +195,16 @@ export default function AnesthesiaSettings() {
 
   // State for translation
   const [isTranslating, setIsTranslating] = useState<TabKey | null>(null);
+
+  // State for expanded per-item translation panels
+  const [expandedTranslations, setExpandedTranslations] = useState<Set<string>>(new Set());
+  const toggleTranslations = (id: string) => {
+    setExpandedTranslations(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   // Split items into available and selected
   const anesthesiaItemIds = new Set(anesthesiaItems.map(item => item.id));
@@ -915,34 +927,52 @@ export default function AnesthesiaSettings() {
               </div>
             ) : (
               (anesthesiaSettings?.allergyList || []).map((allergy) => (
-                <div
-                  key={allergy.id}
-                  className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/50"
-                  data-testid={`allergy-item-${allergy.id}`}
-                >
-                  <span>{allergy.label}</span>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setEditingListItem({ type: 'allergy', oldId: allergy.id, oldValue: allergy.label });
-                        setListItemFormValue(allergy.label);
-                        setListItemDialogOpen(true);
-                      }}
-                      data-testid={`button-edit-allergy-${allergy.id}`}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeAllergy(allergy.id)}
-                      data-testid={`button-remove-allergy-${allergy.id}`}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                <div key={allergy.id} className="border-b last:border-b-0">
+                  <div
+                    className="flex items-center justify-between p-3 hover:bg-muted/50"
+                    data-testid={`allergy-item-${allergy.id}`}
+                  >
+                    <span>{allergy.label}</span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => toggleTranslations(allergy.id)}
+                        data-testid={`button-toggle-translations-${allergy.id}`}
+                      >
+                        {expandedTranslations.has(allergy.id) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setEditingListItem({ type: 'allergy', oldId: allergy.id, oldValue: allergy.label });
+                          setListItemFormValue(allergy.label);
+                          setListItemDialogOpen(true);
+                        }}
+                        data-testid={`button-edit-allergy-${allergy.id}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeAllergy(allergy.id)}
+                        data-testid={`button-remove-allergy-${allergy.id}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
+                  {expandedTranslations.has(allergy.id) && (
+                    <TranslationsEditor
+                      item={allergy as IllnessListItem}
+                      onChange={(next) => {
+                        const list = (anesthesiaSettings?.allergyList || []).map(a => a.id === allergy.id ? next : a);
+                        updateSettingsMutation.mutate({ allergyList: list });
+                      }}
+                    />
+                  )}
                 </div>
               ))
             )}
@@ -982,34 +1012,54 @@ export default function AnesthesiaSettings() {
               </div>
               <div className="border rounded-lg">
                 {(anesthesiaSettings?.medicationLists?.anticoagulation || []).map((med) => (
-                  <div
-                    key={med.id}
-                    className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/50"
-                    data-testid={`anticoag-item-${med.id}`}
-                  >
-                    <span>{med.label}</span>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setEditingListItem({ type: 'medication', category: 'anticoagulation', oldId: med.id, oldValue: med.label });
-                          setListItemFormValue(med.label);
-                          setListItemDialogOpen(true);
-                        }}
-                        data-testid={`button-edit-anticoag-${med.id}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeMedication('anticoagulation', med.id)}
-                        data-testid={`button-remove-anticoag-${med.id}`}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                  <div key={med.id} className="border-b last:border-b-0">
+                    <div
+                      className="flex items-center justify-between p-3 hover:bg-muted/50"
+                      data-testid={`anticoag-item-${med.id}`}
+                    >
+                      <span>{med.label}</span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => toggleTranslations(med.id)}
+                          data-testid={`button-toggle-translations-${med.id}`}
+                        >
+                          {expandedTranslations.has(med.id) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setEditingListItem({ type: 'medication', category: 'anticoagulation', oldId: med.id, oldValue: med.label });
+                            setListItemFormValue(med.label);
+                            setListItemDialogOpen(true);
+                          }}
+                          data-testid={`button-edit-anticoag-${med.id}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeMedication('anticoagulation', med.id)}
+                          data-testid={`button-remove-anticoag-${med.id}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
+                    {expandedTranslations.has(med.id) && (
+                      <TranslationsEditor
+                        item={med as IllnessListItem}
+                        onChange={(next) => {
+                          const list = (anesthesiaSettings?.medicationLists?.anticoagulation || []).map(m => m.id === med.id ? next : m);
+                          updateSettingsMutation.mutate({
+                            medicationLists: { ...anesthesiaSettings?.medicationLists, anticoagulation: list },
+                          });
+                        }}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -1037,34 +1087,54 @@ export default function AnesthesiaSettings() {
               </div>
               <div className="border rounded-lg">
                 {(anesthesiaSettings?.medicationLists?.general || []).map((med) => (
-                  <div
-                    key={med.id}
-                    className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/50"
-                    data-testid={`general-med-item-${med.id}`}
-                  >
-                    <span>{med.label}</span>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setEditingListItem({ type: 'medication', category: 'general', oldId: med.id, oldValue: med.label });
-                          setListItemFormValue(med.label);
-                          setListItemDialogOpen(true);
-                        }}
-                        data-testid={`button-edit-general-med-${med.id}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeMedication('general', med.id)}
-                        data-testid={`button-remove-general-med-${med.id}`}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                  <div key={med.id} className="border-b last:border-b-0">
+                    <div
+                      className="flex items-center justify-between p-3 hover:bg-muted/50"
+                      data-testid={`general-med-item-${med.id}`}
+                    >
+                      <span>{med.label}</span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => toggleTranslations(med.id)}
+                          data-testid={`button-toggle-translations-${med.id}`}
+                        >
+                          {expandedTranslations.has(med.id) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setEditingListItem({ type: 'medication', category: 'general', oldId: med.id, oldValue: med.label });
+                            setListItemFormValue(med.label);
+                            setListItemDialogOpen(true);
+                          }}
+                          data-testid={`button-edit-general-med-${med.id}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeMedication('general', med.id)}
+                          data-testid={`button-remove-general-med-${med.id}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
+                    {expandedTranslations.has(med.id) && (
+                      <TranslationsEditor
+                        item={med as IllnessListItem}
+                        onChange={(next) => {
+                          const list = (anesthesiaSettings?.medicationLists?.general || []).map(m => m.id === med.id ? next : m);
+                          updateSettingsMutation.mutate({
+                            medicationLists: { ...anesthesiaSettings?.medicationLists, general: list },
+                          });
+                        }}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -1123,47 +1193,68 @@ export default function AnesthesiaSettings() {
                 </div>
                 <div className="space-y-1">
                   {((anesthesiaSettings?.illnessLists as any)?.[key] || []).map((illness: any) => (
-                    <div
-                      key={illness.id}
-                      className="flex items-center justify-between p-2 rounded hover:bg-muted/50"
-                      data-testid={`illness-item-${key}-${illness.id}`}
-                    >
-                      <span className="text-sm">{illness.label}</span>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => {
-                            setEditingListItem({ 
-                              type: 'illness', 
-                              category: key, 
-                              oldValue: illness.label, 
-                              oldId: illness.id,
-                              patientVisible: illness.patientVisible,
-                              patientLabel: illness.patientLabel,
-                              patientHelpText: illness.patientHelpText,
-                            });
-                            setListItemFormValue(illness.label);
-                            setPatientVisibleForm(illness.patientVisible !== false);
-                            setPatientLabelForm(illness.patientLabel || '');
-                            setPatientHelpTextForm(illness.patientHelpText || '');
-                            setListItemDialogOpen(true);
-                          }}
-                          data-testid={`button-edit-illness-${key}-${illness.id}`}
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => removeIllness(key, illness.id)}
-                          data-testid={`button-remove-illness-${key}-${illness.id}`}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
+                    <div key={illness.id} className="rounded border border-transparent">
+                      <div
+                        className="flex items-center justify-between p-2 rounded hover:bg-muted/50"
+                        data-testid={`illness-item-${key}-${illness.id}`}
+                      >
+                        <span className="text-sm">{illness.label}</span>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => toggleTranslations(illness.id)}
+                            data-testid={`button-toggle-translations-${illness.id}`}
+                          >
+                            {expandedTranslations.has(illness.id) ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => {
+                              setEditingListItem({
+                                type: 'illness',
+                                category: key,
+                                oldValue: illness.label,
+                                oldId: illness.id,
+                                patientVisible: illness.patientVisible,
+                                patientLabel: illness.patientLabel,
+                                patientHelpText: illness.patientHelpText,
+                              });
+                              setListItemFormValue(illness.label);
+                              setPatientVisibleForm(illness.patientVisible !== false);
+                              setPatientLabelForm(illness.patientLabel || '');
+                              setPatientHelpTextForm(illness.patientHelpText || '');
+                              setListItemDialogOpen(true);
+                            }}
+                            data-testid={`button-edit-illness-${key}-${illness.id}`}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => removeIllness(key, illness.id)}
+                            data-testid={`button-remove-illness-${key}-${illness.id}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
+                      {expandedTranslations.has(illness.id) && (
+                        <TranslationsEditor
+                          item={illness as IllnessListItem}
+                          onChange={(next) => {
+                            const list = ((anesthesiaSettings?.illnessLists as any)?.[key] || []).map((i: any) => i.id === illness.id ? next : i);
+                            updateSettingsMutation.mutate({
+                              illnessLists: { ...(anesthesiaSettings?.illnessLists || {}), [key]: list },
+                            });
+                          }}
+                        />
+                      )}
                     </div>
                   ))}
                 </div>
