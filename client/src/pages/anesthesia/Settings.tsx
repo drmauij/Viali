@@ -1152,7 +1152,7 @@ export default function AnesthesiaSettings() {
 
           <TabBulkTranslateButton tab="illness" isTranslating={isTranslating} onTranslate={translateTab} />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             {[
               { key: 'anesthesiaHistory', label: t('anesthesia.settings.anesthesiaHistory') },
               { key: 'dental', label: t('anesthesia.settings.dentalStatus') },
