@@ -17,6 +17,8 @@ import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../sms";
 import { sendQuestionnaireSubmittedNotificationBatch, sendQuestionnaireReceivedConfirmation } from "../resend";
 import { computeAdmission, computeAdmissionISO } from "@shared/admissionTime";
 import { notifyQuestionnaireSubmitted } from "../socket";
+import { resolveLocalized, isSupportedLang, type Lang } from "@shared/i18n";
+import type { IllnessListItem } from "@shared/schema";
 import { inArray } from "drizzle-orm";
 import logger from "../logger";
 
@@ -1039,15 +1041,12 @@ router.get('/api/public/questionnaire/hospital/:token', async (req: Request, res
     const hospitalSettings = await storage.getHospitalAnesthesiaSettings(hospital.id);
 
     // Flatten illness lists and filter for patient-visible items
+    const lang = pickLang(req);
     const flatIllnessList = flattenIllnessLists(hospitalSettings?.illnessLists);
     const patientVisibleConditions = flatIllnessList
       .filter((item: any) => item.patientVisible !== false)
       .map((item: any) => ({
-        id: item.id,
-        label: item.patientLabel || item.label,
-        labelDe: item.patientLabelDe || item.patientLabel || item.label,
-        labelEn: item.patientLabelEn || item.label,
-        helpText: item.patientHelpText,
+        ...localizeItem(item as IllnessListItem, lang),
         category: item.category,
       }));
 
@@ -1055,17 +1054,15 @@ router.get('/api/public/questionnaire/hospital/:token', async (req: Request, res
       hospitalId: hospital.id,
       hospitalName: hospital.name,
       isOpenLink: true,
-      language: 'de', // Default language for open links
+      language: lang,
       conditions: patientVisibleConditions,
       medicationsList: [
         ...(hospitalSettings?.medicationLists?.anticoagulation?.map((item: any) => ({
-          id: item.id,
-          label: item.label,
+          ...localizeItem(item as IllnessListItem, lang),
           category: 'anticoagulation',
         })) || []),
         ...(hospitalSettings?.medicationLists?.general?.map((item: any) => ({
-          id: item.id,
-          label: item.label,
+          ...localizeItem(item as IllnessListItem, lang),
           category: 'general',
         })) || []),
       ],
@@ -1150,6 +1147,34 @@ function flattenIllnessLists(illnessLists: Record<string, any[]> | null | undefi
     }
   }
   return result;
+}
+
+// Derive the effective language for the current request.
+// Priority: ?lang= query param → link.language → 'de'
+function pickLang(req: { query: any }, fallback?: string | null): Lang {
+  const q = req.query?.lang;
+  if (isSupportedLang(q)) return q;
+  if (fallback && isSupportedLang(fallback)) return fallback;
+  return 'de';
+}
+
+// Map a single IllnessListItem to the localized shape sent to patients.
+// All label fields are resolved to the chosen language; legacy labelDe/labelEn
+// fields are intentionally omitted from the output.
+function localizeItem(item: IllnessListItem, lang: Lang): {
+  id: string;
+  label: string;
+  patientLabel?: string;
+  patientHelpText?: string;
+  patientVisible?: boolean;
+} {
+  return {
+    id: item.id,
+    label: resolveLocalized(item, lang, 'label') ?? item.label,
+    patientLabel: resolveLocalized(item, lang, 'patientLabel'),
+    patientHelpText: resolveLocalized(item, lang, 'patientHelpText'),
+    patientVisible: item.patientVisible,
+  };
 }
 
 // Portal verification for patient-specific questionnaire routes
@@ -1240,21 +1265,18 @@ router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async 
     }
 
     // Flatten illness lists and filter for patient-visible items
+    const lang = pickLang(req, link.language);
     const flatIllnessList = flattenIllnessLists(hospitalSettings?.illnessLists);
     const patientVisibleConditions = flatIllnessList
       .filter((item: any) => item.patientVisible !== false)
       .map((item: any) => ({
-        id: item.id,
-        label: item.patientLabel || item.label,
-        labelDe: item.patientLabelDe || item.patientLabel || item.label,
-        labelEn: item.patientLabelEn || item.label,
-        helpText: item.patientHelpText,
+        ...localizeItem(item as IllnessListItem, lang),
         category: item.category,
       }));
 
     res.json({
       linkId: link.id,
-      language: link.language,
+      language: lang,
       patientFirstName: patient?.firstName || existingResponse?.patientFirstName,
       patientSurname: patient?.surname || existingResponse?.patientLastName,
       patientBirthday: patient?.birthday || existingResponse?.patientBirthday,
@@ -1313,22 +1335,14 @@ router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async 
       conditionsList: patientVisibleConditions,
       allergyList: hospitalSettings?.allergyList
         ?.filter((item: any) => item.patientVisible !== false)
-        .map((item: any) => ({
-          id: item.id,
-          label: item.patientLabel || item.label,
-          labelDe: item.patientLabelDe || item.patientLabel || item.label,
-          labelEn: item.patientLabelEn || item.label,
-          helpText: item.patientHelpText,
-        })) || [],
+        .map((item: any) => localizeItem(item as IllnessListItem, lang)) || [],
       medicationsList: [
         ...(hospitalSettings?.medicationLists?.anticoagulation?.map((item: any) => ({
-          id: item.id,
-          label: item.label,
+          ...localizeItem(item as IllnessListItem, lang),
           category: 'anticoagulation',
         })) || []),
         ...(hospitalSettings?.medicationLists?.general?.map((item: any) => ({
-          id: item.id,
-          label: item.label,
+          ...localizeItem(item as IllnessListItem, lang),
           category: 'general',
         })) || []),
       ],
