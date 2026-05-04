@@ -1709,6 +1709,13 @@
       "when": 1779700000000,
       "tag": "0243_questionnaire_caregiver_emergency_contact",
       "breakpoints": true
+    },
+    {
+      "idx": 244,
+      "version": "7",
+      "when": 1779800000000,
+      "tag": "0244_hospital_idle_timeout",
+      "breakpoints": true
     }
   ]
 }
