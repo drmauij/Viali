@@ -312,7 +312,13 @@
     "changingPassword": "Changing Password...",
     "resetPassword": "Reset Password",
     "sendResetLink": "Send Reset Link",
-    "backToLogin": "Back to Login"
+    "backToLogin": "Back to Login",
+    "idleWarning": {
+      "title": "About to log you out",
+      "body": "You've been inactive. We'll log you out in {{seconds}}s for security on shared workstations.",
+      "stay": "Stay signed in",
+      "logoutNow": "Log out now"
+    }
   },
   "topBar": {
     "selectHospital": "Select Hospital",
@@ -1308,6 +1314,13 @@
     }
   },
   "admin": {
+    "idleLogout": {
+      "title": "Auto-logout",
+      "description": "Sign staff out automatically after a period of inactivity. Useful for shared workstations where multiple people use the same PC.",
+      "timeoutLabel": "Idle timeout",
+      "warningLabel": "Warning before logout (seconds)",
+      "off": "Off"
+    },
     "title": "Admin",
     "adminPanel": "Admin Panel",
     "hospital": "Hospital",

@@ -161,6 +161,10 @@ export const hospitals = pgTable("hospitals", {
   addonLogistics: boolean("addon_logistics").default(false), // Centralized order management (+5 CHF/month)
   addonClinic: boolean("addon_clinic").default(false), // Clinic module with invoices & appointments (+10 CHF/month)
   addonPatientChat: boolean("addon_patient_chat").default(false), // 2-way patient chat via portal
+  // Idle session auto-logout (Security tab). 0 = disabled. Applies to staff sessions only,
+  // not patient/portal sessions. Enforced server-side; client shows a countdown warning.
+  idleTimeoutMinutes: integer("idle_timeout_minutes").default(0).notNull(),
+  idleWarningSeconds: integer("idle_warning_seconds").default(30).notNull(),
   questionnaireDisabled: boolean("questionnaire_disabled").default(false), // Manual override to disable questionnaire functionality
   preSurgeryReminderDisabled: boolean("pre_surgery_reminder_disabled").default(false), // Manual override to disable pre-surgery SMS reminders
   appointmentReminderDisabled: boolean("appointment_reminder_disabled").default(false), // Manual override to disable clinic appointment reminders

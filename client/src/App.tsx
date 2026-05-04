@@ -11,6 +11,8 @@ import { ModuleProvider, useModule } from "@/contexts/ModuleContext";
 import { EditValueProvider } from "@/components/EditableValue";
 import { SocketProvider } from "@/contexts/SocketContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useIdleLogout } from "@/hooks/useIdleLogout";
+import { IdleLogoutWarning } from "@/components/IdleLogoutWarning";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Layout from "@/components/Layout";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -252,6 +254,18 @@ function LeadRedirect() {
   return <PageLoader />;
 }
 
+function IdleLogoutGate() {
+  const { warningOpen, secondsRemaining, stayLoggedIn, logoutNow } = useIdleLogout();
+  return (
+    <IdleLogoutWarning
+      open={warningOpen}
+      secondsRemaining={secondsRemaining}
+      onStay={stayLoggedIn}
+      onLogout={logoutNow}
+    />
+  );
+}
+
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
@@ -289,6 +303,7 @@ function Router() {
             </>
           ) : (
             <>
+              <IdleLogoutGate />
               <Route path="/" component={HomeRedirect} />
               {/* Lead deep link — redirects to appointments with ?leadId= */}
               <Route path="/leads/:leadId" component={LeadRedirect} />

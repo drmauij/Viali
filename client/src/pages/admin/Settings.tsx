@@ -75,6 +75,8 @@ export default function SettingsPage() {
     hourFormat: "24h" as string,
     timezone: "Europe/Zurich" as string,
     defaultLanguage: "de" as string,
+    idleTimeoutMinutes: 0 as number,
+    idleWarningSeconds: 30 as number,
   });
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
@@ -188,6 +190,8 @@ export default function SettingsPage() {
         hourFormat: fullHospitalData.hourFormat || "24h",
         timezone: fullHospitalData.timezone || "Europe/Zurich",
         defaultLanguage: fullHospitalData.defaultLanguage || "de",
+        idleTimeoutMinutes: fullHospitalData.idleTimeoutMinutes ?? 0,
+        idleWarningSeconds: fullHospitalData.idleWarningSeconds ?? 30,
       });
     }
   }, [fullHospitalData]);
@@ -2032,9 +2036,62 @@ export default function SettingsPage() {
 
         {/* Security Tab Content */}
         <TabsContent value="security">
-          <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
-            <h3 className="text-lg font-semibold mb-4">{t("admin.loginHistory", "Login History")}</h3>
-            <LoginAuditLogTab hospitalId={activeHospital?.id} />
+          <div className="space-y-6">
+            <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
+              <h3 className="text-lg font-semibold mb-1">{t("admin.idleLogout.title", "Auto-logout")}</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {t(
+                  "admin.idleLogout.description",
+                  "Sign staff out automatically after a period of inactivity. Useful for shared workstations where multiple people use the same PC.",
+                )}
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label>{t("admin.idleLogout.timeoutLabel", "Idle timeout")}</Label>
+                  <Select
+                    value={String(hospitalForm.idleTimeoutMinutes ?? 0)}
+                    onValueChange={(value) => {
+                      const minutes = Number(value);
+                      setHospitalForm(prev => ({ ...prev, idleTimeoutMinutes: minutes }));
+                      updateHospitalMutation.mutate({ ...hospitalForm, idleTimeoutMinutes: minutes });
+                    }}
+                  >
+                    <SelectTrigger data-testid="select-idle-timeout">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">{t("admin.idleLogout.off", "Off")}</SelectItem>
+                      <SelectItem value="5">5 min</SelectItem>
+                      <SelectItem value="10">10 min</SelectItem>
+                      <SelectItem value="15">15 min</SelectItem>
+                      <SelectItem value="30">30 min</SelectItem>
+                      <SelectItem value="60">60 min</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>{t("admin.idleLogout.warningLabel", "Warning before logout (seconds)")}</Label>
+                  <Input
+                    type="number"
+                    min={5}
+                    max={120}
+                    value={hospitalForm.idleWarningSeconds ?? 30}
+                    onChange={(e) => {
+                      const seconds = Math.max(5, Math.min(120, Number(e.target.value) || 30));
+                      setHospitalForm(prev => ({ ...prev, idleWarningSeconds: seconds }));
+                    }}
+                    onBlur={() => updateHospitalMutation.mutate(hospitalForm)}
+                    disabled={(hospitalForm.idleTimeoutMinutes ?? 0) === 0}
+                    data-testid="input-idle-warning-seconds"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
+              <h3 className="text-lg font-semibold mb-4">{t("admin.loginHistory", "Login History")}</h3>
+              <LoginAuditLogTab hospitalId={activeHospital?.id} />
+            </div>
           </div>
         </TabsContent>
 

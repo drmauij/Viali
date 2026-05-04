@@ -45,6 +45,8 @@ const updateHospitalSchema = z.object({
   treatmentInventorySourceUnitType: z.enum(["clinic", "or"]).optional(),
   clinicKind: z.enum(["aesthetic", "surgical", "mixed"]).optional(),
   sampleCodePrefix: z.string().min(3).max(8).regex(/^[A-Z0-9]+$/).nullable().optional(),
+  idleTimeoutMinutes: z.number().int().min(0).max(1440).optional(),
+  idleWarningSeconds: z.number().int().min(5).max(120).optional(),
 });
 
 const updateUnitSchema = z.object({
