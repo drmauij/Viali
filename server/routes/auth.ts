@@ -356,6 +356,29 @@ router.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
   }
 });
 
+/**
+ * Returns the active hospital's idle-logout configuration so the client can
+ * arm its activity timer + countdown modal. Returns { idleTimeoutMinutes: 0 }
+ * when disabled (which the client treats as "do nothing").
+ *
+ * This route is in the SKIP_PATHS list of the idle middleware so polling it
+ * does NOT reset the server-side idle clock.
+ */
+router.get('/api/auth/idle-config', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const hospitals = await storage.getUserHospitals(userId);
+    const active = hospitals[0];
+    return res.json({
+      idleTimeoutMinutes: active?.idleTimeoutMinutes ?? 0,
+      idleWarningSeconds: active?.idleWarningSeconds ?? 30,
+    });
+  } catch (err) {
+    logger.error('[Auth] idle-config lookup failed', err);
+    return res.status(500).json({ message: 'idle-config lookup failed' });
+  }
+});
+
 router.post('/api/signup', isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.id;
