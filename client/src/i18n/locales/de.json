@@ -393,7 +393,13 @@
     "changingPassword": "Passwort wird geändert...",
     "resetPassword": "Passwort zurücksetzen",
     "sendResetLink": "Link senden",
-    "backToLogin": "Zurück zur Anmeldung"
+    "backToLogin": "Zurück zur Anmeldung",
+    "idleWarning": {
+      "title": "Sie werden gleich abgemeldet",
+      "body": "Sie waren inaktiv. Wir melden Sie aus Sicherheitsgründen in {{seconds}}s ab.",
+      "stay": "Angemeldet bleiben",
+      "logoutNow": "Jetzt abmelden"
+    }
   },
   "topBar": {
     "selectHospital": "Krankenhaus auswählen",
@@ -1389,6 +1395,13 @@
     }
   },
   "admin": {
+    "idleLogout": {
+      "title": "Auto-Abmeldung",
+      "description": "Personal nach einer Phase der Inaktivität automatisch abmelden. Nützlich an gemeinsam genutzten Arbeitsplätzen.",
+      "timeoutLabel": "Inaktivitäts-Timeout",
+      "warningLabel": "Warnung vor Abmeldung (Sekunden)",
+      "off": "Aus"
+    },
     "title": "Admin",
     "adminPanel": "Admin-Panel",
     "hospital": "Krankenhaus",
