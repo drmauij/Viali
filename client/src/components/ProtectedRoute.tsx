@@ -110,10 +110,11 @@ export function ProtectedRoute({
   if (requireAdmin && !hasAdminAccess) return <Redirect to={defaultRedirect} />;
   if (requireBusiness && !hasBusinessAccess) return <Redirect to={defaultRedirect} />;
 
-  // Marketing role can only access /business/funnels.
+  // Marketing role is limited to the marketing surfaces: Funnels and Flows.
   if (requireBusiness && hasBusinessAccess && activeHospital?.role === 'marketing') {
     const currentPath = window.location.pathname;
-    if (currentPath !== '/business/funnels') {
+    const allowed = currentPath === '/business/funnels' || currentPath.startsWith('/business/flows');
+    if (!allowed) {
       return <Redirect to="/business/funnels" />;
     }
   }

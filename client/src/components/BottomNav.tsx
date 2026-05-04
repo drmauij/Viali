@@ -188,8 +188,9 @@ export default function BottomNav() {
       const businessItems: NavItem[] = [];
 
       if (activeHospital?.role === 'marketing') {
-        // Marketing role: only Marketing page (Flows hidden for now)
+        // Marketing role: marketing surfaces (Funnels + Flows)
         businessItems.push({ id: "business-funnels", icon: "fas fa-bullhorn", label: t('bottomNav.business.funnels', 'Funnels'), path: "/business/funnels" });
+        businessItems.push({ id: "business-flows", icon: "fas fa-paper-plane", label: "Flows", path: "/business/flows" });
       } else if (isAdmin) {
         // Admin users: full nav
         businessItems.push({ id: "business-dashboard", icon: "fas fa-chart-pie", label: t('bottomNav.business.dashboard'), path: "/business" });
@@ -198,9 +199,10 @@ export default function BottomNav() {
         businessItems.push({ id: "business-administration", icon: "fas fa-table", label: t('bottomNav.business.administration', 'Administration'), path: "/business/administration" });
         businessItems.push({ id: "business-hr", icon: "fas fa-user-tie", label: t('bottomNav.business.hr', 'HR'), path: "/business/hr" });
       } else if (activeHospital?.role === 'manager') {
-        // Manager users: standard pages (Flows hidden for now — admin only)
+        // Manager users: standard pages
         businessItems.push({ id: "business-dashboard", icon: "fas fa-chart-pie", label: t('bottomNav.business.dashboard'), path: "/business" });
         businessItems.push({ id: "business-funnels", icon: "fas fa-bullhorn", label: t('bottomNav.business.funnels', 'Funnels'), path: "/business/funnels" });
+        businessItems.push({ id: "business-flows", icon: "fas fa-paper-plane", label: "Flows", path: "/business/flows" });
         businessItems.push({ id: "business-administration", icon: "fas fa-table", label: t('bottomNav.business.administration', 'Administration'), path: "/business/administration" });
         businessItems.push({ id: "business-hr", icon: "fas fa-user-tie", label: t('bottomNav.business.hr', 'HR'), path: "/business/hr" });
       } else {
