@@ -63,7 +63,7 @@ export function useIdleLogout(): UseIdleLogoutResult {
     const recordActivity = (broadcast = true) => {
       const now = Date.now();
       lastActivityRef.current = now;
-      if (warningOpen) setWarningOpen(false);
+      setWarningOpen(false);
       if (broadcast && channel && now - lastBroadcastRef.current > ACTIVITY_THROTTLE_MS) {
         lastBroadcastRef.current = now;
         try { channel.postMessage({ at: now }); } catch { /* closed channel — ignore */ }
@@ -77,7 +77,7 @@ export function useIdleLogout(): UseIdleLogoutResult {
         const at = event?.data?.at;
         if (typeof at === "number" && at > lastActivityRef.current) {
           lastActivityRef.current = at;
-          if (warningOpen) setWarningOpen(false);
+          setWarningOpen(false);
         }
       };
     }
@@ -97,8 +97,8 @@ export function useIdleLogout(): UseIdleLogoutResult {
       if (idleMs >= warnAtMs) {
         const remaining = Math.max(0, Math.ceil((timeoutMs - idleMs) / 1000));
         setSecondsRemaining(remaining);
-        if (!warningOpen) setWarningOpen(true);
-      } else if (warningOpen) {
+        setWarningOpen(true);
+      } else {
         setWarningOpen(false);
       }
     }, 1000);
@@ -110,7 +110,7 @@ export function useIdleLogout(): UseIdleLogoutResult {
       if (checkTimerRef.current) clearInterval(checkTimerRef.current);
       if (channel) channel.close();
     };
-  }, [timeoutMs, warningSec, warningOpen]);
+  }, [timeoutMs, warningSec]);
 
   const stayLoggedIn = () => {
     lastActivityRef.current = Date.now();
