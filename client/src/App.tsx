@@ -275,6 +275,7 @@ function Router() {
 
   return (
     <>
+      {isAuthenticated && <IdleLogoutGate />}
       <Suspense fallback={<PageLoader />}>
         <Switch>
           {/* Public routes accessible regardless of auth */}
@@ -303,7 +304,6 @@ function Router() {
             </>
           ) : (
             <>
-              <IdleLogoutGate />
               <Route path="/" component={HomeRedirect} />
               {/* Lead deep link — redirects to appointments with ?leadId= */}
               <Route path="/leads/:leadId" component={LeadRedirect} />
