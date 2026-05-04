@@ -9,9 +9,10 @@ import logger from "../logger";
  *  - For unauthenticated requests: passes through.
  *  - For authenticated requests: looks up the user's first hospital, reads
  *    `idleTimeoutMinutes`. If 0 (disabled), passes through. Otherwise, compares
- *    `req.session.lastActivity` to now; if the gap exceeds the limit, destroys
- *    the session and returns 401 with code `IDLE_TIMEOUT`. On every request that
- *    passes the check, refreshes `req.session.lastActivity`.
+ *    `req.session.lastActivity` to now; if the gap exceeds the limit, calls
+ *    `req.logout` (which regenerates the session in passport 0.6+) and returns
+ *    401 with code `IDLE_TIMEOUT`. On every request that passes the check,
+ *    refreshes `req.session.lastActivity`.
  *
  *  - Skips the `/api/auth/user` and `/api/auth/idle-config` polls so the client
  *    can detect idle timeout without resetting the timer itself.
