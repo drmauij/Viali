@@ -66,12 +66,11 @@ export const enforceIdleTimeout: RequestHandler = async (req, res, next) => {
 
   if (last && now - last > limitMs) {
     const sid = req.sessionID;
+    const idleSec = Math.round((now - last) / 1000);
+    logger.info(`[IdleTimeout] session ${sid} expired after ${idleSec}s idle`);
     req.logout(() => {
-      req.session.destroy(() => {
-        res.status(401).json({ message: "Idle timeout", code: "IDLE_TIMEOUT" });
-      });
+      res.status(401).json({ message: "Idle timeout", code: "IDLE_TIMEOUT" });
     });
-    logger.info(`[IdleTimeout] session ${sid} expired after ${Math.round((now - last) / 1000)}s idle`);
     return;
   }
 
