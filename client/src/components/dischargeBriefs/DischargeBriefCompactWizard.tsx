@@ -440,7 +440,11 @@ export function DischargeBriefCompactWizard({
   );
 
   // ---- generate ----
-  const canGenerate = !!briefType && !!language && !isGenerating;
+  // When surgeryId is set the request always carries AUTO_BLOCKS, so blocks
+  // are guaranteed non-empty. Without a surgery context, the user must pick at
+  // least one optional block — otherwise the server rejects with a zod 400.
+  const hasBlocks = surgeryId ? true : selectedBlocks.length > 0;
+  const canGenerate = !!briefType && !!language && !isGenerating && hasBlocks;
 
   const handleGenerate = useCallback(async () => {
     if (!canGenerate) return;
