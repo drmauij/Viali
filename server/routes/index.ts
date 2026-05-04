@@ -48,9 +48,11 @@ import { chainRouter } from "./chain";
 import brandingRouter from "./branding";
 import contractTemplatesRouter from "./contractTemplates";
 import contractInstancesRouter from "./contractInstances";
+import { enforceIdleTimeout } from "../auth/idleTimeout";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
+  app.use(enforceIdleTimeout);
   app.use(inventoryRouter);
   app.use(itemsRouter);
   app.use(ordersRouter);
