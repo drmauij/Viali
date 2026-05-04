@@ -495,17 +495,33 @@ export default function ExternalSurgeryRequest() {
           <CardContent className="pt-6">
             {currentStepId === 'surgeon' && (
               <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <User className="h-5 w-5 text-primary" />
-                  <h3 className="text-lg font-medium">
-                    {t('surgery.externalRequest.yourInformation')}
-                  </h3>
+                <div className="mb-4">
+                  <div className="flex items-center gap-2">
+                    <Stethoscope className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-medium">
+                      {t('surgery.externalRequest.surgeon.title')}
+                    </h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {t('surgery.externalRequest.surgeon.subtitle')}
+                  </p>
                 </div>
-                
+
+                <div
+                  className="rounded-md border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30 p-3 flex gap-2"
+                  role="note"
+                  data-testid="callout-surgeon-not-patient"
+                >
+                  <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
+                    {t('surgery.externalRequest.surgeon.callout')}
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="surgeonFirstName">
-                      {t('surgery.externalRequest.firstName')} *
+                      {t('surgery.externalRequest.surgeon.firstName')} *
                     </Label>
                     <Input
                       id="surgeonFirstName"
@@ -516,7 +532,7 @@ export default function ExternalSurgeryRequest() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="surgeonLastName">
-                      {t('surgery.externalRequest.lastName')} *
+                      {t('surgery.externalRequest.surgeon.lastName')} *
                     </Label>
                     <Input
                       id="surgeonLastName"
@@ -526,11 +542,11 @@ export default function ExternalSurgeryRequest() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="surgeonEmail">
                     <Mail className="h-4 w-4 inline mr-1" />
-                    Email *
+                    {t('surgery.externalRequest.surgeon.email')} *
                   </Label>
                   <Input
                     id="surgeonEmail"
@@ -540,11 +556,11 @@ export default function ExternalSurgeryRequest() {
                     data-testid="input-surgeon-email"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="surgeonPhone">
                     <Phone className="h-4 w-4 inline mr-1" />
-                    {t('surgery.externalRequest.phone')} *
+                    {t('surgery.externalRequest.surgeon.phone')} *
                   </Label>
                   <PhoneInputWithCountry
                     id="surgeonPhone"

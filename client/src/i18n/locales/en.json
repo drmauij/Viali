@@ -5105,6 +5105,15 @@
         "documents": "Documents"
       },
       "yourInformation": "Your Information",
+      "surgeon": {
+        "title": "Surgeon Details",
+        "subtitle": "Contact information for the surgeon submitting this request. Patient details are entered in step 3.",
+        "callout": "This section captures the surgeon's contact details — not the patient's. Patient information is collected in step 3.",
+        "firstName": "Surgeon First Name",
+        "lastName": "Surgeon Last Name",
+        "email": "Surgeon Email",
+        "phone": "Surgeon Phone"
+      },
       "firstName": "First Name",
       "lastName": "Last Name",
       "phone": "Phone",

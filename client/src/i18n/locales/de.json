@@ -5186,6 +5186,15 @@
         "documents": "Dokumente"
       },
       "yourInformation": "Ihre Informationen",
+      "surgeon": {
+        "title": "Chirurg-Daten",
+        "subtitle": "Kontaktinformationen des anfragenden Chirurgen. Patientendaten werden in Schritt 3 erfasst.",
+        "callout": "Dieser Abschnitt erfasst die Kontaktdaten des Chirurgen — nicht die des Patienten. Patientendaten werden in Schritt 3 erfasst.",
+        "firstName": "Chirurg Vorname",
+        "lastName": "Chirurg Nachname",
+        "email": "Chirurg E-Mail",
+        "phone": "Chirurg Telefon"
+      },
       "firstName": "Vorname",
       "lastName": "Nachname",
       "phone": "Telefon",
