@@ -275,6 +275,21 @@ export default function PatientDetail() {
     enabled: !!activeHospital?.id && !!derivedPatientId,
   });
 
+  // Tab badge counts. Query keys match TreatmentsTab + TissueSampleList so
+  // results are shared from the same TanStack cache (no extra requests).
+  const { data: patientTreatments = [] } = useQuery<unknown[]>({
+    queryKey: ["treatments", patient?.id],
+    queryFn: () =>
+      apiRequest("GET", `/api/treatments?patientId=${patient?.id}`).then((r) => r.json()),
+    enabled: !!patient?.id,
+  });
+  const { data: patientTissueSamples = [] } = useQuery<unknown[]>({
+    queryKey: ["tissue-samples", patient?.id],
+    queryFn: () =>
+      apiRequest("GET", `/api/patients/${patient?.id}/tissue-samples`).then((r) => r.json()),
+    enabled: !!patient?.id,
+  });
+
   // Fetch bookable providers for appointment dialogs
   const { data: bookableProviders = [] } = useQuery<{ id: string; firstName: string | null; lastName: string | null }[]>({
     queryKey: ['bookable-providers', activeHospital?.id, activeHospital?.unitId],
@@ -2159,6 +2174,9 @@ export default function PatientDetail() {
             </TabsTrigger>
             <TabsTrigger value="treatments" data-testid="tab-treatments" className="whitespace-nowrap md:justify-start md:w-full md:data-[state=active]:bg-muted md:data-[state=active]:shadow-none">
               <span className="truncate">{t("treatments.tab")}</span>
+              {patientTreatments.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{patientTreatments.length}</Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="documents" data-testid="tab-documents" className="whitespace-nowrap md:justify-start md:w-full md:data-[state=active]:bg-muted md:data-[state=active]:shadow-none">
               <span className="truncate">{t('anesthesia.patientDetail.documents', 'Documents')}</span>
@@ -2193,6 +2211,9 @@ export default function PatientDetail() {
             )}
             <TabsTrigger value="tissue-samples" data-testid="tab-tissue-samples" className="whitespace-nowrap md:justify-start md:w-full md:data-[state=active]:bg-muted md:data-[state=active]:shadow-none">
               <span className="truncate">{t("tissueSamples.tabLabel")}</span>
+              {patientTissueSamples.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{patientTissueSamples.length}</Badge>
+              )}
             </TabsTrigger>
           </TabsList>
           </div>
