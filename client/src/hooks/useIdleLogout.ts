@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useActiveHospital } from "./useActiveHospital";
 
 interface IdleConfig {
   idleTimeoutMinutes: number;
@@ -37,8 +38,12 @@ interface UseIdleLogoutResult {
  * the app will redirect to /.
  */
 export function useIdleLogout(): UseIdleLogoutResult {
+  // Bind the cache key to the active hospital so switching clinics refetches
+  // the policy. The server now scopes idle-config to the active hospital, so
+  // a stale per-tenant value would otherwise stick for up to `staleTime`.
+  const activeHospital = useActiveHospital();
   const { data: config } = useQuery<IdleConfig>({
-    queryKey: ["/api/auth/idle-config"],
+    queryKey: ["/api/auth/idle-config", activeHospital?.id ?? null],
     retry: false,
     staleTime: 5 * 60_000,
   });

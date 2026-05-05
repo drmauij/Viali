@@ -48,12 +48,16 @@ export const enforceIdleTimeout: RequestHandler = async (req, res, next) => {
 
   let timeoutMinutes = 0;
   try {
-    // `storage.getUser` returns a plain `User` row (no hospitals embedded).
-    // The canonical shape used by `/api/auth/user` is `storage.getUserHospitals`,
-    // which returns `Hospital`-extended rows — so we read `idleTimeoutMinutes`
-    // directly off the first one and skip a second `getHospital` round-trip.
+    // Resolve the *active* hospital, not just the first row from
+    // `getUserHospitals` — that query has no ORDER BY, so the natural ordering
+    // could pin a user to a different clinic's idle policy than the one they
+    // are currently working in. The SPA fetcher always sends
+    // `X-Active-Hospital-Id`; if it's missing or doesn't match a clinic the
+    // user has access to, fall back to the first row.
     const hospitals = await storage.getUserHospitals(user.id);
-    timeoutMinutes = hospitals[0]?.idleTimeoutMinutes ?? 0;
+    const headerHospitalId = (req.headers["x-active-hospital-id"] as string | undefined)?.trim();
+    const active = (headerHospitalId && hospitals.find(h => h.id === headerHospitalId)) || hospitals[0];
+    timeoutMinutes = active?.idleTimeoutMinutes ?? 0;
   } catch (err) {
     logger.warn("[IdleTimeout] hospital lookup failed; allowing request", err);
     return next();

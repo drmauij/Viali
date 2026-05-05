@@ -368,7 +368,11 @@ router.get('/api/auth/idle-config', isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.id;
     const hospitals = await storage.getUserHospitals(userId);
-    const active = hospitals[0];
+    // Match enforceIdleTimeout: scope to the active hospital from
+    // `X-Active-Hospital-Id` so disabling the timeout on the clinic the user
+    // is signed into actually disables the client timer.
+    const headerHospitalId = (req.headers['x-active-hospital-id'] as string | undefined)?.trim();
+    const active = (headerHospitalId && hospitals.find(h => h.id === headerHospitalId)) || hospitals[0];
     return res.json({
       idleTimeoutMinutes: active?.idleTimeoutMinutes ?? 0,
       idleWarningSeconds: active?.idleWarningSeconds ?? 30,
