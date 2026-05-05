@@ -27,10 +27,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, Copy, Link2, RotateCcw, Trash2 } from "lucide-react";
+import { ChevronDown, Copy, Link2, Printer, RotateCcw, Trash2 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/dateUtils";
 import type { TissueSample, TissueSampleStatusHistory } from "@shared/schema";
 import { TISSUE_SAMPLE_TYPES } from "@shared/tissueSampleTypes";
+import { printTissueSampleLabel } from "@/lib/tissueSampleLabelPdf";
 import { UpdateStatusDialog } from "./UpdateStatusDialog";
 import { EditExtractionSurgeryDialog } from "./EditExtractionSurgeryDialog";
 
@@ -139,6 +140,20 @@ export function TissueSampleCard({ sample, onClickSurgery }: Props) {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              printTissueSampleLabel({
+                code: sample.code,
+                dateText: formatDate(new Date()),
+              })
+            }
+            data-testid={`tissue-sample-print-${sample.id}`}
+          >
+            <Printer className="h-3 w-3 mr-1" />
+            {t("tissueSamples.printLabel")}
+          </Button>
           {canWrite && (
             <Button
               size="sm"

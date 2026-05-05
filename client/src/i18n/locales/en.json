@@ -8544,6 +8544,7 @@
     "destroyConfirmTitle": "Destroy sample?",
     "destroyConfirmDescription": "The status will be set to \"Vernichtet\". The record itself is retained for regulatory reasons.",
     "codeCopied": "Code copied",
+    "printLabel": "Print label",
     "errors": {
       "missingPrefix": "Set the clinic's sample code prefix in admin settings.",
       "prefixLocked": "Prefix cannot be changed — tissue samples already exist.",

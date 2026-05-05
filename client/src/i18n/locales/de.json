@@ -8561,6 +8561,7 @@
     "destroyConfirmTitle": "Probe vernichten?",
     "destroyConfirmDescription": "Der Status wird auf „Vernichtet\" gesetzt. Der Eintrag bleibt aus regulatorischen Gründen erhalten.",
     "codeCopied": "Code kopiert",
+    "printLabel": "Etikett drucken",
     "errors": {
       "missingPrefix": "Sample-Code-Präfix in den Admin-Einstellungen setzen.",
       "prefixLocked": "Präfix kann nicht mehr geändert werden — es existieren bereits Proben.",
