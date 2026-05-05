@@ -17,6 +17,8 @@ import {
   getAnesthesiaEvents,
 } from "../storage/anesthesia";
 import { getClinicAppointmentsByHospital } from "../storage/clinic";
+import { getTissueSamplesByPatient } from "../storage/tissueSamples";
+import { getUser } from "../storage/users";
 import { db } from "../db";
 import { eq } from "drizzle-orm";
 import {
@@ -598,6 +600,42 @@ export async function collectFollowUpAppointmentsData(
   return lines.join("\n");
 }
 
+export async function collectTissueSamplesData(
+  patientId: string,
+  timezone?: string,
+): Promise<string | null> {
+  const samples = await getTissueSamplesByPatient(patientId);
+  if (samples.length === 0) return null;
+
+  const tz = timezone || "Europe/Zurich";
+  const fmtDate = (d: Date | string | null | undefined) =>
+    d ? new Date(d).toLocaleDateString("de-CH", { timeZone: tz }) : "";
+  const fmtDateTime = (d: Date | string | null | undefined) =>
+    d
+      ? new Date(d).toLocaleString("de-CH", { timeZone: tz })
+      : "";
+
+  const lines: string[] = ["## Tissue Samples (Gewebeproben / Fettbanking)"];
+
+  for (const s of samples) {
+    const creator = s.createdBy ? await getUser(s.createdBy) : null;
+    const createdByName = creator
+      ? `${creator.firstName || ""} ${creator.lastName || ""}`.trim()
+      : "";
+    lines.push(`\n### ${s.code}`);
+    lines.push(`Type: ${s.sampleType}`);
+    lines.push(`Status: ${s.status} (since ${fmtDateTime(s.statusDate)})`);
+    if (s.externalLab) lines.push(`External lab: ${s.externalLab}`);
+    if (s.extractionSurgeryId) lines.push(`Extraction surgery: ${s.extractionSurgeryId}`);
+    if (s.reimplantSurgeryId) lines.push(`Reimplant surgery: ${s.reimplantSurgeryId}`);
+    if (createdByName) lines.push(`Created by: ${createdByName}`);
+    if (s.createdAt) lines.push(`Created: ${fmtDate(s.createdAt)}`);
+    if (s.notes) lines.push(`Notes: ${s.notes}`);
+  }
+
+  return lines.join("\n");
+}
+
 export async function collectSurgeryData(
   surgeryId: string,
   timezone?: string,
@@ -843,6 +881,19 @@ export async function getAvailableDataBlocks(
     blocks.push({ key: "surgery_details", available: false });
   }
 
+  // Tissue Samples — banking / lab samples for this patient
+  const samples = await getTissueSamplesByPatient(patientId);
+  blocks.push({
+    key: "tissue_samples",
+    available: samples.length > 0,
+    count: samples.length,
+    notes: samples.map((s) => ({
+      id: s.id,
+      title: `${s.code} — ${s.sampleType} (${s.status})`,
+      createdAt: s.createdAt instanceof Date ? s.createdAt.toISOString() : String(s.createdAt),
+    })),
+  });
+
   // Follow-Up Appointments — future clinic appointments for this patient
   const today = new Date().toISOString().split("T")[0];
   const appts = await getClinicAppointmentsByHospital(hospitalId, {
@@ -927,6 +978,7 @@ export function getSystemPrompt(
     surgery_report: "Surgery Report (OP-Bericht)",
     surgery_estimate: "Surgery Estimate (Kostenvoranschlag)",
     generic: "Brief",
+    tissue_checklist: "Tissue Banking Checklist",
   };
   const briefLabel = briefTypeLabels[briefType] || "Discharge Brief";
 
@@ -967,6 +1019,25 @@ You MUST include a concise surgery summary with these details (extract from Surg
 
   // When a template is provided, use it as the base document — just inject real data
   if (templateContent?.trim()) {
+    const hasTaskList = /data-type=["']taskList["']/.test(templateContent);
+    const taskListInstructions = hasTaskList
+      ? `
+
+## CRITICAL: Task-list preservation (this template is a checklist)
+The template contains task-list elements: \`<ul data-type="taskList">\` with one or more \`<li data-type="taskItem" data-checked="…">\` children.
+You MUST preserve EVERY task-list and EVERY task-item EXACTLY as given:
+- Do NOT add or remove items.
+- Do NOT change the order of items.
+- Do NOT change the \`data-checked\` attribute (leave them as "false" / "true" exactly as given).
+- Do NOT rewrite, summarize, translate, or shorten task-item text — copy it character-for-character.
+- Do NOT remove the \`<label><input type="checkbox">…</label>\` markup inside each task-item.
+- Surrounding \`<h3>\` section headings (e.g. "BEI ANKUNFT", "OP-TAG") MUST stay intact and in the same order.
+The task-list represents procedural steps a clinician will manually tick — treat them as immutable structural content.
+
+## Empty value cells in patient-data tables
+Where the template has a 2-column table whose first cell is a label (e.g. \`<td><strong>Patientencode</strong></td>\`) and the second cell is empty (e.g. \`<td></td>\`), FILL the empty cell with the matching value from the clinical data below. Do not remove the empty cell or merge it with the label cell.`
+      : "";
+
     return `You are a medical documentation assistant. The user provides clinical data and a template document.
 
 Your job is simple: take the template below and produce the final brief by injecting the real clinical data into it.
@@ -979,7 +1050,7 @@ Your job is simple: take the template below and produce the final brief by injec
 5. NEVER invent clinical details. Only inject data that is explicitly present in the clinical data below.
 6. Keep placeholders like [NAME_1], [DATE_1] etc. intact — do NOT replace them.
 7. Write in ${langName}.
-8. Output clean HTML only (no markdown).
+8. Output clean HTML only (no markdown).${taskListInstructions}
 
 ## Template (this is your starting document):
 ${templateContent}`;

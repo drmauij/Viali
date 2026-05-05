@@ -6256,6 +6256,7 @@ export const dischargeBriefTypeEnum = pgEnum("discharge_brief_type", [
   "surgery_report",
   "surgery_estimate",
   "generic",
+  "tissue_checklist",
 ]);
 
 export const templateVisibilityEnum = pgEnum("template_visibility", [

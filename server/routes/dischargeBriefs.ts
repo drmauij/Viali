@@ -36,10 +36,13 @@ import { storage, db } from "../storage";
 import { patients, patientQuestionnaireLinks, hospitals } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { sendSms } from "../sms";
+import { htmlChecklistsToTaskLists } from "../utils/docxToTaskList";
+import { preserveTaskListsFromTemplate } from "../utils/preserveTaskLists";
 import {
   collectAnesthesiaRecordData,
   collectDischargeMedicationsData,
   collectFollowUpAppointmentsData,
+  collectTissueSamplesData,
   collectPatientNotesData,
   collectSurgeryNotesData,
   collectSurgeryData,
@@ -148,6 +151,7 @@ const BRIEF_TYPE_VALUES = [
   "surgery_report",
   "surgery_estimate",
   "generic",
+  "tissue_checklist",
 ] as const;
 
 const briefTypeEnum = z.enum(BRIEF_TYPE_VALUES);
@@ -205,6 +209,27 @@ router.post(
         );
       }
 
+      // For tissue checklists, the template has empty value cells for patient identity,
+      // birthday, today's date and patient ID — prepend that metadata so the AI can fill them.
+      // Surgery date (Datum Liposuktion / OP) and assistant info come via the
+      // surgery_details data block when the user selected the extraction surgery.
+      if (briefType === "tissue_checklist") {
+        const patientFullName = `${patient.firstName} ${patient.surname}`;
+        const formattedBirthday = formatDateByHospital(patient.birthday, hospital?.dateFormat);
+        const formattedToday = formatDateByHospital(new Date().toISOString(), hospital?.dateFormat);
+        const patientCode = patient.patientNumber || patient.id;
+        dataBlocks.push(
+          `## Patient Metadata\n` +
+            `Patient Name (Name / Vorname): ${patientFullName}\n` +
+            `Date of Birth (Geburtsdatum): ${formattedBirthday}\n` +
+            `Patient ID / Patientencode: ${patientCode}\n` +
+            `Today's Date: ${formattedToday}\n` +
+            (surgeryId
+              ? `Note: the surgery date in the "Surgery Details" block below is the value for the "Datum Liposuktion / OP" field in the template.`
+              : ""),
+        );
+      }
+
       for (const block of blocks) {
         switch (block) {
           case "anesthesia_record":
@@ -236,6 +261,9 @@ router.post(
             dataBlocks.push(
               await collectFollowUpAppointmentsData(patientId, hospitalId, selectedAppointmentIds ?? undefined, tz),
             );
+            break;
+          case "tissue_samples":
+            dataBlocks.push(await collectTissueSamplesData(patientId, tz));
             break;
         }
       }
@@ -338,6 +366,13 @@ router.post(
       restoredContent = restoredContent.replace(/\[([A-Z_]+)_\d+\]/g, (match, category) => {
         return fallbacks[category] || match;
       });
+
+      // 11b. Task-list guard: when the template is a checklist, restore any task-list
+      // blocks the AI may have rewritten or dropped. Task-list content is template-
+      // defined; the AI's job is filling surrounding patient-data fields only.
+      if (templateContent?.trim()) {
+        restoredContent = preserveTaskListsFromTemplate(templateContent, restoredContent);
+      }
 
       // 12. Update brief with content
       const updatedBrief = await updateDischargeBrief(brief.id, {
@@ -1062,27 +1097,29 @@ router.post(
       const buffer = Buffer.from(fileData, "base64");
       let rawText = "";
 
-      // Extract raw text based on file type
-      if (mimeType === "application/pdf" || fileName.toLowerCase().endsWith(".pdf")) {
+      const isDocx =
+        mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        mimeType === "application/msword" ||
+        fileName.toLowerCase().endsWith(".docx") ||
+        fileName.toLowerCase().endsWith(".doc");
+
+      // .docx → HTML conversion preserves structure (headings, lists, checklists),
+      // so we skip the AI cleanup step and return HTML directly.
+      if (isDocx) {
+        const mammoth = await import("mammoth");
+        const htmlResult = await mammoth.convertToHtml({ buffer });
+        const cleanHtml = htmlChecklistsToTaskLists(htmlResult.value);
+        if (cleanHtml.trim()) {
+          return res.json({ text: cleanHtml, html: true });
+        }
+        // empty HTML → fall through to plain-text + AI path
+        const textResult = await mammoth.extractRawText({ buffer });
+        rawText = textResult.value;
+      } else if (mimeType === "application/pdf" || fileName.toLowerCase().endsWith(".pdf")) {
         const pdfParseModule = await import("pdf-parse");
         const pdfParse = (pdfParseModule as any).default || pdfParseModule;
         const pdfData = await pdfParse(buffer);
         rawText = pdfData.text;
-      } else if (
-        mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-        fileName.toLowerCase().endsWith(".docx")
-      ) {
-        const mammoth = await import("mammoth");
-        const result = await mammoth.extractRawText({ buffer });
-        rawText = result.value;
-      } else if (
-        mimeType === "application/msword" ||
-        fileName.toLowerCase().endsWith(".doc")
-      ) {
-        // For old .doc files, try mammoth (limited support)
-        const mammoth = await import("mammoth");
-        const result = await mammoth.extractRawText({ buffer });
-        rawText = result.value;
       } else if (mimeType?.startsWith("text/")) {
         rawText = buffer.toString("utf-8");
       } else {
@@ -1154,22 +1191,25 @@ router.post(
 
       const buffer = Buffer.from(fileData, "base64");
       let rawText = "";
+      let docxHtml = ""; // populated for .docx — used as templateContent verbatim
 
-      // Extract raw text
-      if (mimeType === "application/pdf" || fileName.toLowerCase().endsWith(".pdf")) {
+      const isDocx =
+        mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        mimeType === "application/msword" ||
+        fileName.toLowerCase().endsWith(".docx") ||
+        fileName.toLowerCase().endsWith(".doc");
+
+      if (isDocx) {
+        const mammoth = await import("mammoth");
+        const htmlResult = await mammoth.convertToHtml({ buffer });
+        docxHtml = htmlChecklistsToTaskLists(htmlResult.value);
+        const textResult = await mammoth.extractRawText({ buffer });
+        rawText = textResult.value;
+      } else if (mimeType === "application/pdf" || fileName.toLowerCase().endsWith(".pdf")) {
         const pdfParseModule = await import("pdf-parse");
         const pdfParse = (pdfParseModule as any).default || pdfParseModule;
         const pdfData = await pdfParse(buffer);
         rawText = pdfData.text;
-      } else if (
-        mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-        fileName.toLowerCase().endsWith(".docx") ||
-        mimeType === "application/msword" ||
-        fileName.toLowerCase().endsWith(".doc")
-      ) {
-        const mammoth = await import("mammoth");
-        const result = await mammoth.extractRawText({ buffer });
-        rawText = result.value;
       } else if (mimeType?.startsWith("text/")) {
         rawText = buffer.toString("utf-8");
       } else {
@@ -1229,7 +1269,8 @@ Return ONLY valid JSON, no markdown fences.`,
         };
       }
 
-      // Create the template — owned by the importing user
+      // Create the template — owned by the importing user.
+      // For .docx, prefer the structure-preserving mammoth HTML over the AI-rewritten content.
       const role = req.headers["x-active-role"] as string;
       const isAdmin = role === "admin";
       const template = await createDischargeBriefTemplate({
@@ -1237,7 +1278,7 @@ Return ONLY valid JSON, no markdown fences.`,
         briefType: briefType || parsed.briefType || "surgery_discharge",
         name: fileName.replace(/\.[^.]+$/, "").replace(/[_-]/g, " "),
         description: parsed.description || null,
-        templateContent: parsed.content || rawText,
+        templateContent: docxHtml || parsed.content || rawText,
         procedureType: parsed.procedureType || null,
         assignedUserId: req.user?.id,
         visibility: isAdmin ? "hospital" : "personal",

@@ -32,6 +32,7 @@ import {
   FileSearch,
   ClipboardCheck,
   CalendarDays,
+  FlaskConical,
   Plus,
   Settings,
 } from "lucide-react";
@@ -52,7 +53,8 @@ type BlockKey =
   | "surgery_details"
   | "patient_notes"
   | "discharge_medications"
-  | "follow_up_appointments";
+  | "follow_up_appointments"
+  | "tissue_samples";
 
 type BriefType =
   | "surgery_discharge"
@@ -61,7 +63,8 @@ type BriefType =
   | "prescription"
   | "surgery_report"
   | "surgery_estimate"
-  | "generic";
+  | "generic"
+  | "tissue_checklist";
 
 interface BlockInfo {
   key: BlockKey;
@@ -114,6 +117,7 @@ const BLOCK_ICONS: Record<BlockKey, React.ElementType> = {
   patient_notes: LayoutList,
   discharge_medications: FileText,
   follow_up_appointments: CalendarDays,
+  tissue_samples: FlaskConical,
 };
 
 const AUTO_BLOCKS: BlockKey[] = ["anesthesia_record", "surgery_details"];
@@ -122,6 +126,7 @@ const OPTIONAL_BLOCKS: BlockKey[] = [
   "patient_notes",
   "discharge_medications",
   "follow_up_appointments",
+  "tissue_samples",
 ];
 
 // ---------------------------------------------------------------------------
@@ -401,6 +406,10 @@ export function DischargeBriefCompactWizard({
           "dischargeBriefs.blocks.followUpAppointments",
           "Follow-Up Appointments",
         ),
+        tissue_samples: t(
+          "dischargeBriefs.blocks.tissueSamples",
+          "Tissue Samples",
+        ),
       };
       return labels[key];
     },
@@ -426,6 +435,7 @@ export function DischargeBriefCompactWizard({
         surgery_report: t("dischargeBriefs.types.surgeryReport", "Surgery Report"),
         surgery_estimate: t("dischargeBriefs.types.surgeryEstimate", "Surgery Estimate"),
         generic: t("dischargeBriefs.types.generic", "Generic"),
+        tissue_checklist: t("dischargeBriefs.types.tissueChecklist", "Tissue Checklist"),
       };
       return labels[bt];
     },
@@ -585,6 +595,7 @@ export function DischargeBriefCompactWizard({
                       "surgery_report",
                       "surgery_estimate",
                       "generic",
+                      "tissue_checklist",
                     ] as BriefType[]
                   ).map((bt) => (
                     <SelectItem key={bt} value={bt}>

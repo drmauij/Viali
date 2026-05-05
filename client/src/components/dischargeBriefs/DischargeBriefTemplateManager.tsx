@@ -9,6 +9,8 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { TableCell } from "@tiptap/extension-table-cell";
+import { TaskList } from "@tiptap/extension-task-list";
+import { TaskItem } from "@tiptap/extension-task-item";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -56,6 +58,7 @@ import {
   Heading3,
   List,
   ListOrdered,
+  ListChecks,
   User,
   Eye,
   Tag,
@@ -100,6 +103,7 @@ const BRIEF_TYPE_VALUES = [
   "surgery_report",
   "surgery_estimate",
   "generic",
+  "tissue_checklist",
 ] as const;
 
 // Translation keys for each brief type value
@@ -111,6 +115,7 @@ const BRIEF_TYPE_I18N: Record<string, { key: string; fallback: string }> = {
   surgery_report: { key: "dischargeBriefs.types.surgeryReport", fallback: "Surgery Report" },
   surgery_estimate: { key: "dischargeBriefs.types.surgeryEstimate", fallback: "Surgery Estimate" },
   generic: { key: "dischargeBriefs.types.generic", fallback: "Generic" },
+  tissue_checklist: { key: "dischargeBriefs.types.tissueChecklist", fallback: "Tissue Checklist" },
 };
 
 type BulkAction = "delete" | "changeBriefType" | "changeVisibility";
@@ -186,6 +191,8 @@ export function DischargeBriefTemplateManager({
       TableRow,
       TableHeader,
       TableCell,
+      TaskList,
+      TaskItem.configure({ nested: true }),
     ],
     content: "",
     editable: true,
@@ -395,10 +402,13 @@ export function DischargeBriefTemplateManager({
       const data = await res.json();
 
       if (data.text) {
-        const html = data.text
-          .split(/\n\n+/)
-          .map((p: string) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
-          .join("");
+        const isHtml = data.html === true || /<[a-zA-Z][^>]*>/.test(data.text);
+        const html = isHtml
+          ? data.text
+          : data.text
+              .split(/\n\n+/)
+              .map((p: string) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
+              .join("");
         setForm((f) => ({ ...f, templateContent: html }));
         toast({
           description: t(
@@ -1072,6 +1082,16 @@ export function DischargeBriefTemplateManager({
                         onClick={() => templateEditor.chain().focus().toggleOrderedList().run()}
                       >
                         <ListOrdered className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn("h-7 w-7", templateEditor.isActive("taskList") && "bg-accent")}
+                        onClick={() => templateEditor.chain().focus().toggleTaskList().run()}
+                        title={t("dischargeBriefs.templates.taskList", "Checklist")}
+                      >
+                        <ListChecks className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                     <EditorContent editor={templateEditor} />

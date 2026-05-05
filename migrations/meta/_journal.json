@@ -1716,6 +1716,13 @@
       "when": 1779800000000,
       "tag": "0244_hospital_idle_timeout",
       "breakpoints": true
+    },
+    {
+      "idx": 245,
+      "version": "7",
+      "when": 1779900000000,
+      "tag": "0245_tissue_checklist_brief_type",
+      "breakpoints": true
     }
   ]
 }

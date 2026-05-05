@@ -9,6 +9,8 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { TableCell } from "@tiptap/extension-table-cell";
+import { TaskList } from "@tiptap/extension-task-list";
+import { TaskItem } from "@tiptap/extension-task-item";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +47,7 @@ import {
   Heading3,
   List,
   ListOrdered,
+  ListChecks,
   Save,
   PenLine,
   FileDown,
@@ -120,6 +123,8 @@ export function DischargeBriefEditor({
       TableRow,
       TableHeader,
       TableCell,
+      TaskList,
+      TaskItem.configure({ nested: true }),
     ],
     content: "",
     editable: false,
@@ -481,6 +486,18 @@ export function DischargeBriefEditor({
             title={t("dischargeBrief.numberedList", "Numbered list")}
           >
             <ListOrdered className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-8 w-8",
+              editor.isActive("taskList") && "bg-accent",
+            )}
+            onClick={() => editor.chain().focus().toggleTaskList().run()}
+            title={t("dischargeBrief.taskList", "Checklist")}
+          >
+            <ListChecks className="h-4 w-4" />
           </Button>
           <div className="w-px h-5 bg-border mx-1" />
           <DropdownMenu>

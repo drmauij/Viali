@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard, Pill, Sparkles, Video, Printer, MapPin, Building2 } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, ListChecks, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard, Pill, Sparkles, Video, Printer, MapPin, Building2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -162,9 +162,9 @@ export default function PatientDetail() {
   // --- Compact wizard + brief editor/audit state ---
   const [compactWizardOpen, setCompactWizardOpen] = useState(false);
   const [compactWizardPresets, setCompactWizardPresets] = useState<{
-    briefType?: "surgery_discharge" | "anesthesia_discharge" | "anesthesia_overnight_discharge" | "prescription";
+    briefType?: "surgery_discharge" | "anesthesia_discharge" | "anesthesia_overnight_discharge" | "prescription" | "tissue_checklist";
     surgeryId?: string;
-    blocks?: Array<"anesthesia_record" | "surgery_notes" | "surgery_details" | "patient_notes" | "discharge_medications" | "follow_up_appointments">;
+    blocks?: Array<"anesthesia_record" | "surgery_notes" | "surgery_details" | "patient_notes" | "discharge_medications" | "follow_up_appointments" | "tissue_samples">;
     medicationSlotIds?: string[];
   }>({});
   const [editingBriefId, setEditingBriefId] = useState<string | null>(null);
@@ -283,7 +283,14 @@ export default function PatientDetail() {
       apiRequest("GET", `/api/treatments?patientId=${patient?.id}`).then((r) => r.json()),
     enabled: !!patient?.id,
   });
-  const { data: patientTissueSamples = [] } = useQuery<unknown[]>({
+  const { data: patientTissueSamples = [] } = useQuery<
+    Array<{
+      id: string;
+      extractionSurgeryId: string | null;
+      reimplantSurgeryId: string | null;
+      createdAt: string;
+    }>
+  >({
     queryKey: ["tissue-samples", patient?.id],
     queryFn: () =>
       apiRequest("GET", `/api/patients/${patient?.id}/tissue-samples`).then((r) => r.json()),
@@ -3369,7 +3376,22 @@ export default function PatientDetail() {
         </TabsContent>
 
         <TabsContent value="tissue-samples" className="space-y-4" data-testid="tab-content-tissue-samples">
-          <PatientTissueSamplesPanel patient={patient} surgeries={surgeries ?? []} />
+          <PatientTissueSamplesPanel
+            patient={patient}
+            surgeries={surgeries ?? []}
+            onGenerateChecklist={() => {
+              // Pick the most recent extraction surgery linked to this patient's samples,
+              // so the wizard preselects it and the AI can read the operation date.
+              const latestExtractionSurgeryId = patientTissueSamples
+                .map((s) => s.extractionSurgeryId)
+                .find((id): id is string => !!id);
+              openCompactWizard({
+                briefType: "tissue_checklist",
+                blocks: ["tissue_samples", "patient_notes", "surgery_details"],
+                surgeryId: latestExtractionSurgeryId,
+              });
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="invoices" className="mt-0">
@@ -7421,9 +7443,11 @@ export default function PatientDetail() {
 function PatientTissueSamplesPanel({
   patient,
   surgeries,
+  onGenerateChecklist,
 }: {
   patient: any;
   surgeries: SurgeryWithAssistants[];
+  onGenerateChecklist?: () => void;
 }) {
   const { t } = useTranslation();
   const canWrite = useCanWrite();
@@ -7440,7 +7464,18 @@ function PatientTissueSamplesPanel({
   return (
     <div className="space-y-3">
       {canWrite && (
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          {onGenerateChecklist && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onGenerateChecklist}
+              data-testid="button-generate-tissue-checklist"
+            >
+              <ListChecks className="h-4 w-4 mr-1" />
+              {t("tissueSamples.generateChecklist", "Generate Checklist")}
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
