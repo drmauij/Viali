@@ -10,9 +10,11 @@ import logger from "../logger";
  *  - For authenticated requests: looks up the user's first hospital, reads
  *    `idleTimeoutMinutes`. If 0 (disabled), passes through. Otherwise, compares
  *    `req.session.lastActivity` to now; if the gap exceeds the limit, calls
- *    `req.logout` (which regenerates the session in passport 0.6+) and returns
- *    401 with code `IDLE_TIMEOUT`. On every request that passes the check,
- *    refreshes `req.session.lastActivity`.
+ *    `req.logout` (which regenerates the session in passport 0.6+) and either
+ *    returns 401 `IDLE_TIMEOUT` (for `/api/*` requests, so the SPA fetcher can
+ *    react) or 302-redirects to `/` (for top-level page navigations, so the
+ *    browser lands on the SPA login screen instead of rendering raw JSON).
+ *    On every request that passes the check, refreshes `req.session.lastActivity`.
  *
  *  - Skips the `/api/auth/user` and `/api/auth/idle-config` polls so the client
  *    can detect idle timeout without resetting the timer itself.
@@ -69,8 +71,16 @@ export const enforceIdleTimeout: RequestHandler = async (req, res, next) => {
     const sid = req.sessionID;
     const idleSec = Math.round((now - last) / 1000);
     logger.info(`[IdleTimeout] session ${sid} expired after ${idleSec}s idle`);
+    const isApi = req.path.startsWith("/api/");
     req.logout(() => {
-      res.status(401).json({ message: "Idle timeout", code: "IDLE_TIMEOUT" });
+      if (isApi) {
+        res.status(401).json({ message: "Idle timeout", code: "IDLE_TIMEOUT" });
+      } else {
+        // Top-level page navigation (refresh, link click): send the browser
+        // back to the SPA root so the login screen renders. Returning JSON
+        // here would surface raw `{"code":"IDLE_TIMEOUT"}` text in the tab.
+        res.redirect("/");
+      }
     });
     return;
   }
