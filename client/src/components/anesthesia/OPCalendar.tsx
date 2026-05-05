@@ -880,8 +880,12 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
       roomId?: string;
       templateSnapshot: Pick<ChecklistTemplate, 'name' | 'description' | 'recurrency' | 'items' | 'role'>;
     }) => {
+      if (!activeHospital?.unitId) {
+        throw new Error("Active unit is required to complete a checklist");
+      }
       const response = await apiRequest("POST", `/api/checklists/complete`, {
         templateId: data.templateId,
+        unitId: activeHospital.unitId,
         dueDate: new Date(data.dueDate).toISOString(),
         comment: data.comment,
         signature: data.signature,

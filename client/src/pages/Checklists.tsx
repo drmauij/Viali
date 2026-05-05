@@ -96,6 +96,7 @@ export default function Checklists() {
       
       const response = await apiRequest("POST", `/api/checklists/complete`, {
         templateId: data.templateId,
+        unitId: activeHospital.unitId,
         dueDate: new Date(data.dueDate).toISOString(),
         comment: data.comment,
         signature: data.signature,
