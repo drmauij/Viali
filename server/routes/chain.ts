@@ -288,6 +288,7 @@ chainRouter.get('/api/chain/:groupId/leads-stats', isAuthenticated, isChainAdmin
     if (ids.length === 0) {
       return res.json({
         total: 0,
+        converted: 0,
         bySource: [],
         conversionOverall: 0,
         conversionBySource: [],

@@ -20,6 +20,7 @@ export interface TimeseriesRow {
 
 export interface LeadsStats {
   total: number;
+  converted: number;
   bySource: BySourceRow[];
   conversionOverall: number;
   conversionBySource: ConversionBySourceRow[];
@@ -123,6 +124,7 @@ export async function getLeadsStats(
 
   return {
     total: totalCount,
+    converted: convertedAll,
     bySource: bySource.map((r: any) => ({ source: String(r.source), count: Number(r.count) })),
     conversionOverall: totalCount > 0 ? convertedAll / totalCount : 0,
     conversionBySource: convBySource.map((r: any) => {

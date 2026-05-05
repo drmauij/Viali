@@ -19,6 +19,7 @@ import { funnelsUrl, type FunnelsScope } from "@/lib/funnelsApi";
 
 interface LeadsStatsResponse {
   total: number;
+  converted: number;
   bySource: Array<{ source: string; count: number }>;
   conversionOverall: number;
   conversionBySource: Array<{ source: string; total: number; converted: number; rate: number }>;
@@ -79,7 +80,7 @@ export function LeadsStatsCards({
     );
   }
 
-  const { total, bySource, conversionOverall, conversionBySource, avgDaysToConversion, timeseries } = data;
+  const { total, converted, bySource, conversionOverall, conversionBySource, avgDaysToConversion, timeseries } = data;
 
   return (
     <div className="space-y-3">
@@ -105,10 +106,16 @@ export function LeadsStatsCards({
             <div className="text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
               {total > 0 ? formatPct(conversionOverall) : "—"}
             </div>
+            <div className="text-xs font-semibold">
+              {t("business.leads.stats.convertedCount", "{{n}} of {{total}} converted", {
+                n: converted.toLocaleString(),
+                total: total.toLocaleString(),
+              })}
+            </div>
             <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
               {conversionBySource.map((r) => (
                 <span key={r.source}>
-                  {sourceLabel(r.source)} {formatPct(r.rate)}
+                  {sourceLabel(r.source)} {r.converted}/{r.total} ({formatPct(r.rate)})
                 </span>
               ))}
             </div>
