@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
-import { render, fireEvent, screen, within } from "@testing-library/react";
+import { render, fireEvent, screen } from "@testing-library/react";
 import { TreatmentLinesTable } from "../client/src/components/treatments/TreatmentLinesTable";
 
 const services = [

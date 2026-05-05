@@ -515,7 +515,6 @@ export function TreatmentEditor({
               onChangeLine={handleChangeLine}
               onRemoveLine={removeLine}
               onEditFull={openEditLine}
-              onAddBlankLine={handleAddBlankLine}
               onItemSelect={setDialogItemId}
             />
 

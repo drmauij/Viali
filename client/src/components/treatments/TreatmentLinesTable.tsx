@@ -44,7 +44,6 @@ interface Props {
   onChangeLine: (index: number, patch: Partial<TreatmentLine>) => void;
   onRemoveLine: (index: number) => void;
   onEditFull: (index: number) => void;
-  onAddBlankLine: () => void;
   onItemSelect?: (itemId: string | null) => void;
 }
 
