@@ -15,12 +15,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, PenLine } from "lucide-react";
+import { Plus, PenLine } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { TreatmentLineDialog } from "./TreatmentLineDialog";
+import { TreatmentLinesTable } from "./TreatmentLinesTable";
 import { TreatmentPalette } from "./TreatmentPalette";
 import { TreatmentItemConfigDialog } from "./TreatmentItemConfigDialog";
 import { HistorySummaryCard } from "./HistorySummaryCard";
@@ -261,7 +262,9 @@ export function TreatmentEditor({
         appointmentId: appointmentId ?? null,
         performedAt: payload.performedAt.toISOString(),
         notes: payload.notes,
-        lines: sanitizeLines(payload.lines),
+        lines: sanitizeLines(
+          payload.lines.filter((l) => l.serviceId || l.itemId),
+        ),
       };
       const res = existing
         ? await apiRequest("PUT", `/api/treatments/${existing.id}`, body)
@@ -300,7 +303,7 @@ export function TreatmentEditor({
         appointmentId: appointmentId ?? null,
         performedAt: performedAt.toISOString(),
         notes,
-        lines: sanitizeLines(lines),
+        lines: sanitizeLines(lines.filter((l) => l.serviceId || l.itemId)),
       };
       let treatmentId = existing?.id;
       if (!treatmentId) {
@@ -365,6 +368,21 @@ export function TreatmentEditor({
     setLines((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleChangeLine = (
+    index: number,
+    patch: Partial<TreatmentLine>,
+  ) => {
+    setLines((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], ...patch };
+      return next;
+    });
+  };
+
+  const handleAddBlankLine = () => {
+    setLines((prev) => [...prev, { lineOrder: prev.length }]);
+  };
+
   const applyConfig = (c: TreatmentItemConfig) => {
     setLines((prev) => [
       ...prev,
@@ -399,6 +417,10 @@ export function TreatmentEditor({
   };
 
   const isLocked = isTreatmentLocked(existing?.status);
+
+  const validLineCount = lines.filter(
+    (l) => l.serviceId || l.itemId,
+  ).length;
 
   return (
     <div className="space-y-4">
@@ -477,92 +499,24 @@ export function TreatmentEditor({
                 {t("treatments.lines", "Lines")}
               </span>
               {!isLocked && (
-                <Button size="sm" variant="outline" onClick={openNewLine}>
+                <Button size="sm" variant="outline" onClick={handleAddBlankLine}>
                   <Plus className="h-4 w-4 mr-1" />
                   {t("treatments.addLine", "Add line")}
                 </Button>
               )}
             </div>
 
-            {lines.length === 0 && (
-              <p className="text-sm text-muted-foreground py-2">
-                {t("treatments.noLines", "No lines yet. Use the palette or Add line button.")}
-              </p>
-            )}
-
-            {lines.map((line, index) => {
-              const service = line.serviceId
-                ? servicesMap[line.serviceId]
-                : null;
-              const item = line.itemId ? itemsMap[line.itemId] : null;
-              const zoneList = (line.zones as string[]) ?? [];
-              return (
-                <div
-                  key={index}
-                  className="flex items-start gap-2 border rounded p-2 text-sm"
-                >
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {service && (
-                        <span className="font-medium">{service.name}</span>
-                      )}
-                      {item && (
-                        <span className={service ? "text-muted-foreground" : "font-medium"}>
-                          {service ? "· " : ""}{item.name}
-                        </span>
-                      )}
-                      {(line.dose || line.doseUnit) && (
-                        <Badge variant="outline" className="text-xs">
-                          {line.dose}
-                          {line.doseUnit ? " " + line.doseUnit : ""}
-                        </Badge>
-                      )}
-                      {zoneList.map((z) => (
-                        <Badge
-                          key={z}
-                          variant="secondary"
-                          className="text-xs"
-                        >
-                          {z}
-                        </Badge>
-                      ))}
-                    </div>
-                    {line.notes && (
-                      <p className="text-xs text-muted-foreground">
-                        {line.notes}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {line.total && (
-                      <span className="text-sm font-medium mr-2">
-                        {formatCurrency(line.total as string)}
-                      </span>
-                    )}
-                    {!isLocked && (
-                      <>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7"
-                          onClick={() => openEditLine(index)}
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 text-destructive"
-                          onClick={() => removeLine(index)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            <TreatmentLinesTable
+              lines={lines}
+              services={services}
+              items={items}
+              lotsByItem={lotsByItem}
+              isLocked={isLocked}
+              onChangeLine={handleChangeLine}
+              onRemoveLine={removeLine}
+              onEditFull={openEditLine}
+              onItemSelect={setDialogItemId}
+            />
 
             {lines.length > 0 && (
               <div className="flex justify-end text-sm font-medium pt-1">
@@ -581,7 +535,7 @@ export function TreatmentEditor({
                 <Button
                   variant="outline"
                   disabled={
-                    lines.length === 0 || saveMutation.isPending
+                    validLineCount === 0 || saveMutation.isPending
                   }
                   onClick={() =>
                     saveMutation.mutate({ lines, notes, performedAt })
@@ -592,7 +546,7 @@ export function TreatmentEditor({
                     : t("treatments.saveDraft", "Save Draft")}
                 </Button>
                 <Button
-                  disabled={lines.length === 0 || signMutation.isPending}
+                  disabled={validLineCount === 0 || signMutation.isPending}
                   onClick={() => setSignPadOpen(true)}
                 >
                   <PenLine className="h-4 w-4 mr-1" />
