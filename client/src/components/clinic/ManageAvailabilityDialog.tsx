@@ -323,15 +323,15 @@ export function ManageAvailabilityDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col gap-0 p-0">
+          <DialogHeader className="p-6 pb-4 border-b shrink-0">
             <DialogTitle>{t('availability.title', 'Manage Availability')}</DialogTitle>
             <DialogDescription>
               {t('availability.dialogDescription', 'Configure working hours and time off for providers')}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
             <Select value={selectedProviderId} onValueChange={setSelectedProviderId}>
               <SelectTrigger className="w-full" data-testid="select-provider-dialog">
                 <SelectValue placeholder={t('availability.selectProvider', 'Select a provider')} />
@@ -893,15 +893,15 @@ export function TimeOffDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      <DialogContent className="max-w-md max-h-[90vh] flex flex-col gap-0 p-0">
+        <DialogHeader className="p-6 pb-4 border-b shrink-0">
           <DialogTitle>{t('availability.addTimeOff', 'Add Time Off')}</DialogTitle>
           <DialogDescription>
             {t('availability.timeOffFormDescription', 'Block time when the provider is not available')}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>{t('availability.startDate', 'Start Date')}</Label>
@@ -1072,7 +1072,7 @@ export function TimeOffDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="p-6 pt-4 border-t shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('common.cancel', 'Cancel')}
           </Button>
