@@ -7064,6 +7064,8 @@
       "bzSlidingScale": "BG Sliding Scale",
       "freeText": "Free Text",
       "note": "Note",
+      "startAt": "Start at",
+      "startAtImmediate": "Immediately",
       "bedrest": "Bed rest",
       "assisted": "Assisted",
       "free": "Free",

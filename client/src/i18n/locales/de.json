@@ -7165,6 +7165,8 @@
       "bzSlidingScale": "BZ-Schema",
       "freeText": "Freitext",
       "note": "Bemerkung",
+      "startAt": "Beginn um",
+      "startAtImmediate": "Sofort",
       "bedrest": "Bettruhe",
       "assisted": "Assistiert",
       "free": "Frei",
