@@ -10,6 +10,7 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, Command
 import { Trash2, Plus, ChevronsUpDown, X, Settings } from 'lucide-react';
 import { useActiveHospital } from '@/hooks/useActiveHospital';
 import { MedicationConfigDialog } from '@/components/anesthesia/MedicationConfigDialog';
+import { StartAtField } from './StartAtField';
 import type { MedicationItem } from '@shared/postopOrderItems';
 import type { ItemEditorProps } from './index';
 
@@ -207,9 +208,15 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
         </div>
       </div>
       {item.scheduleMode === 'scheduled' && (
-        <div>
-          <Label className="text-xs">{t('postopOrders.editor.frequency', 'Frequency')}</Label>
-          <Input value={item.frequency ?? ''} onChange={e => onChange({ ...item, frequency: e.target.value })} placeholder={t('postopOrders.editor.frequencyPlaceholder', 'e.g. q8h, 3x daily')} />
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-xs">{t('postopOrders.editor.frequency', 'Frequency')}</Label>
+            <Input value={item.frequency ?? ''} onChange={e => onChange({ ...item, frequency: e.target.value })} placeholder={t('postopOrders.editor.frequencyPlaceholder', 'e.g. q8h, 3x daily')} />
+          </div>
+          <StartAtField
+            value={item.startAt}
+            onChange={(startAt) => onChange({ ...item, startAt })}
+          />
         </div>
       )}
       {item.scheduleMode === 'prn' && (

@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
+import { StartAtField } from './StartAtField';
 import type { IvFluidItem } from '@shared/postopOrderItems';
 import type { ItemEditorProps } from './index';
 
@@ -50,10 +51,10 @@ export function IvFluidEditor({ item, onChange, onRemove }: ItemEditorProps<IvFl
         <Input value={item.additives ?? ''} onChange={e => onChange({ ...item, additives: e.target.value })} placeholder={t('postopOrders.editor.additivesPlaceholder', 'e.g. 20mEq KCl')} />
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label className="text-xs">{t('postopOrders.editor.startAt', 'Start')}</Label>
-          <Input value={item.startAt ?? ''} onChange={e => onChange({ ...item, startAt: e.target.value })} placeholder={t('postopOrders.editor.startAtPlaceholder', 'e.g. immediately, postop')} />
-        </div>
+        <StartAtField
+          value={item.startAt}
+          onChange={(startAt) => onChange({ ...item, startAt })}
+        />
         <div>
           <Label className="text-xs">{t('postopOrders.editor.condition', 'Condition')}</Label>
           <Input value={item.condition ?? ''} onChange={e => onChange({ ...item, condition: e.target.value })} />
