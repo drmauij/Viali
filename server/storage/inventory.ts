@@ -82,37 +82,42 @@ export async function getItems(hospitalId: string, unitId: string, filters?: {
   belowMin?: boolean;
   expiring?: boolean;
   includeArchived?: boolean;
-}): Promise<(Item & { stockLevel?: StockLevel; soonestExpiry?: Date })[]> {
+}): Promise<(Item & { stockLevel?: StockLevel; soonestExpiry?: Date; administrationGroup?: string | null })[]> {
   const conditions = [
-    eq(items.hospitalId, hospitalId), 
+    eq(items.hospitalId, hospitalId),
     eq(items.unitId, unitId),
   ];
-  
+
   if (!filters?.includeArchived) {
     conditions.push(eq(items.status, 'active'));
   }
-  
+
   if (filters?.critical) {
     conditions.push(eq(items.critical, true));
   }
   if (filters?.controlled) {
     conditions.push(eq(items.controlled, true));
   }
-  
+
   const query = db
     .select({
       ...getTableColumns(items),
       stockLevel: stockLevels,
       soonestExpiry: sql<Date>`MIN(${lots.expiryDate})`.as('soonest_expiry'),
+      // Surface any non-null administration group from medication_configs (an item may
+      // have multiple configs; we just need to know if at least one is configured for
+      // the postop swimlane picker filter).
+      administrationGroup: sql<string | null>`MAX(${medicationConfigs.administrationGroup})`.as('administration_group'),
     })
     .from(items)
     .leftJoin(stockLevels, and(eq(items.id, stockLevels.itemId), eq(stockLevels.unitId, unitId)))
     .leftJoin(lots, eq(items.id, lots.itemId))
+    .leftJoin(medicationConfigs, eq(items.id, medicationConfigs.itemId))
     .where(and(...conditions))
     .groupBy(items.id, stockLevels.id);
 
   const result = await query.orderBy(asc(items.sortOrder), asc(items.name));
-  return result as unknown as (Item & { stockLevel?: StockLevel; soonestExpiry?: Date })[];
+  return result as unknown as (Item & { stockLevel?: StockLevel; soonestExpiry?: Date; administrationGroup?: string | null })[];
 }
 
 export async function getItem(id: string): Promise<Item | undefined> {
