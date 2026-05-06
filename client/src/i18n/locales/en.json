@@ -1793,11 +1793,6 @@
     "errorAccessing": "Unable to access camera. Please check permissions."
   },
   "anesthesia": {
-    "needsConfig": {
-      "titleOne": "1 medication needs an administration group",
-      "titleMany": "{{count}} medications need an administration group",
-      "description": "These medications have a configuration but won't appear on the chart until you assign them to an administration group."
-    },
     "orMedications": {
       "doneEditing": "Done",
       "configure": "Configure",
@@ -4013,6 +4008,7 @@
       "selectAdministrationGroup": "Choose group...",
       "alreadyConfiguredIn": "Already configured in: {{groups}}",
       "orphanGroupLabel": "⚠ no group",
+      "unassignedGroupName": "⚠ NEEDS CONFIGURATION",
       "editMedicationConfiguration": "Edit Medication Configuration",
       "selectItemConfigure": "Select an item and configure its medication/infusion settings to add it to this group",
       "selectItem": "Select Item",

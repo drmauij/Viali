@@ -10,6 +10,7 @@ describe('shouldAdmitMedicationItem', () => {
     name: 'Amoxicillin/Clavulanic acid',
     administrationGroup: 'antibiotics',
     onDemandOnly: true,
+    medicationConfigId: 'cfg-1',
   };
 
   it('admits non-on-demand items unconditionally when they have an administrationGroup', () => {
@@ -44,21 +45,31 @@ describe('shouldAdmitMedicationItem', () => {
     expect(shouldAdmitMedicationItem(baseItem, new Set(), new Set())).toBe(false);
   });
 
-  it('rejects items without administrationGroup even if administered', () => {
-    const item: MedicationVisibilityItem = { ...baseItem, administrationGroup: undefined };
-    expect(
-      shouldAdmitMedicationItem(item, new Set(['item-1']), new Set()),
-    ).toBe(false);
+  it('admits items with config but no administrationGroup (orphan → virtual group)', () => {
+    const orphan: MedicationVisibilityItem = {
+      ...baseItem,
+      administrationGroup: null,
+      onDemandOnly: false,
+    };
+    expect(shouldAdmitMedicationItem(orphan, new Set(), new Set())).toBe(true);
   });
 
-  it('rejects items without administrationGroup even if ordered', () => {
-    const item: MedicationVisibilityItem = { ...baseItem, administrationGroup: null };
+  it('admits orphan even when on-demand (so the user can spot and fix it)', () => {
+    const orphan: MedicationVisibilityItem = {
+      ...baseItem,
+      administrationGroup: undefined,
+      onDemandOnly: true,
+    };
+    expect(shouldAdmitMedicationItem(orphan, new Set(), new Set())).toBe(true);
+  });
+
+  it('rejects items without medicationConfigId regardless of other fields', () => {
+    const inventoryOnly: MedicationVisibilityItem = {
+      ...baseItem,
+      medicationConfigId: null,
+    };
     expect(
-      shouldAdmitMedicationItem(
-        item,
-        new Set(),
-        new Set(['Amoxicillin/Clavulanic acid']),
-      ),
+      shouldAdmitMedicationItem(inventoryOnly, new Set(['item-1']), new Set(['Amoxicillin/Clavulanic acid'])),
     ).toBe(false);
   });
 

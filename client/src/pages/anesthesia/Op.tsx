@@ -13,7 +13,6 @@ import {
 import { OpInventory } from "@/components/anesthesia/OpInventory";
 import { PatientInfoHeader } from "@/components/anesthesia/PatientInfoHeader";
 import { PacuBedSelector, PacuBedSquare } from "@/components/anesthesia/PacuBedSelector";
-import { NeedsConfigurationBanner } from "@/components/anesthesia/NeedsConfigurationBanner";
 import { StaffTab } from "@/components/anesthesia/StaffTab";
 import { IntraOpTab } from "@/pages/anesthesia/op/IntraOpTab";
 import { CountsSterileTab } from "@/pages/anesthesia/op/CountsSterileTab";
@@ -1398,7 +1397,6 @@ export default function Op() {
           {/* Vitals & Timeline Tab - forceMount keeps state when switching tabs */}
           <TabsContent value="vitals" forceMount className="data-[state=active]:flex-1 overflow-y-auto flex flex-col mt-0 px-0 data-[state=inactive]:hidden" data-testid="tab-content-vitals">
             <div className="border-t bg-card">
-              <NeedsConfigurationBanner />
               {(isVitalsLoading || isMedicationsLoading || isEventsLoading) ? (
                 <div className="flex items-center justify-center h-64">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />

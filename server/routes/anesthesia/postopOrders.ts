@@ -12,10 +12,12 @@ import logger from "../../logger";
 
 /**
  * Returns the names of medication refs that do not resolve to an item with
- * at least one configured `administration_group` row in `medication_configs`
- * for the given hospital. Empty array means every ref is configured.
+ * any `medication_configs` row for the given hospital. The administration
+ * group is intentionally NOT checked — orphan configs (admin group NULL)
+ * still surface on the chart under the virtual "Needs Configuration" group.
+ * Empty array means every ref is anesthesia-known.
  */
-async function findUnconfiguredMedicationRefs(
+async function findUnknownMedicationRefs(
   hospitalId: string,
   itemsArr: any[],
 ): Promise<string[]> {
@@ -27,15 +29,15 @@ async function findUnconfiguredMedicationRefs(
   if (refs.length === 0) return [];
 
   const rows = await db
-    .select({ name: items.name, administrationGroup: medicationConfigs.administrationGroup })
+    .select({ name: items.name, medicationConfigId: medicationConfigs.id })
     .from(items)
     .leftJoin(medicationConfigs, eq(medicationConfigs.itemId, items.id))
     .where(and(eq(items.hospitalId, hospitalId), inArray(items.name, refs)));
 
-  const configuredNames = new Set(
-    rows.filter(r => r.administrationGroup !== null).map(r => r.name)
+  const knownNames = new Set(
+    rows.filter(r => r.medicationConfigId !== null).map(r => r.name)
   );
-  return refs.filter(r => !configuredNames.has(r));
+  return refs.filter(r => !knownNames.has(r));
 }
 
 const AUDIT_RECORD_TYPE = "postop_order_template";
@@ -201,12 +203,15 @@ router.put('/api/anesthesia/records/:recordId/postop-orders', isAuthenticated, r
       return res.status(400).json({ message: "hospitalId is required" });
     }
 
-    // Validate that every medication item references a configured medication.
-    const unconfigured = await findUnconfiguredMedicationRefs(hospitalId, orderItems);
-    if (unconfigured.length > 0) {
+    // Validate that every medication item references a known anesthesia
+    // medication (has a medication_configs row). An admin group is no
+    // longer required — orphan configs render under the virtual
+    // "Needs Configuration" group on the chart.
+    const unknown = await findUnknownMedicationRefs(hospitalId, orderItems);
+    if (unknown.length > 0) {
       return res.status(400).json({
-        message: "Some medications are not configured for the swimlane and cannot be ordered.",
-        unconfiguredMedications: unconfigured,
+        message: "Some medications are not in the anesthesia catalog and cannot be ordered.",
+        unconfiguredMedications: unknown,
       });
     }
 

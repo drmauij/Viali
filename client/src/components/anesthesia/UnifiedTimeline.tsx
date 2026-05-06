@@ -1854,17 +1854,24 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   }, []);
 
 
+  // Synthetic admin-group id used for orphan configs (medication_configs row
+  // exists but its administration_group column is NULL). Rendered as the last
+  // group in the medications swimlane so the user can find and fix them.
+  const UNASSIGNED_GROUP_ID = '__unassigned__';
+
   // Group items by administration group and sort by sortOrder within each group
   const itemsByAdminGroup = useMemo(() => {
     const grouped: Record<string, AnesthesiaItem[]> = {};
-    
+
     anesthesiaItems.forEach(item => {
-      if (!item.administrationGroup) return; // Skip items without group
-      
-      if (!grouped[item.administrationGroup]) {
-        grouped[item.administrationGroup] = [];
+      // Items without an admin group are orphan configs — bucket them under
+      // the virtual UNASSIGNED_GROUP_ID so the swimlane can render them
+      // under the "Needs Configuration" group.
+      const groupKey = item.administrationGroup || UNASSIGNED_GROUP_ID;
+      if (!grouped[groupKey]) {
+        grouped[groupKey] = [];
       }
-      grouped[item.administrationGroup].push(item);
+      grouped[groupKey].push(item);
     });
     
     // Sort items by medicationSortOrder within each group (fallback to alphabetical if no sortOrder)
@@ -2091,18 +2098,18 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         if (!collapsedSwimlanes.has("medikamente")) {
           const sortedGroups = [...administrationGroups].sort((a, b) => a.sortOrder - b.sortOrder);
 
-          sortedGroups.forEach((group) => {
+          const renderGroup = (groupId: string, label: string) => {
             lanes.push({
-              id: `admingroup-${group.id}`,
-              label: group.name.toUpperCase(),
+              id: `admingroup-${groupId}`,
+              label: label,
               height: 40,
               ...medGroupColor,
               hierarchyLevel: 'group',
             });
 
-            const groupItems = itemsByAdminGroup[group.id] || [];
+            const groupItems = itemsByAdminGroup[groupId] || [];
             groupItems.forEach((item) => {
-              const swimlaneId = `admingroup-${group.id}-item-${item.id}`;
+              const swimlaneId = `admingroup-${groupId}-item-${item.id}`;
 
               // Medication rows are taller to accommodate two-line labels (drug name + route/unit).
               let laneHeight = 56;
@@ -2127,7 +2134,19 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 hierarchyLevel: 'item',
               });
             });
-          });
+          };
+
+          sortedGroups.forEach((group) => renderGroup(group.id, group.name.toUpperCase()));
+
+          // Virtual "Needs Configuration" group — only when there are orphan
+          // configs to surface. These rows live here until the user assigns
+          // a real administration group via the gear / configure dialog.
+          if ((itemsByAdminGroup[UNASSIGNED_GROUP_ID]?.length ?? 0) > 0) {
+            renderGroup(
+              UNASSIGNED_GROUP_ID,
+              t('anesthesia.timeline.unassignedGroupName', '⚠ NEEDS CONFIGURATION'),
+            );
+          }
         }
       }
 

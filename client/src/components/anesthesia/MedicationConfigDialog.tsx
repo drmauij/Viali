@@ -292,7 +292,7 @@ export function MedicationConfigDialog({
   };
 
   const handleSave = () => {
-    if (!selectedItemId || !effectiveGroupId) return;
+    if (!selectedItemId) return;
 
     // Derive rateUnit from UI state
     let derivedRateUnit: string | null | undefined = undefined;
@@ -302,10 +302,12 @@ export function MedicationConfigDialog({
       derivedRateUnit = configIsRateControlled ? configRateUnit : 'free';
     }
 
+    // administrationGroup is optional — when absent, the config becomes an
+    // orphan and renders under the virtual "Needs Configuration" group.
     const config = {
       name: configItemName,
       medicationGroup: configMedicationGroup || undefined,
-      administrationGroup: effectiveGroupId,
+      administrationGroup: effectiveGroupId || null,
       defaultDose: configDefaultDose || undefined,
       ampuleTotalContent: configAmpuleContent.trim() || undefined,
       administrationRoute: configAdministrationRoute,
@@ -749,7 +751,7 @@ export function MedicationConfigDialog({
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={!selectedItemId || !effectiveGroupId || updateConfigMutation.isPending}
+                disabled={!selectedItemId || updateConfigMutation.isPending}
                 data-testid="button-save-config"
               >
                 {updateConfigMutation.isPending ? (
