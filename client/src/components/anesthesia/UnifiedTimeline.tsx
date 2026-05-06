@@ -417,19 +417,22 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   }, [importedMedications]);
 
   // Filter to only show items with an administration group assigned
-  // Exclude on-demand items unless they are imported to this record
+  // Exclude on-demand items unless they are imported to this record OR referenced by the active postop order set (Phase C4)
   const anesthesiaItems = useMemo(() => {
     return allAnesthesiaItems.filter(item => {
       // Must have an administration group
       if (!item.administrationGroup) return false;
       // If it's on-demand only, only include if it's been imported to this record
+      // or its name is referenced by the active postop order set
       if (item.onDemandOnly) {
-        return importedItemIds.has(item.id);
+        if (importedItemIds.has(item.id)) return true;
+        if (orderedMedicationRefs?.has(item.name)) return true;
+        return false;
       }
       // Regular items are always included
       return true;
     });
-  }, [allAnesthesiaItems, importedItemIds]);
+  }, [allAnesthesiaItems, importedItemIds, orderedMedicationRefs]);
   
   // Mutation for saving medication doses - now using centralized persistence service
   const saveMedicationMutation = useMutation({
