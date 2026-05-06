@@ -1723,6 +1723,13 @@
       "when": 1779900000000,
       "tag": "0245_tissue_checklist_brief_type",
       "breakpoints": true
+    },
+    {
+      "idx": 246,
+      "version": "7",
+      "when": 1780000000000,
+      "tag": "0246_backfill_medication_config_admin_group_uuid",
+      "breakpoints": true
     }
   ]
 }
