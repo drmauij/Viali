@@ -1874,6 +1874,11 @@
     "errorAccessing": "Kamerazugriff nicht möglich. Bitte überprüfen Sie die Berechtigungen."
   },
   "anesthesia": {
+    "needsConfig": {
+      "titleOne": "1 Medikament benötigt eine Verabreichungsgruppe",
+      "titleMany": "{{count}} Medikamente benötigen eine Verabreichungsgruppe",
+      "description": "Diese Medikamente haben eine Konfiguration, erscheinen aber erst dann im Verlauf, wenn Sie ihnen eine Verabreichungsgruppe zuweisen."
+    },
     "orMedications": {
       "doneEditing": "Fertig",
       "configure": "Konfigurieren",

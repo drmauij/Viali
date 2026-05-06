@@ -516,8 +516,11 @@ export function MedicationConfigDialog({
                 );
               })()}
 
-              {/* Administration Group picker — only when caller didn't preselect one */}
-              {!administrationGroup && !editingItem && (
+              {/* Administration Group picker — only when caller didn't preselect one.
+                  Renders in BOTH add and edit mode: in edit mode it's how a user
+                  fixes an orphan config (a medication_configs row whose
+                  administration_group column is NULL — invisible on the swimlane). */}
+              {!administrationGroup && (
                 <div className="grid gap-2">
                   <Label htmlFor="config-admin-group">
                     {t("anesthesia.timeline.administrationGroup", "Administration Group")}

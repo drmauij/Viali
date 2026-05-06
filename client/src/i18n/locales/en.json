@@ -1793,6 +1793,11 @@
     "errorAccessing": "Unable to access camera. Please check permissions."
   },
   "anesthesia": {
+    "needsConfig": {
+      "titleOne": "1 medication needs an administration group",
+      "titleMany": "{{count}} medications need an administration group",
+      "description": "These medications have a configuration but won't appear on the chart until you assign them to an administration group."
+    },
     "orMedications": {
       "doneEditing": "Done",
       "configure": "Configure",
