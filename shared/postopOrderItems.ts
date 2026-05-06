@@ -9,12 +9,19 @@ export interface MobilizationItem  { id: ItemId; type: 'mobilization'; value: 'b
 export interface PositioningItem   { id: ItemId; type: 'positioning'; value: 'supine' | 'lateral' | 'head_up_30' | 'head_up_45' | 'custom'; customText?: string; }
 export interface DrainItem         { id: ItemId; type: 'drain'; drainType: 'redon' | 'easyflow' | 'dk' | 'spul' | 'other'; site?: string; note?: string; }
 export interface NutritionItem     { id: ItemId; type: 'nutrition'; value: 'nil' | 'liquids' | 'turmix' | 'vollkost'; startAfter?: string; note?: string; }
-export interface WoundCareItem     { id: ItemId; type: 'wound_care'; check: 'none' | 'daily' | 'twice_daily'; dressingChange: 'none' | 'every_n_days' | 'on_soaking'; everyNDays?: number; }
+export interface WoundCareItem {
+  id: ItemId; type: 'wound_care';
+  check: 'none' | 'daily' | 'twice_daily';
+  dressingChange: 'none' | 'every_n_days' | 'on_soaking';
+  startAt?: string;                // ISO 8601 — first dressing change (every_n_days mode)
+  everyNDays?: number;
+}
 
 export interface VitalsMonitoringItem {
   id: ItemId; type: 'vitals_monitoring';
   parameter: 'BP' | 'pulse' | 'temp' | 'spo2' | 'bz';
   frequency: Frequency;
+  startAt?: string;                // ISO 8601 — first event time; ignored when frequency='continuous'
   min?: number; max?: number;
   actionLow?: string; actionHigh?: string;
 }
@@ -47,6 +54,7 @@ export interface LabItem {
   id: ItemId; type: 'lab';
   panel: string[];
   when: 'one_shot' | 'daily' | 'every_n_hours';
+  startAt?: string;                // ISO 8601 — first event time; falls back to oneShotOffsetH or now()
   oneShotOffsetH?: number;
   everyNHours?: number;
   thresholds?: Array<{ param: string; op: '<' | '>'; value: number; action: string }>;
@@ -56,6 +64,7 @@ export interface TaskItem {
   id: ItemId; type: 'task';
   title: string;
   when: 'one_shot' | 'daily' | 'every_n_hours' | 'ad_hoc' | 'conditional';
+  startAt?: string;                // ISO 8601 — first event time; falls back to oneShotAt or now()
   oneShotAt?: string;
   everyNHours?: number;
   condition?: string;
@@ -65,6 +74,7 @@ export interface TaskItem {
 export interface BzSlidingScaleItem {
   id: ItemId; type: 'bz_sliding_scale';
   drug: string;
+  startAt?: string;                // ISO 8601 — first measurement time
   rules: Array<{ above: number; units: number }>;
   increment?: { per: number; units: number };
 }
