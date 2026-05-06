@@ -308,6 +308,16 @@ export default function Op() {
     return { plannedMedEvents, prnItems };
   }, [postopOrderSet.data]);
 
+  // Phase C: medications referenced by the active postop order set (for Verordnet tag + per-row pills)
+  const orderedMedicationRefs = useMemo(() => {
+    const items = postopOrderSet.data?.orderSet?.items ?? [];
+    return new Set(
+      items
+        .filter((it: any) => it.type === 'medication' && typeof it.medicationRef === 'string' && it.medicationRef.trim())
+        .map((it: any) => (it.medicationRef as string).trim())
+    );
+  }, [postopOrderSet.data?.orderSet?.items]);
+
   // Phase 3: PRN administrations derived from done planned events with scheduleMode='prn'
   const prnAdmins = useMemo(() => {
     const planned = postopOrderSet.data?.plannedEvents ?? [];
@@ -1448,6 +1458,7 @@ export default function Op() {
                   plannedMedEvents={postopMedData.plannedMedEvents}
                   prnItems={postopMedData.prnItems}
                   prnAdmins={prnAdmins}
+                  orderedMedicationRefs={orderedMedicationRefs}
                   onSaveCovariates={async (data) => {
                     if (!surgeryId) return;
                     const payload: Record<string, string> = {};

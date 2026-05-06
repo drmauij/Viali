@@ -7180,6 +7180,9 @@
       "unmappedMedication": "\"{{name}}\" is not configured for the swimlane.",
       "configure": "Configure"
     },
+    "swimlane": {
+      "ordered": "Ordered"
+    },
     "vitalsOverlay": {
       "checkPlannedAt": "{{parameter}} check planned at {{time}}"
     },

@@ -463,6 +463,7 @@ export interface MedicationsSwimlaneProps {
     prnMaxPerInterval?: { intervalH: number; count: number };
   }>;
   prnAdmins?: Array<{ itemId: string; administeredAt: number }>;
+  orderedMedicationRefs?: Set<string>;
 }
 
 /**
@@ -495,6 +496,7 @@ export function MedicationsSwimlane({
   plannedMedEvents,
   prnItems,
   prnAdmins,
+  orderedMedicationRefs,
 }: MedicationsSwimlaneProps) {
   const {
     medicationState,

@@ -314,6 +314,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     prnMaxPerInterval?: { intervalH: number; count: number };
   }>;
   prnAdmins?: Array<{ itemId: string; administeredAt: number }>;
+  orderedMedicationRefs?: Set<string>;
 }>(function UnifiedTimeline({
   data,
   height,
@@ -334,6 +335,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   plannedMedEvents, // Planned medication events from postop order set (Task 7 renders them)
   prnItems, // PRN medication items from postop order set (Task 7 renders them)
   prnAdmins, // PRN administrations derived from done planned events (Task 7 renders them)
+  orderedMedicationRefs, // medicationRef strings from the active postop order set (Phase C)
 }, ref) {
   const chartRef = useRef<any>(null);
   const gestureContainerRef = useRef<HTMLDivElement>(null); // Container for touch gesture handling
@@ -2107,12 +2109,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             groupItems.forEach((item) => {
               const swimlaneId = `admingroup-${group.id}-item-${item.id}`;
 
-              let laneHeight = 38;
+              // Medication rows are taller to accommodate two-line labels (drug name + route/unit).
+              let laneHeight = 56;
               const isFreeFlow = item.rateUnit === 'free';
               if (isFreeFlow) {
                 const trackCount = swimlaneTrackCounts[swimlaneId] || 1;
                 const TRACK_HEIGHT = 30;
-                laneHeight = Math.max(38, trackCount * TRACK_HEIGHT);
+                laneHeight = Math.max(56, trackCount * TRACK_HEIGHT);
               }
 
               lanes.push({
@@ -5793,6 +5796,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <MedicationItemsSidebar
         swimlanePositions={swimlanePositions as SwimlanePosition[]}
         activeSwimlanes={activeSwimlanes}
+        orderedMedicationRefs={orderedMedicationRefs}
         isDark={isDark}
         canWrite={canWrite}
         isAdmin={canConfigure}
@@ -6135,6 +6139,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         plannedMedEvents={plannedMedEvents}
         prnItems={prnItems}
         prnAdmins={prnAdmins}
+        orderedMedicationRefs={orderedMedicationRefs}
       />
 
       {/* VentilationSwimlane Component - Interactive layers and rendering for ventilation parameters and modes */}

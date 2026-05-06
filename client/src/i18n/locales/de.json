@@ -7281,6 +7281,9 @@
       "unmappedMedication": "\"{{name}}\" ist nicht für den Verlauf konfiguriert.",
       "configure": "Konfigurieren"
     },
+    "swimlane": {
+      "ordered": "Verordnet"
+    },
     "vitalsOverlay": {
       "checkPlannedAt": "{{parameter}}-Kontrolle geplant um {{time}}"
     },

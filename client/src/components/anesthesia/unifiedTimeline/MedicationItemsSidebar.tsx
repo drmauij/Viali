@@ -23,6 +23,8 @@ export interface MedicationItemsSidebarProps {
   // Layout
   swimlanePositions: SwimlanePosition[];
   activeSwimlanes: SwimlaneConfig[];
+  /** medicationRef strings (item names) referenced by the active postop order set. Used to render a Verordnet/Ordered tag on the row. */
+  orderedMedicationRefs?: Set<string>;
   isDark: boolean;
 
   // Permissions
@@ -82,6 +84,7 @@ export interface MedicationItemsSidebarProps {
 export const MedicationItemsSidebar = React.memo(function MedicationItemsSidebar({
   swimlanePositions,
   activeSwimlanes,
+  orderedMedicationRefs,
   isDark,
   canWrite,
   isAdmin,
@@ -476,17 +479,61 @@ export const MedicationItemsSidebar = React.memo(function MedicationItemsSidebar
             ) : swimlaneConfig?.hierarchyLevel === 'item' && lane.itemId ? (
               // For medication item labels, make them clickable to edit (admin only)
               // Also show cumulative dose badge on the right side
-              <>
-                {isAdmin ? (
+              (() => {
+                // Resolve the source AnesthesiaItem for this lane, preferring medicationConfigId
+                // (multi-config items can appear in multiple lanes).
+                const medicationItem = lane.medicationConfigId
+                  ? anesthesiaItems.find(item => item.medicationConfigId === lane.medicationConfigId)
+                  : anesthesiaItems.find(item => item.id === lane.itemId);
+                const drugName = medicationItem?.name ?? lane.label.trim();
+                const isFreeFlow = lane.rateUnit === 'free';
+                const isRateControlled = lane.rateUnit && !isFreeFlow;
+                // Build a compact second line: route + administration unit (bolus) OR rate unit (infusion).
+                const secondLineParts: string[] = [];
+                if (isRateControlled) {
+                  if (lane.rateUnit) secondLineParts.push(lane.rateUnit);
+                } else if (isFreeFlow) {
+                  secondLineParts.push('free-flow');
+                  if (lane.administrationUnit) secondLineParts.push(lane.administrationUnit);
+                } else {
+                  if (lane.administrationUnit) secondLineParts.push(lane.administrationUnit);
+                  if (medicationItem?.administrationRoute) secondLineParts.push(medicationItem.administrationRoute);
+                }
+                const secondLine = secondLineParts.join(' · ');
+                const isOrdered = !!(drugName && orderedMedicationRefs?.has(drugName));
+
+                const labelBody = (
+                  <div className="flex flex-col justify-center gap-0.5 flex-1 min-w-0">
+                    <div
+                      className={`${labelClass} text-black dark:text-white truncate leading-tight`}
+                      title={drugName}
+                    >
+                      {drugName}
+                    </div>
+                    {(secondLine || isOrdered) && (
+                      <div className="flex items-center gap-1 min-w-0">
+                        {secondLine && (
+                          <span className="text-[10px] text-black/60 dark:text-white/60 truncate">
+                            {secondLine}
+                          </span>
+                        )}
+                        {isOrdered && (
+                          <span
+                            className="bg-blue-500/20 text-blue-700 dark:text-blue-300 text-[9px] font-semibold uppercase tracking-wide rounded-full px-1.5 py-0.5 shrink-0"
+                            data-testid={`medication-row-ordered-${lane.id}`}
+                          >
+                            {t('postopOrders.swimlane.ordered', 'Ordered')}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+
+                return isAdmin ? (
                   <button
                     onClick={() => {
-                      // Find the medication item: prefer medicationConfigId (unambiguous for multi-config
-                      // items where the same item can appear in multiple lanes), fall back to itemId.
-                      const medicationItem = lane.medicationConfigId
-                        ? anesthesiaItems.find(item => item.medicationConfigId === lane.medicationConfigId)
-                        : anesthesiaItems.find(item => item.id === lane.itemId);
                       if (medicationItem && medicationItem.administrationGroup) {
-                        // Find the admin group by ID (administrationGroup field stores the UUID)
                         const adminGroup = administrationGroups.find(g => g.id === medicationItem.administrationGroup);
                         if (adminGroup) {
                           onOpenMedicationConfig(adminGroup, medicationItem);
@@ -497,18 +544,14 @@ export const MedicationItemsSidebar = React.memo(function MedicationItemsSidebar
                     data-testid={`button-edit-medication-${lane.id}`}
                     title={t('timeline.editMedicationConfig', 'Edit Medication Configuration')}
                   >
-                    <span className={`${labelClass} text-black dark:text-white truncate`}>
-                      {lane.label}
-                    </span>
+                    {labelBody}
                   </button>
                 ) : (
                   <div className="flex items-center gap-1 flex-1 min-w-0">
-                    <span className={`${labelClass} text-black dark:text-white truncate`}>
-                      {lane.label}
-                    </span>
+                    {labelBody}
                   </div>
-                )}
-              </>
+                );
+              })()
             ) : lane.id === "pk-prediction" && pkCurrentValues ? (
               // PK Predict sidebar — show Ce (effect-site) prominently, Cp smaller
               <div className="flex flex-col justify-center gap-0 flex-1 min-w-0 overflow-hidden">
