@@ -641,7 +641,10 @@ export function MedicationsSwimlane({
     }
   };
   
-  // Compute planned med pills for the strip overlay
+  // Top-strip planned-med pills — alerts only (overdue). Future ('upcoming') and done events
+  // live exclusively in per-row pills; the strip exists to surface attention-needed events.
+  // Note: classifyPlannedMedEvent returns 'overdue' | 'upcoming' | 'done' | 'cancelled' —
+  // there is no separate 'due_now' bucket; overdue covers anything past plannedAt and not yet done.
   const plannedPills = useMemo(() => {
     if (!plannedMedEvents) return [];
     const visibleStart = currentZoomStart ?? data.startTime;
@@ -658,7 +661,8 @@ export function MedicationsSwimlane({
         const xFraction = (ev.plannedAt - visibleStart) / visibleRange;
         const leftCalc = `calc(200px + ${xFraction} * (100% - 210px))`;
         return { ev, classification, leftCalc };
-      });
+      })
+      .filter(({ classification }) => classification === 'overdue');
   }, [plannedMedEvents, currentZoomStart, currentZoomEnd, data.startTime, data.endTime]);
 
   // Per-row planned-med pills, keyed by medicationRef. Renders inside each medication
