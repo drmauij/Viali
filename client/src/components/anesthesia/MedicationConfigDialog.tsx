@@ -78,6 +78,10 @@ export function MedicationConfigDialog({
   const [configRateUnit, setConfigRateUnit] = useState("ml/h");
   const [configMedicationGroup, setConfigMedicationGroup] = useState("");
   const [configOnDemandOnly, setConfigOnDemandOnly] = useState(false);
+  // Used only when the dialog is opened without a preselected administration group
+  // (e.g. from the postop order set's medication editor). When a group is preselected
+  // (intraop "+" button on a group row) this stays empty and the prop wins.
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
 
   // Quick add form state
   const [quickAddName, setQuickAddName] = useState("");
@@ -105,6 +109,21 @@ export function MedicationConfigDialog({
     queryKey: [`/api/anesthesia/items/${activeHospitalId}`],
     enabled: !!activeHospitalId && open && !editingItem,
   });
+
+  // Fetch administration groups for the in-dialog picker. Only loaded when no group
+  // is preselected (i.e. the caller opened us "blank" from the postop editor).
+  const { data: hospitalAdminGroups = [] } = useQuery<AdministrationGroup[]>({
+    queryKey: [`/api/administration-groups/${activeHospitalId}`],
+    enabled: !!activeHospitalId && open && !administrationGroup && !editingItem,
+  });
+
+  // Resolved group id used by handleSave: prop wins when present, otherwise the
+  // user picks from the in-dialog Select.
+  const effectiveGroupId = administrationGroup?.id || selectedGroupId;
+  const effectiveGroupName =
+    administrationGroup?.name ||
+    hospitalAdminGroups.find(g => g.id === selectedGroupId)?.name ||
+    "";
 
   // Filter items based on search query
   const filteredItems = allInventoryItems.filter((item) =>
@@ -153,6 +172,7 @@ export function MedicationConfigDialog({
       setConfigMedicationGroup("");
       setConfigAnesthesiaType('medication');
       setConfigOnDemandOnly(false);
+      setSelectedGroupId("");
       setSearchQuery("");
       setShowQuickAdd(false);
       setQuickAddName("");
@@ -271,7 +291,7 @@ export function MedicationConfigDialog({
   };
 
   const handleSave = () => {
-    if (!selectedItemId || !administrationGroup) return;
+    if (!selectedItemId || !effectiveGroupId) return;
 
     // Derive rateUnit from UI state
     let derivedRateUnit: string | null | undefined = undefined;
@@ -284,7 +304,7 @@ export function MedicationConfigDialog({
     const config = {
       name: configItemName,
       medicationGroup: configMedicationGroup || undefined,
-      administrationGroup: administrationGroup.id,
+      administrationGroup: effectiveGroupId,
       defaultDose: configDefaultDose || undefined,
       ampuleTotalContent: configAmpuleContent.trim() || undefined,
       administrationRoute: configAdministrationRoute,
@@ -322,7 +342,11 @@ export function MedicationConfigDialog({
       <DialogContent className="sm:max-w-[600px]" data-testid="dialog-medication-config">
         <DialogHeader>
           <DialogTitle>
-            {editingItem ? t("anesthesia.timeline.editMedicationConfiguration") : `${t("anesthesia.timeline.configureMedication")} ${administrationGroup?.name}`}
+            {editingItem
+              ? t("anesthesia.timeline.editMedicationConfiguration")
+              : effectiveGroupName
+                ? `${t("anesthesia.timeline.configureMedication")} ${effectiveGroupName}`
+                : t("anesthesia.timeline.configureNewMedication", "Configure New Medication")}
           </DialogTitle>
           <DialogDescription>
             {editingItem 
@@ -476,7 +500,7 @@ export function MedicationConfigDialog({
               {/* Hint: item already configured in other lanes (add mode only) */}
               {!editingItem && (() => {
                 const otherConfigs = anesthesiaItems.filter(
-                  i => i.id === selectedItemId && i.administrationGroup !== administrationGroup?.id
+                  i => i.id === selectedItemId && i.administrationGroup !== effectiveGroupId
                 );
                 if (otherConfigs.length === 0) return null;
                 return (
@@ -491,6 +515,25 @@ export function MedicationConfigDialog({
                   </div>
                 );
               })()}
+
+              {/* Administration Group picker — only when caller didn't preselect one */}
+              {!administrationGroup && !editingItem && (
+                <div className="grid gap-2">
+                  <Label htmlFor="config-admin-group">
+                    {t("anesthesia.timeline.administrationGroup", "Administration Group")}
+                  </Label>
+                  <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                    <SelectTrigger id="config-admin-group" data-testid="select-config-admin-group">
+                      <SelectValue placeholder={t("anesthesia.timeline.selectAdministrationGroup", "Choose group...")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {hospitalAdminGroups.map(g => (
+                        <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Type Selection */}
               <div className="grid gap-2">
@@ -681,7 +724,7 @@ export function MedicationConfigDialog({
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={!selectedItemId || updateConfigMutation.isPending}
+                disabled={!selectedItemId || !effectiveGroupId || updateConfigMutation.isPending}
                 data-testid="button-save-config"
               >
                 {updateConfigMutation.isPending ? (

@@ -33,15 +33,15 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
 
   // Collapse entries that share the same canonical pharmacy name (e.g. one row with
   // a friendly short name + the same product re-imported with the full catalog string).
-  // Only include medications that have a swimlane configuration (administrationGroup set).
+  // Note: items without a swimlane configuration ARE included here so the user can
+  // discover them in the picker; the inline alert below + server-side validation
+  // require configuration before save.
   const dedupedItems = useMemo(() => {
     const normalize = (s: string) =>
       s.toLowerCase().replace(/[.,/()[\]]/g, ' ').replace(/\s+/g, ' ').trim();
 
     const groups = new Map<string, any>();
     for (const inv of inventoryItems) {
-      // Only include medications with a swimlane configuration.
-      if (!inv.administrationGroup) continue;
       const name: string = inv.name ?? '';
       const desc: string = inv.description ?? '';
       const canonical = desc.length > name.length ? desc : name;
@@ -82,14 +82,17 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
     setSearchQuery('');
   };
 
-  // Soft-display legacy free-text refs that don't resolve to a configured
-  // medication. The save-time validator enforces this on the server too,
-  // but surfacing it here lets the user fix loaded order sets in place.
-  const isConfigured = useMemo(
-    () => dedupedItems.some((inv: any) => inv.name === item.medicationRef),
+  // Show the yellow alert when the selected medication has no swimlane config
+  // (administrationGroup unset) — covers (a) free-text legacy refs not in inventory
+  // and (b) inventory items the user picked but that haven't been configured yet.
+  // The save-time validator enforces this on the server too, but surfacing it here
+  // lets the user resolve it inline via the gear icon.
+  const selectedInvItem = useMemo(
+    () => dedupedItems.find((inv: any) => inv.name === item.medicationRef),
     [dedupedItems, item.medicationRef]
   );
-  const showUnmapped = !!item.medicationRef && !isConfigured;
+  const showUnmapped =
+    !!item.medicationRef && (!selectedInvItem || !selectedInvItem.administrationGroup);
   const unmappedFromAi = !!(item as MedicationItem & MaybeUnmapped)._unmapped;
 
   return (

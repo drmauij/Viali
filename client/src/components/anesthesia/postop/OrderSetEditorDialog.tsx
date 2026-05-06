@@ -4,7 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, Save, Pill, Activity, ClipboardList, StickyNote, ChevronDown, ChevronRight } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Plus, Save, Pill, Activity, ClipboardList, StickyNote } from 'lucide-react';
 import { createEmptyItem, type PostopOrderItem, type PostopOrderItemType } from '@shared/postopOrderItems';
 import { ItemEditor, useItemTypeLabels, ITEM_CATEGORY, CATEGORY_ORDER, useCategoryLabels, type ItemCategory } from './itemEditors';
 import type { TemplateRow } from '@/hooks/usePostopOrderTemplates';
@@ -31,11 +32,9 @@ export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, o
   const { t } = useTranslation();
   const [items, setItems] = useState<PostopOrderItem[]>(initial.items);
   const [templateId, setTemplateId] = useState<string | null>(initial.templateId);
+  const [activeTab, setActiveTab] = useState<ItemCategory>('medication');
   const itemTypeLabels = useItemTypeLabels();
   const categoryLabels = useCategoryLabels();
-  const [collapsed, setCollapsed] = useState<Record<ItemCategory, boolean>>({
-    medication: false, monitoring: false, care: false, notes: false,
-  });
 
   // Group items by category, newest first within each.
   const grouped = useMemo(() => {
@@ -68,7 +67,7 @@ export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, o
 
   const addItem = (type: PostopOrderItemType) => {
     setItems([createEmptyItem(type, crypto.randomUUID()), ...items]);
-    setCollapsed(c => ({ ...c, [ITEM_CATEGORY[type]]: false }));
+    setActiveTab(ITEM_CATEGORY[type]);
   };
 
   const appendItems = (newItems: PostopOrderItem[]) => {
@@ -94,79 +93,89 @@ export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{t('postopOrders.editor.dialogTitle', 'Postoperative Orders')}</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-none w-screen h-screen rounded-none border-0 flex flex-col gap-0 p-0">
+        {/* Sticky header: title + template + add + AI paste */}
+        <div className="p-6 pb-4 border-b shrink-0 space-y-3">
+          <DialogHeader>
+            <DialogTitle>{t('postopOrders.editor.dialogTitle', 'Postoperative Orders')}</DialogTitle>
+          </DialogHeader>
 
-        <div className="flex items-center gap-2 pb-2 border-b">
-          <span className="text-sm text-muted-foreground">{t('postopOrders.template', 'Template')}:</span>
-          <Select value={templateId ?? ''} onValueChange={applyTemplate}>
-            <SelectTrigger className="w-[260px]"><SelectValue placeholder={t('postopOrders.editor.selectTemplate', 'Choose template...')} /></SelectTrigger>
-            <SelectContent>
-              {templates.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline"><Plus className="w-4 h-4 mr-1" /> {t('postopOrders.addItem', 'Add Item')}</Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {(Object.entries(itemTypeLabels) as [PostopOrderItemType, string][]).map(([t, label]) => (
-                <DropdownMenuItem key={t} onClick={() => addItem(t)}>{label}</DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-muted-foreground">{t('postopOrders.template', 'Template')}:</span>
+            <Select value={templateId ?? ''} onValueChange={applyTemplate}>
+              <SelectTrigger className="w-[260px]"><SelectValue placeholder={t('postopOrders.editor.selectTemplate', 'Choose template...')} /></SelectTrigger>
+              <SelectContent>
+                {templates.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline"><Plus className="w-4 h-4 mr-1" /> {t('postopOrders.addItem', 'Add Item')}</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {(Object.entries(itemTypeLabels) as [PostopOrderItemType, string][]).map(([t, label]) => (
+                  <DropdownMenuItem key={t} onClick={() => addItem(t)}>{label}</DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <AiPasteOrders
+            hospitalId={hospitalId}
+            existingItems={items}
+            onApply={appendItems}
+          />
         </div>
 
-        <AiPasteOrders
-          hospitalId={hospitalId}
-          existingItems={items}
-          onApply={appendItems}
-        />
+        {/* Scrollable middle: tabs (one per category) */}
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as ItemCategory)}
+          className="flex-1 flex flex-col overflow-hidden"
+        >
+          <TabsList className="mx-6 mt-4 self-start">
+            {CATEGORY_ORDER.map(cat => {
+              const Icon = CATEGORY_ICON[cat];
+              const count = grouped[cat].length;
+              return (
+                <TabsTrigger key={cat} value={cat} data-testid={`tab-postop-${cat}`}>
+                  <Icon className="w-4 h-4 mr-1.5" />
+                  {categoryLabels[cat]}
+                  {count > 0 && (
+                    <span className="ml-1.5 text-xs text-muted-foreground">({count})</span>
+                  )}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
 
-        <div className="space-y-4 py-2">
-          {items.length === 0 && (
-            <div className="text-sm text-muted-foreground py-4 text-center">
-              {t('postopOrders.editor.noItems', 'No items — choose a template or add items above.')}
-            </div>
-          )}
-          {CATEGORY_ORDER.map(cat => {
-            const group = grouped[cat];
-            if (group.length === 0) return null;
-            const Icon = CATEGORY_ICON[cat];
-            const isCollapsed = collapsed[cat];
-            return (
-              <div key={cat} className="border rounded-md">
-                <button
-                  type="button"
-                  onClick={() => setCollapsed(c => ({ ...c, [cat]: !c[cat] }))}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium hover:bg-accent/50 rounded-t-md"
-                >
-                  {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  <Icon className="w-4 h-4 text-muted-foreground" />
-                  <span>{categoryLabels[cat]}</span>
-                  <span className="text-xs text-muted-foreground ml-1">({group.length})</span>
-                </button>
-                {!isCollapsed && (
-                  <div className="space-y-3 p-3 pt-0">
-                    {group.map(item => (
-                      <ItemEditor
-                        key={item.id}
-                        item={item}
-                        onChange={(next) => updateItem(item.id, next)}
-                        onRemove={() => removeItem(item.id)}
-                        hospitalId={hospitalId}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+          {CATEGORY_ORDER.map(cat => (
+            <TabsContent
+              key={cat}
+              value={cat}
+              className="flex-1 overflow-y-auto px-6 py-4 space-y-3 mt-0 data-[state=inactive]:hidden"
+            >
+              {grouped[cat].length === 0 ? (
+                <div className="text-sm text-muted-foreground py-8 text-center">
+                  {t('postopOrders.editor.noItemsInCategory', 'No items in this category yet — use "Add Item" above.')}
+                </div>
+              ) : (
+                grouped[cat].map(item => (
+                  <ItemEditor
+                    key={item.id}
+                    item={item}
+                    onChange={(next) => updateItem(item.id, next)}
+                    onRemove={() => removeItem(item.id)}
+                    hospitalId={hospitalId}
+                  />
+                ))
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
 
-        <DialogFooter>
+        {/* Sticky footer */}
+        <DialogFooter className="p-6 pt-4 border-t shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t('postopOrders.cancel', 'Cancel')}</Button>
           {onSaveAsTemplate && (
             <DropdownMenu>
