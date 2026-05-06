@@ -7171,7 +7171,10 @@
       "templateNamePrompt": "Template name:",
       "saveAsNew": "Save as new template",
       "overwrite": "Overwrite",
-      "configureMedication": "Configure new medication"
+      "configureMedication": "Configure new medication",
+      "noConfiguredMedication": "No matching medication — click the gear icon to configure a new one.",
+      "noConfiguredMedications": "No medications are configured for the swimlane yet.",
+      "configureFirst": "Configure your first medication"
     },
     "vitalsOverlay": {
       "checkPlannedAt": "{{parameter}} check planned at {{time}}"

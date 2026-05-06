@@ -7272,7 +7272,10 @@
       "templateNamePrompt": "Name der Vorlage:",
       "saveAsNew": "Als neue Vorlage speichern",
       "overwrite": "Überschreiben",
-      "configureMedication": "Neues Medikament konfigurieren"
+      "configureMedication": "Neues Medikament konfigurieren",
+      "noConfiguredMedication": "Keine passende Medikation — klicken Sie auf das Zahnradsymbol, um eine neue zu konfigurieren.",
+      "noConfiguredMedications": "Es sind noch keine Medikationen für den Verlauf konfiguriert.",
+      "configureFirst": "Erste Medikation konfigurieren"
     },
     "vitalsOverlay": {
       "checkPlannedAt": "{{parameter}}-Kontrolle geplant um {{time}}"

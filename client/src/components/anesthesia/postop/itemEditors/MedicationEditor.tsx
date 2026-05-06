@@ -28,12 +28,15 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
 
   // Collapse entries that share the same canonical pharmacy name (e.g. one row with
   // a friendly short name + the same product re-imported with the full catalog string).
+  // Only include medications that have a swimlane configuration (administrationGroup set).
   const dedupedItems = useMemo(() => {
     const normalize = (s: string) =>
       s.toLowerCase().replace(/[.,/()[\]]/g, ' ').replace(/\s+/g, ' ').trim();
 
     const groups = new Map<string, any>();
     for (const inv of inventoryItems) {
+      // Only include medications with a swimlane configuration.
+      if (!inv.administrationGroup) continue;
       const name: string = inv.name ?? '';
       const desc: string = inv.description ?? '';
       const canonical = desc.length > name.length ? desc : name;
@@ -70,12 +73,6 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
 
   const selectItem = (inv: any) => {
     onChange({ ...item, medicationRef: inv.name });
-    setOpen(false);
-    setSearchQuery('');
-  };
-
-  const addFreeText = (text: string) => {
-    onChange({ ...item, medicationRef: text.trim() });
     setOpen(false);
     setSearchQuery('');
   };
@@ -133,18 +130,28 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
                   onValueChange={setSearchQuery}
                 />
                 <CommandList>
-                  <CommandEmpty>
-                    {searchQuery.trim() ? (
-                      <button
-                        className="w-full px-2 py-3 text-sm text-left hover:bg-accent cursor-pointer"
-                        onClick={() => addFreeText(searchQuery)}
+                  {!searchQuery.trim() && dedupedItems.length === 0 && (
+                    <div className="px-2 py-3 text-sm">
+                      <div className="text-muted-foreground mb-2">
+                        {t('postopOrders.editor.noConfiguredMedications',
+                           'No medications are configured for the swimlane yet.')}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => { setOpen(false); setConfigOpen(true); }}
                       >
-                        <Plus className="h-4 w-4 mr-1 inline" />
-                        {t('postopOrders.editor.addAsFreeText', 'Add "{{text}}" as free text', { text: searchQuery.trim() })}
-                      </button>
-                    ) : (
-                      t('postopOrders.editor.noMedicationFound', 'No medication found')
-                    )}
+                        <Plus className="h-4 w-4 mr-1" />
+                        {t('postopOrders.editor.configureFirst', 'Configure your first medication')}
+                      </Button>
+                    </div>
+                  )}
+                  <CommandEmpty>
+                    <div className="px-2 py-3 text-sm text-muted-foreground">
+                      {t('postopOrders.editor.noConfiguredMedication',
+                         'No matching medication — click the gear icon to configure a new one.')}
+                    </div>
                   </CommandEmpty>
                   <CommandGroup>
                     {filteredItems.map((inv: any) => (
@@ -162,17 +169,6 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
                       </CommandItem>
                     ))}
                   </CommandGroup>
-                  {searchQuery.trim() && filteredItems.length > 0 && (
-                    <CommandGroup>
-                      <CommandItem
-                        value={`__custom__${searchQuery}`}
-                        onSelect={() => addFreeText(searchQuery)}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        {t('postopOrders.editor.addAsFreeText', 'Add "{{text}}" as free text', { text: searchQuery.trim() })}
-                      </CommandItem>
-                    </CommandGroup>
-                  )}
                 </CommandList>
               </Command>
             </PopoverContent>
