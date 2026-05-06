@@ -7275,7 +7275,9 @@
       "configureMedication": "Neues Medikament konfigurieren",
       "noConfiguredMedication": "Keine passende Medikation — klicken Sie auf das Zahnradsymbol, um eine neue zu konfigurieren.",
       "noConfiguredMedications": "Es sind noch keine Medikationen für den Verlauf konfiguriert.",
-      "configureFirst": "Erste Medikation konfigurieren"
+      "configureFirst": "Erste Medikation konfigurieren",
+      "saveFailed": "Verordnungen konnten nicht gespeichert werden",
+      "unconfiguredMedsListed": "Folgende Medikamente sind nicht konfiguriert: {{names}}"
     },
     "vitalsOverlay": {
       "checkPlannedAt": "{{parameter}}-Kontrolle geplant um {{time}}"

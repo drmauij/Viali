@@ -23,6 +23,7 @@ import { useCanWrite } from "@/hooks/useCanWrite";
 import { PostopTasksPanel } from "@/components/anesthesia/postop/PostopTasksPanel";
 import { OrderSetEditorDialog } from "@/components/anesthesia/postop/OrderSetEditorDialog";
 import { usePostopOrderSet } from "@/hooks/usePostopOrderSet";
+import type { PostopOrderItem } from "@shared/postopOrderItems";
 import { useDeviationAcks } from "@/hooks/usePostopDeviationAcks";
 import { usePostopOrderTemplates } from "@/hooks/usePostopOrderTemplates";
 import { WHOChecklistCard } from "@/components/anesthesia/WHOChecklistCard";
@@ -242,6 +243,33 @@ export default function Op() {
   const postopTemplates = usePostopOrderTemplates(activeHospital?.id);
   const deviationAcks = useDeviationAcks(anesthesiaRecord?.id);
   const [orderEditorOpen, setOrderEditorOpen] = useState(false);
+
+  // Centralised save handler for order sets — surfaces server validation
+  // errors (e.g. unconfigured medications) as a toast.
+  const handleSaveOrderSet = (payload: { items: PostopOrderItem[]; templateId: string | null; sign?: boolean }) => {
+    postopOrderSet.save.mutate(payload, {
+      onError: (error: any) => {
+        const unconfigured: string[] | undefined = error?.data?.unconfiguredMedications;
+        if (unconfigured && unconfigured.length > 0) {
+          toast({
+            title: t('postopOrders.editor.saveFailed', 'Could not save order set'),
+            description: t(
+              'postopOrders.editor.unconfiguredMedsListed',
+              'These medications are not configured: {{names}}',
+              { names: unconfigured.join(', ') }
+            ),
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: t('postopOrders.editor.saveFailed', 'Could not save order set'),
+            description: error?.message,
+            variant: 'destructive',
+          });
+        }
+      },
+    });
+  };
 
   // Phase 3: planned medication events + PRN items derived from postop order set
   const postopMedData = useMemo(() => {
@@ -1566,7 +1594,7 @@ export default function Op() {
                   templateId: postopOrderSet.data?.orderSet.templateId ?? null,
                 }}
                 templates={postopTemplates.data ?? []}
-                onSave={(payload) => postopOrderSet.save.mutate(payload)}
+                onSave={handleSaveOrderSet}
                 hospitalId={activeHospital?.id}
                 onSaveAsTemplate={(payload) => {
                   if (payload.overwriteId) {
@@ -2314,7 +2342,7 @@ export default function Op() {
                 templateId: postopOrderSet.data?.orderSet.templateId ?? null,
               }}
               templates={postopTemplates.data ?? []}
-              onSave={(payload) => postopOrderSet.save.mutate(payload)}
+              onSave={handleSaveOrderSet}
               hospitalId={activeHospital?.id}
               onSaveAsTemplate={(payload) => {
                 if (payload.overwriteId) {
