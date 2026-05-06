@@ -804,19 +804,37 @@ export function MedicationsSwimlane({
         }).filter(Boolean);
       })}
 
-      {/* Per-row planned-med pills — one cluster per medication lane that has planned events */}
+      {/* Per-row planned-med pills — one cluster per medication lane that has planned events.
+          When the same drug has multiple medication_configs (e.g. one bolus lane + one infusion lane),
+          we filter cells by route so each planned event lands in exactly one lane. The lane's item
+          carries `administrationRoute` ("i.v.", "p.o."...) and the order event carries a normalized
+          `route` ("iv", "po", ...) — normalizeRoute reconciles the two formats. If a lane's item has
+          no administrationRoute (legacy data), we keep the existing drugName-only match as a fallback,
+          accepting potential double-render rather than dropping pills entirely. */}
       {plannedPillsByMedication.size > 0 && activeSwimlanes.flatMap((lane) => {
         if (lane.hierarchyLevel !== 'item' || !lane.itemId) return [];
         if (!lane.id.startsWith('admingroup-')) return [];
-        // Resolve drug name via itemId; multi-config rows for the same item share a name,
-        // so this lookup is safe for matching against medicationRef.
         const item = anesthesiaItems.find(i => i.id === lane.itemId);
         const drugName = item?.name?.trim();
         if (!drugName) return [];
-        const cells = plannedPillsByMedication.get(drugName);
-        if (!cells || cells.length === 0) return [];
+        const allCells = plannedPillsByMedication.get(drugName);
+        if (!allCells || allCells.length === 0) return [];
         const lanePosition = swimlanePositions.find(p => p.id === lane.id);
         if (!lanePosition) return [];
+
+        // Normalize "i.v." / "I.V." / "iv" → "iv" so config-side strings match order-side enum values.
+        const normalizeRoute = (r: string | null | undefined): string | null => {
+          if (!r) return null;
+          const cleaned = r.trim().toLowerCase().replace(/\./g, '');
+          return cleaned || null;
+        };
+        const laneRoute = normalizeRoute(item?.administrationRoute);
+        // If the lane's item has a defined route, only show events whose route matches.
+        // If not (legacy data), fall through and render all matching cells in this lane.
+        const cells = laneRoute
+          ? allCells.filter(c => normalizeRoute(c.ev.route) === laneRoute)
+          : allCells;
+        if (cells.length === 0) return [];
 
         return cells.map(({ ev, classification, leftFraction }) => {
           // Match pill colors with the existing top-strip palette so the visual language is consistent.
