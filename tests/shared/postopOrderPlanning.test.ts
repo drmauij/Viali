@@ -111,9 +111,8 @@ describe('startAt resolution', () => {
         scheduleMode: 'scheduled', frequency: 'q8h', startAt: new Date(start).toISOString() },
     ];
     const events = planEvents(items, anchor, horizonH);
-    // horizon=24h from anchor, start=anchor+2h, 22h remaining at q8h -> floor(22/8)=2 events.
     expect(events.map(e => e.plannedAt)).toEqual([
-      start, start + 8 * 3600_000,
+      start, start + 8 * 3600_000, start + 16 * 3600_000,
     ]);
   });
 
@@ -163,9 +162,9 @@ describe('startAt resolution', () => {
         startAt: new Date(start).toISOString() },
     ];
     const events = planEvents(items, anchor, horizonH);
-    // horizon=24h, start=anchor+1h, so 23h remaining -> 5 events at q4h
     expect(events.map(e => e.plannedAt)).toEqual([
-      start, start + 4 * 3600_000, start + 8 * 3600_000, start + 12 * 3600_000, start + 16 * 3600_000,
+      start, start + 4 * 3600_000, start + 8 * 3600_000, start + 12 * 3600_000,
+      start + 16 * 3600_000, start + 20 * 3600_000,
     ]);
   });
 

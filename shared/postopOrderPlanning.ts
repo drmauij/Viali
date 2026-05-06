@@ -47,11 +47,9 @@ export function planEvents(
         const interval = FREQUENCY_INTERVAL_H[freq as Exclude<Frequency, 'continuous'>];
         if (!interval) break;
         const start = resolveAnchor(item.startAt, anchor);
-        const horizonRemaining = anchor + horizonH * HOUR - start;
-        if (horizonRemaining <= 0) break;
-        const count = Math.floor(horizonRemaining / (interval * HOUR));
-        for (let i = 0; i < count; i++) {
-          events.push({ itemId: item.id, kind: 'medication', plannedAt: start + i * interval * HOUR, payloadSnapshot: item });
+        const upperBound = anchor + horizonH * HOUR;
+        for (let t = start; t < upperBound; t += interval * HOUR) {
+          events.push({ itemId: item.id, kind: 'medication', plannedAt: t, payloadSnapshot: item });
         }
         break;
       }
@@ -63,11 +61,9 @@ export function planEvents(
         }
         const interval = FREQUENCY_INTERVAL_H[item.frequency];
         if (!interval) break;
-        const horizonRemaining = anchor + horizonH * HOUR - start;
-        if (horizonRemaining <= 0) break;
-        const count = Math.floor(horizonRemaining / (interval * HOUR));
-        for (let i = 0; i < count; i++) {
-          events.push({ itemId: item.id, kind: 'vitals_check', plannedAt: start + i * interval * HOUR, payloadSnapshot: item });
+        const upperBound = anchor + horizonH * HOUR;
+        for (let t = start; t < upperBound; t += interval * HOUR) {
+          events.push({ itemId: item.id, kind: 'vitals_check', plannedAt: t, payloadSnapshot: item });
         }
         break;
       }
@@ -75,19 +71,17 @@ export function planEvents(
         const start = item.startAt
           ? resolveAnchor(item.startAt, anchor)
           : (item.when === 'one_shot' ? anchor + (item.oneShotOffsetH ?? 0) * HOUR : anchor);
-        const horizonRemaining = anchor + horizonH * HOUR - start;
-        if (horizonRemaining <= 0) break;
+        const upperBound = anchor + horizonH * HOUR;
+        if (start >= upperBound) break;
         if (item.when === 'one_shot') {
           events.push({ itemId: item.id, kind: 'task', plannedAt: start, payloadSnapshot: item });
         } else if (item.when === 'daily') {
-          const count = Math.max(1, Math.floor(horizonRemaining / (24 * HOUR)));
-          for (let i = 0; i < count; i++) {
-            events.push({ itemId: item.id, kind: 'task', plannedAt: start + i * 24 * HOUR, payloadSnapshot: item });
+          for (let t = start; t < upperBound; t += 24 * HOUR) {
+            events.push({ itemId: item.id, kind: 'task', plannedAt: t, payloadSnapshot: item });
           }
         } else if (item.when === 'every_n_hours' && item.everyNHours && item.everyNHours > 0) {
-          const count = Math.floor(horizonRemaining / (item.everyNHours * HOUR));
-          for (let i = 0; i < count; i++) {
-            events.push({ itemId: item.id, kind: 'task', plannedAt: start + i * item.everyNHours * HOUR, payloadSnapshot: item });
+          for (let t = start; t < upperBound; t += item.everyNHours * HOUR) {
+            events.push({ itemId: item.id, kind: 'task', plannedAt: t, payloadSnapshot: item });
           }
         }
         break;
@@ -97,19 +91,17 @@ export function planEvents(
         const start = item.startAt
           ? resolveAnchor(item.startAt, anchor)
           : (item.when === 'one_shot' && item.oneShotAt ? Date.parse(item.oneShotAt) : anchor);
-        const horizonRemaining = anchor + horizonH * HOUR - start;
-        if (horizonRemaining <= 0) break;
+        const upperBound = anchor + horizonH * HOUR;
+        if (start >= upperBound) break;
         if (item.when === 'one_shot') {
           events.push({ itemId: item.id, kind: 'task', plannedAt: start, payloadSnapshot: item });
         } else if (item.when === 'daily') {
-          const count = Math.max(1, Math.floor(horizonRemaining / (24 * HOUR)));
-          for (let i = 0; i < count; i++) {
-            events.push({ itemId: item.id, kind: 'task', plannedAt: start + i * 24 * HOUR, payloadSnapshot: item });
+          for (let t = start; t < upperBound; t += 24 * HOUR) {
+            events.push({ itemId: item.id, kind: 'task', plannedAt: t, payloadSnapshot: item });
           }
         } else if (item.when === 'every_n_hours' && item.everyNHours && item.everyNHours > 0) {
-          const count = Math.floor(horizonRemaining / (item.everyNHours * HOUR));
-          for (let i = 0; i < count; i++) {
-            events.push({ itemId: item.id, kind: 'task', plannedAt: start + i * item.everyNHours * HOUR, payloadSnapshot: item });
+          for (let t = start; t < upperBound; t += item.everyNHours * HOUR) {
+            events.push({ itemId: item.id, kind: 'task', plannedAt: t, payloadSnapshot: item });
           }
         }
         break;
