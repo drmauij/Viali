@@ -108,6 +108,12 @@ export async function getItems(hospitalId: string, unitId: string, filters?: {
       // have multiple configs; we just need to know if at least one is configured for
       // the postop swimlane picker filter).
       administrationGroup: sql<string | null>`MAX(${medicationConfigs.administrationGroup})`.as('administration_group'),
+      // Surface a representative dose / route / unit so the postop order editor can
+      // auto-fill these fields when the user picks a medication. Items with multiple
+      // configs may have differing values; MAX gives a deterministic single pick.
+      defaultDose: sql<string | null>`MAX(${medicationConfigs.defaultDose})`.as('default_dose'),
+      administrationRoute: sql<string | null>`MAX(${medicationConfigs.administrationRoute})`.as('administration_route'),
+      administrationUnit: sql<string | null>`MAX(${medicationConfigs.administrationUnit})`.as('administration_unit'),
     })
     .from(items)
     .leftJoin(stockLevels, and(eq(items.id, stockLevels.itemId), eq(stockLevels.unitId, unitId)))

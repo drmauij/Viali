@@ -20,8 +20,10 @@ function resolveAnchor(itemAnchor: string | undefined, fallback: number): number
 
 const FREQUENCY_INTERVAL_H: Record<Exclude<Frequency, 'continuous'>, number> = {
   q15min: 0.25, q30min: 0.5, q1h: 1, q2h: 2, q4h: 4,
-  q6h: 6, q8h: 8, q12h: 12, q24h: 24,
-  '2x_daily': 12, '4x_daily': 6,
+  q6h: 6, q8h: 8, q12h: 12, q24h: 24, q48h: 48, weekly: 168,
+  '2x_daily': 12, '3x_daily': 8, '4x_daily': 6,
+  // Clinical notation — currently identical to their q-equivalents
+  oral_1_0_0: 24, oral_1_0_1: 12, oral_1_1_1: 8, oral_1_1_1_1: 6,
 };
 
 function slots(anchor: number, horizonH: number, intervalH: number): number[] {

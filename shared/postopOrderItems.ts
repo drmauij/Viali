@@ -3,7 +3,12 @@ export type ItemId = string;
 
 export type Frequency =
   | 'continuous' | 'q15min' | 'q30min' | 'q1h' | 'q2h' | 'q4h'
-  | 'q6h' | 'q8h' | 'q12h' | 'q24h' | '2x_daily' | '4x_daily';
+  | 'q6h' | 'q8h' | 'q12h' | 'q24h' | 'q48h' | 'weekly'
+  | '2x_daily' | '3x_daily' | '4x_daily'
+  // Clinical notation for oral/scheduled meds. Today these compute the same
+  // intervals as their q-equivalents; a future change can make them honor
+  // wall-clock slots (e.g. 1-1-1 = 8:00, 12:00, 18:00 regardless of startAt).
+  | 'oral_1_0_0' | 'oral_1_0_1' | 'oral_1_1_1' | 'oral_1_1_1_1';
 
 export interface MobilizationItem  { id: ItemId; type: 'mobilization'; value: 'bedrest' | 'assisted' | 'free'; assistedFrom?: string; note?: string; }
 export interface PositioningItem   { id: ItemId; type: 'positioning'; value: 'supine' | 'lateral' | 'head_up_30' | 'head_up_45' | 'custom'; customText?: string; }
