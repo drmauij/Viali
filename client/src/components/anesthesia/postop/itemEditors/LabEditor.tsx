@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Trash2, Plus } from 'lucide-react';
+import { StartAtField } from './StartAtField';
 import type { LabItem } from '@shared/postopOrderItems';
 import type { ItemEditorProps } from './index';
 
@@ -57,6 +58,12 @@ export function LabEditor({ item, onChange, onRemove }: ItemEditorProps<LabItem>
           <Label className="text-xs">{t('postopOrders.editor.intervalHours', 'Interval (hours)')}</Label>
           <Input type="number" value={item.everyNHours ?? ''} onChange={e => onChange({ ...item, everyNHours: Number(e.target.value) })} />
         </div>
+      )}
+      {(item.when === 'one_shot' || item.when === 'daily' || item.when === 'every_n_hours') && (
+        <StartAtField
+          value={item.startAt}
+          onChange={(startAt) => onChange({ ...item, startAt })}
+        />
       )}
       <div>
         <div className="flex items-center justify-between">

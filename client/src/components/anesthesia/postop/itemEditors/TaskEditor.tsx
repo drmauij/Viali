@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
+import { StartAtField } from './StartAtField';
 import type { TaskItem } from '@shared/postopOrderItems';
 import type { ItemEditorProps } from './index';
 
@@ -43,6 +44,12 @@ export function TaskEditor({ item, onChange, onRemove }: ItemEditorProps<TaskIte
           <Label className="text-xs">{t('postopOrders.editor.condition', 'Condition')}</Label>
           <Input value={item.condition ?? ''} onChange={e => onChange({ ...item, condition: e.target.value })} placeholder={t('postopOrders.editor.conditionPlaceholder', 'e.g. when soaked through')} />
         </div>
+      )}
+      {(item.when === 'one_shot' || item.when === 'daily' || item.when === 'every_n_hours') && (
+        <StartAtField
+          value={item.startAt}
+          onChange={(startAt) => onChange({ ...item, startAt })}
+        />
       )}
       <div>
         <Label className="text-xs">{t('postopOrders.editor.actionHint', 'Action hint')}</Label>
