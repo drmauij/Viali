@@ -107,7 +107,7 @@ export function planEvents(
         break;
       }
       case 'iv_fluid': {
-        const start = item.startAt ? Date.parse(item.startAt) : anchor;
+        const start = resolveAnchor(item.startAt, anchor);
         events.push({
           itemId: item.id, kind: 'iv_fluid',
           plannedAt: start,

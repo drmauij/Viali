@@ -185,4 +185,15 @@ describe('startAt resolution', () => {
     const events = planEvents(items, anchor, horizonH);
     expect(events[0].plannedAt).toBe(anchor);
   });
+
+  it('iv_fluid invalid startAt falls back to anchor (legacy free-text)', () => {
+    const items: PostopOrderItem[] = [
+      { id: 'iv1', type: 'iv_fluid', solution: 'nacl_09', volumeMl: 500, durationH: 4,
+        startAt: 'immediately, postop' },
+    ];
+    const events = planEvents(items, anchor, horizonH);
+    expect(events).toHaveLength(1);
+    expect(events[0].plannedAt).toBe(anchor);
+    expect(events[0].plannedEndAt).toBe(anchor + 4 * 3600_000);
+  });
 });
