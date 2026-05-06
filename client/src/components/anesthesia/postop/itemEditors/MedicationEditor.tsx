@@ -26,10 +26,13 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
   const [searchQuery, setSearchQuery] = useState('');
   const [configOpen, setConfigOpen] = useState(false);
 
-  const { data: inventoryItems = [] } = useQuery<any[]>({
+  const { data: inventoryItems = [], isLoading: inventoryLoading, isPending: inventoryPending } = useQuery<any[]>({
     queryKey: [`/api/items/${hospital?.id}?unitId=${hospital?.unitId}`],
     enabled: !!hospital?.id && !!hospital?.unitId,
   });
+  // The inventory query gates the unmapped check below — without it, the
+  // alert flickers on every mount before data arrives.
+  const inventoryReady = !inventoryLoading && !inventoryPending;
 
   // Collapse entries that share the same canonical pharmacy name (e.g. one row with
   // a friendly short name + the same product re-imported with the full catalog string).
@@ -91,8 +94,13 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
     () => dedupedItems.find((inv: any) => inv.name === item.medicationRef),
     [dedupedItems, item.medicationRef]
   );
+  // Suppress the alert while the inventory query is still in flight; otherwise
+  // selectedInvItem is undefined for the first render even when the medication
+  // is in fact configured, producing a brief amber flicker.
   const showUnmapped =
-    !!item.medicationRef && (!selectedInvItem || !selectedInvItem.administrationGroup);
+    inventoryReady &&
+    !!item.medicationRef &&
+    (!selectedInvItem || !selectedInvItem.administrationGroup);
   const unmappedFromAi = !!(item as MedicationItem & MaybeUnmapped)._unmapped;
 
   return (

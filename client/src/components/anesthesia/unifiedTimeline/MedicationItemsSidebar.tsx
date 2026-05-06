@@ -504,15 +504,23 @@ export const MedicationItemsSidebar = React.memo(function MedicationItemsSidebar
 
                 const labelBody = (
                   <div className="flex flex-col justify-center gap-0.5 flex-1 min-w-0">
+                    {/* Drug name + (when not ordered) inline unit/route. The
+                        unit keeps the same muted small-text styling it had on
+                        the second line; it just sits next to the drug name
+                        instead of below it for compact rows. */}
                     <div
-                      className={`${labelClass} text-black dark:text-white truncate leading-tight`}
+                      className={`flex items-baseline gap-1.5 min-w-0 ${labelClass} text-black dark:text-white leading-tight`}
                       title={drugName}
                     >
-                      {drugName}
+                      <span className="truncate">{drugName}</span>
+                      {!isOrdered && secondLine && (
+                        <span className="text-[10px] text-black/60 dark:text-white/60 truncate font-normal shrink">
+                          {secondLine}
+                        </span>
+                      )}
                     </div>
-                    {/* Only show the second line (route/unit + Verordnet tag)
-                        when this medication is referenced by the active postop
-                        order set. Other rows stay single-line and compact. */}
+                    {/* Two-line layout reserved for ordered rows so the
+                        Verordnet tag has room. */}
                     {isOrdered && (
                       <div className="flex items-center gap-1 min-w-0">
                         {secondLine && (
