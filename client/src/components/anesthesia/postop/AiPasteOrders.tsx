@@ -9,6 +9,11 @@ import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import type { PostopOrderItem } from '@shared/postopOrderItems';
 
+// Transient flag tagged on AI-parsed medication items whose drug name doesn't
+// resolve to a configured inventory entry. OrderSetEditorDialog.cleanItemsForPersist
+// strips this before save, so it never reaches the wire.
+type MaybeUnmapped = { _unmapped?: boolean };
+
 interface Props {
   hospitalId?: string;
   existingItems: PostopOrderItem[];
@@ -83,7 +88,7 @@ export function AiPasteOrders({ hospitalId, existingItems, onApply }: Props) {
       );
       const annotated: PostopOrderItem[] = data.items.map((it) => {
         if (it.type === 'medication' && !inventoryNames.has(it.medicationRef)) {
-          return { ...it, _unmapped: true } as PostopOrderItem;
+          return { ...it, _unmapped: true } as PostopOrderItem & MaybeUnmapped;
         }
         return it;
       });

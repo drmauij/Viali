@@ -14,6 +14,11 @@ import { StartAtField } from './StartAtField';
 import type { MedicationItem } from '@shared/postopOrderItems';
 import type { ItemEditorProps } from './index';
 
+// Transient flag set by the AI paste flow to mark items whose drug name didn't
+// resolve to a configured inventory medication. OrderSetEditorDialog.cleanItemsForPersist
+// strips this before save, so it never reaches the wire.
+type MaybeUnmapped = { _unmapped?: boolean };
+
 export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemEditorProps<MedicationItem>) {
   const { t } = useTranslation();
   const hospital = useActiveHospital();
@@ -85,7 +90,7 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
     [dedupedItems, item.medicationRef]
   );
   const showUnmapped = !!item.medicationRef && !isConfigured;
-  const unmappedFromAi = !!(item as any)._unmapped;
+  const unmappedFromAi = !!(item as MedicationItem & MaybeUnmapped)._unmapped;
 
   return (
     <div className="border rounded-md p-3 space-y-2">
