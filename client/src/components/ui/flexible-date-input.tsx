@@ -58,15 +58,19 @@ export function FlexibleDateInput({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
     setDisplayValue(inputValue);
-    
+
     const parsed = parseFlexibleDate(inputValue);
     if (parsed) {
       lastExternalValue.current = parsed.isoDate;
       onChange(parsed.isoDate);
-    } else {
-      lastExternalValue.current = inputValue;
-      onChange(inputValue);
+    } else if (inputValue === "") {
+      lastExternalValue.current = "";
+      onChange("");
     }
+    // Else: in-progress input that doesn't parse yet — keep it in
+    // displayValue but don't propagate. Stops autosave from sending
+    // garbage like "13.05.198" upstream and avoids a Postgres date
+    // parse error on save (Sentry VIALI-PJ).
   };
 
   const handleFocus = () => {

@@ -49,10 +49,16 @@ export default function MarketingAiInsights({ scope, startDate, endDate }: Props
     const past = new Date(today);
     past.setDate(past.getDate() - 365);
     const fallbackStart = fmt(past);
-    return {
-      effectiveStartDate: startDate || fallbackStart,
-      effectiveEndDate: endDate || fallbackEnd,
-    };
+    let start = startDate || fallbackStart;
+    let end = endDate || fallbackEnd;
+    // Defensive: ReferralFunnel's onEarliestDate callback can populate
+    // `from` AFTER the user manually picked a `to` that's before the
+    // earliest data point, producing a backwards range. Swap so we never
+    // hit the server's "invalid date range" 400 (Sentry VIALI-PH).
+    if (start > end) {
+      [start, end] = [end, start];
+    }
+    return { effectiveStartDate: start, effectiveEndDate: end };
   }, [startDate, endDate]);
 
   // All hooks must be called unconditionally (Rules of Hooks).

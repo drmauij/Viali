@@ -121,7 +121,17 @@ const generateLinkSchema = z.object({
 const saveProgressSchema = z.object({
   patientFirstName: z.string().optional(),
   patientLastName: z.string().optional(),
-  patientBirthday: z.string().optional().transform(v => v === '' ? null : v),
+  // Coerce invalid/in-progress dates to null so autosaves with partial input
+  // (e.g. "13.05.198") don't 500 on the Postgres `date` column. Submission
+  // path uses a stricter schema that requires a value.
+  patientBirthday: z.string().optional().transform(v => {
+    if (!v) return null;
+    const trimmed = v.trim();
+    if (!trimmed) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+    const d = new Date(`${trimmed}T00:00:00Z`);
+    return Number.isNaN(d.getTime()) ? null : trimmed;
+  }),
   patientEmail: z.string().optional(),
   patientPhone: z.string().optional(),
   patientStreet: z.string().optional(),
