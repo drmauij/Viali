@@ -77,6 +77,14 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
     setSearchQuery('');
   };
 
+  // Soft-display legacy free-text refs that don't resolve to a configured
+  // medication. The save-time validator enforces this on the server too,
+  // but surfacing it here lets the user fix loaded order sets in place.
+  const isConfigured = useMemo(
+    () => dedupedItems.some((inv: any) => inv.name === item.medicationRef),
+    [dedupedItems, item.medicationRef]
+  );
+  const showUnmapped = !!item.medicationRef && !isConfigured;
   const unmappedFromAi = !!(item as any)._unmapped;
 
   return (
@@ -97,7 +105,7 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
           <Button size="icon" variant="ghost" onClick={onRemove}><Trash2 className="w-4 h-4" /></Button>
         </div>
       </div>
-      {unmappedFromAi && (
+      {(unmappedFromAi || showUnmapped) && (
         <div className="text-xs text-amber-500 bg-amber-500/10 border border-amber-500/30 rounded p-2 flex items-center justify-between gap-2">
           <span>
             {t(
