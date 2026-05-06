@@ -102,3 +102,88 @@ describe('planEvents', () => {
     expect(snap.actionHigh).toBe('Call surgeon');
   });
 });
+
+describe('startAt resolution', () => {
+  it('medication startAt overrides anchor for first dose', () => {
+    const start = anchor + 2 * 3600_000; // anchor + 2h
+    const items: PostopOrderItem[] = [
+      { id: 'm1', type: 'medication', medicationRef: 'amoxicillin', dose: '625mg', route: 'po',
+        scheduleMode: 'scheduled', frequency: 'q8h', startAt: new Date(start).toISOString() },
+    ];
+    const events = planEvents(items, anchor, horizonH);
+    // horizon=24h from anchor, start=anchor+2h, 22h remaining at q8h -> floor(22/8)=2 events.
+    expect(events.map(e => e.plannedAt)).toEqual([
+      start, start + 8 * 3600_000,
+    ]);
+  });
+
+  it('medication without startAt falls back to anchor', () => {
+    const items: PostopOrderItem[] = [
+      { id: 'm2', type: 'medication', medicationRef: 'paracetamol', dose: '1g', route: 'iv',
+        scheduleMode: 'scheduled', frequency: 'q8h' },
+    ];
+    const events = planEvents(items, anchor, horizonH);
+    expect(events[0].plannedAt).toBe(anchor);
+  });
+
+  it('lab startAt takes precedence over oneShotOffsetH', () => {
+    const start = anchor + 5 * 3600_000;
+    const items: PostopOrderItem[] = [
+      { id: 'l1', type: 'lab', panel: ['Hb'], when: 'one_shot', oneShotOffsetH: 6,
+        startAt: new Date(start).toISOString() },
+    ];
+    const events = planEvents(items, anchor, horizonH);
+    expect(events).toHaveLength(1);
+    expect(events[0].plannedAt).toBe(start);
+  });
+
+  it('lab without startAt falls back to oneShotOffsetH (existing behavior)', () => {
+    const items: PostopOrderItem[] = [
+      { id: 'l2', type: 'lab', panel: ['Hb'], when: 'one_shot', oneShotOffsetH: 6 },
+    ];
+    const events = planEvents(items, anchor, horizonH);
+    expect(events[0].plannedAt).toBe(anchor + 6 * 3600_000);
+  });
+
+  it('task startAt overrides oneShotAt', () => {
+    const start = anchor + 3 * 3600_000;
+    const oneShotAt = new Date(anchor + 10 * 3600_000).toISOString();
+    const items: PostopOrderItem[] = [
+      { id: 't1', type: 'task', title: 'Verbandwechsel', when: 'one_shot', oneShotAt,
+        startAt: new Date(start).toISOString() },
+    ];
+    const events = planEvents(items, anchor, horizonH);
+    expect(events[0].plannedAt).toBe(start);
+  });
+
+  it('vitals_monitoring honors startAt', () => {
+    const start = anchor + 1 * 3600_000;
+    const items: PostopOrderItem[] = [
+      { id: 'v1', type: 'vitals_monitoring', parameter: 'BP', frequency: 'q4h',
+        startAt: new Date(start).toISOString() },
+    ];
+    const events = planEvents(items, anchor, horizonH);
+    // horizon=24h, start=anchor+1h, so 23h remaining -> 5 events at q4h
+    expect(events.map(e => e.plannedAt)).toEqual([
+      start, start + 4 * 3600_000, start + 8 * 3600_000, start + 12 * 3600_000, start + 16 * 3600_000,
+    ]);
+  });
+
+  it('startAt outside horizon yields no events', () => {
+    const start = anchor + 30 * 3600_000; // beyond 24h horizon
+    const items: PostopOrderItem[] = [
+      { id: 'm3', type: 'medication', medicationRef: 'xyz', dose: '1g', route: 'iv',
+        scheduleMode: 'scheduled', frequency: 'q8h', startAt: new Date(start).toISOString() },
+    ];
+    expect(planEvents(items, anchor, horizonH)).toEqual([]);
+  });
+
+  it('invalid startAt string falls back to anchor', () => {
+    const items: PostopOrderItem[] = [
+      { id: 'm4', type: 'medication', medicationRef: 'xyz', dose: '1g', route: 'iv',
+        scheduleMode: 'scheduled', frequency: 'q8h', startAt: 'not-a-date' },
+    ];
+    const events = planEvents(items, anchor, horizonH);
+    expect(events[0].plannedAt).toBe(anchor);
+  });
+});
