@@ -7156,6 +7156,8 @@
       "selectTemplate": "Vorlage wählen...",
       "noItems": "Keine Einträge — wählen Sie eine Vorlage oder fügen Sie Einträge hinzu.",
       "noItemsInCategory": "Keine Einträge in dieser Kategorie — verwenden Sie \"Eintrag hinzufügen\" oben.",
+      "notConfigured": "Nicht konfiguriert",
+      "notConfiguredHint": "Keine Verlaufskonfiguration — klicken Sie auf das Zahnradsymbol, um diese Medikation zu konfigurieren.",
       "mobilization": "Mobilisation",
       "positioning": "Lagerung",
       "drain": "Drainage",

@@ -7055,6 +7055,8 @@
       "selectTemplate": "Choose template...",
       "noItems": "No items — choose a template or add items above.",
       "noItemsInCategory": "No items in this category yet — use \"Add Item\" above.",
+      "notConfigured": "Not configured",
+      "notConfiguredHint": "No swimlane configuration — pick the gear icon to configure this medication.",
       "mobilization": "Mobilization",
       "positioning": "Positioning",
       "drain": "Drainage",

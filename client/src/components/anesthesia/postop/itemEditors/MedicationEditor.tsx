@@ -198,6 +198,14 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
                             <span className="text-xs text-muted-foreground truncate block">{inv.description}</span>
                           )}
                         </div>
+                        {!inv.administrationGroup && (
+                          <span
+                            className="ml-2 shrink-0 text-[10px] uppercase tracking-wide font-semibold rounded-sm px-1.5 py-0.5 bg-amber-500/15 text-amber-500 border border-amber-500/30"
+                            title={t('postopOrders.editor.notConfiguredHint', 'No swimlane configuration — pick the gear icon to configure this medication.')}
+                          >
+                            {t('postopOrders.editor.notConfigured', 'Not configured')}
+                          </span>
+                        )}
                       </CommandItem>
                     ))}
                   </CommandGroup>
