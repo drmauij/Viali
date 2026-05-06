@@ -661,6 +661,40 @@ export function MedicationsSwimlane({
       });
   }, [plannedMedEvents, currentZoomStart, currentZoomEnd, data.startTime, data.endTime]);
 
+  // Per-row planned-med pills, keyed by medicationRef. Renders inside each medication
+  // lane's track at the planned time, with classification-driven styling.
+  type PlannedPillCell = {
+    ev: NonNullable<typeof plannedMedEvents>[number];
+    classification: ReturnType<typeof classifyPlannedMedEvent>;
+    leftFraction: number;
+  };
+  const plannedPillsByMedication = useMemo(() => {
+    const map = new Map<string, PlannedPillCell[]>();
+    if (!plannedMedEvents) return map;
+    const visibleStart = currentZoomStart ?? data.startTime;
+    const visibleEnd = currentZoomEnd ?? data.endTime;
+    const visibleRange = visibleEnd - visibleStart;
+    if (visibleRange <= 0) return map;
+    const nowMs = Date.now();
+
+    for (const ev of plannedMedEvents) {
+      if (ev.status === 'cancelled') continue;
+      if (ev.plannedAt < visibleStart || ev.plannedAt > visibleEnd) continue;
+      const classification = classifyPlannedMedEvent({ plannedAt: ev.plannedAt, status: ev.status }, nowMs);
+      const leftFraction = (ev.plannedAt - visibleStart) / visibleRange;
+      const key = (ev.medicationRef ?? '').trim();
+      if (!key) continue;
+      const cell: PlannedPillCell = { ev, classification, leftFraction };
+      const existing = map.get(key);
+      if (existing) {
+        existing.push(cell);
+      } else {
+        map.set(key, [cell]);
+      }
+    }
+    return map;
+  }, [plannedMedEvents, currentZoomStart, currentZoomEnd, data.startTime, data.endTime]);
+
   return (
     <>
       {/* Planned Med Pills Strip — sits above drug rows, one row per scheduled event */}
@@ -764,6 +798,60 @@ export function MedicationsSwimlane({
             />
           );
         }).filter(Boolean);
+      })}
+
+      {/* Per-row planned-med pills — one cluster per medication lane that has planned events */}
+      {plannedPillsByMedication.size > 0 && activeSwimlanes.flatMap((lane) => {
+        if (lane.hierarchyLevel !== 'item' || !lane.itemId) return [];
+        if (!lane.id.startsWith('admingroup-')) return [];
+        // Resolve drug name via itemId; multi-config rows for the same item share a name,
+        // so this lookup is safe for matching against medicationRef.
+        const item = anesthesiaItems.find(i => i.id === lane.itemId);
+        const drugName = item?.name?.trim();
+        if (!drugName) return [];
+        const cells = plannedPillsByMedication.get(drugName);
+        if (!cells || cells.length === 0) return [];
+        const lanePosition = swimlanePositions.find(p => p.id === lane.id);
+        if (!lanePosition) return [];
+
+        return cells.map(({ ev, classification, leftFraction }) => {
+          // Match pill colors with the existing top-strip palette so the visual language is consistent.
+          // 'done'   → solid green   (administered)
+          // 'overdue'→ dashed amber  (alert)
+          // upcoming → dashed blue   (future)
+          const isDone = classification === 'done';
+          const isOverdue = classification === 'overdue';
+          const bg = isDone
+            ? 'bg-green-600 hover:bg-green-700'
+            : isOverdue
+              ? 'bg-amber-500 hover:bg-amber-600'
+              : 'bg-blue-500/70 hover:bg-blue-500/90';
+          const borderStyle = isDone ? 'solid' : 'dashed';
+          return (
+            <button
+              key={`per-row-pill-${ev.id}`}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!isDone) setOpenPlannedEvent(ev);
+              }}
+              disabled={isDone}
+              className={`absolute text-[10px] px-1.5 py-0 rounded-sm font-medium text-white border border-white/50 ${bg} ${isDone ? 'cursor-default' : 'cursor-pointer'}`}
+              style={{
+                left: `calc(200px + ${leftFraction} * (100% - 210px))`,
+                top: `${lanePosition.top + lanePosition.height / 2}px`,
+                transform: 'translate(-50%, -50%)',
+                borderStyle,
+                whiteSpace: 'nowrap',
+                zIndex: 35,
+              }}
+              title={`${ev.medicationRef} ${ev.dose} — ${new Date(ev.plannedAt).toLocaleTimeString()}`}
+              data-testid={`planned-med-pill-${ev.id}`}
+            >
+              {ev.dose}
+            </button>
+          );
+        });
       })}
 
       {/* Rate-Controlled Infusions - Unified rendering with start/line/end */}
