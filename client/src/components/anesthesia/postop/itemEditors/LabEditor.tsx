@@ -4,7 +4,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Trash2, Plus } from 'lucide-react';
-import { StartAtField } from './StartAtField';
+import { TimingField } from './TimingField';
+import { ALLOWED_MODES_BY_TYPE } from '@shared/postopOrderItems';
 import type { LabItem } from '@shared/postopOrderItems';
 import type { ItemEditorProps } from './index';
 
@@ -36,35 +37,11 @@ export function LabEditor({ item, onChange, onRemove }: ItemEditorProps<LabItem>
           placeholder={t('postopOrders.editor.labPanelPlaceholder', 'e.g. CBC, CRP, Creatinine')}
         />
       </div>
-      <div>
-        <Label className="text-xs">{t('postopOrders.editor.timing', 'Timing')}</Label>
-        <Select value={item.when} onValueChange={v => onChange({ ...item, when: v as LabItem['when'] })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="one_shot">{t('postopOrders.editor.oneShot', 'Once')}</SelectItem>
-            <SelectItem value="daily">{t('postopOrders.editor.daily', 'Daily')}</SelectItem>
-            <SelectItem value="every_n_hours">{t('postopOrders.editor.everyNHours', 'Every N hours')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      {item.when === 'one_shot' && (
-        <div>
-          <Label className="text-xs">{t('postopOrders.editor.offsetHours', 'Offset (hours postop)')}</Label>
-          <Input type="number" value={item.oneShotOffsetH ?? ''} onChange={e => onChange({ ...item, oneShotOffsetH: Number(e.target.value) })} />
-        </div>
-      )}
-      {item.when === 'every_n_hours' && (
-        <div>
-          <Label className="text-xs">{t('postopOrders.editor.intervalHours', 'Interval (hours)')}</Label>
-          <Input type="number" value={item.everyNHours ?? ''} onChange={e => onChange({ ...item, everyNHours: Number(e.target.value) })} />
-        </div>
-      )}
-      {(item.when === 'one_shot' || item.when === 'daily' || item.when === 'every_n_hours') && (
-        <StartAtField
-          value={item.startAt}
-          onChange={(startAt) => onChange({ ...item, startAt })}
-        />
-      )}
+      <TimingField
+        value={item.timing}
+        onChange={(timing) => onChange({ ...item, timing })}
+        allowedModes={ALLOWED_MODES_BY_TYPE.lab}
+      />
       <div>
         <div className="flex items-center justify-between">
           <Label className="text-xs">{t('postopOrders.editor.thresholds', 'Thresholds')}</Label>
