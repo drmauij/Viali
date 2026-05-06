@@ -1730,6 +1730,13 @@
       "when": 1780000000000,
       "tag": "0246_backfill_medication_config_admin_group_uuid",
       "breakpoints": true
+    },
+    {
+      "idx": 247,
+      "version": "7",
+      "when": 1780100000000,
+      "tag": "0247_backfill_medication_config_admin_group_de_translation",
+      "breakpoints": true
     }
   ]
 }
