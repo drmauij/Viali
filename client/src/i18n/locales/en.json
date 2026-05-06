@@ -7176,7 +7176,9 @@
       "noConfiguredMedications": "No medications are configured for the swimlane yet.",
       "configureFirst": "Configure your first medication",
       "saveFailed": "Could not save order set",
-      "unconfiguredMedsListed": "These medications are not configured: {{names}}"
+      "unconfiguredMedsListed": "These medications are not configured: {{names}}",
+      "unmappedMedication": "\"{{name}}\" is not configured for the swimlane.",
+      "configure": "Configure"
     },
     "vitalsOverlay": {
       "checkPlannedAt": "{{parameter}} check planned at {{time}}"

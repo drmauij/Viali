@@ -7277,7 +7277,9 @@
       "noConfiguredMedications": "Es sind noch keine Medikationen für den Verlauf konfiguriert.",
       "configureFirst": "Erste Medikation konfigurieren",
       "saveFailed": "Verordnungen konnten nicht gespeichert werden",
-      "unconfiguredMedsListed": "Folgende Medikamente sind nicht konfiguriert: {{names}}"
+      "unconfiguredMedsListed": "Folgende Medikamente sind nicht konfiguriert: {{names}}",
+      "unmappedMedication": "\"{{name}}\" ist nicht für den Verlauf konfiguriert.",
+      "configure": "Konfigurieren"
     },
     "vitalsOverlay": {
       "checkPlannedAt": "{{parameter}}-Kontrolle geplant um {{time}}"

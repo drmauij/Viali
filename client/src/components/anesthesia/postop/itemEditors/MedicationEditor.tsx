@@ -77,6 +77,8 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
     setSearchQuery('');
   };
 
+  const unmappedFromAi = !!(item as any)._unmapped;
+
   return (
     <div className="border rounded-md p-3 space-y-2">
       <div className="flex justify-between items-center">
@@ -95,6 +97,20 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
           <Button size="icon" variant="ghost" onClick={onRemove}><Trash2 className="w-4 h-4" /></Button>
         </div>
       </div>
+      {unmappedFromAi && (
+        <div className="text-xs text-amber-500 bg-amber-500/10 border border-amber-500/30 rounded p-2 flex items-center justify-between gap-2">
+          <span>
+            {t(
+              'postopOrders.editor.unmappedMedication',
+              '"{{name}}" is not configured for the swimlane.',
+              { name: item.medicationRef || '' }
+            )}
+          </span>
+          <Button size="sm" variant="outline" onClick={() => setConfigOpen(true)}>
+            {t('postopOrders.editor.configure', 'Configure')}
+          </Button>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label className="text-xs">{t('postopOrders.editor.drug', 'Medication')}</Label>

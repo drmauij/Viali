@@ -84,6 +84,14 @@ export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, o
     setItems(items.filter(i => i.id !== id));
   };
 
+  // Strip transient editor-only flags (e.g. `_unmapped` from the AI parser)
+  // before sending items to the server or saving as a template.
+  const cleanItemsForPersist = (): PostopOrderItem[] =>
+    items.map((it: any) => {
+      const { _unmapped, ...rest } = it;
+      return rest as PostopOrderItem;
+    });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -171,20 +179,23 @@ export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, o
               <DropdownMenuContent>
                 <DropdownMenuItem onClick={() => {
                   const name = window.prompt(t('postopOrders.editor.templateNamePrompt', 'Template name:'));
-                  if (name?.trim()) onSaveAsTemplate({ name: name.trim(), items });
+                  if (name?.trim()) onSaveAsTemplate({ name: name.trim(), items: cleanItemsForPersist() });
                 }}>
                   {t('postopOrders.editor.saveAsNew', 'Save as new template')}
                 </DropdownMenuItem>
                 {templates.length > 0 && <DropdownMenuSeparator />}
                 {templates.map(tpl => (
-                  <DropdownMenuItem key={tpl.id} onClick={() => onSaveAsTemplate({ name: tpl.name, items, overwriteId: tpl.id })}>
+                  <DropdownMenuItem key={tpl.id} onClick={() => onSaveAsTemplate({ name: tpl.name, items: cleanItemsForPersist(), overwriteId: tpl.id })}>
                     {t('postopOrders.editor.overwrite', 'Overwrite')}: {tpl.name}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button onClick={() => { onSave({ items, templateId }); onOpenChange(false); }}>{t('postopOrders.save', 'Save')}</Button>
+          <Button onClick={() => {
+            onSave({ items: cleanItemsForPersist(), templateId });
+            onOpenChange(false);
+          }}>{t('postopOrders.save', 'Save')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

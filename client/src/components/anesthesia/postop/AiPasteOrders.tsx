@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { Sparkles, ChevronDown, ChevronRight, AlertTriangle, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -55,6 +56,13 @@ export function AiPasteOrders({ hospitalId, existingItems, onApply }: Props) {
   const effectiveHospitalId = hospitalId ?? hospital?.id;
   const effectiveUnitId = hospital?.unitId;
 
+  // Same source the MedicationEditor uses, so the configured-medication set
+  // is consistent across pickers and the AI mapping check.
+  const { data: inventoryItems = [] } = useQuery<any[]>({
+    queryKey: [`/api/items/${effectiveHospitalId}?unitId=${effectiveUnitId}`],
+    enabled: !!effectiveHospitalId && !!effectiveUnitId,
+  });
+
   const parse = async () => {
     if (!text.trim() || !effectiveHospitalId || !effectiveUnitId) return;
     setLoading(true);
@@ -65,7 +73,21 @@ export function AiPasteOrders({ hospitalId, existingItems, onApply }: Props) {
         text: text.trim(),
       });
       const data: ParseResult = await resp.json();
-      setResult(data);
+      // Tag medication items whose ref does not resolve to a configured
+      // medication. The flag is transient (stripped before save) and is used
+      // by MedicationEditor to render an inline "Configure" CTA.
+      const inventoryNames = new Set(
+        inventoryItems
+          .filter((inv: any) => inv.administrationGroup)
+          .map((inv: any) => inv.name as string)
+      );
+      const annotated: PostopOrderItem[] = data.items.map((it) => {
+        if (it.type === 'medication' && !inventoryNames.has(it.medicationRef)) {
+          return { ...it, _unmapped: true } as PostopOrderItem;
+        }
+        return it;
+      });
+      setResult({ ...data, items: annotated });
       if (data.items.length === 0) {
         toast({
           title: t('postopOrders.ai.noItemsTitle', 'No items extracted'),
