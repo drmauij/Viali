@@ -4011,6 +4011,8 @@
       "configureNewMedication": "Configure New Medication",
       "administrationGroup": "Administration Group",
       "selectAdministrationGroup": "Choose group...",
+      "alreadyConfiguredIn": "Already configured in: {{groups}}",
+      "orphanGroupLabel": "⚠ no group",
       "editMedicationConfiguration": "Edit Medication Configuration",
       "selectItemConfigure": "Select an item and configure its medication/infusion settings to add it to this group",
       "selectItem": "Select Item",

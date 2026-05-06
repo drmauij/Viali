@@ -4092,6 +4092,8 @@
       "configureNewMedication": "Neues Medikament konfigurieren",
       "administrationGroup": "Verabreichungsgruppe",
       "selectAdministrationGroup": "Gruppe wählen...",
+      "alreadyConfiguredIn": "Bereits konfiguriert in: {{groups}}",
+      "orphanGroupLabel": "⚠ keine Gruppe",
       "editMedicationConfiguration": "Medikamentenkonfiguration bearbeiten",
       "selectItemConfigure": "Wählen Sie einen Artikel und konfigurieren Sie seine Medikamenten-/Infusionseinstellungen, um ihn dieser Gruppe hinzuzufügen",
       "selectItem": "Artikel auswählen",

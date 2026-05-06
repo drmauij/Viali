@@ -110,11 +110,12 @@ export function MedicationConfigDialog({
     enabled: !!activeHospitalId && open && !editingItem,
   });
 
-  // Fetch administration groups for the in-dialog picker. Only loaded when no group
-  // is preselected (i.e. the caller opened us "blank" from the postop editor).
+  // Fetch administration groups for the in-dialog picker AND for resolving the
+  // group names in the "already configured in" hint. Always fetch when the dialog
+  // is open so the hint can label configs across both add and edit flows.
   const { data: hospitalAdminGroups = [] } = useQuery<AdministrationGroup[]>({
     queryKey: [`/api/administration-groups/${activeHospitalId}`],
-    enabled: !!activeHospitalId && open && !administrationGroup && !editingItem,
+    enabled: !!activeHospitalId && open,
   });
 
   // Resolved group id used by handleSave: prop wins when present, otherwise the
@@ -497,21 +498,42 @@ export function MedicationConfigDialog({
                 />
               </div>
 
-              {/* Hint: item already configured in other lanes (add mode only) */}
+              {/* Hint: item already configured in other lanes (add mode only).
+                  Lists each existing config by its administration group name so
+                  the user can see exactly where this medication lives — including
+                  any orphan configs whose administration_group is NULL. */}
               {!editingItem && (() => {
                 const otherConfigs = anesthesiaItems.filter(
                   i => i.id === selectedItemId && i.administrationGroup !== effectiveGroupId
                 );
                 if (otherConfigs.length === 0) return null;
+
+                const labels = otherConfigs.map(cfg => {
+                  if (!cfg.administrationGroup) {
+                    return t("anesthesia.timeline.orphanGroupLabel", "⚠ no group");
+                  }
+                  const grp = hospitalAdminGroups.find(g => g.id === cfg.administrationGroup);
+                  return grp?.name ?? cfg.administrationGroup;
+                });
+
                 return (
                   <div
-                    className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground"
+                    className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1"
                     data-testid="hint-already-configured"
                   >
-                    {t(
-                      "anesthesia.timeline.newConfigIsIndependent",
-                      "This item is already configured in another lane. The config you're creating here is fully independent."
-                    )}
+                    <div>
+                      {t(
+                        "anesthesia.timeline.alreadyConfiguredIn",
+                        "Already configured in: {{groups}}",
+                        { groups: labels.join(", ") }
+                      )}
+                    </div>
+                    <div>
+                      {t(
+                        "anesthesia.timeline.newConfigIsIndependent",
+                        "This item is already configured in another lane. The config you're creating here is fully independent."
+                      )}
+                    </div>
                   </div>
                 );
               })()}
