@@ -510,21 +510,22 @@ export const MedicationItemsSidebar = React.memo(function MedicationItemsSidebar
                     >
                       {drugName}
                     </div>
-                    {(secondLine || isOrdered) && (
+                    {/* Only show the second line (route/unit + Verordnet tag)
+                        when this medication is referenced by the active postop
+                        order set. Other rows stay single-line and compact. */}
+                    {isOrdered && (
                       <div className="flex items-center gap-1 min-w-0">
                         {secondLine && (
                           <span className="text-[10px] text-black/60 dark:text-white/60 truncate">
                             {secondLine}
                           </span>
                         )}
-                        {isOrdered && (
-                          <span
-                            className="bg-blue-500/20 text-blue-700 dark:text-blue-300 text-[9px] font-semibold uppercase tracking-wide rounded-full px-1.5 py-0.5 shrink-0"
-                            data-testid={`medication-row-ordered-${lane.id}`}
-                          >
-                            {t('postopOrders.swimlane.ordered', 'Ordered')}
-                          </span>
-                        )}
+                        <span
+                          className="bg-blue-500/20 text-blue-700 dark:text-blue-300 text-[9px] font-semibold uppercase tracking-wide rounded-full px-1.5 py-0.5 shrink-0"
+                          data-testid={`medication-row-ordered-${lane.id}`}
+                        >
+                          {t('postopOrders.swimlane.ordered', 'Ordered')}
+                        </span>
                       </div>
                     )}
                   </div>

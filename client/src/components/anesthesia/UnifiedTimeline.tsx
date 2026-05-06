@@ -2111,13 +2111,16 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             groupItems.forEach((item) => {
               const swimlaneId = `admingroup-${groupId}-item-${item.id}`;
 
-              // Medication rows are taller to accommodate two-line labels (drug name + route/unit).
-              let laneHeight = 56;
+              // Default rows are single-line (38px). Rows referenced by the
+              // active postop order set get a second line for the Verordnet
+              // tag, so they grow to 56px.
+              const isOrdered = !!(orderedMedicationRefs?.has(item.name));
+              let laneHeight = isOrdered ? 56 : 38;
               const isFreeFlow = item.rateUnit === 'free';
               if (isFreeFlow) {
                 const trackCount = swimlaneTrackCounts[swimlaneId] || 1;
                 const TRACK_HEIGHT = 30;
-                laneHeight = Math.max(56, trackCount * TRACK_HEIGHT);
+                laneHeight = Math.max(laneHeight, trackCount * TRACK_HEIGHT);
               }
 
               lanes.push({
@@ -2212,7 +2215,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     return lanes;
   };
 
-  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [showMonitoring, collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup, swimlaneTrackCounts, isPacuMode, pkSimulation.mode, pkSimulation.missingFields.length, intraOpDrainages]);
+  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [showMonitoring, collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup, swimlaneTrackCounts, isPacuMode, pkSimulation.mode, pkSimulation.missingFields.length, intraOpDrainages, orderedMedicationRefs]);
 
   // Keep the ref updated with latest swimlanes for PDF export
   useEffect(() => {
