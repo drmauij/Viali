@@ -295,7 +295,7 @@ export default function Op() {
       });
 
     const prnItems = items
-      .filter((i: any) => i.type === 'medication' && i.scheduleMode === 'prn')
+      .filter((i: any) => i.type === 'medication' && i.timing?.mode === 'ad_hoc')
       .map((i: any) => ({
         id: i.id,
         medicationRef: i.medicationRef,
@@ -325,7 +325,7 @@ export default function Op() {
       .filter(e => {
         if (e.kind !== 'medication' || e.status !== 'done') return false;
         const snap = e.payloadSnapshot as any;
-        return snap?.scheduleMode === 'prn';
+        return snap?.timing?.mode === 'ad_hoc';
       })
       .map(e => ({
         itemId: e.itemId,

@@ -30,18 +30,18 @@ function summarizeItem(item: PostopOrderItem): string {
   switch (item.type) {
     case 'medication': {
       const parts = [item.medicationRef, item.dose, item.route?.toUpperCase()];
-      if (item.scheduleMode === 'prn') {
+      if (item.timing?.mode === 'ad_hoc') {
         parts.push('PRN');
         if (item.prnMaxPerInterval) parts.push(`q${item.prnMaxPerInterval.intervalH}h`);
         if (item.prnMaxPerDay) parts.push(`max ${item.prnMaxPerDay}/d`);
-      } else if (item.frequency) parts.push(String(item.frequency));
+      } else if (item.timing?.frequency) parts.push(String(item.timing.frequency));
       if (item.note) parts.push(`— ${item.note}`);
       return parts.filter(Boolean).join(' ');
     }
     case 'lab':
-      return `Lab: ${item.panel.join(', ')} (${item.when}${item.everyNHours ? ` every ${item.everyNHours}h` : ''})`;
+      return `Lab: ${item.panel.join(', ')} (${item.timing.mode}${item.timing.frequency ? ` ${item.timing.frequency}` : ''})`;
     case 'task':
-      return `Task: ${item.title} (${item.when})`;
+      return `Task: ${item.title} (${item.timing.mode})`;
     case 'free_text':
       return `Note: ${item.text}`;
     default:

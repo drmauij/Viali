@@ -16,18 +16,22 @@ You MUST return a JSON object with this exact shape:
 
 Each item has a \`type\` field. Supported types with their required/optional fields:
 
-- medication: { id: string (uuid), type: "medication", medicationRef: string, dose: string, route: "po"|"iv"|"sc"|"im", scheduleMode: "scheduled"|"prn", frequency?: string, startAt?: string (HH:MM), prnMaxPerDay?: number, prnMaxPerInterval?: { count: number, intervalH: number }, note?: string }
-- lab: { id: string, type: "lab", panel: string[], when: "one_shot"|"daily"|"every_n_hours", oneShotOffsetH?: number, everyNHours?: number }
-- task: { id: string, type: "task", title: string, when: "one_shot"|"daily"|"every_n_hours"|"ad_hoc"|"conditional", oneShotAt?: string, everyNHours?: number, condition?: string }
+- medication: { id: string (uuid), type: "medication", medicationRef: string, dose: string, route: "po"|"iv"|"sc"|"im", timing: { mode: "scheduled"|"one_shot"|"ad_hoc"|"conditional", frequency?: "q1h"|"q2h"|"q4h"|"q6h"|"q8h"|"q12h"|"q24h"|"q48h"|"weekly"|"oral_1_0_0"|"oral_1_0_1"|"oral_1_1_1"|"oral_1_1_1_1", startAt?: string (ISO 8601), end?: { kind: "indefinite" } | { kind: "until", at: string } | { kind: "count", n: number }, condition?: string }, prnMaxPerDay?: number, prnMaxPerInterval?: { count: number, intervalH: number }, note?: string }
+- iv_fluid: { id: string, type: "iv_fluid", solution: "nacl_09"|"ringer_lactate"|"glucose_5"|"custom", customName?: string, volumeMl: number, additives?: string, durationH: number, timing: { mode: "scheduled"|"one_shot", frequency?: string, startAt?: string } }
+- lab: { id: string, type: "lab", panel: string[], timing: { mode: "scheduled"|"one_shot", frequency?: "q4h"|"q6h"|"q8h"|"q12h"|"q24h", startAt?: string, end?: { kind: "indefinite" } | { kind: "until", at: string } | { kind: "count", n: number } } }
+- task: { id: string, type: "task", title: string, timing: { mode: "scheduled"|"one_shot"|"ad_hoc"|"conditional", frequency?: string, startAt?: string, condition?: string }, actionHint?: string }
+- vitals_monitoring: { id: string, type: "vitals_monitoring", parameter: "BP"|"pulse"|"temp"|"spo2"|"bz", timing: { mode: "scheduled", frequency: "continuous"|"q15min"|"q30min"|"q1h"|"q2h"|"q4h"|"q6h"|"q8h"|"q12h" }, min?: number, max?: number, actionLow?: string, actionHigh?: string }
+- bz_sliding_scale: { id: string, type: "bz_sliding_scale", drug: string, timing: { mode: "scheduled", frequency: "q1h"|"q2h"|"q4h"|"q6h"|"q8h"|"q12h" }, rules: Array<{ above: number; units: number }>, increment?: { per: number; units: number } }
+- wound_care: { id: string, type: "wound_care", check: "none"|"daily"|"twice_daily", timing: { mode: "scheduled"|"one_shot"|"ad_hoc", frequency?: "q24h"|"q48h"|"weekly", startAt?: string } }
 - free_text: { id: string, type: "free_text", section: "general"|"meds"|"labs"|"other", text: string }
 
-Frequency values for scheduled medications use these codes: "continuous","q15min","q30min","q1h","q2h","q4h","q6h","q8h","q12h","q24h","2x_daily","4x_daily". You may also pass raw strings like "einmal" / "once" when no code fits.
+Frequency values for scheduled medications use these codes: "continuous","q15min","q30min","q1h","q2h","q4h","q6h","q8h","q12h","q24h","q48h","weekly","2x_daily","3x_daily","4x_daily","oral_1_0_0","oral_1_0_1","oral_1_1_1","oral_1_1_1_1".
 
 Rules:
 1. For each medication, try to match to an inventory item provided in the user message. Use the inventory item's "name" verbatim as \`medicationRef\`.
 2. If no inventory match, set \`medicationRef\` to the name the user wrote, and add the drug name to \`unresolved\`.
-3. "bei Bedarf" / "as needed" / "PRN" → scheduleMode: "prn". "every N hours max M/day" in PRN → prnMaxPerInterval: { count: 1, intervalH: N }, prnMaxPerDay: M.
-4. "every N hours" in a scheduled context → frequency: "qNh" if N is standard, else raw string.
+3. "bei Bedarf" / "as needed" / "PRN" → timing: { mode: "ad_hoc" }. "every N hours max M/day" in PRN → prnMaxPerInterval: { count: 1, intervalH: N }, prnMaxPerDay: M.
+4. "every N hours" in a scheduled context → timing: { mode: "scheduled", frequency: "qNh" } if N is standard, else use the closest code.
 5. Generate UUIDs for id fields. Use crypto-random style (e.g. "ai-1", "ai-2" is fine — the client will replace them).
 6. Put doubts/ambiguities in \`warnings\` as short plain strings.
 7. German and English input are both supported.

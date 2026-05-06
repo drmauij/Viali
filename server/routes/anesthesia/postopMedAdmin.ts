@@ -62,7 +62,7 @@ router.post(
           medicationRef: d.medicationRef,
           dose: d.dose,
           route: d.route,
-          scheduleMode: "prn",
+          timing: { mode: "ad_hoc" },
           note: d.note,
         },
         status: "done",

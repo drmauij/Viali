@@ -62,10 +62,10 @@ export function buildDisplayRows(
   // Ad-hoc / conditional tasks
   for (const item of items) {
     if (item.type !== 'task') continue;
-    if (item.when !== 'ad_hoc' && item.when !== 'conditional') continue;
+    if (item.timing.mode !== 'ad_hoc' && item.timing.mode !== 'conditional') continue;
     rows.push({
       key: item.id, title: item.title, when: 'ad_hoc',
-      subtitle: item.condition ?? 'ad-hoc',
+      subtitle: item.timing.condition ?? 'ad-hoc',
       actionHint: item.actionHint, done: false,
     });
   }

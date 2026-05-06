@@ -79,7 +79,16 @@ export function OrdersGlanceCard({ items, templateName, onEdit, canEdit }: Props
             {drains.length > 0 && <Row k={t('postopOrders.drainage', 'Drainagen')} v={drains.map(d => `${DRAIN_LABEL[d.drainType] ?? d.drainType}${d.site ? ' ' + d.site : ''}`).join(', ')} />}
             {nut && <Row k={t('postopOrders.nutrition', 'Nahrung')} v={`${NUT_LABEL[nut.value] ?? nut.value}${nut.startAfter ? ' ab ' + nut.startAfter : ''}`} />}
             {wound && wound.check !== 'none' && <Row k={t('postopOrders.woundCheck', 'Wundkontrolle')} v={wound.check === 'daily' ? 'täglich' : '2×/Tag'} />}
-            {wound && wound.dressingChange !== 'none' && <Row k={t('postopOrders.dressing', 'Verband')} v={wound.dressingChange === 'on_soaking' ? 'bei Durchnässung' : `alle ${wound.everyNDays} Tage`} />}
+            {wound && wound.timing.mode !== 'ad_hoc' && (
+              <Row
+                k={t('postopOrders.dressing', 'Verband')}
+                v={wound.timing.mode === 'one_shot'
+                  ? t('postopOrders.dressingOneShot', 'einmalig')
+                  : wound.timing.frequency
+                    ? t(`postopOrders.frequency.${wound.timing.frequency}`, wound.timing.frequency)
+                    : ''}
+              />
+            )}
           </div>
         )}
 

@@ -25,7 +25,7 @@ const MINUTE = 60_000;
 describe('buildDisplayRows', () => {
   it('classifies an event in the past as overdue', () => {
     const items: PostopOrderItem[] = [
-      { id: 't1', type: 'task', title: 'Labor 6h postop', when: 'one_shot' },
+      { id: 't1', type: 'task', title: 'Labor 6h postop', timing: { mode: 'one_shot' } },
     ];
     const events = [makeEvent({
       id: 'e1', itemId: 't1', kind: 'task',
@@ -40,7 +40,7 @@ describe('buildDisplayRows', () => {
 
   it('classifies an event within 15min window as due_now', () => {
     const items: PostopOrderItem[] = [
-      { id: 't1', type: 'task', title: 'Wundkontrolle', when: 'daily' },
+      { id: 't1', type: 'task', title: 'Wundkontrolle', timing: { mode: 'scheduled', frequency: 'q24h' } },
     ];
     const events = [makeEvent({
       id: 'e1', itemId: 't1', kind: 'task',
@@ -53,7 +53,7 @@ describe('buildDisplayRows', () => {
 
   it('classifies a future event as upcoming', () => {
     const items: PostopOrderItem[] = [
-      { id: 't1', type: 'task', title: 'Labor daily', when: 'daily' },
+      { id: 't1', type: 'task', title: 'Labor daily', timing: { mode: 'scheduled', frequency: 'q24h' } },
     ];
     const events = [makeEvent({
       id: 'e1', itemId: 't1', kind: 'task',
@@ -67,7 +67,7 @@ describe('buildDisplayRows', () => {
 
   it('marks done events as done', () => {
     const items: PostopOrderItem[] = [
-      { id: 't1', type: 'task', title: 'Labor', when: 'one_shot' },
+      { id: 't1', type: 'task', title: 'Labor', timing: { mode: 'one_shot' } },
     ];
     const events = [makeEvent({
       id: 'e1', itemId: 't1', kind: 'task',
@@ -81,7 +81,7 @@ describe('buildDisplayRows', () => {
 
   it('includes ad-hoc tasks without planned events', () => {
     const items: PostopOrderItem[] = [
-      { id: 't1', type: 'task', title: 'Verbandwechsel bei Durchnässung', when: 'ad_hoc' },
+      { id: 't1', type: 'task', title: 'Verbandwechsel bei Durchnässung', timing: { mode: 'ad_hoc' } },
     ];
     const rows = buildDisplayRows(items, [], now);
     expect(rows).toHaveLength(1);
@@ -91,7 +91,7 @@ describe('buildDisplayRows', () => {
 
   it('includes conditional tasks', () => {
     const items: PostopOrderItem[] = [
-      { id: 't1', type: 'task', title: 'Arzt rufen', when: 'conditional', condition: 'VAS > 7' },
+      { id: 't1', type: 'task', title: 'Arzt rufen', timing: { mode: 'conditional', condition: 'VAS > 7' } },
     ];
     const rows = buildDisplayRows(items, [], now);
     expect(rows).toHaveLength(1);
@@ -101,6 +101,7 @@ describe('buildDisplayRows', () => {
   it('includes BZ sliding scale as info row', () => {
     const items: PostopOrderItem[] = [
       { id: 'bz1', type: 'bz_sliding_scale', drug: 'Actrapid',
+        timing: { mode: 'scheduled', frequency: 'q4h' },
         rules: [{ above: 120, units: 2 }, { above: 180, units: 3 }] },
     ];
     const rows = buildDisplayRows(items, [], now);
@@ -112,7 +113,7 @@ describe('buildDisplayRows', () => {
 
   it('ignores medication and vitals_check events (not Group 4)', () => {
     const items: PostopOrderItem[] = [
-      { id: 'm1', type: 'medication', medicationRef: 'novalgin', dose: '1g', route: 'iv', scheduleMode: 'scheduled', frequency: 'q8h' },
+      { id: 'm1', type: 'medication', medicationRef: 'novalgin', dose: '1g', route: 'iv', timing: { mode: 'scheduled', frequency: 'q8h' } },
     ];
     const events = [makeEvent({
       id: 'e1', itemId: 'm1', kind: 'medication',
@@ -124,10 +125,10 @@ describe('buildDisplayRows', () => {
 
   it('sorts: overdue first, then due_now, then upcoming, then ad_hoc; done items last', () => {
     const items: PostopOrderItem[] = [
-      { id: 't1', type: 'task', title: 'A', when: 'one_shot' },
-      { id: 't2', type: 'task', title: 'B', when: 'one_shot' },
-      { id: 't3', type: 'task', title: 'C', when: 'one_shot' },
-      { id: 't4', type: 'task', title: 'D', when: 'ad_hoc' },
+      { id: 't1', type: 'task', title: 'A', timing: { mode: 'one_shot' } },
+      { id: 't2', type: 'task', title: 'B', timing: { mode: 'one_shot' } },
+      { id: 't3', type: 'task', title: 'C', timing: { mode: 'one_shot' } },
+      { id: 't4', type: 'task', title: 'D', timing: { mode: 'ad_hoc' } },
     ];
     const events = [
       makeEvent({ id: 'e1', itemId: 't1', kind: 'task', plannedAt: new Date(now + 3*HOUR).toISOString(), status: 'planned' }),
@@ -140,7 +141,7 @@ describe('buildDisplayRows', () => {
 
   it('describes lab items with panel names', () => {
     const items: PostopOrderItem[] = [
-      { id: 'l1', type: 'lab', panel: ['Hb', 'Kreatinin'], when: 'one_shot', oneShotOffsetH: 6 },
+      { id: 'l1', type: 'lab', panel: ['Hb', 'Kreatinin'], timing: { mode: 'one_shot' } },
     ];
     const events = [makeEvent({ id: 'e1', itemId: 'l1', kind: 'task', plannedAt: new Date(now).toISOString() })];
     const rows = buildDisplayRows(items, events, now);
@@ -149,7 +150,7 @@ describe('buildDisplayRows', () => {
 
   it('describes iv_fluid items with solution and volume', () => {
     const items: PostopOrderItem[] = [
-      { id: 'iv1', type: 'iv_fluid', solution: 'ringer_lactate', volumeMl: 1000, durationH: 12 },
+      { id: 'iv1', type: 'iv_fluid', solution: 'ringer_lactate', volumeMl: 1000, durationH: 12, timing: { mode: 'one_shot' } },
     ];
     const events = [makeEvent({ id: 'e1', itemId: 'iv1', kind: 'iv_fluid', plannedAt: new Date(now).toISOString() })];
     const rows = buildDisplayRows(items, events, now);

@@ -17,7 +17,7 @@ describe('postopOrderItems', () => {
   it('isItemType narrows correctly', () => {
     const item: PostopOrderItem = createEmptyItem('medication', 'm1');
     if (isItemType(item, 'medication')) {
-      expect(item.scheduleMode).toBe('scheduled');
+      expect(item.timing.mode).toBe('scheduled');
     } else {
       throw new Error('narrowing failed');
     }
