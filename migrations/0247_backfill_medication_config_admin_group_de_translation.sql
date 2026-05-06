@@ -5,11 +5,19 @@
 --   Infusionen       → Infusions
 --   Kurz-Infusionen  → Short IVs
 --   Perfusoren       → Pumps
--- The original German group names were renamed to English at some point,
--- so 28 medication_configs rows across three Swiss clinics (Viali Clinic,
--- Swiss Central Clinic AG, mediga medical center) hold legacy German
--- strings that no longer match any administration_groups.name. They were
--- invisible on the chart.
+--
+-- Context: most production hospitals run with the default English-named
+-- administration_groups (Antibiotics, Bolus, Infusions, Pumps, Short IVs).
+-- A few medication_configs rows on three of those hospitals (Swiss Central
+-- Clinic AG, mediga medical center, Viali Clinic) carry legacy German
+-- strings in their administration_group column — left over from an
+-- earlier seed/import. They never matched any admin_group name, so the
+-- corresponding medications were invisible on the chart.
+--
+-- This migration translates each legacy German string to the existing
+-- English admin_group's UUID in the same hospital. It does NOT touch
+-- hospitals that legitimately use German group names (those rows aren't
+-- legacy strings — they're already UUIDs pointing at German-named groups).
 --
 -- Safety guarantees mirror 0246:
 --   1. Idempotent — already-UUID values are skipped by the regex.
