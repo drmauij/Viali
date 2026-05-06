@@ -3,14 +3,15 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import { Trash2, Plus, ChevronsUpDown, X, Settings } from 'lucide-react';
 import { useActiveHospital } from '@/hooks/useActiveHospital';
 import { MedicationConfigDialog } from '@/components/anesthesia/MedicationConfigDialog';
-import { StartAtField } from './StartAtField';
+import { TimingField } from './TimingField';
+import { ALLOWED_MODES_BY_TYPE } from '@shared/postopOrderItems';
 import type { MedicationItem } from '@shared/postopOrderItems';
 import type { ItemEditorProps } from './index';
 
@@ -259,58 +260,13 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
             </SelectContent>
           </Select>
         </div>
-        <div>
-          <Label className="text-xs">{t('postopOrders.editor.mode', 'Mode')}</Label>
-          <Select value={item.scheduleMode} onValueChange={v => onChange({ ...item, scheduleMode: v as MedicationItem['scheduleMode'] })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="scheduled">{t('postopOrders.editor.scheduled', 'Scheduled')}</SelectItem>
-              <SelectItem value="prn">{t('postopOrders.editor.prn', 'PRN (as needed)')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
       </div>
-      {item.scheduleMode === 'scheduled' && (
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <Label className="text-xs">{t('postopOrders.editor.frequency', 'Frequency')}</Label>
-            <Select
-              value={(item.frequency as string) ?? ''}
-              onValueChange={(v) => onChange({ ...item, frequency: v as MedicationItem['frequency'] })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t('postopOrders.editor.selectFrequency', 'Choose frequency...')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>{t('postopOrders.editor.freqGroupClinical', 'Clinical notation')}</SelectLabel>
-                  <SelectItem value="oral_1_0_0">{t('postopOrders.editor.freq.clinical_1_0_0', '1-0-0 — once daily (morning)')}</SelectItem>
-                  <SelectItem value="oral_1_0_1">{t('postopOrders.editor.freq.clinical_1_0_1', '1-0-1 — morning + evening')}</SelectItem>
-                  <SelectItem value="oral_1_1_1">{t('postopOrders.editor.freq.clinical_1_1_1', '1-1-1 — 3× daily')}</SelectItem>
-                  <SelectItem value="oral_1_1_1_1">{t('postopOrders.editor.freq.clinical_1_1_1_1', '1-1-1-1 — 4× daily')}</SelectItem>
-                </SelectGroup>
-                <SelectGroup>
-                  <SelectLabel>{t('postopOrders.editor.freqGroupInterval', 'Interval (IV / continuous)')}</SelectLabel>
-                  <SelectItem value="q1h">{t('postopOrders.editor.freq.q1h', 'Every hour')}</SelectItem>
-                  <SelectItem value="q2h">{t('postopOrders.editor.freq.q2h', 'Every 2 hours')}</SelectItem>
-                  <SelectItem value="q4h">{t('postopOrders.editor.freq.q4h', 'Every 4 hours')}</SelectItem>
-                  <SelectItem value="q6h">{t('postopOrders.editor.freq.q6h', 'Every 6 hours')}</SelectItem>
-                  <SelectItem value="q8h">{t('postopOrders.editor.freq.q8h', 'Every 8 hours')}</SelectItem>
-                  <SelectItem value="q12h">{t('postopOrders.editor.freq.q12h', 'Every 12 hours')}</SelectItem>
-                  <SelectItem value="q24h">{t('postopOrders.editor.freq.q24h', 'Every 24 hours')}</SelectItem>
-                  <SelectItem value="q48h">{t('postopOrders.editor.freq.q48h', 'Every 48 hours')}</SelectItem>
-                  <SelectItem value="weekly">{t('postopOrders.editor.freq.weekly', 'Once a week')}</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
-          <StartAtField
-            value={item.startAt}
-            onChange={(startAt) => onChange({ ...item, startAt })}
-          />
-        </div>
-      )}
-      {item.scheduleMode === 'prn' && (
+      <TimingField
+        value={item.timing}
+        onChange={(timing) => onChange({ ...item, timing })}
+        allowedModes={ALLOWED_MODES_BY_TYPE.medication}
+      />
+      {item.timing.mode === 'ad_hoc' && (
         <div className="grid grid-cols-2 gap-2">
           <div>
             <Label className="text-xs">{t('postopOrders.editor.maxPerDay', 'Max per day')}</Label>
