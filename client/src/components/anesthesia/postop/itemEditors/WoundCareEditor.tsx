@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
+import { StartAtField } from './StartAtField';
 import type { WoundCareItem } from '@shared/postopOrderItems';
 import type { ItemEditorProps } from './index';
 
@@ -42,6 +43,12 @@ export function WoundCareEditor({ item, onChange, onRemove }: ItemEditorProps<Wo
           <Label className="text-xs">{t('postopOrders.editor.dayInterval', 'Day interval')}</Label>
           <Input type="number" value={item.everyNDays ?? ''} onChange={e => onChange({ ...item, everyNDays: Number(e.target.value) })} />
         </div>
+      )}
+      {item.dressingChange === 'every_n_days' && (
+        <StartAtField
+          value={item.startAt}
+          onChange={(startAt) => onChange({ ...item, startAt })}
+        />
       )}
     </div>
   );

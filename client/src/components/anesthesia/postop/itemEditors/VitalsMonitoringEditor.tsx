@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
+import { StartAtField } from './StartAtField';
 import type { VitalsMonitoringItem, Frequency } from '@shared/postopOrderItems';
 import type { ItemEditorProps } from './index';
 
@@ -68,6 +69,12 @@ export function VitalsMonitoringEditor({ item, onChange, onRemove }: ItemEditorP
           <Input type="number" value={item.max ?? ''} onChange={e => onChange({ ...item, max: e.target.value ? Number(e.target.value) : undefined })} />
         </div>
       </div>
+      {item.frequency !== 'continuous' && (
+        <StartAtField
+          value={item.startAt}
+          onChange={(startAt) => onChange({ ...item, startAt })}
+        />
+      )}
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label className="text-xs">{t('postopOrders.editor.actionLow', 'Action if below')}</Label>

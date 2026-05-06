@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Trash2, Plus } from 'lucide-react';
+import { StartAtField } from './StartAtField';
 import type { BzSlidingScaleItem } from '@shared/postopOrderItems';
 import type { ItemEditorProps } from './index';
 
@@ -28,6 +29,10 @@ export function BzSlidingScaleEditor({ item, onChange, onRemove }: ItemEditorPro
         <Label className="text-xs">{t('postopOrders.editor.drug', 'Medication')}</Label>
         <Input value={item.drug} onChange={e => onChange({ ...item, drug: e.target.value })} />
       </div>
+      <StartAtField
+        value={item.startAt}
+        onChange={(startAt) => onChange({ ...item, startAt })}
+      />
       <div>
         <div className="flex items-center justify-between">
           <Label className="text-xs">{t('postopOrders.editor.rules', 'Rules')}</Label>
