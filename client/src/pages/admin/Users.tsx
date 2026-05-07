@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Key, Wand2, UserCheck, UserX, Building2, ExternalLink, Mail, Users as UsersIcon, UserCog, ArrowRightLeft, AlertTriangle, Star, Loader2, Search, ArrowUpDown, StickyNote } from "lucide-react";
+import { Key, Wand2, UserCheck, UserX, Building2, ExternalLink, Mail, Users as UsersIcon, UserCog, ArrowRightLeft, AlertTriangle, Star, Loader2, Search, ArrowUpDown, StickyNote, Stethoscope } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import type { Unit, UserHospitalRole, User } from "@shared/schema";
@@ -1751,42 +1751,6 @@ export default function Users() {
                 </div>
               </div>
 
-              {/* Praxis (multi-doctor practice) — toggles isPraxis on the
-                  PATCH /details mutation. When enabled, exposes the children
-                  multi-select for linking individual surgeons to this praxis. */}
-              <div className="border-t pt-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="user-is-praxis"
-                    checked={editingUserDetails?.isPraxis ?? false}
-                    onCheckedChange={(checked) => {
-                      if (editingUserDetails) {
-                        setEditingUserDetails({
-                          ...editingUserDetails,
-                          isPraxis: checked === true,
-                        });
-                      }
-                    }}
-                    data-testid="checkbox-is-praxis"
-                  />
-                  <Label htmlFor="user-is-praxis" className="text-sm font-normal">
-                    {t("admin.isPraxisLabel", "Is a praxis (multi-doctor practice)")}
-                  </Label>
-                </div>
-                {editingUserDetails?.isPraxis && editingUserDetails?.id && activeHospital?.id && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">
-                      {t("admin.praxisChildrenLabel", "Associated doctors (children)")}
-                    </Label>
-                    <PraxisChildrenSelect
-                      praxisUserId={editingUserDetails.id}
-                      hospitalId={activeHospital.id}
-                      allHospitalUsers={allHospitalUsers}
-                    />
-                  </div>
-                )}
-              </div>
-
               {/* Admin Notes */}
               <div>
                 <Label htmlFor="edit-admin-notes" className="flex items-center gap-2 mb-2">
@@ -1941,6 +1905,42 @@ export default function Users() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Praxis (multi-doctor practice) toggle. Saved with the rest
+                      of the form via the /details mutation; the children
+                      multi-select appears below when enabled (only on existing
+                      users since it needs a saved id). */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Stethoscope className={`h-4 w-4 ${editingUserDetails?.isPraxis ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <Label htmlFor="user-is-praxis" className="text-sm font-normal">
+                        {t("admin.isPraxisLabel", "Is a praxis (multi-doctor practice)")}
+                      </Label>
+                    </div>
+                    <Switch
+                      id="user-is-praxis"
+                      checked={editingUserDetails?.isPraxis ?? false}
+                      onCheckedChange={(checked) => {
+                        if (editingUserDetails) {
+                          setEditingUserDetails({ ...editingUserDetails, isPraxis: checked });
+                        }
+                      }}
+                      data-testid="switch-is-praxis"
+                    />
+                  </div>
+
+                  {editingUserDetails?.isPraxis && editingUserDetails?.id && activeHospital?.id && (
+                    <div className="space-y-2 pl-6">
+                      <Label className="text-sm font-medium">
+                        {t("admin.praxisChildrenLabel", "Associated doctors (children)")}
+                      </Label>
+                      <PraxisChildrenSelect
+                        praxisUserId={editingUserDetails.id}
+                        hospitalId={activeHospital.id}
+                        allHospitalUsers={allHospitalUsers}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
