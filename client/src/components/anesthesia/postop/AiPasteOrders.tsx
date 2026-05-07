@@ -40,10 +40,10 @@ function summarizeItem(item: PostopOrderItem): string {
     }
     case 'lab':
       return `Lab: ${item.panel.join(', ')} (${item.timing.mode}${item.timing.frequency ? ` ${item.timing.frequency}` : ''})`;
-    case 'task':
-      return `Task: ${item.title} (${item.timing.mode})`;
-    case 'free_text':
-      return `Note: ${item.text}`;
+    case 'task': {
+      const subtypeLabel = item.subtype === 'generic' ? '' : `[${item.subtype}] `;
+      return `${subtypeLabel}${item.title}${item.note ? ` — ${item.note}` : ''}`;
+    }
     default:
       return item.type;
   }

@@ -25,7 +25,7 @@ const MINUTE = 60_000;
 describe('buildDisplayRows', () => {
   it('classifies an event in the past as overdue', () => {
     const items: PostopOrderItem[] = [
-      { id: 't1', type: 'task', title: 'Labor 6h postop', timing: { mode: 'one_shot' } },
+      { id: 't1', type: 'task', subtype: 'generic', title: 'Labor 6h postop', timing: { mode: 'one_shot' } },
     ];
     const events = [makeEvent({
       id: 'e1', itemId: 't1', kind: 'task',
@@ -40,7 +40,7 @@ describe('buildDisplayRows', () => {
 
   it('classifies an event within 15min window as due_now', () => {
     const items: PostopOrderItem[] = [
-      { id: 't1', type: 'task', title: 'Wundkontrolle', timing: { mode: 'scheduled', frequency: 'q24h' } },
+      { id: 't1', type: 'task', subtype: 'wound_care', title: 'Wundkontrolle', timing: { mode: 'scheduled', frequency: 'q24h' } },
     ];
     const events = [makeEvent({
       id: 'e1', itemId: 't1', kind: 'task',
@@ -53,7 +53,7 @@ describe('buildDisplayRows', () => {
 
   it('classifies a future event as upcoming', () => {
     const items: PostopOrderItem[] = [
-      { id: 't1', type: 'task', title: 'Labor daily', timing: { mode: 'scheduled', frequency: 'q24h' } },
+      { id: 't1', type: 'task', subtype: 'generic', title: 'Labor daily', timing: { mode: 'scheduled', frequency: 'q24h' } },
     ];
     const events = [makeEvent({
       id: 'e1', itemId: 't1', kind: 'task',
@@ -67,7 +67,7 @@ describe('buildDisplayRows', () => {
 
   it('marks done events as done', () => {
     const items: PostopOrderItem[] = [
-      { id: 't1', type: 'task', title: 'Labor', timing: { mode: 'one_shot' } },
+      { id: 't1', type: 'task', subtype: 'generic', title: 'Labor', timing: { mode: 'one_shot' } },
     ];
     const events = [makeEvent({
       id: 'e1', itemId: 't1', kind: 'task',
@@ -81,7 +81,7 @@ describe('buildDisplayRows', () => {
 
   it('includes ad-hoc tasks without planned events', () => {
     const items: PostopOrderItem[] = [
-      { id: 't1', type: 'task', title: 'Verbandwechsel bei Durchnässung', timing: { mode: 'ad_hoc' } },
+      { id: 't1', type: 'task', subtype: 'wound_care', title: 'Verbandwechsel bei Durchnässung', timing: { mode: 'ad_hoc' } },
     ];
     const rows = buildDisplayRows(items, [], now);
     expect(rows).toHaveLength(1);
@@ -91,7 +91,7 @@ describe('buildDisplayRows', () => {
 
   it('includes conditional tasks', () => {
     const items: PostopOrderItem[] = [
-      { id: 't1', type: 'task', title: 'Arzt rufen', timing: { mode: 'conditional', condition: 'VAS > 7' } },
+      { id: 't1', type: 'task', subtype: 'generic', title: 'Arzt rufen', timing: { mode: 'conditional', condition: 'VAS > 7' } },
     ];
     const rows = buildDisplayRows(items, [], now);
     expect(rows).toHaveLength(1);
@@ -125,10 +125,10 @@ describe('buildDisplayRows', () => {
 
   it('sorts: overdue first, then due_now, then upcoming, then ad_hoc; done items last', () => {
     const items: PostopOrderItem[] = [
-      { id: 't1', type: 'task', title: 'A', timing: { mode: 'one_shot' } },
-      { id: 't2', type: 'task', title: 'B', timing: { mode: 'one_shot' } },
-      { id: 't3', type: 'task', title: 'C', timing: { mode: 'one_shot' } },
-      { id: 't4', type: 'task', title: 'D', timing: { mode: 'ad_hoc' } },
+      { id: 't1', type: 'task', subtype: 'generic', title: 'A', timing: { mode: 'one_shot' } },
+      { id: 't2', type: 'task', subtype: 'generic', title: 'B', timing: { mode: 'one_shot' } },
+      { id: 't3', type: 'task', subtype: 'generic', title: 'C', timing: { mode: 'one_shot' } },
+      { id: 't4', type: 'task', subtype: 'generic', title: 'D', timing: { mode: 'ad_hoc' } },
     ];
     const events = [
       makeEvent({ id: 'e1', itemId: 't1', kind: 'task', plannedAt: new Date(now + 3*HOUR).toISOString(), status: 'planned' }),
