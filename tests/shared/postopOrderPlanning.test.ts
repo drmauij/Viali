@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planEvents } from '@shared/postopOrderPlanning';
+import { planEvents, filterPlannedAgainstDone, type PlannedEvent } from '@shared/postopOrderPlanning';
 import type { PostopOrderItem } from '@shared/postopOrderItems';
 
 const anchor = new Date('2026-04-08T14:00:00.000Z').getTime();
@@ -78,5 +78,65 @@ describe('planEvents', () => {
       { id: 'f1', type: 'task', subtype: 'note', title: 'general note', timing: { mode: 'ad_hoc' } },
     ];
     expect(planEvents(items, anchor, horizonH)).toEqual([]);
+  });
+});
+
+describe('filterPlannedAgainstDone', () => {
+  const items: PostopOrderItem[] = [
+    { id: 'm1', type: 'medication', medicationRef: 'Amoxi', dose: '400', route: 'iv',
+      timing: { mode: 'scheduled', frequency: 'q6h' } },
+  ];
+  const mkPlanned = (plannedAt: number): PlannedEvent => ({
+    itemId: 'm1', kind: 'medication', plannedAt, payloadSnapshot: items[0],
+  });
+
+  it('returns planned unchanged when there are no done events', () => {
+    const planned = [mkPlanned(anchor), mkPlanned(anchor + 6 * HOUR)];
+    expect(filterPlannedAgainstDone(planned, [], items)).toEqual(planned);
+  });
+
+  it('drops planned events within interval/2 of a done event for the same item', () => {
+    // q6h → buffer = 3h
+    const doneAt = anchor;
+    const planned = [
+      mkPlanned(anchor + 2 * HOUR),     // within 3h → drop
+      mkPlanned(anchor + 6 * HOUR),     // 6h away → keep
+      mkPlanned(anchor + 12 * HOUR),    // far → keep
+    ];
+    const result = filterPlannedAgainstDone(planned, [{ itemId: 'm1', plannedAt: doneAt }], items);
+    expect(result.map(e => e.plannedAt)).toEqual([anchor + 6 * HOUR, anchor + 12 * HOUR]);
+  });
+
+  it('keeps a planned event exactly at interval/2 (boundary is inclusive of "kept")', () => {
+    // q6h → buffer = 3h. Distance == 3h → kept (not strictly < buffer).
+    const doneAt = anchor;
+    const planned = [mkPlanned(anchor + 3 * HOUR)];
+    const result = filterPlannedAgainstDone(planned, [{ itemId: 'm1', plannedAt: doneAt }], items);
+    expect(result).toEqual(planned);
+  });
+
+  it('does not filter events for a different item', () => {
+    const otherItems: PostopOrderItem[] = [
+      ...items,
+      { id: 'm2', type: 'medication', medicationRef: 'Paracetamol', dose: '1g', route: 'iv',
+        timing: { mode: 'scheduled', frequency: 'q6h' } },
+    ];
+    const planned: PlannedEvent[] = [
+      { itemId: 'm2', kind: 'medication', plannedAt: anchor + 1 * HOUR, payloadSnapshot: otherItems[1] },
+    ];
+    const doneEvents = [{ itemId: 'm1', plannedAt: anchor }];
+    expect(filterPlannedAgainstDone(planned, doneEvents, otherItems)).toEqual(planned);
+  });
+
+  it('uses the 5-minute fallback buffer for one_shot items', () => {
+    const oneShotItems: PostopOrderItem[] = [
+      { id: 'l1', type: 'lab', panel: ['Hb'], timing: { mode: 'one_shot' } },
+    ];
+    const planned: PlannedEvent[] = [
+      { itemId: 'l1', kind: 'task', plannedAt: anchor + 4 * 60 * 1000, payloadSnapshot: oneShotItems[0] },  // 4 min after done
+      { itemId: 'l1', kind: 'task', plannedAt: anchor + 10 * 60 * 1000, payloadSnapshot: oneShotItems[0] }, // 10 min after done
+    ];
+    const result = filterPlannedAgainstDone(planned, [{ itemId: 'l1', plannedAt: anchor }], oneShotItems);
+    expect(result.map(e => e.plannedAt)).toEqual([anchor + 10 * 60 * 1000]);
   });
 });

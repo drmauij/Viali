@@ -4,7 +4,7 @@ import { requireWriteAccess, requireStrictHospitalAccess } from "../../utils";
 import { postopOrdersStorage } from "../../storage/postopOrders";
 import { createAuditLog } from "../../storage/anesthesia";
 import { parsePostopOrders } from "../../services/postopOrderAIParser";
-import { planEvents } from "@shared/postopOrderPlanning";
+import { planEvents, filterPlannedAgainstDone } from "@shared/postopOrderPlanning";
 import { db } from "../../db";
 import { items, medicationConfigs } from "@shared/schema";
 import { eq, and, inArray } from "drizzle-orm";
@@ -222,8 +222,17 @@ router.put('/api/anesthesia/records/:recordId/postop-orders', isAuthenticated, r
       signedBy: sign ? userId : null,
     });
 
-    // Plan events and replace
-    const planned = planEvents(orderItems, Date.now(), HORIZON_HOURS);
+    // Plan events and replace. Re-saves use Date.now() as the anchor, which
+    // would otherwise emit a "first dose" pill at the very moment the user
+    // just administered one — looking like a phantom overdue alert. Filter
+    // newly-planned events that fall within interval/2 of an existing done
+    // event for the same item (audit trail intact, visual confusion gone).
+    const existingEvents = await postopOrdersStorage.listPlannedEvents(orderSet.id);
+    const doneEvents = existingEvents
+      .filter(e => e.status === 'done' && e.itemId)
+      .map(e => ({ itemId: e.itemId as string, plannedAt: new Date(e.plannedAt).getTime() }));
+    const rawPlanned = planEvents(orderItems, Date.now(), HORIZON_HOURS);
+    const planned = filterPlannedAgainstDone(rawPlanned, doneEvents, orderItems);
     await postopOrdersStorage.replacePlannedEvents(orderSet.id, planned);
 
     const plannedEvents = await postopOrdersStorage.listPlannedEvents(orderSet.id);

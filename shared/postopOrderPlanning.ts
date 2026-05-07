@@ -97,3 +97,54 @@ export function planEvents(
   events.sort((a, b) => a.plannedAt - b.plannedAt || a.itemId.localeCompare(b.itemId));
   return events;
 }
+
+/** Reference to a previously-administered (status='done') planned event. */
+export interface DoneEventRef {
+  itemId: string;
+  plannedAt: number;
+}
+
+const FIVE_MIN = 5 * 60 * 1000;
+
+/**
+ * Filter newly-planned events to drop ones that fall too close to an existing
+ * done event for the same item. "Too close" is `interval/2` for scheduled
+ * items (so re-saving a q6h order 5 min after administering doesn't generate
+ * a phantom amber pill 5 min into the future), and 5 minutes for
+ * one_shot/ad_hoc/conditional.
+ *
+ * Without this, every re-save of an order with a new `Date.now()` anchor
+ * would emit a "first dose" pill immediately after the user just marked the
+ * previous dose done, making the timeline look like the administration
+ * never happened.
+ */
+export function filterPlannedAgainstDone(
+  planned: PlannedEvent[],
+  doneEvents: DoneEventRef[],
+  items: PostopOrderItem[],
+): PlannedEvent[] {
+  if (doneEvents.length === 0) return planned;
+
+  const itemById = new Map(items.map(i => [i.id, i]));
+  const doneByItem = new Map<string, DoneEventRef[]>();
+  for (const d of doneEvents) {
+    const arr = doneByItem.get(d.itemId) ?? [];
+    arr.push(d);
+    doneByItem.set(d.itemId, arr);
+  }
+
+  return planned.filter(p => {
+    const dones = doneByItem.get(p.itemId);
+    if (!dones || dones.length === 0) return true;
+
+    const item = itemById.get(p.itemId);
+    const timing = (item as { timing?: Timing } | undefined)?.timing;
+    let bufferMs = FIVE_MIN;
+    if (timing?.mode === 'scheduled' && timing.frequency && timing.frequency !== 'continuous') {
+      const intervalH = FREQUENCY_INTERVAL_H[timing.frequency];
+      if (intervalH) bufferMs = (intervalH * HOUR) / 2;
+    }
+
+    return !dones.some(d => Math.abs(p.plannedAt - d.plannedAt) < bufferMs);
+  });
+}
