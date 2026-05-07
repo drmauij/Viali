@@ -5,6 +5,7 @@ import { useTimelineContext } from '../TimelineContext';
 import type { EventComment, AnesthesiaTimeMarker } from '@/hooks/useEventState';
 import { getEventIcon } from '@/constants/commonEvents';
 import { useToast } from '@/hooks/use-toast';
+import { ClipboardList, Droplet, Check } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -559,19 +560,20 @@ export function EventsSwimlane({
             data-testid={`planned-task-pill-${task.id}`}
           >
             <div
-              className="flex items-center gap-1 px-1.5 rounded text-[10px] font-medium whitespace-nowrap"
+              className="flex items-center justify-center rounded"
               style={{
                 backgroundColor: bgColor,
                 border: `1.5px ${borderStyle} ${borderColor}`,
                 color: textColor,
+                width: '20px',
                 height: '100%',
-                maxWidth: '120px',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
               }}
             >
-              {task.status === 'done' && <span>&#x2713;</span>}
-              {task.title.length > 15 ? task.title.slice(0, 15) + '\u2026' : task.title}
+              {task.status === 'done'
+                ? <Check className="w-3 h-3" />
+                : task.kind === 'iv_fluid'
+                  ? <Droplet className="w-3 h-3" />
+                  : <ClipboardList className="w-3 h-3" />}
             </div>
           </div>
         );
