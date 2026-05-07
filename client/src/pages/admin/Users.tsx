@@ -1678,6 +1678,13 @@ export default function Users() {
                 </div>
               )}
                 <TabsContent value="details" className="space-y-4 mt-0">
+              {/* Profile section header — mirrors the Roles tab so the Details
+                  tab has the same visual rhythm (separator + section title). */}
+              <div className="border-t pt-4">
+                <Label className="text-base font-semibold">
+                  {t("admin.profileSection", "Profile")}
+                </Label>
+              </div>
               {/* Email field */}
               <div>
                 <Label htmlFor="edit-email" className="flex items-center gap-2">
