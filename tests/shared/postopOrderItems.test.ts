@@ -4,8 +4,7 @@ import { createEmptyItem, isItemType, type PostopOrderItem } from '@shared/posto
 describe('postopOrderItems', () => {
   it('creates empty items of every type with correct discriminator', () => {
     const types = [
-      'mobilization','positioning','drain','nutrition','wound_care',
-      'vitals_monitoring','medication','iv_fluid','lab','task','bz_sliding_scale','free_text',
+      'vitals_monitoring','medication','iv_fluid','lab','task','bz_sliding_scale',
     ] as const;
     for (const t of types) {
       const item = createEmptyItem(t, `id-${t}`);

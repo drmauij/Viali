@@ -22,17 +22,6 @@ export interface Timing {
   condition?: string;        // only meaningful when mode === 'conditional'
 }
 
-export interface MobilizationItem  { id: ItemId; type: 'mobilization'; value: 'bedrest' | 'assisted' | 'free'; assistedFrom?: string; note?: string; }
-export interface PositioningItem   { id: ItemId; type: 'positioning'; value: 'supine' | 'lateral' | 'head_up_30' | 'head_up_45' | 'custom'; customText?: string; }
-export interface DrainItem         { id: ItemId; type: 'drain'; drainType: 'redon' | 'easyflow' | 'dk' | 'spul' | 'other'; site?: string; note?: string; }
-export interface NutritionItem     { id: ItemId; type: 'nutrition'; value: 'nil' | 'liquids' | 'turmix' | 'vollkost'; startAfter?: string; note?: string; }
-
-export interface WoundCareItem {
-  id: ItemId; type: 'wound_care';
-  check: 'none' | 'daily' | 'twice_daily';
-  timing: Timing;            // schedule for the dressing change
-}
-
 export interface VitalsMonitoringItem {
   id: ItemId; type: 'vitals_monitoring';
   parameter: 'BP' | 'pulse' | 'temp' | 'spo2' | 'bz';
@@ -69,11 +58,23 @@ export interface LabItem {
   thresholds?: Array<{ param: string; op: '<' | '>'; value: number; action: string }>;
 }
 
+export type TaskSubtype =
+  | 'generic'
+  | 'positioning'
+  | 'drainage'
+  | 'nutrition'
+  | 'wound_care'
+  | 'mobilization'
+  | 'note';
+
 export interface TaskItem {
-  id: ItemId; type: 'task';
+  id: ItemId;
+  type: 'task';
+  subtype: TaskSubtype;
   title: string;
   timing: Timing;
   actionHint?: string;
+  note?: string;
 }
 
 export interface BzSlidingScaleItem {
@@ -84,22 +85,19 @@ export interface BzSlidingScaleItem {
   increment?: { per: number; units: number };
 }
 
-export interface FreeTextItem {
-  id: ItemId; type: 'free_text';
-  section: 'general' | 'meds' | 'labs' | 'other';
-  text: string;
-}
-
 export type PostopOrderItem =
-  | MobilizationItem | PositioningItem | DrainItem | NutritionItem | WoundCareItem
-  | VitalsMonitoringItem | MedicationItem | IvFluidItem | LabItem | TaskItem
-  | BzSlidingScaleItem | FreeTextItem;
+  | VitalsMonitoringItem
+  | MedicationItem
+  | IvFluidItem
+  | LabItem
+  | TaskItem
+  | BzSlidingScaleItem;
 
 export type PostopOrderItemType = PostopOrderItem['type'];
 
 export const SCHEDULABLE_ITEM_TYPES: ReadonlySet<PostopOrderItemType> = new Set([
   'medication', 'iv_fluid', 'lab', 'task',
-  'vitals_monitoring', 'bz_sliding_scale', 'wound_care',
+  'vitals_monitoring', 'bz_sliding_scale',
 ]);
 
 export function isItemType<T extends PostopOrderItemType>(
@@ -109,23 +107,16 @@ export function isItemType<T extends PostopOrderItemType>(
 }
 
 export const ALLOWED_MODES_BY_TYPE: Record<PostopOrderItemType, TimingMode[]> = {
-  mobilization: [], positioning: [], drain: [], nutrition: [], free_text: [],
   medication:        ['scheduled', 'one_shot', 'ad_hoc', 'conditional'],
   iv_fluid:          ['scheduled', 'one_shot'],
   lab:               ['scheduled', 'one_shot'],
   task:              ['scheduled', 'one_shot', 'ad_hoc', 'conditional'],
   vitals_monitoring: ['scheduled'],
   bz_sliding_scale:  ['scheduled'],
-  wound_care:        ['scheduled', 'one_shot', 'ad_hoc'],
 };
 
 export function createEmptyItem(type: PostopOrderItemType, id: ItemId): PostopOrderItem {
   switch (type) {
-    case 'mobilization': return { id, type, value: 'free' };
-    case 'positioning':  return { id, type, value: 'supine' };
-    case 'drain':        return { id, type, drainType: 'redon' };
-    case 'nutrition':    return { id, type, value: 'vollkost' };
-    case 'wound_care':   return { id, type, check: 'daily', timing: { mode: 'ad_hoc' } };
     case 'vitals_monitoring':
       return { id, type, parameter: 'BP', timing: { mode: 'scheduled', frequency: 'q1h' } };
     case 'medication':
@@ -135,9 +126,8 @@ export function createEmptyItem(type: PostopOrderItemType, id: ItemId): PostopOr
     case 'lab':
       return { id, type, panel: [], timing: { mode: 'one_shot' } };
     case 'task':
-      return { id, type, title: '', timing: { mode: 'one_shot' } };
+      return { id, type, subtype: 'generic', title: '', timing: { mode: 'one_shot' } };
     case 'bz_sliding_scale':
       return { id, type, drug: 'Actrapid', rules: [{ above: 120, units: 2 }], timing: { mode: 'scheduled', frequency: 'q4h' } };
-    case 'free_text':    return { id, type, section: 'general', text: '' };
   }
 }
