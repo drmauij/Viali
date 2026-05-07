@@ -57,7 +57,7 @@ const translations: Record<string, Record<string, string>> = {
   de: {
     // Gate
     title: "Chirurgen-Portal",
-    subtitle: "Geben Sie Ihre E-Mail-Adresse ein, um Ihre OPs einzusehen.",
+    subtitle: "Geben Sie Ihre E-Mail-Adresse ein, um neue Anfragen einzureichen und Ihre OPs zu verwalten.",
     emailLabel: "E-Mail-Adresse",
     emailPlaceholder: "ihre.email@beispiel.ch",
     sendCode: "Zugangslink senden",
@@ -143,7 +143,7 @@ const translations: Record<string, Record<string, string>> = {
   en: {
     // Gate
     title: "Surgeon Portal",
-    subtitle: "Enter your email address to view your surgeries.",
+    subtitle: "Enter your email address to submit new surgery requests and manage your scheduled surgeries.",
     emailLabel: "Email address",
     emailPlaceholder: "your.email@example.com",
     sendCode: "Send access link",
