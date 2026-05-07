@@ -4,7 +4,8 @@ import { usePostopOrderTemplates, type TemplateRow } from '@/hooks/usePostopOrde
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { OrderSetEditorDialog } from '@/components/anesthesia/postop/OrderSetEditorDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { PostopOrdersEditor } from '@/components/anesthesia/postop/PostopOrdersEditor';
 import { Trash2, Pencil, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -68,13 +69,24 @@ export default function PostopOrderTemplatesPage() {
       </div>
 
       {editing && (
-        <OrderSetEditorDialog
+        <Dialog
           open={itemsEditorOpen}
           onOpenChange={(v) => { setItemsEditorOpen(v); if (!v) setEditingId(null); }}
-          initial={{ items: editing.items, templateId: null }}
-          templates={[]}
-          onSave={({ items }) => update.mutate({ id: editing.id, patch: { items } })}
-        />
+        >
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{editing.name}</DialogTitle>
+            </DialogHeader>
+            <PostopOrdersEditor
+              items={editing.items}
+              templateId={null}
+              templates={[]}
+              canEdit={true}
+              hospitalId={hospital?.id}
+              onChange={({ items }) => update.mutate({ id: editing.id, patch: { items } })}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

@@ -16,8 +16,8 @@ import type { MedicationItem } from '@shared/postopOrderItems';
 import type { ItemEditorProps } from './index';
 
 // Transient flag set by the AI paste flow to mark items whose drug name didn't
-// resolve to a configured inventory medication. OrderSetEditorDialog.cleanItemsForPersist
-// strips this before save, so it never reaches the wire.
+// resolve to a configured inventory medication. PostopOrdersEditor strips this
+// before save, so it never reaches the wire.
 type MaybeUnmapped = { _unmapped?: boolean };
 
 export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemEditorProps<MedicationItem>) {

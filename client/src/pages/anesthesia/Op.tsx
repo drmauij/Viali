@@ -18,10 +18,9 @@ import { IntraOpTab } from "@/pages/anesthesia/op/IntraOpTab";
 import { CountsSterileTab } from "@/pages/anesthesia/op/CountsSterileTab";
 import { AllergiesDialog } from "@/pages/anesthesia/op/AllergiesDialog";
 import { IntraoperativeMedicationsCard } from "@/components/anesthesia/IntraoperativeMedicationsCard";
-import { OrdersGlanceCard } from "@/components/anesthesia/postop/OrdersGlanceCard";
+import { PostopOrdersEditor } from "@/components/anesthesia/postop/PostopOrdersEditor";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { PostopTasksPanel } from "@/components/anesthesia/postop/PostopTasksPanel";
-import { OrderSetEditorDialog } from "@/components/anesthesia/postop/OrderSetEditorDialog";
 import { usePostopOrderSet } from "@/hooks/usePostopOrderSet";
 import type { PostopOrderItem } from "@shared/postopOrderItems";
 import { useDeviationAcks } from "@/hooks/usePostopDeviationAcks";
@@ -242,7 +241,6 @@ export default function Op() {
   const postopOrderSet = usePostopOrderSet(anesthesiaRecord?.id);
   const postopTemplates = usePostopOrderTemplates(activeHospital?.id);
   const deviationAcks = useDeviationAcks(anesthesiaRecord?.id);
-  const [orderEditorOpen, setOrderEditorOpen] = useState(false);
 
   // Centralised save handler for order sets — surfaces server validation
   // errors (e.g. unconfigured medications) as a toast.
@@ -1487,11 +1485,26 @@ export default function Op() {
                   pacuBedId={surgery?.pacuBedId}
                 />
                 <div className="flex-1">
-                  <OrdersGlanceCard
+                  <PostopOrdersEditor
                     items={postopOrderSet.data?.orderSet.items ?? []}
-                    templateName={postopTemplates.data?.find(t => t.id === postopOrderSet.data?.orderSet.templateId)?.name ?? null}
-                    onEdit={() => setOrderEditorOpen(true)}
+                    templateId={postopOrderSet.data?.orderSet.templateId ?? null}
+                    templates={postopTemplates.data ?? []}
                     canEdit={!anesthesiaRecord?.isLocked}
+                    hospitalId={activeHospital?.id}
+                    onChange={({ items, templateId }) => handleSaveOrderSet({ items, templateId })}
+                    onSaveAsTemplate={(payload) => {
+                      if (payload.overwriteId) {
+                        postopTemplates.update.mutate({ id: payload.overwriteId, patch: { items: payload.items } });
+                      } else {
+                        postopTemplates.create.mutate({
+                          hospitalId: activeHospital?.id ?? '',
+                          name: payload.name,
+                          description: null,
+                          items: payload.items,
+                          procedureCode: null,
+                        });
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -1596,31 +1609,6 @@ export default function Op() {
                 />
               </div>
 
-              {/* Order set editor dialog */}
-              <OrderSetEditorDialog
-                open={orderEditorOpen}
-                onOpenChange={setOrderEditorOpen}
-                initial={{
-                  items: postopOrderSet.data?.orderSet.items ?? [],
-                  templateId: postopOrderSet.data?.orderSet.templateId ?? null,
-                }}
-                templates={postopTemplates.data ?? []}
-                onSave={handleSaveOrderSet}
-                hospitalId={activeHospital?.id}
-                onSaveAsTemplate={(payload) => {
-                  if (payload.overwriteId) {
-                    postopTemplates.update.mutate({ id: payload.overwriteId, patch: { items: payload.items } });
-                  } else {
-                    postopTemplates.create.mutate({
-                      hospitalId: activeHospital?.id ?? '',
-                      name: payload.name,
-                      description: null,
-                      items: payload.items,
-                      procedureCode: null,
-                    });
-                  }
-                }}
-              />
             </TabsContent>
           )}
 
@@ -2339,22 +2327,13 @@ export default function Op() {
             </Card>
 
             {/* Postoperative Orders (order-set editor) */}
-            <OrdersGlanceCard
+            <PostopOrdersEditor
               items={postopOrderSet.data?.orderSet.items ?? []}
-              templateName={postopTemplates.data?.find(tp => tp.id === postopOrderSet.data?.orderSet.templateId)?.name ?? null}
-              onEdit={() => setOrderEditorOpen(true)}
-              canEdit={!anesthesiaRecord?.isLocked}
-            />
-            <OrderSetEditorDialog
-              open={orderEditorOpen}
-              onOpenChange={setOrderEditorOpen}
-              initial={{
-                items: postopOrderSet.data?.orderSet.items ?? [],
-                templateId: postopOrderSet.data?.orderSet.templateId ?? null,
-              }}
+              templateId={postopOrderSet.data?.orderSet.templateId ?? null}
               templates={postopTemplates.data ?? []}
-              onSave={handleSaveOrderSet}
+              canEdit={!anesthesiaRecord?.isLocked}
               hospitalId={activeHospital?.id}
+              onChange={({ items, templateId }) => handleSaveOrderSet({ items, templateId })}
               onSaveAsTemplate={(payload) => {
                 if (payload.overwriteId) {
                   postopTemplates.update.mutate({ id: payload.overwriteId, patch: { items: payload.items } });
