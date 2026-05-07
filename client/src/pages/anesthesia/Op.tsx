@@ -1469,7 +1469,12 @@ export default function Op() {
                   deviationAcknowledgments={deviationAcks.data ?? []}
                   plannedVitalsChecks={
                     (postopOrderSet.data?.plannedEvents ?? [])
-                      .filter(e => e.kind === 'vitals_check')
+                      .filter(e => {
+                        // bz_sliding_scale also maps to kind 'vitals_check' but its
+                        // snapshot has `drug`, not `parameter` — exclude it.
+                        const snap = e.payloadSnapshot as { type?: string };
+                        return e.kind === 'vitals_check' && snap?.type === 'vitals_monitoring';
+                      })
                       .map(e => {
                         const snapshot = e.payloadSnapshot as {
                           parameter: 'BP' | 'pulse' | 'temp' | 'spo2' | 'bz';

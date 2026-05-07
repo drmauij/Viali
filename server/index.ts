@@ -54,6 +54,7 @@ app.use(helmet({
       frameSrc: ["'self'", "https://privatklinik-kreuzlingen.vercel.app"],
       objectSrc: ["'none'"],
       frameAncestors: ["'self'"],
+      workerSrc: ["'self'", "blob:"],
     },
   },
   crossOriginEmbedderPolicy: false,
