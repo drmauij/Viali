@@ -1,14 +1,17 @@
 import { describe, it, expect, afterAll } from "vitest";
 import { db } from "../server/db";
-import { users } from "@shared/schema";
+import { users, surgeries } from "@shared/schema";
 import { eq, inArray } from "drizzle-orm";
 import {
   getChildrenOfPraxis,
   setPraxisChildren,
   togglePraxis,
+  getSurgeriesForSurgeon,
 } from "../server/storage/surgeonPortal";
 
+const TEST_HOSPITAL_ID = "93c37796-9d15-4931-aca9-a7f494bd3a16";
 const createdUserIds: string[] = [];
+const createdSurgeryIds: string[] = [];
 
 async function makeUser(email: string, opts: { isPraxis?: boolean } = {}) {
   const [u] = await db.insert(users).values({
@@ -22,6 +25,9 @@ async function makeUser(email: string, opts: { isPraxis?: boolean } = {}) {
 }
 
 afterAll(async () => {
+  if (createdSurgeryIds.length > 0) {
+    await db.delete(surgeries).where(inArray(surgeries.id, createdSurgeryIds));
+  }
   if (createdUserIds.length > 0) {
     // Clear parent_surgeon_id first to avoid FK issues during cleanup
     await db.update(users).set({ parentSurgeonId: null })
@@ -104,5 +110,74 @@ describe("togglePraxis", () => {
     await togglePraxis(u.id, false);
     const [refetched] = await db.select().from(users).where(eq(users.id, u.id));
     expect(refetched.isPraxis).toBe(false);
+  });
+});
+
+describe("getSurgeriesForSurgeon — praxis roll-up", () => {
+  it("returns surgeries for praxis itself plus all children", async () => {
+    const praxis = await makeUser(`rp-${Date.now()}@test.local`, { isPraxis: true });
+    const childA = await makeUser(`rcA-${Date.now()}@test.local`);
+    const childB = await makeUser(`rcB-${Date.now()}@test.local`);
+    await db.update(users).set({ parentSurgeonId: praxis.id })
+      .where(inArray(users.id, [childA.id, childB.id]));
+
+    const [surgA] = await db.insert(surgeries).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      plannedDate: new Date(),
+      surgeonId: childA.id,
+    }).returning();
+    createdSurgeryIds.push(surgA.id);
+
+    const [surgB] = await db.insert(surgeries).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      plannedDate: new Date(),
+      surgeonId: childB.id,
+    }).returning();
+    createdSurgeryIds.push(surgB.id);
+
+    const results = await getSurgeriesForSurgeon(TEST_HOSPITAL_ID, praxis.email!);
+    const ids = results.map((s: any) => s.id);
+    expect(ids).toContain(surgA.id);
+    expect(ids).toContain(surgB.id);
+  });
+
+  it("solo doctor sees only their own surgeries", async () => {
+    const solo = await makeUser(`solo-${Date.now()}@test.local`);
+    const [surg] = await db.insert(surgeries).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      plannedDate: new Date(),
+      surgeonId: solo.id,
+    }).returning();
+    createdSurgeryIds.push(surg.id);
+
+    const results = await getSurgeriesForSurgeon(TEST_HOSPITAL_ID, solo.email!);
+    expect(results.find((s: any) => s.id === surg.id)).toBeDefined();
+  });
+
+  it("child logged in directly does NOT see praxis siblings' surgeries", async () => {
+    const praxis = await makeUser(`rp2-${Date.now()}@test.local`, { isPraxis: true });
+    const childX = await makeUser(`rcX-${Date.now()}@test.local`);
+    const childY = await makeUser(`rcY-${Date.now()}@test.local`);
+    await db.update(users).set({ parentSurgeonId: praxis.id })
+      .where(inArray(users.id, [childX.id, childY.id]));
+
+    const [surgX] = await db.insert(surgeries).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      plannedDate: new Date(),
+      surgeonId: childX.id,
+    }).returning();
+    createdSurgeryIds.push(surgX.id);
+
+    const [surgY] = await db.insert(surgeries).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      plannedDate: new Date(),
+      surgeonId: childY.id,
+    }).returning();
+    createdSurgeryIds.push(surgY.id);
+
+    const results = await getSurgeriesForSurgeon(TEST_HOSPITAL_ID, childX.email!);
+    const ids = results.map((s: any) => s.id);
+    expect(ids).toContain(surgX.id);
+    expect(ids).not.toContain(surgY.id);
   });
 });

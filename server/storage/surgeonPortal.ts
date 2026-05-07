@@ -28,7 +28,32 @@ export async function getSurgeriesForSurgeon(
   surgeonEmail: string,
   month?: string, // YYYY-MM format
 ) {
-  const email = surgeonEmail.toLowerCase();
+  const callerEmailLower = surgeonEmail.toLowerCase();
+
+  // Resolve caller user record (for is_praxis lookup)
+  const [caller] = await db
+    .select({ id: users.id, email: users.email, isPraxis: users.isPraxis })
+    .from(users)
+    .where(sql`LOWER(${users.email}) = ${callerEmailLower}`)
+    .limit(1);
+
+  // Build the set of (id, email) tuples to match against
+  const matchUserIds: string[] = [];
+  const matchEmailsLower: string[] = [callerEmailLower];
+
+  if (caller) {
+    matchUserIds.push(caller.id);
+    if (caller.isPraxis) {
+      const children = await db
+        .select({ id: users.id, email: users.email })
+        .from(users)
+        .where(eq(users.parentSurgeonId, caller.id));
+      for (const child of children) {
+        matchUserIds.push(child.id);
+        if (child.email) matchEmailsLower.push(child.email.toLowerCase());
+      }
+    }
+  }
 
   // Build date range filter if month is provided
   let dateFrom: Date | undefined;
@@ -40,36 +65,48 @@ export async function getSurgeriesForSurgeon(
     dateTo = new Date(year, monthNum, 1);
   }
 
-  // Source 1: Surgeries linked from externalSurgeryRequests
-  const externalConditions = [
-    eq(externalSurgeryRequests.hospitalId, hospitalId),
-    sql`LOWER(${externalSurgeryRequests.surgeonEmail}) = ${email}`,
-    eq(externalSurgeryRequests.status, "scheduled"),
-    isNotNull(externalSurgeryRequests.surgeryId),
-  ];
-
-  const externalSurgeryIds = await db
+  // Source 1: surgeries linked from external_surgery_requests by email OR by surgeon_id
+  const externalRows = await db
     .select({ surgeryId: externalSurgeryRequests.surgeryId })
     .from(externalSurgeryRequests)
-    .where(and(...externalConditions));
+    .where(
+      and(
+        eq(externalSurgeryRequests.hospitalId, hospitalId),
+        eq(externalSurgeryRequests.status, "scheduled"),
+        isNotNull(externalSurgeryRequests.surgeryId),
+        sql`(LOWER(${externalSurgeryRequests.surgeonEmail}) IN (${sql.join(
+          matchEmailsLower.map((e) => sql`${e}`),
+          sql`, `,
+        )}) OR ${externalSurgeryRequests.surgeonId} IN (${sql.join(
+          matchUserIds.length > 0 ? matchUserIds.map((id) => sql`${id}`) : [sql`NULL`],
+          sql`, `,
+        )}))`,
+      ),
+    );
 
-  const linkedSurgeryIds = externalSurgeryIds
+  const linkedSurgeryIds = externalRows
     .map((r) => r.surgeryId)
     .filter((id): id is string => id !== null);
 
-  // Source 2: Surgeries where surgeonId user's email matches
-  const surgeonUserConditions = [
-    eq(surgeries.hospitalId, hospitalId),
-    sql`LOWER(${users.email}) = ${email}`,
-  ];
-
-  const surgeonUserSurgeryIds = await db
+  // Source 2: surgeries.surgeonId points to any matched user OR matched email
+  const userSurgeries = await db
     .select({ surgeryId: surgeries.id })
     .from(surgeries)
     .innerJoin(users, eq(surgeries.surgeonId, users.id))
-    .where(and(...surgeonUserConditions));
+    .where(
+      and(
+        eq(surgeries.hospitalId, hospitalId),
+        sql`(${users.id} IN (${sql.join(
+          matchUserIds.length > 0 ? matchUserIds.map((id) => sql`${id}`) : [sql`NULL`],
+          sql`, `,
+        )}) OR LOWER(${users.email}) IN (${sql.join(
+          matchEmailsLower.map((e) => sql`${e}`),
+          sql`, `,
+        )}))`,
+      ),
+    );
 
-  const userSurgeryIds = surgeonUserSurgeryIds.map((r) => r.surgeryId);
+  const userSurgeryIds = userSurgeries.map((r) => r.surgeryId);
 
   // Combine and deduplicate
   const allSurgeryIds = [...new Set([...linkedSurgeryIds, ...userSurgeryIds])];
