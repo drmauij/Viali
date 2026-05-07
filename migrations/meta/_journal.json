@@ -1737,6 +1737,13 @@
       "when": 1780100000000,
       "tag": "0247_backfill_medication_config_admin_group_de_translation",
       "breakpoints": true
+    },
+    {
+      "idx": 248,
+      "version": "7",
+      "when": 1780200000000,
+      "tag": "0248_surgeon_praxis",
+      "breakpoints": true
     }
   ]
 }

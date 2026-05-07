@@ -62,6 +62,10 @@ export const users = pgTable("users", {
   zsrNumber: varchar("zsr_number"), // ZSR number for Swiss medical billing
   archivedAt: timestamp("archived_at"), // Soft delete - archived users are hidden from lists but preserved for audit
   isPlatformAdmin: boolean("is_platform_admin").default(false).notNull(), // Platform-level admin (create/manage hospital groups)
+  // Surgeon-praxis portal: a "praxis" is a parent group account whose children are individual surgeons.
+  // The self-FK is enforced by the migration; not declared here via .references() to avoid a self-cycle.
+  isPraxis: boolean("is_praxis").notNull().default(false),
+  parentSurgeonId: varchar("parent_surgeon_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -5606,7 +5610,9 @@ export const externalSurgeryRequests = pgTable("external_surgery_requests", {
   surgeonLastName: varchar("surgeon_last_name").notNull(),
   surgeonEmail: varchar("surgeon_email").notNull(),
   surgeonPhone: varchar("surgeon_phone").notNull(),
-  
+  // Optional FK populated by portal-submitted requests; null on legacy public-form rows
+  surgeonId: varchar("surgeon_id").references(() => users.id, { onDelete: "set null" }),
+
   // Surgery details
   surgeryName: varchar("surgery_name"), // Nullable for reservation-only requests
   surgeryDurationMinutes: integer("surgery_duration_minutes").notNull(),
