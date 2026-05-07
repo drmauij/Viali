@@ -415,4 +415,70 @@ router.post(
   },
 );
 
+/**
+ * GET /api/surgeon-portal/:token/me
+ * Returns the authenticated surgeon's basic profile (id, name, email, isPraxis).
+ * Used by the in-portal surgery-request form to know whether to show the
+ * "Operating surgeon" picker (for praxes) and to resolve the default surgeonId.
+ */
+router.get(
+  "/api/surgeon-portal/:token/me",
+  requireSurgeonSession,
+  async (req: Request, res: Response) => {
+    try {
+      const email = ((req as any).surgeonEmail as string).toLowerCase();
+      const [u] = await db
+        .select()
+        .from(users)
+        .where(sql`LOWER(${users.email}) = ${email}`)
+        .limit(1);
+      if (!u) return res.status(404).json({ message: "Not found" });
+      res.json({
+        id: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        email: u.email,
+        isPraxis: u.isPraxis,
+      });
+    } catch (error) {
+      logger.error("Error in /me:", error);
+      res.status(500).json({ message: "Failed" });
+    }
+  },
+);
+
+/**
+ * GET /api/surgeon-portal/:token/children
+ * For praxis users, returns the list of child surgeons (parent_surgeon_id = me.id).
+ * For non-praxis users, returns an empty array.
+ */
+router.get(
+  "/api/surgeon-portal/:token/children",
+  requireSurgeonSession,
+  async (req: Request, res: Response) => {
+    try {
+      const email = ((req as any).surgeonEmail as string).toLowerCase();
+      const [u] = await db
+        .select()
+        .from(users)
+        .where(sql`LOWER(${users.email}) = ${email}`)
+        .limit(1);
+      if (!u) return res.status(404).json({ message: "Not found" });
+      if (!u.isPraxis) return res.json([]);
+      const { getChildrenOfPraxis } = await import("../storage/surgeonPortal");
+      const children = await getChildrenOfPraxis(u.id);
+      res.json(
+        children.map((c: any) => ({
+          id: c.id,
+          firstName: c.firstName,
+          lastName: c.lastName,
+        })),
+      );
+    } catch (error) {
+      logger.error("Error in /children:", error);
+      res.status(500).json({ message: "Failed" });
+    }
+  },
+);
+
 export default router;

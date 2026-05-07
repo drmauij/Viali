@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import { useParams } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,9 @@ import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
+import { SurgeryRequestForm, type AvailableSurgeon } from "@/components/surgery/SurgeryRequestForm";
 import {
   InputOTP,
   InputOTPGroup,
@@ -101,6 +105,40 @@ const translations: Record<string, Record<string, string>> = {
     downloadFailed: "Fehler beim Herunterladen. Bitte versuchen Sie es erneut.",
     newRequest: "Neue OP-Anfrage stellen",
     logout: "Abmelden",
+    // Surgery request form (in-portal)
+    operatingSurgeon: "Operierender Chirurg",
+    selectSurgeon: "Chirurg auswählen",
+    requestSubmitted: "Anfrage erfolgreich übermittelt",
+    requestSubmissionFailed: "Übermittlung fehlgeschlagen",
+    surgeonDetails: "Chirurg",
+    firstName: "Vorname",
+    lastName: "Nachname",
+    email: "E-Mail",
+    phone: "Telefon",
+    reservationOnly: "Nur Slot-Reservierung",
+    reservationOnlyDesc: "OP-Slot ohne Patientendetails reservieren — Patientendaten in einer separaten Anfrage nachreichen.",
+    surgeryName: "Eingriff",
+    wishedDate: "Gewünschtes Datum",
+    durationMinutes: "Dauer (Minuten)",
+    coverageType: "Kostenträger",
+    coverageTypePlaceholder: "Bitte auswählen",
+    coverageSelbstzahler: "Selbstzahler",
+    coverageKrankenkasse: "Krankenkasse",
+    stayType: "Aufenthaltsart",
+    stayTypePlaceholder: "Bitte auswählen",
+    stayAmbulant: "Ambulant",
+    stayOvernight: "Stationär",
+    diagnosis: "Diagnose",
+    withAnesthesia: "Mit Anästhesie",
+    anesthesiaNotes: "Anästhesie-Hinweise",
+    surgeryNotes: "Bemerkungen zum Eingriff",
+    patientInformation: "Patient",
+    birthday: "Geburtsdatum",
+    optional: "optional",
+    street: "Straße",
+    postalCode: "PLZ",
+    city: "Ort",
+    backToCalendar: "Zurück zur Übersicht",
   },
   en: {
     // Gate
@@ -153,6 +191,40 @@ const translations: Record<string, Record<string, string>> = {
     downloadFailed: "Download failed. Please try again.",
     newRequest: "Submit new surgery request",
     logout: "Logout",
+    // Surgery request form (in-portal)
+    operatingSurgeon: "Operating surgeon",
+    selectSurgeon: "Select surgeon",
+    requestSubmitted: "Request submitted successfully",
+    requestSubmissionFailed: "Submission failed",
+    surgeonDetails: "Surgeon",
+    firstName: "First name",
+    lastName: "Last name",
+    email: "Email",
+    phone: "Phone",
+    reservationOnly: "Reserve time slot only",
+    reservationOnlyDesc: "Book OR time without patient details — submit patient information in a separate follow-up request.",
+    surgeryName: "Surgery",
+    wishedDate: "Preferred date",
+    durationMinutes: "Duration (minutes)",
+    coverageType: "Coverage type",
+    coverageTypePlaceholder: "Please select",
+    coverageSelbstzahler: "Self-pay",
+    coverageKrankenkasse: "Insurance",
+    stayType: "Stay type",
+    stayTypePlaceholder: "Please select",
+    stayAmbulant: "Outpatient",
+    stayOvernight: "Inpatient",
+    diagnosis: "Diagnosis",
+    withAnesthesia: "With anesthesia",
+    anesthesiaNotes: "Anesthesia notes",
+    surgeryNotes: "Surgery notes",
+    patientInformation: "Patient",
+    birthday: "Date of birth",
+    optional: "optional",
+    street: "Street",
+    postalCode: "Postal code",
+    city: "City",
+    backToCalendar: "Back to overview",
   },
 };
 
@@ -607,7 +679,15 @@ function ActionRequestDialog({ open, onOpenChange, type, surgery, token, lang, o
 function SurgeonPortalContent({ token }: { token: string }) {
   const [lang, setLang] = useState(() => localStorage.getItem("portal_lang_surgeon") || "de");
   const t = translations[lang] || translations.de;
+  // Stable t() helper passed down to the shared form (which expects a
+  // function). Falls back to the German map (which holds every key) so a
+  // missing EN translation never crashes the form.
+  const tFn = useCallback(
+    (key: string) => t[key] ?? translations.de[key] ?? key,
+    [t],
+  );
   const dateLocale = lang === "de" ? de : enUS;
+  const { toast } = useToast();
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [surgeries, setSurgeries] = useState<Surgery[]>([]);
@@ -615,6 +695,68 @@ function SurgeonPortalContent({ token }: { token: string }) {
   const [hospitalName, setHospitalName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [view, setView] = useState<"calendar" | "newRequest">("calendar");
+
+  // /me + /children for the in-portal surgery request form
+  const { data: me } = useQuery<{
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+    isPraxis: boolean;
+  }>({
+    queryKey: [`/api/surgeon-portal/${token}/me`],
+  });
+
+  const { data: children = [] } = useQuery<AvailableSurgeon[]>({
+    queryKey: [`/api/surgeon-portal/${token}/children`],
+    enabled: !!me?.isPraxis,
+  });
+
+  const availableSurgeons = useMemo<AvailableSurgeon[]>(
+    () =>
+      me
+        ? [{ id: me.id, firstName: me.firstName, lastName: me.lastName }, ...children]
+        : [],
+    [me, children],
+  );
+
+  const [selectedSurgeonId, setSelectedSurgeonId] = useState("");
+  useEffect(() => {
+    if (availableSurgeons.length > 0 && !selectedSurgeonId) {
+      setSelectedSurgeonId(availableSurgeons[0].id);
+    }
+  }, [availableSurgeons, selectedSurgeonId]);
+
+  const submitRequest = useMutation({
+    mutationFn: async (values: Record<string, any>) => {
+      const res = await fetch(`/api/surgeon-portal/${token}/requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ...values, surgeonId: selectedSurgeonId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message ?? tFn("requestSubmissionFailed"));
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: tFn("requestSubmitted") });
+      queryClient.invalidateQueries({
+        queryKey: [`/api/surgeon-portal/${token}/surgeries`],
+      });
+      setView("calendar");
+    },
+    onError: (e: Error) => {
+      toast({
+        title: tFn("requestSubmissionFailed"),
+        description: e.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   // Action dialog state
   const [actionDialog, setActionDialog] = useState<{
@@ -779,17 +921,54 @@ function SurgeonPortalContent({ token }: { token: string }) {
         </div>
       </div>
 
-      {/* Link to surgery request form */}
+      {/* New surgery request toggle */}
       <div className="max-w-2xl mx-auto px-4 pt-4">
-        <a
-          href={`/external-surgery/${token}`}
-          className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
-        >
-          <Plus className="h-4 w-4" />
-          {t.newRequest}
-        </a>
+        {view === "calendar" ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-sm"
+            onClick={() => setView("newRequest")}
+            data-testid="button-new-request"
+          >
+            <Plus className="h-4 w-4 mr-1.5" />
+            {t.newRequest}
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-sm"
+            onClick={() => setView("calendar")}
+            data-testid="button-back-to-calendar"
+          >
+            <ChevronLeft className="h-4 w-4 mr-1.5" />
+            {t.backToCalendar}
+          </Button>
+        )}
       </div>
 
+      {view === "newRequest" ? (
+        <div className="max-w-2xl mx-auto px-4 py-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">{t.newRequest}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SurgeryRequestForm
+                availableSurgeons={availableSurgeons}
+                selectedSurgeonId={selectedSurgeonId}
+                onSelectedSurgeonIdChange={setSelectedSurgeonId}
+                showSurgeonDetailsBlock={false}
+                t={tFn}
+                locale={lang === "de" ? "de" : "en"}
+                onSubmit={(values) => submitRequest.mutate(values)}
+                isSubmitting={submitRequest.isPending}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
         {/* Month navigation */}
         <div className="flex items-center justify-between">
@@ -985,6 +1164,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
           </>
         )}
       </div>
+      )}
 
       {/* Action dialog */}
       {actionDialog.surgery && (
