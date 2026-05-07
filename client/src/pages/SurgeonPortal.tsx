@@ -846,7 +846,9 @@ function SurgeonPortalContent({ token }: { token: string }) {
       const { attachedFiles, ...requestBody } = values;
       // Enum-constrained columns ("ambulant"/"overnight", "left"/"right"/"both",
       // patient/arm positions) reject "" — convert empty strings to null so the
-      // server-side Zod schema accepts the payload.
+      // server-side Zod schema accepts the payload. Same goes for date columns
+      // (Postgres rejects "" for `date`) — patientBirthday is nullable, so we
+      // send null when the patient block is unfilled (reservation-only mode).
       const cleaned = {
         ...requestBody,
         stayType: requestBody.stayType || null,
@@ -855,6 +857,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
         leftArmPosition: requestBody.leftArmPosition || null,
         rightArmPosition: requestBody.rightArmPosition || null,
         coverageType: requestBody.coverageType || null,
+        patientBirthday: requestBody.patientBirthday || null,
       };
       const res = await fetch(`/api/surgeon-portal/${token}/requests`, {
         method: "POST",
