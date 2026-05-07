@@ -7135,6 +7135,13 @@
   },
   "postopOrders": {
     "ordersAtAGlance": "Verordnungen",
+    "cards": {
+      "medications": "Medikation",
+      "monitoring": "Monitoring",
+      "labs": "Labor",
+      "tasks": "Aufgaben"
+    },
+    "aiPasteToggle": "KI-Paste Verordnungen…",
     "edit": "Bearbeiten",
     "postopTasks": "Postoperative Aufgaben",
     "overdue": "überfällig",

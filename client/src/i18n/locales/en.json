@@ -7034,6 +7034,13 @@
   },
   "postopOrders": {
     "ordersAtAGlance": "Orders at a Glance",
+    "cards": {
+      "medications": "Medications",
+      "monitoring": "Monitoring",
+      "labs": "Labs",
+      "tasks": "Tasks"
+    },
+    "aiPasteToggle": "AI paste orders…",
     "edit": "Edit",
     "postopTasks": "Postoperative Tasks",
     "overdue": "overdue",
