@@ -22,6 +22,7 @@ import { PostopOrdersEditor } from "@/components/anesthesia/postop/PostopOrdersE
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { PostopTasksPanel } from "@/components/anesthesia/postop/PostopTasksPanel";
 import { usePostopOrderSet } from "@/hooks/usePostopOrderSet";
+import { useMarkPostopEventDone } from "@/hooks/usePostopMedAdmin";
 import type { PostopOrderItem } from "@shared/postopOrderItems";
 import { medRefKey } from "@shared/postopMedicationVisibility";
 import { useDeviationAcks } from "@/hooks/usePostopDeviationAcks";
@@ -242,6 +243,7 @@ export default function Op() {
   const postopOrderSet = usePostopOrderSet(anesthesiaRecord?.id);
   const postopTemplates = usePostopOrderTemplates(activeHospital?.id);
   const deviationAcks = useDeviationAcks(anesthesiaRecord?.id);
+  const markPostopEventDone = useMarkPostopEventDone(anesthesiaRecord?.id ?? '');
 
   // Save handler for order sets — surfaces server validation errors
   // (e.g. unconfigured medications) as a toast. The new editor uses
@@ -1416,6 +1418,7 @@ export default function Op() {
                   isPacuMode={isPacuMode}
                   patientData={patient ? { birthday: (patient as any).birthday, sex: (patient as any).sex } : null}
                   patientCovariateData={{ weight: (preOpAssessment as any)?.weight ?? null, height: (preOpAssessment as any)?.height ?? null }}
+                  onMarkTaskDone={(taskId) => markPostopEventDone.mutate({ eventId: taskId })}
                   plannedTaskEvents={
                     (postopOrderSet.data?.plannedEvents ?? [])
                       .filter(e => e.kind === 'task' || e.kind === 'iv_fluid')

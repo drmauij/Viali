@@ -58,6 +58,7 @@ interface EventsSwimlaneProps {
   onEventEditDialogOpen: (event: EventComment) => void;
   onTimeMarkerEditDialogOpen: (marker: { index: number; marker: AnesthesiaTimeMarker }) => void;
   plannedTaskEvents?: PlannedTaskEvent[];
+  onMarkTaskDone?: (taskId: string) => void;
 }
 
 export function EventsSwimlane({
@@ -67,6 +68,7 @@ export function EventsSwimlane({
   onEventEditDialogOpen,
   onTimeMarkerEditDialogOpen,
   plannedTaskEvents = [],
+  onMarkTaskDone,
 }: EventsSwimlaneProps) {
   const {
     eventState,
@@ -535,16 +537,19 @@ export function EventsSwimlane({
           : task.status === 'missed' ? (isDark ? '#fcd34d' : '#92400e')
           : (isDark ? '#93c5fd' : '#1e40af');
 
+        const isClickable = task.status !== 'done' && !!onMarkTaskDone;
         return (
           <div
             key={`planned-task-${task.id}`}
-            className="absolute z-30 pointer-events-auto"
+            className={`absolute z-30 pointer-events-auto ${isClickable ? 'cursor-pointer' : ''}`}
             style={{
               left: leftPosition,
               top: `${eventsLane.top + 2}px`,
               height: `${Math.max(eventsLane.height - 4, 16)}px`,
             }}
-            title={`${task.title} (${task.status})`}
+            title={isClickable ? `${task.title} \u2014 click to mark done` : `${task.title} (${task.status})`}
+            onClick={isClickable ? (e) => { e.stopPropagation(); onMarkTaskDone(task.id); } : undefined}
+            data-testid={`planned-task-pill-${task.id}`}
           >
             <div
               className="flex items-center gap-1 px-1.5 rounded text-[10px] font-medium whitespace-nowrap"
