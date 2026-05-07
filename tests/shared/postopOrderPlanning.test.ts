@@ -71,11 +71,11 @@ describe('planEvents', () => {
     expect(events.map(e => e.plannedAt)).toEqual([anchor, anchor + 6 * HOUR, anchor + 12 * HOUR]);
   });
 
-  it('non-schedulable types produce no events', () => {
+  it('ad-hoc task subtypes produce no events', () => {
     const items: PostopOrderItem[] = [
-      { id: 'p1', type: 'positioning', value: 'supine' },
-      { id: 'n1', type: 'nutrition', value: 'vollkost' },
-      { id: 'f1', type: 'free_text', section: 'general', text: 'note' },
+      { id: 'p1', type: 'task', subtype: 'positioning', title: 'supine', timing: { mode: 'ad_hoc' } },
+      { id: 'n1', type: 'task', subtype: 'nutrition', title: 'vollkost', timing: { mode: 'ad_hoc' } },
+      { id: 'f1', type: 'task', subtype: 'note', title: 'general note', timing: { mode: 'ad_hoc' } },
     ];
     expect(planEvents(items, anchor, horizonH)).toEqual([]);
   });

@@ -69,7 +69,6 @@ const KIND_BY_TYPE: Record<string, PlannedEventKind> = {
   bz_sliding_scale: 'vitals_check',
   lab: 'task',
   task: 'task',
-  wound_care: 'task',
 };
 
 export function planEvents(
