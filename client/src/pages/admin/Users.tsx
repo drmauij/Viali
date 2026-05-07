@@ -1650,11 +1650,22 @@ export default function Users() {
       {/* Edit User Dialog */}
       <Dialog open={editUserDialogOpen} onOpenChange={setEditUserDialogOpen}>
         <DialogContent className="max-w-[92vw] sm:max-w-2xl max-h-[90dvh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="p-6 pb-2 shrink-0">
-            <DialogTitle>{t("admin.editUser")}</DialogTitle>
-            <DialogDescription>
-              {t("admin.editUserDescription")}
-            </DialogDescription>
+          <Tabs defaultValue="details" className="flex-1 flex flex-col overflow-hidden">
+          <DialogHeader className="p-6 pb-2 shrink-0 space-y-3">
+            <div>
+              <DialogTitle>{t("admin.editUser")}</DialogTitle>
+              <DialogDescription>
+                {t("admin.editUserDescription")}
+              </DialogDescription>
+            </div>
+            <TabsList className="self-start">
+              <TabsTrigger value="details" data-testid="tab-edit-user-details">
+                {t("admin.editTabDetails", "Details")}
+              </TabsTrigger>
+              <TabsTrigger value="roles" data-testid="tab-edit-user-roles">
+                {t("admin.editTabRoles", "Roles & Units")}
+              </TabsTrigger>
+            </TabsList>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 pb-6 space-y-4">
             <div className="space-y-4 py-1">
@@ -1666,15 +1677,6 @@ export default function Users() {
                   </Badge>
                 </div>
               )}
-              <Tabs defaultValue="details" className="space-y-4">
-                <TabsList>
-                  <TabsTrigger value="details" data-testid="tab-edit-user-details">
-                    {t("admin.editTabDetails", "Details")}
-                  </TabsTrigger>
-                  <TabsTrigger value="roles" data-testid="tab-edit-user-roles">
-                    {t("admin.editTabRoles", "Roles & Units")}
-                  </TabsTrigger>
-                </TabsList>
                 <TabsContent value="details" className="space-y-4 mt-0">
               {/* Email field */}
               <div>
@@ -2134,9 +2136,9 @@ export default function Users() {
                 </div>
               </div>
                 </TabsContent>
-              </Tabs>
             </div>
           </div>
+          </Tabs>
           <div className="flex gap-2 justify-end border-t pt-4 px-6 pb-6 shrink-0 bg-background">
             <Button variant="outline" onClick={() => setEditUserDialogOpen(false)}>
               {t("common.cancel")}
