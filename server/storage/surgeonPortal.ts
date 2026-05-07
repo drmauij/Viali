@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, sql, gte, lt, isNotNull } from "drizzle-orm";
+import { eq, and, sql, gte, lt, isNotNull, inArray } from "drizzle-orm";
 import {
   surgeries,
   surgeryRooms,
@@ -351,4 +351,77 @@ export async function getHospitalByExternalSurgeryToken(
     .limit(1);
 
   return hospital || null;
+}
+
+// ========== PRAXIS HELPERS ==========
+
+/**
+ * Return all users where parent_surgeon_id = praxisUserId.
+ * Caller is responsible for verifying praxisUserId actually has is_praxis=true.
+ */
+export async function getChildrenOfPraxis(praxisUserId: string) {
+  return await db
+    .select()
+    .from(users)
+    .where(eq(users.parentSurgeonId, praxisUserId));
+}
+
+/**
+ * Replace the set of children for a praxis. Rewrites parent_surgeon_id atomically:
+ *   - new children get parent_surgeon_id = praxisUserId
+ *   - previously-linked children NOT in the new set get parent_surgeon_id = null
+ * Throws if any candidate child has is_praxis=true (one-level only).
+ */
+export async function setPraxisChildren(
+  praxisUserId: string,
+  childUserIds: string[],
+) {
+  if (childUserIds.length > 0) {
+    const candidates = await db
+      .select({ id: users.id, isPraxis: users.isPraxis })
+      .from(users)
+      .where(inArray(users.id, childUserIds));
+
+    const praxisChildren = candidates.filter((c) => c.isPraxis);
+    if (praxisChildren.length > 0) {
+      throw new Error(
+        `User(s) ${praxisChildren.map((c) => c.id).join(", ")} cannot be a child — already a praxis`,
+      );
+    }
+  }
+
+  await db.transaction(async (tx) => {
+    // 1. Clear all current children of this praxis
+    await tx
+      .update(users)
+      .set({ parentSurgeonId: null })
+      .where(eq(users.parentSurgeonId, praxisUserId));
+
+    // 2. Set new children
+    if (childUserIds.length > 0) {
+      await tx
+        .update(users)
+        .set({ parentSurgeonId: praxisUserId })
+        .where(inArray(users.id, childUserIds));
+    }
+  });
+}
+
+/**
+ * Toggle is_praxis on a user. When turning OFF, refuses if children are still linked.
+ */
+export async function togglePraxis(userId: string, isPraxis: boolean) {
+  if (!isPraxis) {
+    const children = await getChildrenOfPraxis(userId);
+    if (children.length > 0) {
+      throw new Error(
+        `User ${userId} still has linked children — unlink them before disabling praxis`,
+      );
+    }
+  }
+
+  await db
+    .update(users)
+    .set({ isPraxis })
+    .where(eq(users.id, userId));
 }
