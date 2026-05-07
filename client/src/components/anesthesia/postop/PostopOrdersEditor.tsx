@@ -338,14 +338,47 @@ function ItemRow({ item, expanded, canEdit, hospitalId, hasOtherDraft, onClick, 
   );
 }
 
+const ROUTE_LABEL: Record<string, string> = {
+  po: 'p.o.',
+  iv: 'i.v.',
+  sc: 's.c.',
+  im: 'i.m.',
+};
+
+const FREQUENCY_SHORT: Record<string, string> = {
+  continuous: 'cont.',
+  q15min: 'q15m',
+  q30min: 'q30m',
+  q1h: 'q1h',
+  q2h: 'q2h',
+  q4h: 'q4h',
+  q6h: 'q6h',
+  q8h: 'q8h',
+  q12h: 'q12h',
+  q24h: 'q24h',
+  q48h: 'q48h',
+  weekly: 'weekly',
+  '2x_daily': '2×/d',
+  '3x_daily': '3×/d',
+  '4x_daily': '4×/d',
+  oral_1_0_0: '1-0-0',
+  oral_1_0_1: '1-0-1',
+  oral_1_1_1: '1-1-1',
+  oral_1_1_1_1: '1-1-1-1',
+};
+
 function summarize(item: PostopOrderItem): string {
   switch (item.type) {
-    case 'medication':        return `${item.medicationRef || '—'} ${item.dose} ${item.route}`;
+    case 'medication':        return `${item.medicationRef || '—'} ${item.dose} ${ROUTE_LABEL[item.route] ?? item.route}`;
     case 'iv_fluid':          return `${item.solution} ${item.volumeMl}ml`;
     case 'bz_sliding_scale':  return `BG sliding scale (${item.drug})`;
     case 'vitals_monitoring': return item.parameter;
     case 'lab':               return item.panel.join(', ') || '—';
-    case 'task':              return `${item.subtype !== 'generic' ? `[${item.subtype}] ` : ''}${item.title || '—'}`;
+    case 'task': {
+      const sub = item.subtype;
+      const prefix = sub && sub !== 'generic' ? `[${sub}] ` : '';
+      return `${prefix}${item.title || '—'}`;
+    }
   }
 }
 
@@ -355,6 +388,6 @@ function summarizeMeta(item: PostopOrderItem): string {
   if (t.mode === 'ad_hoc') return 'PRN';
   if (t.mode === 'conditional') return 'cond.';
   if (t.mode === 'one_shot') return '1×';
-  if (t.mode === 'scheduled') return t.frequency ?? 'sched';
+  if (t.mode === 'scheduled') return t.frequency ? (FREQUENCY_SHORT[t.frequency] ?? t.frequency) : 'sched';
   return '';
 }
