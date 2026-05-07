@@ -387,14 +387,18 @@ router.post(
         }
       }
 
+      // Spread the body FIRST, then overwrite the surgeon-* fields with the
+      // authoritative values from the resolved targetSurgeon. The form's
+      // SurgeryRequestFormValues default these to "" — without this ordering,
+      // the form's empties would clobber the real surgeon name/email/phone.
       const requestPayload = {
+        ...rest,
         hospitalId: hospital.id,
         surgeonId: targetSurgeon.id,
         surgeonFirstName: targetSurgeon.firstName ?? "",
         surgeonLastName: targetSurgeon.lastName ?? "",
         surgeonEmail: targetSurgeon.email ?? "",
         surgeonPhone: targetSurgeon.phone ?? "",
-        ...rest,
       };
 
       const parsed = insertExternalSurgeryRequestSchema.safeParse(requestPayload);
@@ -413,7 +417,9 @@ router.post(
       return res.status(201).json(created);
     } catch (error) {
       logger.error("[SurgeonPortal] Error creating surgeon-portal request:", error);
-      return res.status(500).json({ message: "Failed to create request" });
+      const message =
+        error instanceof Error ? error.message : "Failed to create request";
+      return res.status(500).json({ message });
     }
   },
 );

@@ -864,7 +864,14 @@ function SurgeonPortalContent({ token }: { token: string }) {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message ?? tFn("requestSubmissionFailed"));
+        // Surface field-level Zod errors when present so 400s say what's wrong.
+        const fieldErrors = err.errors?.fieldErrors
+          ? Object.entries(err.errors.fieldErrors)
+              .map(([k, v]) => `${k}: ${(v as string[]).join(", ")}`)
+              .join("; ")
+          : null;
+        const detail = fieldErrors || err.message || tFn("requestSubmissionFailed");
+        throw new Error(detail);
       }
       const created = (await res.json()) as { id: string };
 
