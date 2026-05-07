@@ -73,6 +73,7 @@ const updateUserRoleSchema = z.object({
 const updateUserAccessSchema = z.object({
   canLogin: z.boolean().optional(),
   staffType: z.enum(['internal', 'external']).optional(),
+  isPraxis: z.boolean().optional(),
   hospitalId: z.string(),
 });
 
@@ -1078,7 +1079,7 @@ router.patch('/api/admin/users/:userId/access', isAuthenticated, requireWriteAcc
       return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten().fieldErrors });
     }
 
-    const { canLogin, staffType, hospitalId } = parsed.data;
+    const { canLogin, staffType, isPraxis, hospitalId } = parsed.data;
 
     // Check admin access
     const currentUserId = req.user.id;
@@ -1102,21 +1103,25 @@ router.patch('/api/admin/users/:userId/access', isAuthenticated, requireWriteAcc
     }
 
     // Build update object
-    const updateData: { canLogin?: boolean; staffType?: 'internal' | 'external' } = {};
+    const updateData: { canLogin?: boolean; staffType?: 'internal' | 'external'; isPraxis?: boolean } = {};
     if (canLogin !== undefined) {
       updateData.canLogin = canLogin;
     }
     if (staffType !== undefined) {
       updateData.staffType = staffType as 'internal' | 'external';
     }
+    if (isPraxis !== undefined) {
+      updateData.isPraxis = isPraxis;
+    }
 
     // Update user
     await db.update(users).set(updateData).where(eq(users.id, userId));
 
-    res.json({ 
-      success: true, 
-      canLogin: canLogin ?? targetUser.canLogin, 
-      staffType: staffType ?? targetUser.staffType
+    res.json({
+      success: true,
+      canLogin: canLogin ?? targetUser.canLogin,
+      staffType: staffType ?? targetUser.staffType,
+      isPraxis: isPraxis ?? targetUser.isPraxis,
     });
   } catch (error) {
     logger.error("Error updating user access settings:", error);

@@ -539,10 +539,11 @@ export default function Users() {
 
   // Update user access settings mutation
   const updateUserAccessMutation = useMutation({
-    mutationFn: async ({ userId, canLogin, staffType }: { userId: string; canLogin?: boolean; staffType?: string }) => {
+    mutationFn: async ({ userId, canLogin, staffType, isPraxis }: { userId: string; canLogin?: boolean; staffType?: string; isPraxis?: boolean }) => {
       const response = await apiRequest("PATCH", `/api/admin/users/${userId}/access`, {
         canLogin,
         staffType,
+        isPraxis,
         hospitalId: activeHospital?.id,
       });
       return await response.json();
@@ -1844,34 +1845,6 @@ export default function Users() {
               <div className="border-t pt-4">
                 <Label className="text-base font-semibold mb-3 block">{t("admin.accessSettings")}</Label>
                 <div className="space-y-4">
-                  {/* Can Login Toggle */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {editingUserDetails?.canLogin !== false ? (
-                        <UserCheck className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <UserX className="h-4 w-4 text-destructive" />
-                      )}
-                      <Label htmlFor="can-login" className="text-sm font-normal">
-                        {t("admin.canLogin")}
-                      </Label>
-                    </div>
-                    <Switch
-                      id="can-login"
-                      checked={editingUserDetails?.canLogin !== false}
-                      onCheckedChange={(checked) => {
-                        if (editingUserDetails) {
-                          updateUserAccessMutation.mutate({
-                            userId: editingUserDetails.id,
-                            canLogin: checked,
-                          });
-                        }
-                      }}
-                      disabled={updateUserAccessMutation.isPending}
-                      data-testid="switch-can-login"
-                    />
-                  </div>
-                  
                   {/* Staff Type Dropdown */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -1906,10 +1879,37 @@ export default function Users() {
                     </Select>
                   </div>
 
-                  {/* Praxis (multi-doctor practice) toggle. Saved with the rest
-                      of the form via the /details mutation; the children
-                      multi-select appears below when enabled (only on existing
-                      users since it needs a saved id). */}
+                  {/* Can Login Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {editingUserDetails?.canLogin !== false ? (
+                        <UserCheck className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <UserX className="h-4 w-4 text-destructive" />
+                      )}
+                      <Label htmlFor="can-login" className="text-sm font-normal">
+                        {t("admin.canLogin")}
+                      </Label>
+                    </div>
+                    <Switch
+                      id="can-login"
+                      checked={editingUserDetails?.canLogin !== false}
+                      onCheckedChange={(checked) => {
+                        if (editingUserDetails) {
+                          updateUserAccessMutation.mutate({
+                            userId: editingUserDetails.id,
+                            canLogin: checked,
+                          });
+                        }
+                      }}
+                      disabled={updateUserAccessMutation.isPending}
+                      data-testid="switch-can-login"
+                    />
+                  </div>
+
+                  {/* Praxis (multi-doctor practice) toggle. Saved immediately
+                      via the access mutation so the children multi-select
+                      below has a persisted isPraxis=true to validate against. */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Stethoscope className={`h-4 w-4 ${editingUserDetails?.isPraxis ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -1923,8 +1923,13 @@ export default function Users() {
                       onCheckedChange={(checked) => {
                         if (editingUserDetails) {
                           setEditingUserDetails({ ...editingUserDetails, isPraxis: checked });
+                          updateUserAccessMutation.mutate({
+                            userId: editingUserDetails.id,
+                            isPraxis: checked,
+                          });
                         }
                       }}
+                      disabled={updateUserAccessMutation.isPending}
                       data-testid="switch-is-praxis"
                     />
                   </div>
