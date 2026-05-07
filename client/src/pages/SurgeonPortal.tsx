@@ -32,6 +32,7 @@ import {
   RefreshCw,
   PauseCircle,
   Clock,
+  CheckCircle2,
   LogOut,
   Download,
 } from "lucide-react";
@@ -140,6 +141,10 @@ const translations: Record<string, Record<string, string>> = {
     city: "Ort",
     backToCalendar: "Zurück zur Übersicht",
     calendarTab: "Kalender",
+    requestConfirmedTitle: "Anfrage gesendet",
+    requestConfirmedDesc: "Ihre Anfrage wurde an die Klinik übermittelt. Sie erhalten eine Antwort, sobald der Termin geprüft wurde.",
+    submitAnother: "Weitere Anfrage stellen",
+    goToCalendar: "Zum Kalender",
     // Accordion sections
     "accordion.surgeon": "Operierender Chirurg",
     "accordion.surgery": "Eingriff & Termin",
@@ -253,6 +258,10 @@ const translations: Record<string, Record<string, string>> = {
     city: "City",
     backToCalendar: "Back to overview",
     calendarTab: "Calendar",
+    requestConfirmedTitle: "Request submitted",
+    requestConfirmedDesc: "Your request has been sent to the clinic. You'll get a reply once the slot has been reviewed.",
+    submitAnother: "Submit another request",
+    goToCalendar: "Go to calendar",
     // Accordion sections
     "accordion.surgeon": "Operating surgeon",
     "accordion.surgery": "Surgery & schedule",
@@ -750,6 +759,11 @@ function SurgeonPortalContent({ token }: { token: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [view, setView] = useState<"calendar" | "newRequest">("calendar");
+  // Captures the values of the most-recently-submitted request so we can show
+  // a confirmation card on the New Request tab. Cleared by "Submit another"
+  // (resets form) or by clicking the Calendar tab.
+  const [submittedSummary, setSubmittedSummary] =
+    useState<SurgeryRequestFormValues | null>(null);
 
   // /me + /children for the in-portal surgery request form
   const { data: me } = useQuery<{
@@ -901,12 +915,15 @@ function SurgeonPortalContent({ token }: { token: string }) {
       }
       return created;
     },
-    onSuccess: () => {
-      toast({ title: tFn("requestSubmitted") });
+    onSuccess: (_data, variables) => {
+      // No more auto-switch + toast — the New Request tab now shows a
+      // confirmation card and lets the surgeon either start another or
+      // jump to the calendar. The list query still refreshes in the
+      // background so the calendar tab is up-to-date when they click over.
+      setSubmittedSummary(variables);
       queryClient.invalidateQueries({
         queryKey: [`/api/surgeon-portal/${token}/surgeries`],
       });
-      setView("calendar");
     },
     onError: (e: Error) => {
       toast({
@@ -1080,7 +1097,16 @@ function SurgeonPortalContent({ token }: { token: string }) {
         </div>
       </div>
 
-      <Tabs value={view} onValueChange={(v) => setView(v as "calendar" | "newRequest")} className="w-full">
+      <Tabs
+        value={view}
+        onValueChange={(v) => {
+          // Leaving the New Request tab clears the confirmation card so
+          // returning later opens a fresh form instead of stale success state.
+          setSubmittedSummary(null);
+          setView(v as "calendar" | "newRequest");
+        }}
+        className="w-full"
+      >
         <div className="max-w-2xl mx-auto px-4 pt-4">
           <TabsList className="grid grid-cols-2 w-full">
             <TabsTrigger value="calendar" data-testid="tab-calendar">{t.calendarTab}</TabsTrigger>
@@ -1090,25 +1116,81 @@ function SurgeonPortalContent({ token }: { token: string }) {
 
         <TabsContent value="newRequest" className="mt-0">
           <div className="max-w-2xl mx-auto px-4 py-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">{t.newRequest}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <SurgeryRequestForm
-                  availableSurgeons={availableSurgeons}
-                  selectedSurgeonId={selectedSurgeonId}
-                  onSelectedSurgeonIdChange={setSelectedSurgeonId}
-                  showSurgeonPicker={showSurgeonPicker}
-                  showSurgeonDetailsBlock={false}
-                  t={tFn}
-                  locale={lang === "de" ? "de" : "en"}
-                  onSubmit={(values) => submitRequest.mutate(values)}
-                  isSubmitting={submitRequest.isPending}
-                  uploadFile={uploadFile}
-                />
-              </CardContent>
-            </Card>
+            {submittedSummary ? (
+              <Card data-testid="card-request-confirmation">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                    {tFn("requestConfirmedTitle")}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    {tFn("requestConfirmedDesc")}
+                  </p>
+                  <dl className="text-sm space-y-1">
+                    {submittedSummary.surgeryName && (
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">{tFn("surgeryName")}</dt>
+                        <dd className="font-medium text-right truncate">
+                          {submittedSummary.surgeryName}
+                        </dd>
+                      </div>
+                    )}
+                    {submittedSummary.wishedDate && (
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">{tFn("wishedDate")}</dt>
+                        <dd className="font-medium">{submittedSummary.wishedDate}</dd>
+                      </div>
+                    )}
+                    {submittedSummary.isReservationOnly && (
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">{tFn("reservationOnly")}</dt>
+                        <dd className="font-medium">✓</dd>
+                      </div>
+                    )}
+                  </dl>
+                  <div className="flex flex-col sm:flex-row gap-2 sm:justify-end pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSubmittedSummary(null);
+                        setView("calendar");
+                      }}
+                      data-testid="button-go-to-calendar"
+                    >
+                      {tFn("goToCalendar")}
+                    </Button>
+                    <Button
+                      onClick={() => setSubmittedSummary(null)}
+                      data-testid="button-submit-another"
+                    >
+                      {tFn("submitAnother")}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">{t.newRequest}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <SurgeryRequestForm
+                    availableSurgeons={availableSurgeons}
+                    selectedSurgeonId={selectedSurgeonId}
+                    onSelectedSurgeonIdChange={setSelectedSurgeonId}
+                    showSurgeonPicker={showSurgeonPicker}
+                    showSurgeonDetailsBlock={false}
+                    t={tFn}
+                    locale={lang === "de" ? "de" : "en"}
+                    onSubmit={(values) => submitRequest.mutate(values)}
+                    isSubmitting={submitRequest.isPending}
+                    uploadFile={uploadFile}
+                  />
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
