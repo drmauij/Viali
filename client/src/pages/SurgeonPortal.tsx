@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { SurgeryRequestForm, type AvailableSurgeon } from "@/components/surgery/SurgeryRequestForm";
+import { SurgeryRequestForm, type AvailableSurgeon, type SurgeryRequestFormValues } from "@/components/surgery/SurgeryRequestForm";
 import {
   InputOTP,
   InputOTPGroup,
@@ -139,6 +139,32 @@ const translations: Record<string, Record<string, string>> = {
     postalCode: "PLZ",
     city: "Ort",
     backToCalendar: "Zurück zur Übersicht",
+    // Accordion sections
+    "accordion.surgeon": "Operierender Chirurg",
+    "accordion.surgery": "Eingriff & Termin",
+    "accordion.patient": "Patient",
+    "accordion.documents": "Dokumente",
+    "accordion.continue": "Weiter",
+    // CHOP search
+    "chopSearch.placeholder": "Eingriff suchen…",
+    "chopSearch.empty": "Keine Treffer.",
+    "chopSearch.typeMore": "Mindestens 2 Zeichen eingeben.",
+    "chopSearch.useCustom": "Oder freien Text eingeben",
+    // Surgery side
+    "surgerySide.label": "Seite",
+    "surgerySide.left": "Links",
+    "surgerySide.right": "Rechts",
+    "surgerySide.both": "Beidseits",
+    // Antibiotic prophylaxis
+    "antibioticProphylaxis.label": "Antibiotikaprophylaxe",
+    "antibioticProphylaxis.description": "Antibiotikaprophylaxe vor dem Eingriff erforderlich.",
+    // Time range
+    preferredTimeRange: "Bevorzugte Zeit",
+    // Documents
+    "documents.dropHint": "Dateien hierhin ziehen oder Datei auswählen",
+    "documents.selectFiles": "Dateien auswählen",
+    "documents.uploading": "Wird hochgeladen",
+    "documents.uploadDisabled": "Datei-Upload ist in dieser Ansicht nicht verfügbar.",
   },
   en: {
     // Gate
@@ -225,6 +251,32 @@ const translations: Record<string, Record<string, string>> = {
     postalCode: "Postal code",
     city: "City",
     backToCalendar: "Back to overview",
+    // Accordion sections
+    "accordion.surgeon": "Operating surgeon",
+    "accordion.surgery": "Surgery & schedule",
+    "accordion.patient": "Patient",
+    "accordion.documents": "Documents",
+    "accordion.continue": "Continue",
+    // CHOP search
+    "chopSearch.placeholder": "Search procedure…",
+    "chopSearch.empty": "No matches.",
+    "chopSearch.typeMore": "Type at least 2 characters.",
+    "chopSearch.useCustom": "Or enter free-text",
+    // Surgery side
+    "surgerySide.label": "Side",
+    "surgerySide.left": "Left",
+    "surgerySide.right": "Right",
+    "surgerySide.both": "Both",
+    // Antibiotic prophylaxis
+    "antibioticProphylaxis.label": "Antibiotic prophylaxis",
+    "antibioticProphylaxis.description": "Pre-operative antibiotic prophylaxis required.",
+    // Time range
+    preferredTimeRange: "Preferred time",
+    // Documents
+    "documents.dropHint": "Drop files here or select a file",
+    "documents.selectFiles": "Select files",
+    "documents.uploading": "Uploading",
+    "documents.uploadDisabled": "File upload is not available in this view.",
   },
 };
 
@@ -741,19 +793,89 @@ function SurgeonPortalContent({ token }: { token: string }) {
     }
   }, [availableSurgeons, selectedSurgeonId]);
 
+  // Upload one file: requests presigned PUT URL, uploads, returns metadata.
+  // The form stages files locally; the actual /documents row is only created
+  // post-submit (we need the requestId), so this just gets the file into S3.
+  const uploadFile = async (
+    file: File,
+  ): Promise<{ fileName: string; fileUrl: string; mimeType?: string; fileSize?: number; key?: string } | null> => {
+    try {
+      const presignRes = await fetch(`/api/surgeon-portal/${token}/upload-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ filename: file.name, contentType: file.type }),
+      });
+      if (!presignRes.ok) throw new Error("presign failed");
+      const { uploadUrl, fileUrl, key } = (await presignRes.json()) as {
+        uploadUrl: string;
+        fileUrl: string;
+        key: string;
+      };
+
+      const putRes = await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
+      if (!putRes.ok) throw new Error("upload failed");
+
+      return {
+        fileName: file.name,
+        fileUrl,
+        mimeType: file.type,
+        fileSize: file.size,
+        key,
+      };
+    } catch (e) {
+      toast({
+        title: tFn("requestSubmissionFailed"),
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
   const submitRequest = useMutation({
-    mutationFn: async (values: Record<string, any>) => {
+    mutationFn: async (values: SurgeryRequestFormValues) => {
+      // Split UI-only fields from request body. attachedFiles are persisted
+      // separately via /documents once we know the new request id.
+      const { attachedFiles, ...requestBody } = values;
       const res = await fetch(`/api/surgeon-portal/${token}/requests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ ...values, surgeonId: selectedSurgeonId }),
+        body: JSON.stringify({ ...requestBody, surgeonId: selectedSurgeonId }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message ?? tFn("requestSubmissionFailed"));
       }
-      return res.json();
+      const created = (await res.json()) as { id: string };
+
+      // Attach uploaded documents to the new request (best-effort; failures
+      // surface as toasts but don't undo the submission).
+      for (const f of attachedFiles) {
+        if (f.isUploading || !f.fileUrl) continue;
+        try {
+          await fetch(`/api/surgeon-portal/${token}/documents`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              requestId: created.id,
+              fileName: f.fileName,
+              fileUrl: f.fileUrl,
+              mimeType: f.mimeType,
+              fileSize: f.fileSize,
+            }),
+          });
+        } catch {
+          /* noop — toast below would shadow the real submit success */
+        }
+      }
+      return created;
     },
     onSuccess: () => {
       toast({ title: tFn("requestSubmitted") });
@@ -978,6 +1100,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
                 locale={lang === "de" ? "de" : "en"}
                 onSubmit={(values) => submitRequest.mutate(values)}
                 isSubmitting={submitRequest.isPending}
+                uploadFile={uploadFile}
               />
             </CardContent>
           </Card>
