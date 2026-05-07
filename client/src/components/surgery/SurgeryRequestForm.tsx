@@ -246,10 +246,12 @@ export function SurgeryRequestForm({
     const surgery = (() => {
       if (!values.wishedDate) return false;
       if (values.surgeryDurationMinutes < 5 || values.surgeryDurationMinutes > 720) return false;
-      if (!values.coverageType) return false;
-      if (!values.stayType) return false;
+      // Coverage / stay type / surgery name / diagnosis are only relevant for
+      // full requests — pure slot reservations skip them entirely.
       if (!values.isReservationOnly) {
         if (!values.surgeryName) return false;
+        if (!values.coverageType) return false;
+        if (!values.stayType) return false;
         if (values.coverageType === "Krankenkasse" && !values.diagnosis) return false;
       }
       return true;
@@ -297,18 +299,31 @@ export function SurgeryRequestForm({
   // ─── Accordion open-state ───────────────────────────────────────────
   const [openSection, setOpenSection] = useState<SectionKey>("surgeon");
 
+  // If the user toggles reservation-only while a now-hidden section is open
+  // (patient/documents), fall back to the surgery section.
+  useEffect(() => {
+    if (values.isReservationOnly && (openSection === "patient" || openSection === "documents")) {
+      setOpenSection("surgery");
+    }
+  }, [values.isReservationOnly, openSection]);
+
+  // Sections visible in the current mode. Reservation-only collapses the form
+  // down to surgeon + surgery — there's no patient and no documents to attach
+  // since this is just a placeholder slot.
+  const visibleSections: SectionKey[] = values.isReservationOnly
+    ? ["surgeon", "surgery"]
+    : ["surgeon", "surgery", "patient", "documents"];
+
   const advanceFrom = (current: SectionKey) => {
-    const order: SectionKey[] = ["surgeon", "surgery", "patient", "documents"];
-    const i = order.indexOf(current);
-    for (let j = i + 1; j < order.length; j++) {
-      const k = order[j];
+    const i = visibleSections.indexOf(current);
+    for (let j = i + 1; j < visibleSections.length; j++) {
+      const k = visibleSections[j];
       if (!sectionValidity[k]) {
         setOpenSection(k);
         return;
       }
     }
-    // All later sections valid → just open the next one for review
-    if (i + 1 < order.length) setOpenSection(order[i + 1]);
+    if (i + 1 < visibleSections.length) setOpenSection(visibleSections[i + 1]);
   };
 
   // ─── CHOP search ────────────────────────────────────────────────────
@@ -673,37 +688,41 @@ export function SurgeryRequestForm({
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="coverageType">{t("coverageType")} *</Label>
-                <Select
-                  value={values.coverageType || undefined}
-                  onValueChange={(v) => update("coverageType", v)}
-                >
-                  <SelectTrigger id="coverageType" data-testid="select-coverage-type">
-                    <SelectValue placeholder={t("coverageTypePlaceholder")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Selbstzahler">{t("coverageSelbstzahler")}</SelectItem>
-                    <SelectItem value="Krankenkasse">{t("coverageKrankenkasse")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {!values.isReservationOnly && (
+                <div className="space-y-2">
+                  <Label htmlFor="coverageType">{t("coverageType")} *</Label>
+                  <Select
+                    value={values.coverageType || undefined}
+                    onValueChange={(v) => update("coverageType", v)}
+                  >
+                    <SelectTrigger id="coverageType" data-testid="select-coverage-type">
+                      <SelectValue placeholder={t("coverageTypePlaceholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Selbstzahler">{t("coverageSelbstzahler")}</SelectItem>
+                      <SelectItem value="Krankenkasse">{t("coverageKrankenkasse")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
-              <div className="space-y-2">
-                <Label htmlFor="stayType">{t("stayType")} *</Label>
-                <Select
-                  value={values.stayType || undefined}
-                  onValueChange={(v) => update("stayType", v as "ambulant" | "overnight")}
-                >
-                  <SelectTrigger id="stayType" data-testid="select-stay-type">
-                    <SelectValue placeholder={t("stayTypePlaceholder")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ambulant">{t("stayAmbulant")}</SelectItem>
-                    <SelectItem value="overnight">{t("stayOvernight")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {!values.isReservationOnly && (
+                <div className="space-y-2">
+                  <Label htmlFor="stayType">{t("stayType")} *</Label>
+                  <Select
+                    value={values.stayType || undefined}
+                    onValueChange={(v) => update("stayType", v as "ambulant" | "overnight")}
+                  >
+                    <SelectTrigger id="stayType" data-testid="select-stay-type">
+                      <SelectValue placeholder={t("stayTypePlaceholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ambulant">{t("stayAmbulant")}</SelectItem>
+                      <SelectItem value="overnight">{t("stayOvernight")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {!values.isReservationOnly && (
                 <div className="space-y-2">
@@ -768,27 +787,18 @@ export function SurgeryRequestForm({
           </AccordionContent>
         </AccordionItem>
 
-        {/* ─── Section 3: Patient details ──────────────────────────── */}
+        {/* ─── Section 3: Patient details (hidden in reservation-only mode) ── */}
+        {!values.isReservationOnly && (
         <AccordionItem value="patient">
           <AccordionTrigger>
             <span className="flex items-center gap-2">
               {sectionIcon("patient")}
               {t("accordion.patient")}
-              {values.isReservationOnly && (
-                <span className="text-xs text-muted-foreground">
-                  ({t("reservationOnly")})
-                </span>
-              )}
             </span>
           </AccordionTrigger>
           <AccordionContent>
             <div className="space-y-4 pt-2">
-              {values.isReservationOnly ? (
-                <p className="text-sm text-muted-foreground">
-                  {t("reservationOnlyDesc")}
-                </p>
-              ) : (
-                <>
+              <>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="patientFirstName">{t("firstName")} *</Label>
@@ -866,7 +876,6 @@ export function SurgeryRequestForm({
                     </div>
                   </div>
                 </>
-              )}
 
               <div className="flex justify-end">
                 <Button
@@ -881,8 +890,10 @@ export function SurgeryRequestForm({
             </div>
           </AccordionContent>
         </AccordionItem>
+        )}
 
-        {/* ─── Section 4: Documents ────────────────────────────────── */}
+        {/* ─── Section 4: Documents (hidden in reservation-only mode) ──── */}
+        {!values.isReservationOnly && (
         <AccordionItem value="documents">
           <AccordionTrigger>
             <span className="flex items-center gap-2">
@@ -966,6 +977,7 @@ export function SurgeryRequestForm({
             </div>
           </AccordionContent>
         </AccordionItem>
+        )}
       </Accordion>
 
       <div className="flex justify-end pt-2">
