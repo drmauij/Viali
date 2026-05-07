@@ -3,6 +3,9 @@ import logger from "../logger";
 import { storage } from "../storage";
 import { db } from "../db";
 import { eq, sql } from "drizzle-orm";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { randomUUID } from "crypto";
 import {
   users,
   externalSurgeryRequests,
@@ -411,6 +414,131 @@ router.post(
     } catch (error) {
       logger.error("[SurgeonPortal] Error creating surgeon-portal request:", error);
       return res.status(500).json({ message: "Failed to create request" });
+    }
+  },
+);
+
+/**
+ * POST /api/surgeon-portal/:token/upload-url
+ * Issues a presigned S3 PUT URL for a single document attached to a portal
+ * surgery request. Mirrors the public /external-surgery upload route but
+ * is gated by the surgeon-portal session and resolves the hospital from the
+ * portal token instead of the public hospital token.
+ */
+router.post(
+  "/api/surgeon-portal/:token/upload-url",
+  requireSurgeonSession,
+  async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      const { filename, contentType, requestId } = req.body as {
+        filename?: string;
+        contentType?: string;
+        requestId?: string;
+      };
+      if (!filename) {
+        return res.status(400).json({ message: "filename is required" });
+      }
+
+      const result = await getHospitalByExternalSurgeryToken(token);
+      if (!result) {
+        return res.status(404).json({ message: "Hospital not found" });
+      }
+
+      if (requestId) {
+        const request = await storage.getExternalSurgeryRequest(requestId);
+        if (!request || request.hospitalId !== result.id) {
+          return res.status(403).json({ message: "Invalid request" });
+        }
+      }
+
+      const endpoint = process.env.S3_ENDPOINT;
+      const accessKeyId = process.env.S3_ACCESS_KEY;
+      const secretAccessKey = process.env.S3_SECRET_KEY;
+      const bucket = process.env.S3_BUCKET;
+      const region = process.env.S3_REGION || "ch-dk-2";
+
+      if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
+        return res.status(500).json({ message: "Object storage not configured" });
+      }
+
+      const s3Client = new S3Client({
+        endpoint,
+        region,
+        credentials: { accessKeyId, secretAccessKey },
+        forcePathStyle: true,
+      });
+
+      const fileId = randomUUID();
+      const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const key = `external-surgery-documents/${result.id}/${fileId}-${sanitizedFilename}`;
+
+      const putCommand = new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        ContentType: contentType || "application/octet-stream",
+      });
+
+      const uploadUrl = await getSignedUrl(s3Client, putCommand, { expiresIn: 3600 });
+
+      return res.json({
+        uploadUrl,
+        fileUrl: `/objects/${key}`,
+        key,
+      });
+    } catch (error) {
+      logger.error("[SurgeonPortal] Error generating upload URL:", error);
+      return res.status(500).json({ message: "Failed to generate upload URL" });
+    }
+  },
+);
+
+/**
+ * POST /api/surgeon-portal/:token/documents
+ * Persists the metadata of a previously-uploaded document and links it to the
+ * given surgery request. Same authorization shape as upload-url.
+ */
+router.post(
+  "/api/surgeon-portal/:token/documents",
+  requireSurgeonSession,
+  async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      const { requestId, fileName, fileUrl, mimeType, fileSize, description } = req.body as {
+        requestId?: string;
+        fileName?: string;
+        fileUrl?: string;
+        mimeType?: string;
+        fileSize?: number;
+        description?: string;
+      };
+      if (!requestId || !fileName || !fileUrl) {
+        return res.status(400).json({ message: "requestId, fileName, and fileUrl are required" });
+      }
+
+      const result = await getHospitalByExternalSurgeryToken(token);
+      if (!result) {
+        return res.status(404).json({ message: "Hospital not found" });
+      }
+
+      const request = await storage.getExternalSurgeryRequest(requestId);
+      if (!request || request.hospitalId !== result.id) {
+        return res.status(403).json({ message: "Invalid request" });
+      }
+
+      const doc = await storage.createExternalSurgeryRequestDocument({
+        requestId,
+        fileName,
+        fileUrl,
+        mimeType,
+        fileSize,
+        description,
+      });
+
+      return res.json(doc);
+    } catch (error) {
+      logger.error("[SurgeonPortal] Error saving document:", error);
+      return res.status(500).json({ message: "Failed to save document" });
     }
   },
 );
