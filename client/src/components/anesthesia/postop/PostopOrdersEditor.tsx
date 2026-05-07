@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, ChevronDown, ChevronRight, Pill, Activity, FlaskConical, ClipboardList, Save } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Pill, Activity, FlaskConical, ClipboardList, Save, Check, X } from 'lucide-react';
 import { createEmptyItem, type PostopOrderItem, type PostopOrderItemType } from '@shared/postopOrderItems';
 import { ItemEditor } from './itemEditors';
 import type { TemplateRow } from '@/hooks/usePostopOrderTemplates';
@@ -13,9 +13,6 @@ import { AiPasteOrders } from './AiPasteOrders';
 
 type CardKey = 'medications' | 'monitoring' | 'labs' | 'tasks';
 
-// Strip the transient `_unmapped` flag (set by the AI parser on items it
-// couldn't resolve) before sending items to consumers / persistence. Keeping
-// it purely a UI hint avoids leaking it to the wire.
 const stripUnmapped = (its: PostopOrderItem[]): PostopOrderItem[] =>
   its.map((it: any) => {
     const { _unmapped, ...rest } = it;
@@ -48,7 +45,13 @@ interface Props {
 
 export function PostopOrdersEditor({ items, templateId, templates, canEdit, hospitalId, onChange, onSaveAsTemplate }: Props) {
   const { t } = useTranslation();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Edits accumulate in `draft` until the user clicks Confirm. Cancel
+  // discards. For a brand-new item (`draftIsNew`), the draft is prepended
+  // to its target card's list and only persists if confirmed; for an
+  // existing item, `draftIsNew` is false and the row's expanded body
+  // shows the draft instead of the committed value.
+  const [draft, setDraft] = useState<PostopOrderItem | null>(null);
+  const [draftIsNew, setDraftIsNew] = useState(false);
   const [aiPasteOpen, setAiPasteOpen] = useState(false);
 
   const cardLabels: Record<CardKey, string> = {
@@ -65,51 +68,77 @@ export function PostopOrdersEditor({ items, templateId, templates, canEdit, hosp
     tasks:       items.filter(i => CARD_TYPES.tasks.includes(i.type as PostopOrderItemType)),
   };
 
-  // Single boundary that strips `_unmapped` before notifying consumers, so
-  // the flag never reaches persistence regardless of which mutation path
-  // emitted the change.
+  const cardItemsForRender = (key: CardKey): PostopOrderItem[] => {
+    const base = itemsByCard[key];
+    if (draft && draftIsNew && CARD_TYPES[key].includes(draft.type)) {
+      return [draft, ...base];
+    }
+    return base;
+  };
+
   const emitChange = (next: { items: PostopOrderItem[]; templateId: string | null }) => {
     onChange({ items: stripUnmapped(next.items), templateId: next.templateId });
   };
 
+  const startAdd = (type: PostopOrderItemType) => {
+    setDraft(createEmptyItem(type, crypto.randomUUID()));
+    setDraftIsNew(true);
+  };
+
+  const startEdit = (item: PostopOrderItem) => {
+    setDraft({ ...item });
+    setDraftIsNew(false);
+  };
+
+  const confirmDraft = () => {
+    if (!draft) return;
+    const next = draftIsNew
+      ? [draft, ...items]
+      : items.map(i => i.id === draft.id ? draft : i);
+    emitChange({ items: next, templateId });
+    setDraft(null);
+    setDraftIsNew(false);
+  };
+
+  const cancelDraft = () => {
+    setDraft(null);
+    setDraftIsNew(false);
+  };
+
+  const removeItem = (id: string) => {
+    emitChange({ items: items.filter(i => i.id !== id), templateId });
+    if (draft?.id === id) {
+      setDraft(null);
+      setDraftIsNew(false);
+    }
+  };
+
   const applyTemplate = (tid: string) => {
+    cancelDraft();
     const tpl = templates.find(t => t.id === tid);
     if (!tpl) return;
     const cloned = tpl.items.map(i => ({ ...i, id: crypto.randomUUID() }));
     emitChange({ items: cloned, templateId: tid });
   };
 
-  const addItem = (type: PostopOrderItemType) => {
-    const newItem = createEmptyItem(type, crypto.randomUUID());
-    const next = [newItem, ...items];
-    emitChange({ items: next, templateId });
-    setExpandedId(newItem.id);
-  };
-
-  const updateItem = (id: string, next: PostopOrderItem) => {
-    emitChange({ items: items.map(i => i.id === id ? next : i), templateId });
-  };
-
-  const removeItem = (id: string) => {
-    emitChange({ items: items.filter(i => i.id !== id), templateId });
-    if (expandedId === id) setExpandedId(null);
-  };
-
   const appendItems = (newItems: PostopOrderItem[]) => {
+    cancelDraft();
     emitChange({ items: [...newItems.slice().reverse(), ...items], templateId });
   };
+
+  const hasDraft = draft !== null;
 
   return (
     <Card data-testid="postop-orders-editor">
       <CardContent className="p-4 space-y-4">
-        {/* Header: title left, template top-right */}
+        {/* Header */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="text-sm uppercase tracking-wide text-muted-foreground font-medium">
             {t('postopOrders.ordersAtAGlance', 'Postoperative Orders')}
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">{t('postopOrders.template', 'Template')}:</span>
-            <Select value={templateId ?? ''} onValueChange={applyTemplate} disabled={!canEdit}>
+            <Select value={templateId ?? ''} onValueChange={applyTemplate} disabled={!canEdit || hasDraft}>
               <SelectTrigger className="w-[220px] h-8 text-xs">
                 <SelectValue placeholder={t('postopOrders.editor.selectTemplate', 'Choose template...')} />
               </SelectTrigger>
@@ -120,26 +149,30 @@ export function PostopOrdersEditor({ items, templateId, templates, canEdit, hosp
           </div>
         </div>
 
-        {/* 2x2 grid of sub-cards */}
+        {/* 2x2 grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {(Object.keys(CARD_TYPES) as CardKey[]).map(key => (
             <SubCard
               key={key}
               title={cardLabels[key]}
               Icon={CARD_ICON[key]}
-              items={itemsByCard[key]}
-              expandedId={expandedId}
-              setExpandedId={setExpandedId}
+              items={cardItemsForRender(key)}
+              draftId={draft?.id ?? null}
+              draft={draft}
               canEdit={canEdit}
               hospitalId={hospitalId}
-              onUpdate={updateItem}
+              hasDraft={hasDraft}
+              onStartEdit={startEdit}
+              onUpdateDraft={setDraft}
+              onConfirm={confirmDraft}
+              onCancel={cancelDraft}
               onRemove={removeItem}
-              onAdd={() => addItem(CARD_TYPES[key][0])}
+              onAdd={() => startAdd(CARD_TYPES[key][0])}
             />
           ))}
         </div>
 
-        {/* AI paste — collapsed trigger at bottom */}
+        {/* AI paste */}
         {canEdit && (
           <div className="border-t pt-3">
             <Button
@@ -148,6 +181,7 @@ export function PostopOrdersEditor({ items, templateId, templates, canEdit, hosp
               className="text-xs text-muted-foreground"
               onClick={() => setAiPasteOpen(!aiPasteOpen)}
               data-testid="toggle-ai-paste"
+              disabled={hasDraft}
             >
               {aiPasteOpen ? <ChevronDown className="w-3 h-3 mr-1" /> : <ChevronRight className="w-3 h-3 mr-1" />}
               {t('postopOrders.aiPasteToggle', 'AI paste orders…')}
@@ -165,7 +199,7 @@ export function PostopOrdersEditor({ items, templateId, templates, canEdit, hosp
           <div className="flex justify-end">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled={hasDraft}>
                   <Save className="w-3.5 h-3.5 mr-1" />
                   {t('postopOrders.editor.saveAsTemplate', 'Save as template')}
                 </Button>
@@ -196,16 +230,20 @@ interface SubCardProps {
   title: string;
   Icon: React.ComponentType<{ className?: string }>;
   items: PostopOrderItem[];
-  expandedId: string | null;
-  setExpandedId: (id: string | null) => void;
+  draftId: string | null;
+  draft: PostopOrderItem | null;
   canEdit: boolean;
   hospitalId?: string;
-  onUpdate: (id: string, next: PostopOrderItem) => void;
+  hasDraft: boolean;
+  onStartEdit: (item: PostopOrderItem) => void;
+  onUpdateDraft: (item: PostopOrderItem) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
   onRemove: (id: string) => void;
   onAdd: () => void;
 }
 
-function SubCard({ title, Icon, items, expandedId, setExpandedId, canEdit, hospitalId, onUpdate, onRemove, onAdd }: SubCardProps) {
+function SubCard({ title, Icon, items, draftId, draft, canEdit, hospitalId, hasDraft, onStartEdit, onUpdateDraft, onConfirm, onCancel, onRemove, onAdd }: SubCardProps) {
   return (
     <div className="border rounded-md bg-card/50 p-3">
       <div className="flex items-center justify-between mb-2">
@@ -215,7 +253,7 @@ function SubCard({ title, Icon, items, expandedId, setExpandedId, canEdit, hospi
           {items.length > 0 && <Badge variant="secondary" className="text-xs">{items.length}</Badge>}
         </div>
         {canEdit && (
-          <Button size="sm" variant="ghost" onClick={onAdd} data-testid={`add-${title.toLowerCase()}`}>
+          <Button size="sm" variant="ghost" onClick={onAdd} data-testid={`add-${title.toLowerCase()}`} disabled={hasDraft}>
             <Plus className="w-4 h-4" />
           </Button>
         )}
@@ -224,18 +262,24 @@ function SubCard({ title, Icon, items, expandedId, setExpandedId, canEdit, hospi
         {items.length === 0 && (
           <div className="text-xs text-muted-foreground italic py-2">—</div>
         )}
-        {items.map(item => (
-          <ItemRow
-            key={item.id}
-            item={item}
-            expanded={expandedId === item.id}
-            canEdit={canEdit}
-            hospitalId={hospitalId}
-            onClick={() => canEdit && setExpandedId(expandedId === item.id ? null : item.id)}
-            onUpdate={(next) => onUpdate(item.id, next)}
-            onRemove={() => onRemove(item.id)}
-          />
-        ))}
+        {items.map(item => {
+          const isExpanded = draftId === item.id;
+          return (
+            <ItemRow
+              key={item.id}
+              item={isExpanded && draft ? draft : item}
+              expanded={isExpanded}
+              canEdit={canEdit}
+              hospitalId={hospitalId}
+              hasOtherDraft={hasDraft && !isExpanded}
+              onClick={() => canEdit && !hasDraft && onStartEdit(item)}
+              onUpdate={onUpdateDraft}
+              onConfirm={onConfirm}
+              onCancel={onCancel}
+              onRemove={() => onRemove(item.id)}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -246,27 +290,41 @@ interface ItemRowProps {
   expanded: boolean;
   canEdit: boolean;
   hospitalId?: string;
+  hasOtherDraft: boolean;
   onClick: () => void;
   onUpdate: (item: PostopOrderItem) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
   onRemove: () => void;
 }
 
-function ItemRow({ item, expanded, canEdit, hospitalId, onClick, onUpdate, onRemove }: ItemRowProps) {
+function ItemRow({ item, expanded, canEdit, hospitalId, hasOtherDraft, onClick, onUpdate, onConfirm, onCancel, onRemove }: ItemRowProps) {
+  const { t } = useTranslation();
   if (expanded) {
     return (
-      <div className="rounded border border-primary/40 bg-background p-2">
+      <div className="rounded border border-primary/40 bg-background p-2 space-y-2">
         <ItemEditor
           item={item}
           onChange={onUpdate}
           onRemove={onRemove}
           hospitalId={hospitalId}
         />
+        <div className="flex justify-end gap-2 pt-2 border-t">
+          <Button variant="ghost" size="sm" onClick={onCancel} data-testid="button-cancel-item">
+            <X className="w-3.5 h-3.5 mr-1" />
+            {t('postopOrders.editor.cancel', 'Cancel')}
+          </Button>
+          <Button variant="default" size="sm" onClick={onConfirm} data-testid="button-confirm-item">
+            <Check className="w-3.5 h-3.5 mr-1" />
+            {t('postopOrders.editor.confirm', 'Confirm')}
+          </Button>
+        </div>
       </div>
     );
   }
   return (
     <div
-      className={`rounded border bg-background/40 px-2 py-1.5 text-xs flex items-center justify-between ${canEdit ? 'cursor-pointer hover:bg-background/80' : ''}`}
+      className={`rounded border bg-background/40 px-2 py-1.5 text-xs flex items-center justify-between ${canEdit && !hasOtherDraft ? 'cursor-pointer hover:bg-background/80' : 'opacity-60'}`}
       onClick={onClick}
       data-testid={`item-row-${item.id}`}
     >

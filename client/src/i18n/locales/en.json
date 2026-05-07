@@ -7208,6 +7208,8 @@
       "templateNamePrompt": "Template name:",
       "saveAsNew": "Save as new template",
       "overwrite": "Overwrite",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
       "configureMedication": "Configure new medication",
       "noConfiguredMedication": "No matching medication — click the gear icon to configure a new one.",
       "noConfiguredMedications": "No medications are configured for the swimlane yet.",

@@ -242,69 +242,34 @@ export default function Op() {
   const postopTemplates = usePostopOrderTemplates(activeHospital?.id);
   const deviationAcks = useDeviationAcks(anesthesiaRecord?.id);
 
-  // Centralised save handler for order sets — surfaces server validation
-  // errors (e.g. unconfigured medications) as a toast. Debounced (800ms) so
-  // that keystroke-rate onChange events don't fan out to PUT requests; the
-  // latest payload wins. flushOrderSet is also called on unmount to avoid
-  // losing the user's last edit.
-  const orderSaveDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  const latestOrderPayloadRef = useRef<{ items: PostopOrderItem[]; templateId: string | null; sign?: boolean } | null>(null);
-
-  const flushOrderSet = () => {
-    if (orderSaveDebounceRef.current) {
-      clearTimeout(orderSaveDebounceRef.current);
-      orderSaveDebounceRef.current = null;
-    }
-    if (latestOrderPayloadRef.current) {
-      postopOrderSet.save.mutate(latestOrderPayloadRef.current, {
-        onError: (error: any) => {
-          const unconfigured: string[] | undefined = error?.data?.unconfiguredMedications;
-          if (unconfigured && unconfigured.length > 0) {
-            toast({
-              title: t('postopOrders.editor.saveFailed', 'Could not save order set'),
-              description: t(
-                'postopOrders.editor.unconfiguredMedsListed',
-                'These medications are not configured: {{names}}',
-                { names: unconfigured.join(', ') }
-              ),
-              variant: 'destructive',
-            });
-          } else {
-            toast({
-              title: t('postopOrders.editor.saveFailed', 'Could not save order set'),
-              description: error?.message,
-              variant: 'destructive',
-            });
-          }
-        },
-      });
-      latestOrderPayloadRef.current = null;
-    }
-  };
-
+  // Save handler for order sets — surfaces server validation errors
+  // (e.g. unconfigured medications) as a toast. The new editor uses
+  // explicit Confirm/Cancel buttons instead of auto-save, so onChange is
+  // always a deliberate user commit; no debounce needed.
   const handleSaveOrderSet = (payload: { items: PostopOrderItem[]; templateId: string | null; sign?: boolean }) => {
-    latestOrderPayloadRef.current = payload;
-    if (orderSaveDebounceRef.current) {
-      clearTimeout(orderSaveDebounceRef.current);
-    }
-    orderSaveDebounceRef.current = setTimeout(flushOrderSet, 800);
+    postopOrderSet.save.mutate(payload, {
+      onError: (error: any) => {
+        const unconfigured: string[] | undefined = error?.data?.unconfiguredMedications;
+        if (unconfigured && unconfigured.length > 0) {
+          toast({
+            title: t('postopOrders.editor.saveFailed', 'Could not save order set'),
+            description: t(
+              'postopOrders.editor.unconfiguredMedsListed',
+              'These medications are not configured: {{names}}',
+              { names: unconfigured.join(', ') }
+            ),
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: t('postopOrders.editor.saveFailed', 'Could not save order set'),
+            description: error?.message,
+            variant: 'destructive',
+          });
+        }
+      },
+    });
   };
-
-  // Flush pending save on unmount so the user doesn't lose their last edit.
-  // Fire-and-forget — useEffect cleanup runs synchronously, mutate is async.
-  useEffect(() => {
-    return () => {
-      if (orderSaveDebounceRef.current) {
-        clearTimeout(orderSaveDebounceRef.current);
-        orderSaveDebounceRef.current = null;
-      }
-      if (latestOrderPayloadRef.current) {
-        postopOrderSet.save.mutate(latestOrderPayloadRef.current);
-        latestOrderPayloadRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Phase 3: planned medication events + PRN items derived from postop order set
   const postopMedData = useMemo(() => {
