@@ -7332,6 +7332,10 @@
     "swimlane": {
       "ordered": "Verordnet"
     },
+    "task": {
+      "plannedAt": "Geplant für",
+      "markDone": "Als erledigt markieren"
+    },
     "vitalsOverlay": {
       "checkPlannedAt": "{{parameter}}-Kontrolle geplant um {{time}}"
     },

@@ -272,13 +272,17 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   patientData?: { birthday?: string | null; sex?: string | null } | null;
   patientCovariateData?: { weight?: string | null; height?: string | null } | null;
   onSaveCovariates?: (data: { weight?: string; height?: string }) => Promise<void>;
-  onMarkTaskDone?: (taskId: string) => void;
+  onPlannedTaskClick?: (task: { id: string; title: string; status: 'planned' | 'done' | 'missed' | 'cancelled'; plannedAt: number; subtype?: string; actionHint?: string; note?: string; kind?: 'task' | 'iv_fluid' }) => void;
   plannedTaskEvents?: Array<{
     id: string;
     plannedAt: number;
     plannedEndAt?: number | null;
     title: string;
     status: 'planned' | 'done' | 'missed' | 'cancelled';
+    subtype?: string;
+    actionHint?: string;
+    note?: string;
+    kind?: 'task' | 'iv_fluid';
   }>;
   plannedVitalsChecks?: Array<{
     id: string;
@@ -332,7 +336,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   patientCovariateData, // Patient weight/height from preOp assessment for PK simulation
   onSaveCovariates, // Callback to save missing weight/height to preOp assessment
   plannedTaskEvents, // Planned task events from postop order set for timeline pills
-  onMarkTaskDone,
+  onPlannedTaskClick,
   plannedVitalsChecks, // Planned vitals checks from postop order set for VitalsSwimlane ghost markers
   deviationAcknowledgments, // Deviation acknowledgments for VitalsSwimlane badges
   plannedMedEvents, // Planned medication events from postop order set (Task 7 renders them)
@@ -6051,7 +6055,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           setTimeMarkerEditDialogOpen(true);
         }}
         plannedTaskEvents={plannedTaskEvents}
-        onMarkTaskDone={onMarkTaskDone}
+        onPlannedTaskClick={onPlannedTaskClick}
       />
 
       {/* MedicationsSwimlane Component - Interactive layers and rendering for medications */}

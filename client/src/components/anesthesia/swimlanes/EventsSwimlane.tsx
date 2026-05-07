@@ -49,6 +49,10 @@ interface PlannedTaskEvent {
   plannedEndAt?: number | null;
   title: string;
   status: 'planned' | 'done' | 'missed' | 'cancelled';
+  subtype?: string;
+  actionHint?: string;
+  note?: string;
+  kind?: 'task' | 'iv_fluid';
 }
 
 interface EventsSwimlaneProps {
@@ -58,7 +62,7 @@ interface EventsSwimlaneProps {
   onEventEditDialogOpen: (event: EventComment) => void;
   onTimeMarkerEditDialogOpen: (marker: { index: number; marker: AnesthesiaTimeMarker }) => void;
   plannedTaskEvents?: PlannedTaskEvent[];
-  onMarkTaskDone?: (taskId: string) => void;
+  onPlannedTaskClick?: (task: PlannedTaskEvent) => void;
 }
 
 export function EventsSwimlane({
@@ -68,7 +72,7 @@ export function EventsSwimlane({
   onEventEditDialogOpen,
   onTimeMarkerEditDialogOpen,
   plannedTaskEvents = [],
-  onMarkTaskDone,
+  onPlannedTaskClick,
 }: EventsSwimlaneProps) {
   const {
     eventState,
@@ -537,7 +541,7 @@ export function EventsSwimlane({
           : task.status === 'missed' ? (isDark ? '#fcd34d' : '#92400e')
           : (isDark ? '#93c5fd' : '#1e40af');
 
-        const isClickable = task.status !== 'done' && !!onMarkTaskDone;
+        const isClickable = !!onPlannedTaskClick;
         return (
           <div
             key={`planned-task-${task.id}`}
@@ -547,8 +551,8 @@ export function EventsSwimlane({
               top: `${eventsLane.top + 2}px`,
               height: `${Math.max(eventsLane.height - 4, 16)}px`,
             }}
-            title={isClickable ? `${task.title} \u2014 click to mark done` : `${task.title} (${task.status})`}
-            onClick={isClickable ? (e) => { e.stopPropagation(); onMarkTaskDone(task.id); } : undefined}
+            title={`${task.title} (${task.status})`}
+            onClick={isClickable ? (e) => { e.stopPropagation(); onPlannedTaskClick(task); } : undefined}
             data-testid={`planned-task-pill-${task.id}`}
           >
             <div

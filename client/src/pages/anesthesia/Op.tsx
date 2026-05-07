@@ -19,6 +19,7 @@ import { CountsSterileTab } from "@/pages/anesthesia/op/CountsSterileTab";
 import { AllergiesDialog } from "@/pages/anesthesia/op/AllergiesDialog";
 import { IntraoperativeMedicationsCard } from "@/components/anesthesia/IntraoperativeMedicationsCard";
 import { PostopOrdersEditor } from "@/components/anesthesia/postop/PostopOrdersEditor";
+import { PostopTaskCompleteDialog, type OpenTaskInfo } from "@/components/anesthesia/postop/PostopTaskCompleteDialog";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { PostopTasksPanel } from "@/components/anesthesia/postop/PostopTasksPanel";
 import { usePostopOrderSet } from "@/hooks/usePostopOrderSet";
@@ -244,6 +245,7 @@ export default function Op() {
   const postopTemplates = usePostopOrderTemplates(activeHospital?.id);
   const deviationAcks = useDeviationAcks(anesthesiaRecord?.id);
   const markPostopEventDone = useMarkPostopEventDone(anesthesiaRecord?.id ?? '');
+  const [openPlannedTask, setOpenPlannedTask] = useState<OpenTaskInfo | null>(null);
 
   // Save handler for order sets — surfaces server validation errors
   // (e.g. unconfigured medications) as a toast. The new editor uses
@@ -1418,23 +1420,29 @@ export default function Op() {
                   isPacuMode={isPacuMode}
                   patientData={patient ? { birthday: (patient as any).birthday, sex: (patient as any).sex } : null}
                   patientCovariateData={{ weight: (preOpAssessment as any)?.weight ?? null, height: (preOpAssessment as any)?.height ?? null }}
-                  onMarkTaskDone={(taskId) => markPostopEventDone.mutate({ eventId: taskId })}
+                  onPlannedTaskClick={(task) => setOpenPlannedTask(task)}
                   plannedTaskEvents={
                     (postopOrderSet.data?.plannedEvents ?? [])
                       .filter(e => e.kind === 'task' || e.kind === 'iv_fluid')
-                      .map(e => ({
-                        id: e.id,
-                        plannedAt: new Date(e.plannedAt).getTime(),
-                        plannedEndAt: e.plannedEndAt ? new Date(e.plannedEndAt).getTime() : null,
-                        title: (() => {
-                          const snap = e.payloadSnapshot as any;
-                          if (snap?.title) return snap.title as string;
-                          if (snap?.type === 'lab') return `Labor \u2014 ${(snap.panel || []).join(', ')}`;
-                          if (snap?.type === 'iv_fluid') return `${snap.solution} ${snap.volumeMl}ml`;
-                          return (snap?.type as string) ?? 'Task';
-                        })(),
-                        status: e.status,
-                      }))
+                      .map(e => {
+                        const snap = e.payloadSnapshot as any;
+                        const title = snap?.title
+                          ? (snap.title as string)
+                          : snap?.type === 'lab' ? `Labor \u2014 ${(snap.panel || []).join(', ')}`
+                          : snap?.type === 'iv_fluid' ? `${snap.solution} ${snap.volumeMl}ml`
+                          : (snap?.type as string) ?? 'Task';
+                        return {
+                          id: e.id,
+                          plannedAt: new Date(e.plannedAt).getTime(),
+                          plannedEndAt: e.plannedEndAt ? new Date(e.plannedEndAt).getTime() : null,
+                          title,
+                          status: e.status,
+                          subtype: snap?.subtype as string | undefined,
+                          actionHint: snap?.actionHint as string | undefined,
+                          note: snap?.note as string | undefined,
+                          kind: e.kind === 'iv_fluid' ? 'iv_fluid' as const : 'task' as const,
+                        };
+                      })
                   }
                   deviationAcknowledgments={deviationAcks.data ?? []}
                   plannedVitalsChecks={
@@ -2362,6 +2370,16 @@ export default function Op() {
             />
           </TabsContent>
           )}
+
+          {/* Planned-task details + mark-done dialog (clicked from events swimlane on the chart) */}
+          <PostopTaskCompleteDialog
+            open={!!openPlannedTask}
+            onOpenChange={(o) => { if (!o) setOpenPlannedTask(null); }}
+            task={openPlannedTask}
+            onMarkDone={async (taskId) => {
+              await markPostopEventDone.mutateAsync({ eventId: taskId });
+            }}
+          />
 
           {/* Surgery Module Tab Contents */}
           {isSurgeryMode && (

@@ -7231,6 +7231,10 @@
     "swimlane": {
       "ordered": "Ordered"
     },
+    "task": {
+      "plannedAt": "Planned at",
+      "markDone": "Mark as done"
+    },
     "vitalsOverlay": {
       "checkPlannedAt": "{{parameter}} check planned at {{time}}"
     },
