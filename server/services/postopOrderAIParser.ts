@@ -17,15 +17,22 @@ You MUST return a JSON object with this exact shape:
 Each item has a \`type\` field. Supported types with their required/optional fields:
 
 - medication: { id: string (uuid), type: "medication", medicationRef: string, dose: string, route: "po"|"iv"|"sc"|"im", timing: { mode: "scheduled"|"one_shot"|"ad_hoc"|"conditional", frequency?: "q1h"|"q2h"|"q4h"|"q6h"|"q8h"|"q12h"|"q24h"|"q48h"|"weekly"|"oral_1_0_0"|"oral_1_0_1"|"oral_1_1_1"|"oral_1_1_1_1", startAt?: string (ISO 8601), end?: { kind: "indefinite" } | { kind: "until", at: string } | { kind: "count", n: number }, condition?: string }, prnMaxPerDay?: number, prnMaxPerInterval?: { count: number, intervalH: number }, note?: string }
-- iv_fluid: { id: string, type: "iv_fluid", solution: "nacl_09"|"ringer_lactate"|"glucose_5"|"custom", customName?: string, volumeMl: number, additives?: string, durationH: number, timing: { mode: "scheduled"|"one_shot", frequency?: string, startAt?: string } }
+- iv_fluid: { id: string, type: "iv_fluid", solution: "nacl_09"|"ringer_lactate"|"glucose_5"|"custom", customName?: string, volumeMl: number, additives?: string, durationH: number, timing: { mode: "scheduled"|"one_shot", frequency?: string, startAt?: string, end?: { kind: "indefinite" } | { kind: "until", at: string } | { kind: "count", n: number } } }
 - lab: { id: string, type: "lab", panel: string[], timing: { mode: "scheduled"|"one_shot", frequency?: "q4h"|"q6h"|"q8h"|"q12h"|"q24h", startAt?: string, end?: { kind: "indefinite" } | { kind: "until", at: string } | { kind: "count", n: number } } }
-- task: { id: string, type: "task", title: string, timing: { mode: "scheduled"|"one_shot"|"ad_hoc"|"conditional", frequency?: string, startAt?: string, condition?: string }, actionHint?: string }
+- task: { id: string (uuid), type: "task", subtype: "generic"|"positioning"|"drainage"|"nutrition"|"wound_care"|"mobilization"|"note", title: string, timing: { mode: "scheduled"|"one_shot"|"ad_hoc"|"conditional", frequency?: "q1h"|"q2h"|"q4h"|"q6h"|"q8h"|"q12h"|"q24h"|"q48h"|"weekly", startAt?: string (ISO 8601), end?: { kind: "indefinite" } | { kind: "until", at: string } | { kind: "count", n: number }, condition?: string }, actionHint?: string, note?: string }
 - vitals_monitoring: { id: string, type: "vitals_monitoring", parameter: "BP"|"pulse"|"temp"|"spo2"|"bz", timing: { mode: "scheduled", frequency: "continuous"|"q15min"|"q30min"|"q1h"|"q2h"|"q4h"|"q6h"|"q8h"|"q12h" }, min?: number, max?: number, actionLow?: string, actionHigh?: string }
-- bz_sliding_scale: { id: string, type: "bz_sliding_scale", drug: string, timing: { mode: "scheduled", frequency: "q1h"|"q2h"|"q4h"|"q6h"|"q8h"|"q12h" }, rules: Array<{ above: number; units: number }>, increment?: { per: number; units: number } }
-- wound_care: { id: string, type: "wound_care", check: "none"|"daily"|"twice_daily", timing: { mode: "scheduled"|"one_shot"|"ad_hoc", frequency?: "q24h"|"q48h"|"weekly", startAt?: string } }
-- free_text: { id: string, type: "free_text", section: "general"|"meds"|"labs"|"other", text: string }
+- bz_sliding_scale: { id: string, type: "bz_sliding_scale", drug: string, timing: { mode: "scheduled", frequency: "q1h"|"q2h"|"q4h"|"q6h"|"q8h"|"q12h" }, rules: Array<{ above: number, units: number }>, increment?: { per: number, units: number } }
 
-Frequency values for scheduled medications use these codes: "continuous","q15min","q30min","q1h","q2h","q4h","q6h","q8h","q12h","q24h","q48h","weekly","2x_daily","3x_daily","4x_daily","oral_1_0_0","oral_1_0_1","oral_1_1_1","oral_1_1_1_1".
+Frequency values for scheduled items use these codes: "continuous","q15min","q30min","q1h","q2h","q4h","q6h","q8h","q12h","q24h","q48h","weekly","2x_daily","3x_daily","4x_daily","oral_1_0_0","oral_1_0_1","oral_1_1_1","oral_1_1_1_1".
+
+Mapping subtypes (when the order doesn't fit medication/iv_fluid/lab/vitals_monitoring/bz_sliding_scale, emit a task with the appropriate subtype):
+- "Mobilization" / "Lagerung" / "Mobilisation" → task with subtype "mobilization"; describe in title.
+- "Positioning" / "supine / lateral / head up 30°" / "Oberkörper hochlagern" → task with subtype "positioning"; describe position in title.
+- "Drainage" / "Redon" / "Easyflow" / "DK" → task with subtype "drainage"; describe drain type + site in title.
+- "Nutrition" / "Diet" / "NPO" / "Vollkost" / "Nüchtern" → task with subtype "nutrition"; describe diet/timing in title.
+- "Wound care" / "Verbandwechsel" / "dressing change" → task with subtype "wound_care"; for scheduled dressing changes set timing.mode = "scheduled" + appropriate frequency, otherwise mode "ad_hoc".
+- "Note" / "Comment" / freeform clinical observation → task with subtype "note"; description in title.
+- Generic clinical order that doesn't fit above (e.g. "call doctor if X") → task with subtype "generic".
 
 Rules:
 1. For each medication, try to match to an inventory item provided in the user message. Use the inventory item's "name" verbatim as \`medicationRef\`.
