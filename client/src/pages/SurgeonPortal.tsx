@@ -3,6 +3,7 @@ import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
@@ -31,7 +32,6 @@ import {
   RefreshCw,
   PauseCircle,
   Clock,
-  Plus,
   LogOut,
   Download,
 } from "lucide-react";
@@ -139,6 +139,7 @@ const translations: Record<string, Record<string, string>> = {
     postalCode: "PLZ",
     city: "Ort",
     backToCalendar: "Zurück zur Übersicht",
+    calendarTab: "Kalender",
     // Accordion sections
     "accordion.surgeon": "Operierender Chirurg",
     "accordion.surgery": "Eingriff & Termin",
@@ -251,6 +252,7 @@ const translations: Record<string, Record<string, string>> = {
     postalCode: "Postal code",
     city: "City",
     backToCalendar: "Back to overview",
+    calendarTab: "Calendar",
     // Accordion sections
     "accordion.surgeon": "Operating surgeon",
     "accordion.surgery": "Surgery & schedule",
@@ -1056,57 +1058,40 @@ function SurgeonPortalContent({ token }: { token: string }) {
         </div>
       </div>
 
-      {/* New surgery request toggle */}
-      <div className="max-w-2xl mx-auto px-4 pt-4">
-        {view === "calendar" ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-sm"
-            onClick={() => setView("newRequest")}
-            data-testid="button-new-request"
-          >
-            <Plus className="h-4 w-4 mr-1.5" />
-            {t.newRequest}
-          </Button>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-sm"
-            onClick={() => setView("calendar")}
-            data-testid="button-back-to-calendar"
-          >
-            <ChevronLeft className="h-4 w-4 mr-1.5" />
-            {t.backToCalendar}
-          </Button>
-        )}
-      </div>
-
-      {view === "newRequest" ? (
-        <div className="max-w-2xl mx-auto px-4 py-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">{t.newRequest}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <SurgeryRequestForm
-                availableSurgeons={availableSurgeons}
-                selectedSurgeonId={selectedSurgeonId}
-                onSelectedSurgeonIdChange={setSelectedSurgeonId}
-                showSurgeonPicker={showSurgeonPicker}
-                showSurgeonDetailsBlock={false}
-                t={tFn}
-                locale={lang === "de" ? "de" : "en"}
-                onSubmit={(values) => submitRequest.mutate(values)}
-                isSubmitting={submitRequest.isPending}
-                uploadFile={uploadFile}
-              />
-            </CardContent>
-          </Card>
+      <Tabs value={view} onValueChange={(v) => setView(v as "calendar" | "newRequest")} className="w-full">
+        <div className="max-w-2xl mx-auto px-4 pt-4">
+          <TabsList className="grid grid-cols-2 w-full">
+            <TabsTrigger value="calendar" data-testid="tab-calendar">{t.calendarTab}</TabsTrigger>
+            <TabsTrigger value="newRequest" data-testid="tab-new-request">{t.newRequest}</TabsTrigger>
+          </TabsList>
         </div>
-      ) : (
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+
+        <TabsContent value="newRequest" className="mt-0">
+          <div className="max-w-2xl mx-auto px-4 py-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">{t.newRequest}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SurgeryRequestForm
+                  availableSurgeons={availableSurgeons}
+                  selectedSurgeonId={selectedSurgeonId}
+                  onSelectedSurgeonIdChange={setSelectedSurgeonId}
+                  showSurgeonPicker={showSurgeonPicker}
+                  showSurgeonDetailsBlock={false}
+                  t={tFn}
+                  locale={lang === "de" ? "de" : "en"}
+                  onSubmit={(values) => submitRequest.mutate(values)}
+                  isSubmitting={submitRequest.isPending}
+                  uploadFile={uploadFile}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="calendar" className="mt-0">
+        <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
         {/* Month navigation */}
         <div className="flex items-center justify-between">
           <Button
@@ -1301,7 +1286,8 @@ function SurgeonPortalContent({ token }: { token: string }) {
           </>
         )}
       </div>
-      )}
+        </TabsContent>
+      </Tabs>
 
       {/* Action dialog */}
       {actionDialog.surgery && (
