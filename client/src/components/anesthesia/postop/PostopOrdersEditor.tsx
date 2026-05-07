@@ -13,6 +13,15 @@ import { AiPasteOrders } from './AiPasteOrders';
 
 type CardKey = 'medications' | 'monitoring' | 'labs' | 'tasks';
 
+// Strip the transient `_unmapped` flag (set by the AI parser on items it
+// couldn't resolve) before sending items to consumers / persistence. Keeping
+// it purely a UI hint avoids leaking it to the wire.
+const stripUnmapped = (its: PostopOrderItem[]): PostopOrderItem[] =>
+  its.map((it: any) => {
+    const { _unmapped, ...rest } = it;
+    return rest as PostopOrderItem;
+  });
+
 const CARD_TYPES: Record<CardKey, PostopOrderItemType[]> = {
   medications: ['medication', 'iv_fluid', 'bz_sliding_scale'],
   monitoring:  ['vitals_monitoring'],
@@ -56,38 +65,39 @@ export function PostopOrdersEditor({ items, templateId, templates, canEdit, hosp
     tasks:       items.filter(i => CARD_TYPES.tasks.includes(i.type as PostopOrderItemType)),
   };
 
+  // Single boundary that strips `_unmapped` before notifying consumers, so
+  // the flag never reaches persistence regardless of which mutation path
+  // emitted the change.
+  const emitChange = (next: { items: PostopOrderItem[]; templateId: string | null }) => {
+    onChange({ items: stripUnmapped(next.items), templateId: next.templateId });
+  };
+
   const applyTemplate = (tid: string) => {
     const tpl = templates.find(t => t.id === tid);
     if (!tpl) return;
     const cloned = tpl.items.map(i => ({ ...i, id: crypto.randomUUID() }));
-    onChange({ items: cloned, templateId: tid });
+    emitChange({ items: cloned, templateId: tid });
   };
 
   const addItem = (type: PostopOrderItemType) => {
     const newItem = createEmptyItem(type, crypto.randomUUID());
     const next = [newItem, ...items];
-    onChange({ items: next, templateId });
+    emitChange({ items: next, templateId });
     setExpandedId(newItem.id);
   };
 
   const updateItem = (id: string, next: PostopOrderItem) => {
-    onChange({ items: items.map(i => i.id === id ? next : i), templateId });
+    emitChange({ items: items.map(i => i.id === id ? next : i), templateId });
   };
 
   const removeItem = (id: string) => {
-    onChange({ items: items.filter(i => i.id !== id), templateId });
+    emitChange({ items: items.filter(i => i.id !== id), templateId });
     if (expandedId === id) setExpandedId(null);
   };
 
   const appendItems = (newItems: PostopOrderItem[]) => {
-    onChange({ items: [...newItems.slice().reverse(), ...items], templateId });
+    emitChange({ items: [...newItems.slice().reverse(), ...items], templateId });
   };
-
-  const cleanItemsForPersist = (): PostopOrderItem[] =>
-    items.map((it: any) => {
-      const { _unmapped, ...rest } = it;
-      return rest as PostopOrderItem;
-    });
 
   return (
     <Card data-testid="postop-orders-editor">
@@ -180,13 +190,13 @@ export function PostopOrdersEditor({ items, templateId, templates, canEdit, hosp
               <DropdownMenuContent>
                 <DropdownMenuItem onClick={() => {
                   const name = window.prompt(t('postopOrders.editor.templateNamePrompt', 'Template name:'));
-                  if (name?.trim()) onSaveAsTemplate({ name: name.trim(), items: cleanItemsForPersist() });
+                  if (name?.trim()) onSaveAsTemplate({ name: name.trim(), items: stripUnmapped(items) });
                 }}>
                   {t('postopOrders.editor.saveAsNew', 'Save as new template')}
                 </DropdownMenuItem>
                 {templates.length > 0 && <DropdownMenuSeparator />}
                 {templates.map(tpl => (
-                  <DropdownMenuItem key={tpl.id} onClick={() => onSaveAsTemplate({ name: tpl.name, items: cleanItemsForPersist(), overwriteId: tpl.id })}>
+                  <DropdownMenuItem key={tpl.id} onClick={() => onSaveAsTemplate({ name: tpl.name, items: stripUnmapped(items), overwriteId: tpl.id })}>
                     {t('postopOrders.editor.overwrite', 'Overwrite')}: {tpl.name}
                   </DropdownMenuItem>
                 ))}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useActiveHospital } from '@/hooks/useActiveHospital';
 import { usePostopOrderTemplates, type TemplateRow } from '@/hooks/usePostopOrderTemplates';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PostopOrdersEditor } from '@/components/anesthesia/postop/PostopOrdersEditor';
+import type { PostopOrderItem } from '@shared/postopOrderItems';
 import { Trash2, Pencil, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -16,6 +17,47 @@ export default function PostopOrderTemplatesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const editing = editingId ? templates.find(t => t.id === editingId) ?? null : null;
   const [itemsEditorOpen, setItemsEditorOpen] = useState(false);
+
+  // Debounced auto-save for template item edits — avoids fanning out a PATCH
+  // per keystroke. The latest payload wins; pending saves are flushed on
+  // unmount and when the editor dialog closes.
+  const itemsSaveDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const latestItemsPayloadRef = useRef<{ id: string; items: PostopOrderItem[] } | null>(null);
+
+  const flushItemsSave = () => {
+    if (itemsSaveDebounceRef.current) {
+      clearTimeout(itemsSaveDebounceRef.current);
+      itemsSaveDebounceRef.current = null;
+    }
+    if (latestItemsPayloadRef.current) {
+      const { id, items } = latestItemsPayloadRef.current;
+      update.mutate({ id, patch: { items } });
+      latestItemsPayloadRef.current = null;
+    }
+  };
+
+  const queueItemsSave = (id: string, items: PostopOrderItem[]) => {
+    latestItemsPayloadRef.current = { id, items };
+    if (itemsSaveDebounceRef.current) {
+      clearTimeout(itemsSaveDebounceRef.current);
+    }
+    itemsSaveDebounceRef.current = setTimeout(flushItemsSave, 800);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (itemsSaveDebounceRef.current) {
+        clearTimeout(itemsSaveDebounceRef.current);
+        itemsSaveDebounceRef.current = null;
+      }
+      if (latestItemsPayloadRef.current) {
+        const { id, items } = latestItemsPayloadRef.current;
+        update.mutate({ id, patch: { items } });
+        latestItemsPayloadRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="p-6 space-y-4">
@@ -71,7 +113,14 @@ export default function PostopOrderTemplatesPage() {
       {editing && (
         <Dialog
           open={itemsEditorOpen}
-          onOpenChange={(v) => { setItemsEditorOpen(v); if (!v) setEditingId(null); }}
+          onOpenChange={(v) => {
+            setItemsEditorOpen(v);
+            if (!v) {
+              // Flush any pending debounced save before unmounting the editor.
+              flushItemsSave();
+              setEditingId(null);
+            }
+          }}
         >
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -83,7 +132,7 @@ export default function PostopOrderTemplatesPage() {
               templates={[]}
               canEdit={true}
               hospitalId={hospital?.id}
-              onChange={({ items }) => update.mutate({ id: editing.id, patch: { items } })}
+              onChange={({ items }) => queueItemsSave(editing.id, items)}
             />
           </DialogContent>
         </Dialog>
