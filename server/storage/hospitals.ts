@@ -46,14 +46,14 @@ export async function getGroupHospitalIds(
   return rows.map((r) => r.id);
 }
 
-export async function getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; unitType: string | null; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean; showControlledMedications: boolean; canConfigure: boolean; canChat: boolean; canPlanOps: boolean; canManageControlled: boolean })[]> {
+export async function getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; unitType: string | null; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean; showControlledMedications: boolean; canConfigure: boolean; canChat: boolean; canPlanOps: boolean; canManageControlled: boolean; isDefaultLogin: boolean })[]> {
   const result = await db
     .select()
     .from(hospitals)
     .innerJoin(userHospitalRoles, eq(hospitals.id, userHospitalRoles.hospitalId))
     .innerJoin(units, eq(userHospitalRoles.unitId, units.id))
     .where(eq(userHospitalRoles.userId, userId));
-  
+
   return result.map(row => ({
     ...row.hospitals,
     role: row.user_hospital_roles.role,
@@ -71,7 +71,8 @@ export async function getUserHospitals(userId: string): Promise<(Hospital & { ro
     canChat: row.user_hospital_roles.canChat ?? false,
     canPlanOps: row.user_hospital_roles.canPlanOps ?? false,
     canManageControlled: row.user_hospital_roles.canManageControlled ?? false,
-  })) as (Hospital & { role: string; unitId: string; unitName: string; unitType: string | null; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean; showControlledMedications: boolean; canConfigure: boolean; canChat: boolean; canPlanOps: boolean; canManageControlled: boolean })[];
+    isDefaultLogin: row.user_hospital_roles.isDefaultLogin ?? false,
+  })) as (Hospital & { role: string; unitId: string; unitName: string; unitType: string | null; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean; showControlledMedications: boolean; canConfigure: boolean; canChat: boolean; canPlanOps: boolean; canManageControlled: boolean; isDefaultLogin: boolean })[];
 }
 
 export async function createHospital(name: string): Promise<Hospital> {

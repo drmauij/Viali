@@ -61,9 +61,11 @@ export function useActiveHospital(): Hospital | null {
     const saved = userHospitals.find((h: any) =>
       `${h.id}-${h.unitId}-${h.role}` === savedHospitalKey
     );
-    activeHospital = saved || userHospitals[0];
+    // Saved key wins when present; falls back to default-login flag, then first row.
+    activeHospital = saved || userHospitals.find((h: any) => h.isDefaultLogin) || userHospitals[0];
   } else {
-    activeHospital = userHospitals[0];
+    // No localStorage choice yet — honor the admin-set default-login if any.
+    activeHospital = userHospitals.find((h: any) => h.isDefaultLogin) || userHospitals[0];
   }
 
   // Apply hospital date/currency settings globally whenever the active hospital changes
