@@ -545,11 +545,14 @@ export function EventsSwimlane({
         return (
           <div
             key={`planned-task-${task.id}`}
-            className={`absolute z-30 pointer-events-auto ${isClickable ? 'cursor-pointer' : ''}`}
+            className={`absolute pointer-events-auto ${isClickable ? 'cursor-pointer' : ''}`}
             style={{
               left: leftPosition,
               top: `${eventsLane.top + 2}px`,
               height: `${Math.max(eventsLane.height - 4, 16)}px`,
+              // Sit above the interactive events-add overlay (zIndex 35) so the pill
+              // receives clicks instead of letting them open the "Add Event" dialog.
+              zIndex: 40,
             }}
             title={`${task.title} (${task.status})`}
             onClick={isClickable ? (e) => { e.stopPropagation(); onPlannedTaskClick(task); } : undefined}
