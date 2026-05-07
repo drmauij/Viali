@@ -1102,20 +1102,29 @@ router.patch('/api/admin/users/:userId/access', isAuthenticated, requireWriteAcc
       return res.status(403).json({ message: "User does not belong to this hospital" });
     }
 
-    // Build update object
-    const updateData: { canLogin?: boolean; staffType?: 'internal' | 'external'; isPraxis?: boolean } = {};
+    // isPraxis goes through togglePraxis so we get the linked-children
+    // safety check on the disable path (matches what /details does).
+    if (isPraxis !== undefined) {
+      const { togglePraxis } = await import("../storage/surgeonPortal");
+      try {
+        await togglePraxis(userId, !!isPraxis);
+      } catch (e: any) {
+        return res.status(409).json({ message: e?.message || "Failed to toggle praxis" });
+      }
+    }
+
+    // Build update object for the remaining fields
+    const updateData: { canLogin?: boolean; staffType?: 'internal' | 'external' } = {};
     if (canLogin !== undefined) {
       updateData.canLogin = canLogin;
     }
     if (staffType !== undefined) {
       updateData.staffType = staffType as 'internal' | 'external';
     }
-    if (isPraxis !== undefined) {
-      updateData.isPraxis = isPraxis;
-    }
 
-    // Update user
-    await db.update(users).set(updateData).where(eq(users.id, userId));
+    if (Object.keys(updateData).length > 0) {
+      await db.update(users).set(updateData).where(eq(users.id, userId));
+    }
 
     res.json({
       success: true,

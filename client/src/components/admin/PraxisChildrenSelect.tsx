@@ -97,7 +97,7 @@ export default function PraxisChildrenSelect({
 
   return (
     <div
-      className="space-y-1 max-h-48 overflow-y-auto border rounded-md p-2"
+      className="space-y-1 border rounded-md p-2"
       data-testid="praxis-children-select"
     >
       {eligible.length === 0 && (
