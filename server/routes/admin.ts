@@ -799,7 +799,7 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
 router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { userId } = req.params;
-    const { firstName, lastName, phone, adminNotes, weeklyTargetHours, overtimeBalanceMinutes, hospitalId, gln, zsrNumber } = req.body;
+    const { firstName, lastName, phone, adminNotes, weeklyTargetHours, overtimeBalanceMinutes, hospitalId, gln, zsrNumber, isPraxis } = req.body;
     
     if (!firstName || !lastName) {
       return res.status(400).json({ message: "First name and last name are required" });
@@ -846,11 +846,92 @@ router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAc
     if (zsrNumber !== undefined) {
       updateData.zsrNumber = zsrNumber || null;
     }
+    if (isPraxis !== undefined) {
+      // Use storage helper so the "still has children" guard fires
+      const { togglePraxis } = await import("../storage/surgeonPortal");
+      try {
+        await togglePraxis(userId, !!isPraxis);
+      } catch (e: any) {
+        return res.status(409).json({ message: e.message });
+      }
+    }
     await storage.updateUser(userId, updateData);
     res.json({ success: true });
   } catch (error) {
     logger.error("Error updating user details:", error);
     res.status(500).json({ message: "Failed to update user details" });
+  }
+});
+
+router.put('/api/admin/users/:userId/praxis-children', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { userId } = req.params;
+    const { hospitalId, childUserIds } = req.body as { hospitalId: string; childUserIds: string[] };
+
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID is required" });
+    }
+    if (!Array.isArray(childUserIds)) {
+      return res.status(400).json({ message: "childUserIds must be an array" });
+    }
+
+    const currentUserId = req.user.id;
+    const userHospitals = await storage.getUserHospitals(currentUserId);
+    const hasAdminRole = userHospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const targetUser = await storage.getUser(userId);
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (!targetUser.isPraxis) {
+      return res.status(400).json({ message: "User is not flagged as a praxis" });
+    }
+
+    const targetUserHospitals = await storage.getUserHospitals(userId);
+    if (!targetUserHospitals.some(h => h.id === hospitalId)) {
+      return res.status(403).json({ message: "User does not belong to this hospital" });
+    }
+
+    if (childUserIds.length > 0) {
+      for (const childId of childUserIds) {
+        const childHosps = await storage.getUserHospitals(childId);
+        if (!childHosps.some(h => h.id === hospitalId)) {
+          return res.status(400).json({ message: `Child ${childId} does not belong to this hospital` });
+        }
+      }
+    }
+
+    const { setPraxisChildren } = await import("../storage/surgeonPortal");
+    try {
+      await setPraxisChildren(userId, childUserIds);
+    } catch (e: any) {
+      return res.status(409).json({ message: e.message });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error("Error setting praxis children:", error);
+    res.status(500).json({ message: "Failed to set praxis children" });
+  }
+});
+
+router.get('/api/admin/users/:userId/praxis-children', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { userId } = req.params;
+    const { getChildrenOfPraxis } = await import("../storage/surgeonPortal");
+    const children = await getChildrenOfPraxis(userId);
+    res.json(children.map((c: any) => ({
+      id: c.id,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      email: c.email,
+    })));
+  } catch (error) {
+    logger.error("Error listing praxis children:", error);
+    res.status(500).json({ message: "Failed to list praxis children" });
   }
 });
 
