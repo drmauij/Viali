@@ -1,6 +1,13 @@
 import { Router, type Request, type Response } from "express";
 import logger from "../logger";
 import { storage } from "../storage";
+import { db } from "../db";
+import { eq, sql } from "drizzle-orm";
+import {
+  users,
+  externalSurgeryRequests,
+  insertExternalSurgeryRequestSchema,
+} from "@shared/schema";
 import {
   findPortalSessionWithEmail,
   getSurgeriesForSurgeon,
@@ -315,5 +322,97 @@ router.post("/api/surgeon-portal/:token/logout", async (req: Request, res: Respo
     return res.status(500).json({ message: "Internal server error" });
   }
 });
+
+/**
+ * POST /api/surgeon-portal/:token/requests
+ * Submit a new external surgery request from inside the authenticated portal.
+ * Body must include `surgeonId`. Authorization rules:
+ *   - Solo doctor: surgeonId must equal their own id.
+ *   - Praxis: surgeonId must be themselves or one of their children.
+ * Denormalized surgeon name/email/phone are populated from the resolved user.
+ */
+router.post(
+  "/api/surgeon-portal/:token/requests",
+  requireSurgeonSession,
+  async (req: Request, res: Response) => {
+    try {
+      const sessionEmail: string = ((req as any).surgeonEmail as string).toLowerCase();
+      const portalToken = req.params.token;
+
+      const hospital = await getHospitalByExternalSurgeryToken(portalToken);
+      if (!hospital) {
+        return res.status(404).json({ message: "Hospital not found" });
+      }
+
+      const [sessionUser] = await db
+        .select()
+        .from(users)
+        .where(sql`LOWER(${users.email}) = ${sessionEmail}`)
+        .limit(1);
+      if (!sessionUser) {
+        return res.status(401).json({ message: "Session user not found" });
+      }
+
+      const { surgeonId, ...rest } = req.body as { surgeonId: string; [k: string]: any };
+      if (!surgeonId) {
+        return res.status(400).json({ message: "surgeonId is required" });
+      }
+
+      const [targetSurgeon] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, surgeonId))
+        .limit(1);
+      if (!targetSurgeon) {
+        return res.status(400).json({ message: "Target surgeon not found" });
+      }
+
+      // Authorization: solo can only submit for self; praxis can submit for self or children
+      if (sessionUser.isPraxis) {
+        const isSelf = targetSurgeon.id === sessionUser.id;
+        const isChild = targetSurgeon.parentSurgeonId === sessionUser.id;
+        if (!isSelf && !isChild) {
+          return res.status(403).json({
+            message: "Target surgeon is not yourself or one of your children",
+          });
+        }
+      } else {
+        if (targetSurgeon.id !== sessionUser.id) {
+          return res.status(403).json({
+            message: "You may only submit requests for yourself",
+          });
+        }
+      }
+
+      const requestPayload = {
+        hospitalId: hospital.id,
+        surgeonId: targetSurgeon.id,
+        surgeonFirstName: targetSurgeon.firstName ?? "",
+        surgeonLastName: targetSurgeon.lastName ?? "",
+        surgeonEmail: targetSurgeon.email ?? "",
+        surgeonPhone: targetSurgeon.phone ?? "",
+        ...rest,
+      };
+
+      const parsed = insertExternalSurgeryRequestSchema.safeParse(requestPayload);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Invalid payload",
+          errors: parsed.error.flatten(),
+        });
+      }
+
+      const [created] = await db
+        .insert(externalSurgeryRequests)
+        .values(parsed.data as any)
+        .returning();
+
+      return res.status(201).json(created);
+    } catch (error) {
+      logger.error("[SurgeonPortal] Error creating surgeon-portal request:", error);
+      return res.status(500).json({ message: "Failed to create request" });
+    }
+  },
+);
 
 export default router;
