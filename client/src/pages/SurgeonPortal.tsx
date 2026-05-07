@@ -713,17 +713,30 @@ function SurgeonPortalContent({ token }: { token: string }) {
     enabled: !!me?.isPraxis,
   });
 
-  const availableSurgeons = useMemo<AvailableSurgeon[]>(
-    () =>
-      me
-        ? [{ id: me.id, firstName: me.firstName, lastName: me.lastName }, ...children]
-        : [],
-    [me, children],
-  );
+  // Operating-surgeon options:
+  //   non-praxis           → just me (picker hidden by parent)
+  //   praxis, no children  → just me as a fallback so a fresh praxis can still submit
+  //   praxis with children → children only (the praxis user is an org, not the operator)
+  const availableSurgeons = useMemo<AvailableSurgeon[]>(() => {
+    if (!me) return [];
+    if (!me.isPraxis) {
+      return [{ id: me.id, firstName: me.firstName, lastName: me.lastName }];
+    }
+    if (children.length === 0) {
+      return [{ id: me.id, firstName: me.firstName, lastName: me.lastName }];
+    }
+    return children;
+  }, [me, children]);
+
+  const showSurgeonPicker = !!me?.isPraxis && children.length > 0;
 
   const [selectedSurgeonId, setSelectedSurgeonId] = useState("");
   useEffect(() => {
-    if (availableSurgeons.length > 0 && !selectedSurgeonId) {
+    // Reset if the current selection isn't in the list (e.g. praxis added/removed children).
+    if (
+      availableSurgeons.length > 0 &&
+      !availableSurgeons.some((s) => s.id === selectedSurgeonId)
+    ) {
       setSelectedSurgeonId(availableSurgeons[0].id);
     }
   }, [availableSurgeons, selectedSurgeonId]);
@@ -959,6 +972,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
                 availableSurgeons={availableSurgeons}
                 selectedSurgeonId={selectedSurgeonId}
                 onSelectedSurgeonIdChange={setSelectedSurgeonId}
+                showSurgeonPicker={showSurgeonPicker}
                 showSurgeonDetailsBlock={false}
                 t={tFn}
                 locale={lang === "de" ? "de" : "en"}

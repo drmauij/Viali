@@ -76,13 +76,20 @@ export interface SurgeryRequestFormValues {
 
 export interface SurgeryRequestFormProps {
   /**
-   * List of surgeons that the authenticated portal user is allowed to submit
-   * a request on behalf of. Length === 1 → no picker rendered. Length > 1 →
-   * "Operating surgeon" picker shown at the top of the form.
+   * List of surgeons the authenticated portal user can submit on behalf of.
+   * The parent decides what goes in this list (e.g. children-only for praxes).
    */
   availableSurgeons: AvailableSurgeon[];
   selectedSurgeonId: string;
   onSelectedSurgeonIdChange: (id: string) => void;
+
+  /**
+   * Whether to render the "Operating surgeon" picker. Decoupled from
+   * availableSurgeons.length so the parent can show a picker even when
+   * there's only one option (e.g. a praxis with a single linked child still
+   * needs to see *which* child the request goes to).
+   */
+  showSurgeonPicker: boolean;
 
   /**
    * Whether to render the legacy "your details" block (firstName, lastName,
@@ -147,6 +154,7 @@ export function SurgeryRequestForm({
   availableSurgeons,
   selectedSurgeonId,
   onSelectedSurgeonIdChange,
+  showSurgeonPicker,
   showSurgeonDetailsBlock,
   t,
   onSubmit,
@@ -214,7 +222,7 @@ export function SurgeryRequestForm({
       }
     }
 
-    if (availableSurgeons.length > 1 && !selectedSurgeonId) return false;
+    if (showSurgeonPicker && !selectedSurgeonId) return false;
 
     return true;
   };
@@ -227,8 +235,8 @@ export function SurgeryRequestForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Operating surgeon picker (praxis only) */}
-      {availableSurgeons.length > 1 && (
+      {/* Operating surgeon picker (praxis with linked children) */}
+      {showSurgeonPicker && (
         <div className="space-y-2">
           <Label htmlFor="operating-surgeon">{t("operatingSurgeon")}</Label>
           <Select
