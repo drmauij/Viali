@@ -17,9 +17,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Key, Wand2, UserCheck, UserX, Building2, ExternalLink, Mail, Users as UsersIcon, UserCog, ArrowRightLeft, AlertTriangle, Star, Loader2, Search, ArrowUpDown, StickyNote } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import type { Unit, UserHospitalRole, User } from "@shared/schema";
 import StaffDuplicatesDialog from "@/components/admin/StaffDuplicatesDialog";
 import StaffMergeWizard from "@/components/admin/StaffMergeWizard";
+import PraxisChildrenSelect from "@/components/admin/PraxisChildrenSelect";
 
 // Get available roles based on unit type
 // Anesthesia/OR units: doctor, nurse, guest, admin
@@ -424,10 +426,10 @@ export default function Users() {
   });
 
   const updateUserDetailsMutation = useMutation({
-    mutationFn: async ({ userId, data }: { userId: string; data: { firstName: string; lastName: string; phone?: string | null; adminNotes?: string | null; weeklyTargetHours?: string | null; gln?: string | null; zsrNumber?: string | null } }) => {
-      const response = await apiRequest("PATCH", `/api/admin/users/${userId}/details`, { 
+    mutationFn: async ({ userId, data }: { userId: string; data: { firstName: string; lastName: string; phone?: string | null; adminNotes?: string | null; weeklyTargetHours?: string | null; gln?: string | null; zsrNumber?: string | null; isPraxis?: boolean } }) => {
+      const response = await apiRequest("PATCH", `/api/admin/users/${userId}/details`, {
         ...data,
-        hospitalId: activeHospital?.id 
+        hospitalId: activeHospital?.id
       });
       return await response.json();
     },
@@ -813,6 +815,24 @@ export default function Users() {
     }
   }, [users, editingUserDetails]);
 
+  // Distinct list of all User objects in the active hospital, used by the
+  // praxis-children multi-select. Reuses the existing grouped users query —
+  // do NOT add a new fetch.
+  const allHospitalUsers = useMemo(
+    () => users.map((u) => u.user),
+    [users],
+  );
+
+  // For child users (parentSurgeonId set), resolve the parent praxis name from
+  // the existing hospital-users list so the read-only badge can label them.
+  const parentPraxisUser = useMemo(() => {
+    if (!editingUserDetails?.parentSurgeonId) return null;
+    return allHospitalUsers.find((u) => u.id === editingUserDetails.parentSurgeonId) ?? null;
+  }, [allHospitalUsers, editingUserDetails?.parentSurgeonId]);
+  const parentPraxisName = parentPraxisUser
+    ? `${parentPraxisUser.firstName ?? ""} ${parentPraxisUser.lastName ?? ""}`.trim()
+    : null;
+
   const handleDeleteUser = (user: HospitalUser) => {
     setUserToArchive(user);
     setArchiveDialogStep(1);
@@ -932,6 +952,7 @@ export default function Users() {
           weeklyTargetHours: editingUserDetails.weeklyTargetHours ?? null,
           gln: editingUserDetails.gln ?? null,
           zsrNumber: editingUserDetails.zsrNumber ?? null,
+          isPraxis: editingUserDetails.isPraxis ?? false,
         },
       });
     } catch (error) {
@@ -1636,6 +1657,14 @@ export default function Users() {
           </DialogHeader>
           <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 pb-6 space-y-4">
             <div className="space-y-4 py-1">
+              {/* Parent praxis badge — read-only, shown when this user is a child surgeon */}
+              {editingUserDetails?.parentSurgeonId && (
+                <div data-testid="badge-parent-praxis-wrapper">
+                  <Badge variant="secondary" data-testid="badge-parent-praxis">
+                    {t("admin.praxisPrefix", "Praxis")}: {parentPraxisName || t("admin.unknown", "(unknown)")}
+                  </Badge>
+                </div>
+              )}
               {/* Email field */}
               <div>
                 <Label htmlFor="edit-email" className="flex items-center gap-2">
@@ -1720,6 +1749,42 @@ export default function Users() {
                     data-testid="input-edit-zsr"
                   />
                 </div>
+              </div>
+
+              {/* Praxis (multi-doctor practice) — toggles isPraxis on the
+                  PATCH /details mutation. When enabled, exposes the children
+                  multi-select for linking individual surgeons to this praxis. */}
+              <div className="border-t pt-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="user-is-praxis"
+                    checked={editingUserDetails?.isPraxis ?? false}
+                    onCheckedChange={(checked) => {
+                      if (editingUserDetails) {
+                        setEditingUserDetails({
+                          ...editingUserDetails,
+                          isPraxis: checked === true,
+                        });
+                      }
+                    }}
+                    data-testid="checkbox-is-praxis"
+                  />
+                  <Label htmlFor="user-is-praxis" className="text-sm font-normal">
+                    {t("admin.isPraxisLabel", "Is a praxis (multi-doctor practice)")}
+                  </Label>
+                </div>
+                {editingUserDetails?.isPraxis && editingUserDetails?.id && activeHospital?.id && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">
+                      {t("admin.praxisChildrenLabel", "Associated doctors (children)")}
+                    </Label>
+                    <PraxisChildrenSelect
+                      praxisUserId={editingUserDetails.id}
+                      hospitalId={activeHospital.id}
+                      allHospitalUsers={allHospitalUsers}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Admin Notes */}
