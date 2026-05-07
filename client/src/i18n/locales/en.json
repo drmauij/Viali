@@ -1519,6 +1519,8 @@
     "failedToUpdateEmail": "Failed to update email address",
     "emailChangeHint": "Changing the email will update the user's login credentials",
     "editUserDescription": "Update user profile and access settings",
+    "editTabDetails": "Details",
+    "editTabRoles": "Roles & Units",
     "clickToDisableLogin": "Click to disable app access",
     "clickToEnableLogin": "Click to enable app access",
     "clickToSetInternal": "Click to change to internal staff",

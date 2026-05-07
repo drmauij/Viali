@@ -1666,6 +1666,16 @@ export default function Users() {
                   </Badge>
                 </div>
               )}
+              <Tabs defaultValue="details" className="space-y-4">
+                <TabsList>
+                  <TabsTrigger value="details" data-testid="tab-edit-user-details">
+                    {t("admin.editTabDetails", "Details")}
+                  </TabsTrigger>
+                  <TabsTrigger value="roles" data-testid="tab-edit-user-roles">
+                    {t("admin.editTabRoles", "Roles & Units")}
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="details" className="space-y-4 mt-0">
               {/* Email field */}
               <div>
                 <Label htmlFor="edit-email" className="flex items-center gap-2">
@@ -1949,6 +1959,8 @@ export default function Users() {
                 </div>
               </div>
 
+                </TabsContent>
+                <TabsContent value="roles" className="space-y-4 mt-0">
               {/* Role/Unit Pairs */}
               <div className="border-t pt-4">
                 <Label className="text-base font-semibold">{t("admin.roleLocationPairs")}</Label>
@@ -2121,6 +2133,8 @@ export default function Users() {
                   </Button>
                 </div>
               </div>
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
           <div className="flex gap-2 justify-end border-t pt-4 px-6 pb-6 shrink-0 bg-background">

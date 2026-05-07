@@ -1607,6 +1607,8 @@
     "failedToUpdateEmail": "E-Mail-Adresse konnte nicht aktualisiert werden",
     "emailChangeHint": "Die Änderung der E-Mail aktualisiert die Anmeldedaten des Benutzers",
     "editUserDescription": "Benutzerprofil und Zugriffseinstellungen aktualisieren",
+    "editTabDetails": "Details",
+    "editTabRoles": "Rollen & Einheiten",
     "clickToDisableLogin": "Klicken, um App-Zugriff zu deaktivieren",
     "clickToEnableLogin": "Klicken, um App-Zugriff zu aktivieren",
     "clickToSetInternal": "Klicken, um zu internem Personal zu wechseln",
