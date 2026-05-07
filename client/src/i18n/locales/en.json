@@ -7235,7 +7235,8 @@
       "taskTitle": "Task",
       "ivFluidTitle": "IV Fluid",
       "plannedAt": "Planned at",
-      "markDone": "Mark as done"
+      "markDone": "Mark as done",
+      "restore": "Restore"
     },
     "vitalsOverlay": {
       "checkPlannedAt": "{{parameter}} check planned at {{time}}"

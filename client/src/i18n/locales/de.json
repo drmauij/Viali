@@ -7336,7 +7336,8 @@
       "taskTitle": "Aufgabe",
       "ivFluidTitle": "Infusion",
       "plannedAt": "Geplant für",
-      "markDone": "Als erledigt markieren"
+      "markDone": "Als erledigt markieren",
+      "restore": "Wiederherstellen"
     },
     "vitalsOverlay": {
       "checkPlannedAt": "{{parameter}}-Kontrolle geplant um {{time}}"

@@ -118,4 +118,12 @@ export const postopOrdersStorage = {
       .returning();
     return row;
   },
+
+  async markEventUndone(eventId: string): Promise<PostopPlannedEvent> {
+    const [row] = await db.update(postopPlannedEvents)
+      .set({ status: 'planned', doneAt: null, doneBy: null, doneValue: null })
+      .where(eq(postopPlannedEvents.id, eventId))
+      .returning();
+    return row;
+  },
 };

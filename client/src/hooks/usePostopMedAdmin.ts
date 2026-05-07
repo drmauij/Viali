@@ -54,3 +54,26 @@ export function useMarkPostopEventDone(anesthesiaRecordId: string) {
     },
   });
 }
+
+export function useMarkPostopEventUndone(anesthesiaRecordId: string) {
+  const qc = useQueryClient();
+  return useMutation<unknown, Error, { eventId: string }>({
+    mutationFn: async ({ eventId }) => {
+      const res = await apiRequest(
+        "POST",
+        `/api/anesthesia/postop-orders/events/${eventId}/undone`,
+        {},
+      );
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(`Mark undone failed: ${res.status} ${t}`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({
+        queryKey: [`/api/anesthesia/records/${anesthesiaRecordId}/postop-orders`],
+      });
+    },
+  });
+}

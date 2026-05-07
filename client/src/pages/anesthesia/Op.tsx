@@ -23,7 +23,7 @@ import { PostopTaskCompleteDialog, type OpenTaskInfo } from "@/components/anesth
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { PostopTasksPanel } from "@/components/anesthesia/postop/PostopTasksPanel";
 import { usePostopOrderSet } from "@/hooks/usePostopOrderSet";
-import { useMarkPostopEventDone } from "@/hooks/usePostopMedAdmin";
+import { useMarkPostopEventDone, useMarkPostopEventUndone } from "@/hooks/usePostopMedAdmin";
 import type { PostopOrderItem } from "@shared/postopOrderItems";
 import { medRefKey } from "@shared/postopMedicationVisibility";
 import { useDeviationAcks } from "@/hooks/usePostopDeviationAcks";
@@ -245,6 +245,7 @@ export default function Op() {
   const postopTemplates = usePostopOrderTemplates(activeHospital?.id);
   const deviationAcks = useDeviationAcks(anesthesiaRecord?.id);
   const markPostopEventDone = useMarkPostopEventDone(anesthesiaRecord?.id ?? '');
+  const markPostopEventUndone = useMarkPostopEventUndone(anesthesiaRecord?.id ?? '');
   const [openPlannedTask, setOpenPlannedTask] = useState<OpenTaskInfo | null>(null);
 
   // Save handler for order sets — surfaces server validation errors
@@ -2378,6 +2379,9 @@ export default function Op() {
             task={openPlannedTask}
             onMarkDone={async (taskId) => {
               await markPostopEventDone.mutateAsync({ eventId: taskId });
+            }}
+            onMarkUndone={async (taskId) => {
+              await markPostopEventUndone.mutateAsync({ eventId: taskId });
             }}
           />
 

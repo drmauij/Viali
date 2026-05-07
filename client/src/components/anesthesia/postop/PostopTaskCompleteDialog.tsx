@@ -21,9 +21,10 @@ interface Props {
   onOpenChange: (o: boolean) => void;
   task: OpenTaskInfo | null;
   onMarkDone: (taskId: string) => Promise<void> | void;
+  onMarkUndone?: (taskId: string) => Promise<void> | void;
 }
 
-export function PostopTaskCompleteDialog({ open, onOpenChange, task, onMarkDone }: Props) {
+export function PostopTaskCompleteDialog({ open, onOpenChange, task, onMarkDone, onMarkUndone }: Props) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
 
@@ -33,6 +34,17 @@ export function PostopTaskCompleteDialog({ open, onOpenChange, task, onMarkDone 
     setBusy(true);
     try {
       await onMarkDone(task.id);
+      onOpenChange(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!onMarkUndone) return;
+    setBusy(true);
+    try {
+      await onMarkUndone(task.id);
       onOpenChange(false);
     } finally {
       setBusy(false);
@@ -82,7 +94,13 @@ export function PostopTaskCompleteDialog({ open, onOpenChange, task, onMarkDone 
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             {t('postopOrders.editor.cancel', 'Cancel')}
           </Button>
-          {!isDone && (
+          {isDone ? (
+            onMarkUndone && (
+              <Button variant="secondary" onClick={handleRestore} disabled={busy}>
+                {t('postopOrders.task.restore', 'Restore')}
+              </Button>
+            )
+          ) : (
             <Button onClick={handleMark} disabled={busy}>
               {t('postopOrders.task.markDone', 'Mark as done')}
             </Button>

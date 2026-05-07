@@ -261,4 +261,15 @@ router.post('/api/anesthesia/postop-orders/events/:eventId/done', isAuthenticate
   }
 });
 
+router.post('/api/anesthesia/postop-orders/events/:eventId/undone', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { eventId } = req.params;
+    const event = await postopOrdersStorage.markEventUndone(eventId);
+    res.json(event);
+  } catch (error) {
+    logger.error("Error reverting postop event to planned:", error);
+    res.status(500).json({ message: "Failed to revert event" });
+  }
+});
+
 export default router;
