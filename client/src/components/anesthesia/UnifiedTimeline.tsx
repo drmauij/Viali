@@ -91,7 +91,7 @@ import { useCreateEvent, useUpdateEvent, useDeleteEvent } from "@/hooks/useEvent
 import { useCreateMedication, useUpdateMedication, useDeleteMedication } from "@/hooks/useMedicationQuery";
 import { useCreateOutput, useUpdateOutput, useDeleteOutput, useSetUrineMode } from "@/hooks/useOutputQuery";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
-import { shouldAdmitMedicationItem } from "@shared/postopMedicationVisibility";
+import { shouldAdmitMedicationItem, medRefKey } from "@shared/postopMedicationVisibility";
 import { TimelineContextProvider } from "./TimelineContext";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
@@ -2114,7 +2114,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               // Default rows are single-line (38px). Rows referenced by the
               // active postop order set get a second line for the Verordnet
               // tag, so they grow to 56px.
-              const isOrdered = !!(orderedMedicationRefs?.has(item.name));
+              const isOrdered = !!(orderedMedicationRefs?.has(medRefKey(item.name, item.administrationRoute)));
               let laneHeight = isOrdered ? 56 : 38;
               const isFreeFlow = item.rateUnit === 'free';
               if (isFreeFlow) {

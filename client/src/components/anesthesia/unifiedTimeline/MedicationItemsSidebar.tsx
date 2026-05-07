@@ -15,6 +15,7 @@ import {
 import type { SwimlaneConfig, AdministrationGroup, AnesthesiaItem } from "./types";
 import type { AnesthesiaTimeMarker } from "@/hooks/useEventState";
 import type { TFunction } from "i18next";
+import { medRefKey } from "@shared/postopMedicationVisibility";
 
 /** Swimlane position — a SwimlaneConfig with a computed `top` offset. */
 export type SwimlanePosition = SwimlaneConfig & { top: number };
@@ -500,7 +501,7 @@ export const MedicationItemsSidebar = React.memo(function MedicationItemsSidebar
                   if (medicationItem?.administrationRoute) secondLineParts.push(medicationItem.administrationRoute);
                 }
                 const secondLine = secondLineParts.join(' · ');
-                const isOrdered = !!(drugName && orderedMedicationRefs?.has(drugName));
+                const isOrdered = !!(drugName && orderedMedicationRefs?.has(medRefKey(drugName, medicationItem?.administrationRoute)));
 
                 const labelBody = (
                   <div className="flex flex-col justify-center gap-0.5 flex-1 min-w-0">

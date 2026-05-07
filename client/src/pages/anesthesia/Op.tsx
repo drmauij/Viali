@@ -23,6 +23,7 @@ import { useCanWrite } from "@/hooks/useCanWrite";
 import { PostopTasksPanel } from "@/components/anesthesia/postop/PostopTasksPanel";
 import { usePostopOrderSet } from "@/hooks/usePostopOrderSet";
 import type { PostopOrderItem } from "@shared/postopOrderItems";
+import { medRefKey } from "@shared/postopMedicationVisibility";
 import { useDeviationAcks } from "@/hooks/usePostopDeviationAcks";
 import { usePostopOrderTemplates } from "@/hooks/usePostopOrderTemplates";
 import { WHOChecklistCard } from "@/components/anesthesia/WHOChecklistCard";
@@ -308,13 +309,14 @@ export default function Op() {
     return { plannedMedEvents, prnItems };
   }, [postopOrderSet.data]);
 
-  // Phase C: medications referenced by the active postop order set (for Verordnet tag + per-row pills)
+  // Phase C: medications referenced by the active postop order set (for Verordnet tag + per-row pills).
+  // Keys are name+route via `medRefKey` so the badge only matches rows whose route matches the order.
   const orderedMedicationRefs = useMemo(() => {
     const items = postopOrderSet.data?.orderSet?.items ?? [];
     return new Set(
       items
         .filter((it: any) => it.type === 'medication' && typeof it.medicationRef === 'string' && it.medicationRef.trim())
-        .map((it: any) => (it.medicationRef as string).trim())
+        .map((it: any) => medRefKey((it.medicationRef as string).trim(), it.route))
     );
   }, [postopOrderSet.data?.orderSet?.items]);
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   shouldAdmitMedicationItem,
+  medRefKey,
   type MedicationVisibilityItem,
 } from '@shared/postopMedicationVisibility';
 
@@ -9,6 +10,7 @@ describe('shouldAdmitMedicationItem', () => {
     id: 'item-1',
     name: 'Amoxicillin/Clavulanic acid',
     administrationGroup: 'antibiotics',
+    administrationRoute: 'i.v.',
     onDemandOnly: true,
     medicationConfigId: 'cfg-1',
   };
@@ -31,14 +33,25 @@ describe('shouldAdmitMedicationItem', () => {
     ).toBe(true);
   });
 
-  it('admits on-demand items referenced by an active postop order (Phase C4)', () => {
+  it('admits on-demand items referenced by an active postop order (Phase C4) — route matches', () => {
     expect(
       shouldAdmitMedicationItem(
         baseItem,
         new Set(),
-        new Set(['Amoxicillin/Clavulanic acid']),
+        new Set([medRefKey('Amoxicillin/Clavulanic acid', 'iv')]),
       ),
     ).toBe(true);
+  });
+
+  it('rejects on-demand items whose route differs from the order (route-aware)', () => {
+    // baseItem is i.v.; the order is for the same drug but p.o. — should not admit.
+    expect(
+      shouldAdmitMedicationItem(
+        baseItem,
+        new Set(),
+        new Set([medRefKey('Amoxicillin/Clavulanic acid', 'po')]),
+      ),
+    ).toBe(false);
   });
 
   it('rejects on-demand items neither administered nor ordered', () => {
@@ -69,7 +82,7 @@ describe('shouldAdmitMedicationItem', () => {
       medicationConfigId: null,
     };
     expect(
-      shouldAdmitMedicationItem(inventoryOnly, new Set(['item-1']), new Set(['Amoxicillin/Clavulanic acid'])),
+      shouldAdmitMedicationItem(inventoryOnly, new Set(['item-1']), new Set([medRefKey('Amoxicillin/Clavulanic acid', 'iv')])),
     ).toBe(false);
   });
 
@@ -83,8 +96,29 @@ describe('shouldAdmitMedicationItem', () => {
       shouldAdmitMedicationItem(
         baseItem,
         new Set(),
-        new Set(['amoxicillin/clavulanic acid']), // different case
+        new Set([medRefKey('amoxicillin/clavulanic acid', 'iv')]), // different case
       ),
     ).toBe(false);
+  });
+});
+
+describe('medRefKey', () => {
+  it('normalizes "i.v." → "iv"', () => {
+    expect(medRefKey('Amoxi', 'i.v.')).toBe('Amoxi|iv');
+  });
+  it('normalizes "I.V." (uppercase) → "iv"', () => {
+    expect(medRefKey('Amoxi', 'I.V.')).toBe('Amoxi|iv');
+  });
+  it('passes through already-normalized routes', () => {
+    expect(medRefKey('Amoxi', 'iv')).toBe('Amoxi|iv');
+    expect(medRefKey('Amoxi', 'po')).toBe('Amoxi|po');
+  });
+  it('emits empty route segment for missing route', () => {
+    expect(medRefKey('Amoxi', null)).toBe('Amoxi|');
+    expect(medRefKey('Amoxi', undefined)).toBe('Amoxi|');
+    expect(medRefKey('Amoxi', '')).toBe('Amoxi|');
+  });
+  it('does not match across routes (the whole point)', () => {
+    expect(medRefKey('Amoxi', 'iv')).not.toBe(medRefKey('Amoxi', 'po'));
   });
 });
