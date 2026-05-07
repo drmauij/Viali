@@ -1844,17 +1844,7 @@ export default function Op() {
 
           {/* Post-op Tab - Only shown in OP mode */}
           {!isPacuMode && (
-            <TabsContent value="postop" className="flex-1 overflow-y-auto px-6 pb-6 mt-0" data-testid="tab-content-postop">
-            <Tabs defaultValue="notes" className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="notes" data-testid="tab-postop-notes">
-                  {t('anesthesia.op.postopSubTabNotes', 'Notes & Complications')}
-                </TabsTrigger>
-                <TabsTrigger value="orders" data-testid="tab-postop-orders">
-                  {t('anesthesia.op.postopSubTabOrders', 'Orders')}
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="notes" className="space-y-4 mt-0">
+            <TabsContent value="postop" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-postop">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>{t('anesthesia.op.postOperativeInformation')}</CardTitle>
@@ -2342,32 +2332,29 @@ export default function Op() {
                 </div>
               </CardContent>
             </Card>
-              </TabsContent>
 
-              <TabsContent value="orders" className="mt-0">
-                <PostopOrdersEditor
-                  items={postopOrderSet.data?.orderSet.items ?? []}
-                  templateId={postopOrderSet.data?.orderSet.templateId ?? null}
-                  templates={postopTemplates.data ?? []}
-                  canEdit={!anesthesiaRecord?.isLocked}
-                  hospitalId={activeHospital?.id}
-                  onChange={({ items, templateId }) => handleSaveOrderSet({ items, templateId })}
-                  onSaveAsTemplate={(payload) => {
-                    if (payload.overwriteId) {
-                      postopTemplates.update.mutate({ id: payload.overwriteId, patch: { items: payload.items } });
-                    } else {
-                      postopTemplates.create.mutate({
-                        hospitalId: activeHospital?.id ?? '',
-                        name: payload.name,
-                        description: null,
-                        items: payload.items,
-                        procedureCode: null,
-                      });
-                    }
-                  }}
-                />
-              </TabsContent>
-            </Tabs>
+            {/* Postoperative Orders (order-set editor) */}
+            <PostopOrdersEditor
+              items={postopOrderSet.data?.orderSet.items ?? []}
+              templateId={postopOrderSet.data?.orderSet.templateId ?? null}
+              templates={postopTemplates.data ?? []}
+              canEdit={!anesthesiaRecord?.isLocked}
+              hospitalId={activeHospital?.id}
+              onChange={({ items, templateId }) => handleSaveOrderSet({ items, templateId })}
+              onSaveAsTemplate={(payload) => {
+                if (payload.overwriteId) {
+                  postopTemplates.update.mutate({ id: payload.overwriteId, patch: { items: payload.items } });
+                } else {
+                  postopTemplates.create.mutate({
+                    hospitalId: activeHospital?.id ?? '',
+                    name: payload.name,
+                    description: null,
+                    items: payload.items,
+                    procedureCode: null,
+                  });
+                }
+              }}
+            />
           </TabsContent>
           )}
 

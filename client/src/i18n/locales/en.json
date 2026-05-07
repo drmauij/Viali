@@ -2427,8 +2427,6 @@
       "destination": "Destination",
       "postOperativeNotes": "Post-Operative Notes",
       "complications": "Complications",
-      "postopSubTabNotes": "Notes & Complications",
-      "postopSubTabOrders": "Orders",
       "medicationSchedule": "Medication Schedule",
       "intraoperativeMedications": "Intraoperative Medications",
       "noMedicationsAdministered": "No medications administered during surgery",
