@@ -134,24 +134,7 @@ export function PostopOrdersEditor({ items, templateId, templates, canEdit, hosp
               hospitalId={hospitalId}
               onUpdate={updateItem}
               onRemove={removeItem}
-              onAdd={() => {
-                if (key === 'medications') return; // handled by addMenu
-                addItem(CARD_TYPES[key][0]);
-              }}
-              addMenu={key === 'medications' ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="sm" variant="ghost" disabled={!canEdit} data-testid={`add-${key}`}>
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => addItem('medication')}>{t('postopOrders.editor.medication', 'Medication')}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => addItem('iv_fluid')}>{t('postopOrders.editor.ivFluid', 'IV Fluid')}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => addItem('bz_sliding_scale')}>{t('postopOrders.editor.bzSlidingScale', 'BG Sliding Scale')}</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
+              onAdd={() => addItem(CARD_TYPES[key][0])}
             />
           ))}
         </div>
@@ -220,10 +203,9 @@ interface SubCardProps {
   onUpdate: (id: string, next: PostopOrderItem) => void;
   onRemove: (id: string) => void;
   onAdd: () => void;
-  addMenu?: React.ReactNode;
 }
 
-function SubCard({ title, Icon, items, expandedId, setExpandedId, canEdit, hospitalId, onUpdate, onRemove, onAdd, addMenu }: SubCardProps) {
+function SubCard({ title, Icon, items, expandedId, setExpandedId, canEdit, hospitalId, onUpdate, onRemove, onAdd }: SubCardProps) {
   return (
     <div className="border rounded-md bg-card/50 p-3">
       <div className="flex items-center justify-between mb-2">
@@ -232,11 +214,11 @@ function SubCard({ title, Icon, items, expandedId, setExpandedId, canEdit, hospi
           {title}
           {items.length > 0 && <Badge variant="secondary" className="text-xs">{items.length}</Badge>}
         </div>
-        {canEdit && (addMenu ?? (
+        {canEdit && (
           <Button size="sm" variant="ghost" onClick={onAdd} data-testid={`add-${title.toLowerCase()}`}>
             <Plus className="w-4 h-4" />
           </Button>
-        ))}
+        )}
       </div>
       <div className="space-y-1.5">
         {items.length === 0 && (
