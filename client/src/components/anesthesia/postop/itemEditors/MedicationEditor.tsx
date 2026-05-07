@@ -266,7 +266,7 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
         onChange={(timing) => onChange({ ...item, timing })}
         allowedModes={ALLOWED_MODES_BY_TYPE.medication}
       />
-      {item.timing.mode === 'ad_hoc' && (
+      {item.timing?.mode === 'ad_hoc' && (
         <div className="grid grid-cols-2 gap-2">
           <div>
             <Label className="text-xs">{t('postopOrders.editor.maxPerDay', 'Max per day')}</Label>

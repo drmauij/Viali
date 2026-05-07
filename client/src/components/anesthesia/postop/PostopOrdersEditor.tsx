@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Plus, ChevronDown, ChevronRight, Pill, Activity, FlaskConical, ClipboardList, Save, Check, X } from 'lucide-react';
-import { createEmptyItem, type PostopOrderItem, type PostopOrderItemType } from '@shared/postopOrderItems';
+import { createEmptyItem, normalizeItem, type PostopOrderItem, type PostopOrderItemType } from '@shared/postopOrderItems';
 import { ItemEditor } from './itemEditors';
 import type { TemplateRow } from '@/hooks/usePostopOrderTemplates';
 import { AiPasteOrders } from './AiPasteOrders';
@@ -43,8 +43,12 @@ interface Props {
   onSaveAsTemplate?: (payload: { name: string; items: PostopOrderItem[]; overwriteId?: string }) => void;
 }
 
-export function PostopOrdersEditor({ items, templateId, templates, canEdit, hospitalId, onChange, onSaveAsTemplate }: Props) {
+export function PostopOrdersEditor({ items: rawItems, templateId, templates, canEdit, hospitalId, onChange, onSaveAsTemplate }: Props) {
   const { t } = useTranslation();
+  // Defensively normalize stale DB rows (missing `timing`, etc.) before
+  // any rendering or editing. Without this, schedulable items that
+  // pre-date the unified-Timing migration crash the editors.
+  const items = useMemo(() => rawItems.map(normalizeItem), [rawItems]);
   // Edits accumulate in `draft` until the user clicks Confirm. Cancel
   // discards. For a brand-new item (`draftIsNew`), the draft is prepended
   // to its target card's list and only persists if confirmed; for an

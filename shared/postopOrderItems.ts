@@ -131,3 +131,25 @@ export function createEmptyItem(type: PostopOrderItemType, id: ItemId): PostopOr
       return { id, type, drug: 'Actrapid', rules: [{ above: 120, units: 2 }], timing: { mode: 'scheduled', frequency: 'q4h' } };
   }
 }
+
+const DEFAULT_TIMING_BY_TYPE: Partial<Record<PostopOrderItemType, Timing>> = {
+  vitals_monitoring: { mode: 'scheduled', frequency: 'q1h' },
+  medication:        { mode: 'scheduled' },
+  iv_fluid:          { mode: 'one_shot' },
+  lab:               { mode: 'one_shot' },
+  task:              { mode: 'one_shot' },
+  bz_sliding_scale:  { mode: 'scheduled', frequency: 'q4h' },
+};
+
+/**
+ * Defensive normalization for items read from the DB. Stale rows from
+ * before the unified-Timing migration may lack a `timing` field; this
+ * coerces them to a sensible default so editors don't crash. Always
+ * returns a structurally-valid PostopOrderItem.
+ */
+export function normalizeItem<T extends PostopOrderItem>(item: T): T {
+  if (!SCHEDULABLE_ITEM_TYPES.has(item.type)) return item;
+  if ((item as any).timing) return item;
+  const def = DEFAULT_TIMING_BY_TYPE[item.type];
+  return def ? ({ ...item, timing: def } as T) : item;
+}
