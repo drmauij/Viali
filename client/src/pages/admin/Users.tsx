@@ -1687,7 +1687,7 @@ export default function Users() {
               </div>
               {/* Email field */}
               <div>
-                <Label htmlFor="edit-email" className="flex items-center gap-2">
+                <Label htmlFor="edit-email" className="flex items-center gap-2 mb-2">
                   <Mail className="h-4 w-4" />
                   {t("admin.email")} *
                 </Label>
