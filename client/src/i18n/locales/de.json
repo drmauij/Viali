@@ -7191,7 +7191,10 @@
       "task": "Aufgabe",
       "bzSlidingScale": "BZ-Schema",
       "freeText": "Freitext",
-      "note": "Bemerkung",
+      "note": "Notiz (optional)",
+      "notePlaceholder": "Zusätzlicher klinischer Kontext",
+      "subtype": "Typ",
+      "taskTitlePlaceholder": "z.B. Oberkörper 30°, Redon links axillär, Nüchtern 2h",
       "startAt": "Beginn um",
       "startAtImmediate": "Sofort",
       "bedrest": "Bettruhe",
@@ -7278,7 +7281,7 @@
       "intervalHours": "Intervall (Stunden)",
       "thresholds": "Grenzwerte",
       "action": "Aktion",
-      "title": "Titel",
+      "title": "Beschreibung",
       "adHoc": "Ad-hoc",
       "conditional": "Bedingt",
       "conditionPlaceholder": "z.B. bei Durchnässung",
@@ -7307,6 +7310,15 @@
       "unconfiguredMedsListed": "Folgende Medikamente sind nicht konfiguriert: {{names}}",
       "unmappedMedication": "\"{{name}}\" ist nicht für den Verlauf konfiguriert.",
       "configure": "Konfigurieren"
+    },
+    "taskSubtype": {
+      "generic": "Aufgabe",
+      "positioning": "Lagerung",
+      "drainage": "Drainage",
+      "nutrition": "Ernährung",
+      "woundCare": "Wundversorgung",
+      "mobilization": "Mobilisation",
+      "note": "Notiz"
     },
     "swimlane": {
       "ordered": "Verordnet"

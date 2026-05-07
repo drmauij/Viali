@@ -7090,7 +7090,10 @@
       "task": "Task",
       "bzSlidingScale": "BG Sliding Scale",
       "freeText": "Free Text",
-      "note": "Note",
+      "note": "Note (optional)",
+      "notePlaceholder": "Additional clinical context",
+      "subtype": "Type",
+      "taskTitlePlaceholder": "e.g. Head up 30°, Redon left axilla, NPO 2h",
       "startAt": "Start at",
       "startAtImmediate": "Immediately",
       "bedrest": "Bed rest",
@@ -7177,7 +7180,7 @@
       "intervalHours": "Interval (hours)",
       "thresholds": "Thresholds",
       "action": "Action",
-      "title": "Title",
+      "title": "Description",
       "adHoc": "Ad hoc",
       "conditional": "Conditional",
       "conditionPlaceholder": "e.g. when soaked through",
@@ -7206,6 +7209,15 @@
       "unconfiguredMedsListed": "These medications are not configured: {{names}}",
       "unmappedMedication": "\"{{name}}\" is not configured for the swimlane.",
       "configure": "Configure"
+    },
+    "taskSubtype": {
+      "generic": "Task",
+      "positioning": "Positioning",
+      "drainage": "Drainage",
+      "nutrition": "Nutrition",
+      "woundCare": "Wound Care",
+      "mobilization": "Mobilization",
+      "note": "Note"
     },
     "swimlane": {
       "ordered": "Ordered"
