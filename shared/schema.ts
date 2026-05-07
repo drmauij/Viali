@@ -5615,6 +5615,9 @@ export const externalSurgeryRequests = pgTable("external_surgery_requests", {
 
   // Surgery details
   surgeryName: varchar("surgery_name"), // Nullable for reservation-only requests
+  chopCode: varchar("chop_code"), // Optional CHOP procedure code linked to surgeryName
+  surgerySide: varchar("surgery_side", { enum: ["left", "right", "both"] }),
+  antibioseProphylaxe: boolean("antibiose_prophylaxe").default(false).notNull(),
   surgeryDurationMinutes: integer("surgery_duration_minutes").notNull(),
   withAnesthesia: boolean("with_anesthesia").default(true).notNull(),
   anesthesiaNotes: text("anesthesia_notes"), // Surgeon's notes for the anesthesiologist
