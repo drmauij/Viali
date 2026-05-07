@@ -2508,6 +2508,8 @@
       "destination": "Zielort",
       "postOperativeNotes": "Postoperative Notizen",
       "complications": "Komplikationen",
+      "postopSubTabNotes": "Notizen & Komplikationen",
+      "postopSubTabOrders": "Verordnungen",
       "medicationSchedule": "Medikamentenplan",
       "intraoperativeMedications": "Intraoperative Medikamente",
       "noMedicationsAdministered": "Keine Medikamente während der Operation verabreicht",
