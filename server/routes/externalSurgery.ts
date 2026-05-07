@@ -9,7 +9,7 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../sms";
-import { sendExternalSurgeryRequestNotification, sendExternalSurgeryDeclineNotification, sendSurgeonActionResponseEmail } from "../resend";
+import { sendExternalSurgeryDeclineNotification, sendSurgeonActionResponseEmail } from "../resend";
 import {
   getSurgeonActionRequests,
   getSurgeonActionRequest,
@@ -18,10 +18,8 @@ import {
 } from "../storage/surgeonPortal";
 import { Resend } from "resend";
 import { db } from "../db";
-import { users, userHospitalRoles, units } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
 import logger from "../logger";
-import { getClinicClosuresInRange, isDateInClosure } from "../storage/clinicClosures";
+import { getClinicClosuresInRange } from "../storage/clinicClosures";
 import { findFuzzyPatientMatches } from "../services/patientDeduplication";
 
 const router = Router();
@@ -82,59 +80,10 @@ const fetchLimiter = createRateLimiter({
   keyPrefix: 'extsurg_fetch'
 });
 
-const submitLimiter = createRateLimiter({
-  windowMs: 60 * 60 * 1000,
-  maxRequests: 10,
-  keyPrefix: 'extsurg_submit'
-});
-
 const uploadLimiter = createRateLimiter({
   windowMs: 60 * 1000,
   maxRequests: 20,
   keyPrefix: 'extsurg_upload'
-});
-
-const externalSurgeryRequestSchema = z.object({
-  surgeonFirstName: z.string().min(1, "Surgeon first name is required"),
-  surgeonLastName: z.string().min(1, "Surgeon last name is required"),
-  surgeonEmail: z.string().email("Valid email is required"),
-  surgeonPhone: z.string().min(5, "Surgeon phone is required"),
-  surgeryName: z.string().optional().nullable().transform(v => v === '' ? null : v),
-  surgeryDurationMinutes: z.number().min(5).max(720),
-  withAnesthesia: z.boolean(),
-  anesthesiaNotes: z.string().optional().nullable().transform(v => v === '' ? null : v),
-  surgeryNotes: z.string().optional(),
-  diagnosis: z.string().optional().nullable().transform(v => v === '' ? null : v),
-  coverageType: z.string().optional().nullable().transform(v => v === '' ? null : v),
-  stayType: z.enum(["ambulant", "overnight"]).optional().nullable().or(z.literal("").transform(() => null)),
-  wishedDate: z.string().min(1, "Wished date is required"),
-  wishedTimeFrom: z.number().int().min(0).max(1440).optional().nullable(),
-  wishedTimeTo: z.number().int().min(0).max(1440).optional().nullable(),
-  isReservationOnly: z.boolean().optional().default(false),
-  patientFirstName: z.string().optional().nullable().transform(v => v === '' ? null : v),
-  patientLastName: z.string().optional().nullable().transform(v => v === '' ? null : v),
-  patientBirthday: z.string().optional().nullable().transform(v => v === '' ? null : v),
-  patientEmail: z.string().optional().nullable().transform(v => v === '' ? null : v),
-  patientPhone: z.string().optional().nullable().transform(v => v === '' ? null : v),
-  patientStreet: z.string().optional().nullable().transform(v => v === '' ? null : v),
-  patientPostalCode: z.string().optional().nullable().transform(v => v === '' ? null : v),
-  patientCity: z.string().optional().nullable().transform(v => v === '' ? null : v),
-  patientPosition: z.enum(["supine", "trendelenburg", "reverse_trendelenburg", "lithotomy", "lateral_decubitus", "prone", "jackknife", "sitting", "kidney", "lloyd_davies"]).optional().nullable().or(z.literal("").transform(() => null)),
-  leftArmPosition: z.enum(["ausgelagert", "angelagert"]).optional().nullable().or(z.literal("").transform(() => null)),
-  rightArmPosition: z.enum(["ausgelagert", "angelagert"]).optional().nullable().or(z.literal("").transform(() => null)),
-}).refine((data) => {
-  // If not reservation-only, patient fields are required
-  if (!data.isReservationOnly) {
-    return !!(
-      data.patientFirstName && data.patientLastName &&
-      data.patientBirthday && data.patientPhone &&
-      data.patientStreet && data.patientPostalCode && data.patientCity &&
-      data.surgeryName
-    );
-  }
-  return true;
-}, {
-  message: "Patient details and surgery name are required for non-reservation requests",
 });
 
 router.get('/public/external-surgery/:token', fetchLimiter, async (req: Request, res: Response) => {

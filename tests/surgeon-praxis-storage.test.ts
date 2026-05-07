@@ -85,6 +85,21 @@ describe("setPraxisChildren", () => {
       setPraxisChildren(praxis.id, [otherPraxis.id])
     ).rejects.toThrow(/cannot be a child/i);
   });
+
+  it("refuses self-loop (praxis as own child)", async () => {
+    const praxis = await makeUser(`praxis-self-${Date.now()}@test.local`, { isPraxis: true });
+    await expect(
+      setPraxisChildren(praxis.id, [praxis.id])
+    ).rejects.toThrow(/cannot be a child of itself/i);
+  });
+
+  it("refuses if target user is not flagged as a praxis", async () => {
+    const notPraxis = await makeUser(`notpraxis-${Date.now()}@test.local`);
+    const child = await makeUser(`childof-notpraxis-${Date.now()}@test.local`);
+    await expect(
+      setPraxisChildren(notPraxis.id, [child.id])
+    ).rejects.toThrow(/not flagged as a praxis/i);
+  });
 });
 
 describe("togglePraxis", () => {

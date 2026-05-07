@@ -407,12 +407,35 @@ export async function getChildrenOfPraxis(praxisUserId: string) {
  * Replace the set of children for a praxis. Rewrites parent_surgeon_id atomically:
  *   - new children get parent_surgeon_id = praxisUserId
  *   - previously-linked children NOT in the new set get parent_surgeon_id = null
- * Throws if any candidate child has is_praxis=true (one-level only).
+ * Throws if:
+ *   - any candidate child has is_praxis=true (one-level only),
+ *   - the praxis is included in its own children (self-loop),
+ *   - the praxis target is not flagged is_praxis=true.
  */
 export async function setPraxisChildren(
   praxisUserId: string,
   childUserIds: string[],
 ) {
+  if (childUserIds.includes(praxisUserId)) {
+    throw new Error(
+      `Praxis ${praxisUserId} cannot be a child of itself`,
+    );
+  }
+
+  const [praxisRow] = await db
+    .select({ id: users.id, isPraxis: users.isPraxis })
+    .from(users)
+    .where(eq(users.id, praxisUserId))
+    .limit(1);
+  if (!praxisRow) {
+    throw new Error(`Praxis ${praxisUserId} not found`);
+  }
+  if (!praxisRow.isPraxis) {
+    throw new Error(
+      `User ${praxisUserId} is not flagged as a praxis — toggle is_praxis first`,
+    );
+  }
+
   if (childUserIds.length > 0) {
     const candidates = await db
       .select({ id: users.id, isPraxis: users.isPraxis })
