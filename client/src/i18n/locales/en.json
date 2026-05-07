@@ -7232,6 +7232,8 @@
       "ordered": "Ordered"
     },
     "task": {
+      "taskTitle": "Task",
+      "ivFluidTitle": "IV Fluid",
       "plannedAt": "Planned at",
       "markDone": "Mark as done"
     },

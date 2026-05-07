@@ -7333,6 +7333,8 @@
       "ordered": "Verordnet"
     },
     "task": {
+      "taskTitle": "Aufgabe",
+      "ivFluidTitle": "Infusion",
       "plannedAt": "Geplant für",
       "markDone": "Als erledigt markieren"
     },

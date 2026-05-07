@@ -41,13 +41,18 @@ export function PostopTaskCompleteDialog({ open, onOpenChange, task, onMarkDone 
 
   const isDone = task.status === 'done';
 
+  const dialogTitle = task.kind === 'iv_fluid'
+    ? t('postopOrders.task.ivFluidTitle', 'IV Fluid')
+    : t('postopOrders.task.taskTitle', 'Task');
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{task.title}</DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-2 text-sm">
+        <div className="space-y-3 text-sm">
+          <div className="text-base font-medium">{task.title}</div>
           <div className="flex items-center gap-2 flex-wrap">
             {task.subtype && task.subtype !== 'generic' && (
               <Badge variant="secondary">{task.subtype}</Badge>
