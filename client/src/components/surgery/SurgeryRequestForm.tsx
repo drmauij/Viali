@@ -314,6 +314,11 @@ export function SurgeryRequestForm({
     ? ["surgeon", "surgery"]
     : ["surgeon", "surgery", "patient", "documents"];
 
+  // Whether a section is the last visible one — used to hide the Continue
+  // button on it (Submit at the bottom takes over).
+  const isLastVisible = (key: SectionKey) =>
+    visibleSections.indexOf(key) === visibleSections.length - 1;
+
   const advanceFrom = (current: SectionKey) => {
     const i = visibleSections.indexOf(current);
     for (let j = i + 1; j < visibleSections.length; j++) {
@@ -494,16 +499,18 @@ export function SurgeryRequestForm({
                 />
               </div>
 
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  onClick={() => advanceFrom("surgeon")}
-                  disabled={!sectionValidity.surgeon}
-                  data-testid="button-continue-surgeon"
-                >
-                  {t("accordion.continue")}
-                </Button>
-              </div>
+              {!isLastVisible("surgeon") && (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={() => advanceFrom("surgeon")}
+                    disabled={!sectionValidity.surgeon}
+                    data-testid="button-continue-surgeon"
+                  >
+                    {t("accordion.continue")}
+                  </Button>
+                </div>
+              )}
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -773,16 +780,18 @@ export function SurgeryRequestForm({
                 />
               </div>
 
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  onClick={() => advanceFrom("surgery")}
-                  disabled={!sectionValidity.surgery}
-                  data-testid="button-continue-surgery"
-                >
-                  {t("accordion.continue")}
-                </Button>
-              </div>
+              {!isLastVisible("surgery") && (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={() => advanceFrom("surgery")}
+                    disabled={!sectionValidity.surgery}
+                    data-testid="button-continue-surgery"
+                  >
+                    {t("accordion.continue")}
+                  </Button>
+                </div>
+              )}
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -877,16 +886,18 @@ export function SurgeryRequestForm({
                   </div>
                 </>
 
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  onClick={() => advanceFrom("patient")}
-                  disabled={!sectionValidity.patient}
-                  data-testid="button-continue-patient"
-                >
-                  {t("accordion.continue")}
-                </Button>
-              </div>
+              {!isLastVisible("patient") && (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={() => advanceFrom("patient")}
+                    disabled={!sectionValidity.patient}
+                    data-testid="button-continue-patient"
+                  >
+                    {t("accordion.continue")}
+                  </Button>
+                </div>
+              )}
             </div>
           </AccordionContent>
         </AccordionItem>

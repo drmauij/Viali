@@ -844,11 +844,23 @@ function SurgeonPortalContent({ token }: { token: string }) {
       // Split UI-only fields from request body. attachedFiles are persisted
       // separately via /documents once we know the new request id.
       const { attachedFiles, ...requestBody } = values;
+      // Enum-constrained columns ("ambulant"/"overnight", "left"/"right"/"both",
+      // patient/arm positions) reject "" — convert empty strings to null so the
+      // server-side Zod schema accepts the payload.
+      const cleaned = {
+        ...requestBody,
+        stayType: requestBody.stayType || null,
+        surgerySide: requestBody.surgerySide || null,
+        patientPosition: requestBody.patientPosition || null,
+        leftArmPosition: requestBody.leftArmPosition || null,
+        rightArmPosition: requestBody.rightArmPosition || null,
+        coverageType: requestBody.coverageType || null,
+      };
       const res = await fetch(`/api/surgeon-portal/${token}/requests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ ...requestBody, surgeonId: selectedSurgeonId }),
+        body: JSON.stringify({ ...cleaned, surgeonId: selectedSurgeonId }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
