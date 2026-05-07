@@ -2309,7 +2309,10 @@ export default function PatientDetail() {
                   </Button>
                   <div className="flex-1 min-w-0" />
                   <Button
-                    onClick={() => createPatientNoteMutation.mutate({ content: newPatientNote, attachments: pendingAttachments })}
+                    onClick={() => {
+                      const content = newPatientNote.trim() || pendingAttachments.map(f => f.name).join(', ');
+                      createPatientNoteMutation.mutate({ content, attachments: pendingAttachments });
+                    }}
                     disabled={(!newPatientNote.trim() && pendingAttachments.length === 0) || createPatientNoteMutation.isPending}
                     data-testid="button-add-patient-note"
                   >
