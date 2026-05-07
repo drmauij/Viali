@@ -1884,22 +1884,40 @@ export default function Op() {
                   </Select>
                 </div>
 
-                {/* Post-Operative Notes */}
-                <div className="space-y-2">
-                  <Label htmlFor="postop-notes">{t('anesthesia.op.postOperativeNotes')}</Label>
-                  <Textarea
-                    id="postop-notes"
-                    rows={4}
-                    placeholder="Enter post-operative notes..."
-                    value={postOpData.postOpNotes || ""}
-                    onChange={(e) => {
-                      const updated = { ...postOpData, postOpNotes: e.target.value };
-                      setPostOpData(updated);
-                      postOpAutoSave.mutate(updated);
-                    }}
-                    disabled={!anesthesiaRecord?.id}
-                    data-testid="textarea-postop-notes"
-                  />
+                {/* Post-Operative Notes + Intraoperative Complications — side-by-side to save vertical space */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="postop-notes">{t('anesthesia.op.postOperativeNotes')}</Label>
+                    <Textarea
+                      id="postop-notes"
+                      rows={2}
+                      placeholder="Enter post-operative notes..."
+                      value={postOpData.postOpNotes || ""}
+                      onChange={(e) => {
+                        const updated = { ...postOpData, postOpNotes: e.target.value };
+                        setPostOpData(updated);
+                        postOpAutoSave.mutate(updated);
+                      }}
+                      disabled={!anesthesiaRecord?.id}
+                      data-testid="textarea-postop-notes"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="complications">{t('anesthesia.op.intraoperativeComplications')}</Label>
+                    <Textarea
+                      id="complications"
+                      rows={2}
+                      placeholder=""
+                      value={postOpData.complications || ""}
+                      onChange={(e) => {
+                        const updated = { ...postOpData, complications: e.target.value };
+                        setPostOpData(updated);
+                        postOpAutoSave.mutate(updated);
+                      }}
+                      disabled={!anesthesiaRecord?.id}
+                      data-testid="textarea-postop-complications"
+                    />
+                  </div>
                 </div>
 
                 {/* Legacy fields — collapsed by default, superseded by order-set system */}
@@ -2312,24 +2330,6 @@ export default function Op() {
 
                   </CollapsibleContent>
                 </Collapsible>
-
-                {/* Intraoperative Complications - moved to end */}
-                <div className="space-y-2">
-                  <Label htmlFor="complications">{t('anesthesia.op.intraoperativeComplications')}</Label>
-                  <Textarea
-                    id="complications"
-                    rows={3}
-                    placeholder=""
-                    value={postOpData.complications || ""}
-                    onChange={(e) => {
-                      const updated = { ...postOpData, complications: e.target.value };
-                      setPostOpData(updated);
-                      postOpAutoSave.mutate(updated);
-                    }}
-                    disabled={!anesthesiaRecord?.id}
-                    data-testid="textarea-postop-complications"
-                  />
-                </div>
               </CardContent>
             </Card>
 
