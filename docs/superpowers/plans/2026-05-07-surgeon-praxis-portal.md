@@ -1379,14 +1379,37 @@ git commit -m "feat(surgeon-portal): in-portal surgery request form with praxis 
 
 ---
 
-## Task 9: Public form page → redirect
+## Task 9: Public form redirect + portal landing copy
 
 **Files:**
-- Modify: `client/src/pages/ExternalSurgeryRequest.tsx`
+- Modify: `client/src/pages/ExternalSurgeryRequest.tsx` (full body replacement)
+- Modify: `client/src/pages/SurgeonPortal.tsx:55-56` (DE subtitle) and `:107-108` (EN subtitle)
 
-Replace the page contents with a redirect to the surgeon portal at the same per-hospital token URL.
+Two coordinated copy changes that frame the new flow for users:
+1. Old `/external-surgery/:token` page redirects to `/surgeon-portal/:token` (same per-hospital token).
+2. The portal OTP gate's subtitle is updated to make clear it's for **both** submitting new requests **and** reviewing existing surgeries — not just viewing.
 
-- [ ] **Step 1: Replace the page body**
+The current subtitle is "Geben Sie Ihre E-Mail-Adresse ein, um Ihre OPs einzusehen." (DE) / "Enter your email address to view your surgeries." (EN). It mentions only viewing.
+
+- [ ] **Step 1: Update the OTP gate subtitle**
+
+In `client/src/pages/SurgeonPortal.tsx`, update both translation blocks (the gate copy is keyed under `subtitle`).
+
+DE block (around line 56):
+
+```ts
+subtitle: "Geben Sie Ihre E-Mail-Adresse ein, um neue Anfragen einzureichen und Ihre OPs zu verwalten.",
+```
+
+EN block (around line 108):
+
+```ts
+subtitle: "Enter your email address to submit new surgery requests and manage your scheduled surgeries.",
+```
+
+Tone: formal/clinical/descriptive — matches the project's UI copy convention. No casual second-person framing.
+
+- [ ] **Step 2: Replace the public form page body**
 
 ```tsx
 import { useEffect } from "react";
@@ -1416,7 +1439,7 @@ export default function ExternalSurgeryRequest() {
 
 If the page used a different routing import (e.g. `react-router-dom`), match the existing import. Check the top of the original file before replacing.
 
-- [ ] **Step 2: Run typecheck**
+- [ ] **Step 3: Run typecheck**
 
 ```bash
 npm run check
@@ -1424,15 +1447,18 @@ npm run check
 
 Expected: passes.
 
-- [ ] **Step 3: Manual smoke test**
+- [ ] **Step 4: Manual smoke test**
 
-`npm run dev`. Visit `/external-surgery/<token>` → should land on `/surgeon-portal/<token>` OTP gate.
+`npm run dev`. Two checks:
 
-- [ ] **Step 4: Commit**
+1. Visit `/external-surgery/<token>` → auto-redirects to `/surgeon-portal/<token>` OTP gate.
+2. Land on the OTP gate → subtitle reads about submitting new requests AND managing existing surgeries (not just viewing).
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add client/src/pages/ExternalSurgeryRequest.tsx
-git commit -m "feat(external-surgery): redirect public form to surgeon portal"
+git add client/src/pages/ExternalSurgeryRequest.tsx client/src/pages/SurgeonPortal.tsx
+git commit -m "feat(surgeon-portal): redirect public form and clarify portal landing copy"
 ```
 
 ---
