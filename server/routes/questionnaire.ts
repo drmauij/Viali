@@ -1692,10 +1692,7 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
           // so general/hospital-token questionnaires keep the lean email.
           let preOpInfo = null;
           if (link.surgeryId) {
-            const surgeryRow = await storage.getSurgery(link.surgeryId);
             preOpInfo = {
-              admissionTimeIso: computeAdmissionISO(surgeryRow?.plannedDate ?? null, hospital.defaultAdmissionOffsetMinutes ?? null),
-              defaultAdmissionOffsetMinutes: hospital.defaultAdmissionOffsetMinutes ?? null,
               helpLinePhone: (hospital as any).questionnairePhone ?? hospital.companyPhone ?? null,
             };
           }

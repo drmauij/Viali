@@ -386,8 +386,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.preop.title": "Important — please read before signing",
     "questionnaire.preop.subtitle": "These are the key things you need to know for the day of your procedure.",
     "questionnaire.preop.arrival.label": "Arrival time (Eintritt)",
-    "questionnaire.preop.arrival.exact": "Please come to the clinic on {time}.",
-    "questionnaire.preop.arrival.generic": "You will receive your arrival time shortly before the procedure. As a rule, you should plan to arrive about {minutes} minutes before your scheduled surgery time.",
+    "questionnaire.preop.arrival.text": "Your arrival time will be communicated the evening before.",
     "questionnaire.preop.fasting.label": "Fasting (Nüchtern)",
     "questionnaire.preop.fasting.text": "No solid food for 6 hours before the procedure. Clear liquids (water, tea without milk) are allowed up to 2 hours before. Do not chew gum.",
     "questionnaire.preop.escort.label": "Escort home",
@@ -603,8 +602,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.preop.title": "Wichtig — bitte vor dem Unterschreiben lesen",
     "questionnaire.preop.subtitle": "Das sind die wichtigsten Punkte, die Sie für den Eingriffstag wissen müssen.",
     "questionnaire.preop.arrival.label": "Eintrittszeit",
-    "questionnaire.preop.arrival.exact": "Bitte erscheinen Sie am {time} in der Klinik.",
-    "questionnaire.preop.arrival.generic": "Sie erhalten Ihre Eintrittszeit kurz vor dem Eingriff. In der Regel sollten Sie etwa {minutes} Minuten vor Ihrer geplanten Operationszeit eintreffen.",
+    "questionnaire.preop.arrival.text": "Ihre Eintrittszeit wird Ihnen am Vorabend mitgeteilt.",
     "questionnaire.preop.fasting.label": "Nüchternheit",
     "questionnaire.preop.fasting.text": "6 Stunden vor dem Eingriff keine feste Nahrung. Klare Flüssigkeiten (Wasser, Tee ohne Milch) sind bis 2 Stunden vorher erlaubt. Kein Kaugummi.",
     "questionnaire.preop.escort.label": "Begleitperson für die Heimreise",
@@ -820,8 +818,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.preop.title": "Importante — legga prima di firmare",
     "questionnaire.preop.subtitle": "Queste sono le informazioni essenziali per il giorno dell'intervento.",
     "questionnaire.preop.arrival.label": "Orario d'ingresso",
-    "questionnaire.preop.arrival.exact": "Si presenti in clinica il {time}.",
-    "questionnaire.preop.arrival.generic": "L'orario d'ingresso Le verrà comunicato poco prima dell'intervento. Di norma, è bene arrivare circa {minutes} minuti prima dell'orario previsto.",
+    "questionnaire.preop.arrival.text": "L'orario d'ingresso Le verrà comunicato la sera prima.",
     "questionnaire.preop.fasting.label": "Digiuno",
     "questionnaire.preop.fasting.text": "Nessun cibo solido nelle 6 ore precedenti l'intervento. Liquidi chiari (acqua, tè senza latte) consentiti fino a 2 ore prima. Niente chewing gum.",
     "questionnaire.preop.escort.label": "Accompagnamento per il rientro",
@@ -1037,8 +1034,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.preop.title": "Importante — lea antes de firmar",
     "questionnaire.preop.subtitle": "Esta es la información esencial para el día de la intervención.",
     "questionnaire.preop.arrival.label": "Hora de entrada",
-    "questionnaire.preop.arrival.exact": "Por favor, preséntese en la clínica el {time}.",
-    "questionnaire.preop.arrival.generic": "Recibirá su hora de entrada poco antes de la intervención. Por regla general, debe llegar unos {minutes} minutos antes de la hora prevista.",
+    "questionnaire.preop.arrival.text": "Su hora de entrada le será comunicada la noche anterior.",
     "questionnaire.preop.fasting.label": "Ayuno",
     "questionnaire.preop.fasting.text": "Sin comida sólida en las 6 horas previas. Se permiten líquidos claros (agua, té sin leche) hasta 2 horas antes. No mastique chicle.",
     "questionnaire.preop.escort.label": "Acompañante para el regreso",
@@ -1254,8 +1250,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.preop.title": "Important — à lire avant de signer",
     "questionnaire.preop.subtitle": "Voici les informations essentielles pour le jour de votre intervention.",
     "questionnaire.preop.arrival.label": "Heure d'arrivée",
-    "questionnaire.preop.arrival.exact": "Veuillez vous présenter à la clinique le {time}.",
-    "questionnaire.preop.arrival.generic": "Votre heure d'arrivée vous sera communiquée peu avant l'intervention. En règle générale, prévoyez d'arriver environ {minutes} minutes avant l'horaire prévu.",
+    "questionnaire.preop.arrival.text": "Votre heure d'arrivée vous sera communiquée la veille au soir.",
     "questionnaire.preop.fasting.label": "Jeûne",
     "questionnaire.preop.fasting.text": "Pas de nourriture solide dans les 6 heures précédant l'intervention. Liquides clairs (eau, thé sans lait) autorisés jusqu'à 2 heures avant. Pas de chewing-gum.",
     "questionnaire.preop.escort.label": "Accompagnement pour le retour",
@@ -1471,8 +1466,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.preop.title": "重要提示——请在签署前阅读",
     "questionnaire.preop.subtitle": "这是您手术当天需要了解的关键信息。",
     "questionnaire.preop.arrival.label": "到达时间",
-    "questionnaire.preop.arrival.exact": "请于{time}到达诊所。",
-    "questionnaire.preop.arrival.generic": "您将在手术前不久收到具体到达时间。通常，您应在手术预定时间前约{minutes}分钟到达。",
+    "questionnaire.preop.arrival.text": "您的到达时间将在前一晚通知您。",
     "questionnaire.preop.fasting.label": "禁食",
     "questionnaire.preop.fasting.text": "手术前6小时禁止进食固体食物。手术前2小时可饮用清液体（水、不含牛奶的茶）。请勿嚼口香糖。",
     "questionnaire.preop.escort.label": "陪同回家",
@@ -4000,21 +3994,7 @@ interface PreOpInfoCardProps {
   language: string;
   t: (key: string) => string;
 }
-function PreOpInfoCard({ surgery, hospital, language, t }: PreOpInfoCardProps) {
-  const dtLocale = language === "de" ? "de-CH" : language === "it" ? "it-CH" : language === "fr" ? "fr-CH" : language === "es" ? "es-ES" : "en-GB";
-  const dtFormat = (iso: string | null, withDate: boolean) => {
-    if (!iso) return null;
-    try {
-      const d = new Date(iso);
-      return withDate
-        ? d.toLocaleString(dtLocale, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
-        : d.toLocaleTimeString(dtLocale, { hour: "2-digit", minute: "2-digit" });
-    } catch { return null; }
-  };
-
-  const arrivalAbsolute = dtFormat(surgery?.admissionTime ?? null, true);
-  const offsetMinutes = hospital?.defaultAdmissionOffsetMinutes ?? 60;
-
+function PreOpInfoCard({ hospital, t }: PreOpInfoCardProps) {
   return (
     <div className="border-2 border-amber-400 rounded-lg bg-amber-50 dark:bg-amber-900/20 p-4 space-y-3" data-testid="preop-info-card">
       <div className="flex items-center gap-2">
@@ -4030,11 +4010,7 @@ function PreOpInfoCard({ surgery, hospital, language, t }: PreOpInfoCardProps) {
       <ul className="space-y-3 text-sm text-amber-900 dark:text-amber-100">
         <li>
           <p className="font-semibold">{t("questionnaire.preop.arrival.label")}</p>
-          <p className="text-xs mt-0.5">
-            {arrivalAbsolute
-              ? t("questionnaire.preop.arrival.exact").replace("{time}", arrivalAbsolute)
-              : t("questionnaire.preop.arrival.generic").replace("{minutes}", String(offsetMinutes))}
-          </p>
+          <p className="text-xs mt-0.5">{t("questionnaire.preop.arrival.text")}</p>
         </li>
         <li>
           <p className="font-semibold">{t("questionnaire.preop.fasting.label")}</p>

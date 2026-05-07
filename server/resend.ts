@@ -1127,8 +1127,6 @@ function buildQuestionnaireSubmittedEmail(
 }
 
 export interface PreOpEmailInfo {
-  admissionTimeIso: string | null;
-  defaultAdmissionOffsetMinutes: number | null;
   helpLinePhone: string | null;
 }
 
@@ -1168,22 +1166,9 @@ export async function sendQuestionnaireReceivedConfirmation(
     // screen, kept here as plain HTML so it survives any email client.
     let preOpHtml = '';
     if (preOpInfo) {
-      const offset = preOpInfo.defaultAdmissionOffsetMinutes ?? 60;
-      const arrival = preOpInfo.admissionTimeIso
-        ? (() => {
-            try {
-              const d = new Date(preOpInfo.admissionTimeIso!);
-              return d.toLocaleString(isGerman ? 'de-CH' : 'en-GB', {
-                weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
-              });
-            } catch { return null; }
-          })()
-        : null;
-      const arrivalText = arrival
-        ? (isGerman ? `Bitte erscheinen Sie am <strong>${arrival}</strong> in der Klinik.` : `Please come to the clinic on <strong>${arrival}</strong>.`)
-        : (isGerman
-          ? `Sie erhalten Ihre Eintrittszeit kurz vor dem Eingriff. In der Regel sollten Sie etwa <strong>${offset} Minuten</strong> vor Ihrer geplanten Operationszeit eintreffen.`
-          : `You will receive your arrival time shortly before the procedure. As a rule, plan to arrive about <strong>${offset} minutes</strong> before your scheduled surgery time.`);
+      const arrivalText = isGerman
+        ? `Ihre Eintrittszeit wird Ihnen am Vorabend mitgeteilt.`
+        : `Your arrival time will be communicated the evening before.`;
 
       const phoneLine = preOpInfo.helpLinePhone
         ? (isGerman
