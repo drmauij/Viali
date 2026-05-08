@@ -204,6 +204,9 @@ type NoteAttachmentDoc = {
   uploadedBy: string | null;
   createdAt: string;
   noteContent: string | null;
+  portalVisible: boolean;
+  portalSharedAt: string | null;
+  portalSharedBy: string | null;
 };
 
 type ChopProcedure = {

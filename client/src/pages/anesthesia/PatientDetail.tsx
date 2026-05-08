@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, ListChecks, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard, Pill, Sparkles, Video, Printer, MapPin, Building2 } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, ListChecks, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard, Pill, Sparkles, Video, Printer, MapPin, Building2, Share2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -379,6 +379,28 @@ export default function PatientDetail() {
       console.error('Failed to fetch attachments:', error);
     } finally {
       setLoadingAttachments(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  // Toggle whether a single note attachment (must be an image) is visible
+  // to the patient on the portal "Dateien" tab. Optimistic toast then
+  // refetches the attachment list so the badge state catches up.
+  const toggleAttachmentPortalShare = async (attachmentId: string, share: boolean) => {
+    try {
+      const path = share ? "share" : "unshare";
+      await apiRequest("POST", `/api/notes/attachments/${attachmentId}/${path}`);
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${derivedPatientId}/note-attachments`, derivedPatientId] });
+      toast({
+        title: share
+          ? t("anesthesia.patientDetail.pictureShared", "Shared with patient")
+          : t("anesthesia.patientDetail.pictureUnshared", "Stopped sharing"),
+      });
+    } catch (error: any) {
+      toast({
+        title: t("common.error", "Error"),
+        description: error?.message || t("anesthesia.patientDetail.shareError", "Failed to update sharing"),
+        variant: "destructive",
+      });
     }
   };
 
@@ -3368,12 +3390,33 @@ export default function PatientDetail() {
                       {noteAttachmentDocs.map((att) => {
                         const isImage = att.mimeType?.startsWith('image/');
                         return (
-                          <div 
+                          <div
                             key={att.id}
                             className="flex flex-col p-4 border rounded-lg hover:bg-muted/50 transition-colors group relative cursor-pointer"
                             onClick={() => previewAttachment(att.id)}
                             data-testid={`note-attachment-doc-${att.id}`}
                           >
+                            {isImage && canWrite && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleAttachmentPortalShare(att.id, !att.portalVisible);
+                                }}
+                                className={`absolute top-2 right-2 z-10 p-1.5 rounded-md border bg-background/95 backdrop-blur-sm shadow-sm hover:bg-background transition-colors ${
+                                  att.portalVisible
+                                    ? 'text-emerald-600 border-emerald-300 hover:border-emerald-400'
+                                    : 'text-muted-foreground border-border hover:text-foreground'
+                                }`}
+                                title={
+                                  att.portalVisible
+                                    ? t('anesthesia.patientDetail.unsharePicture', 'Stop sharing with patient')
+                                    : t('anesthesia.patientDetail.sharePicture', 'Share with patient portal')
+                                }
+                                data-testid={`button-share-attachment-${att.id}`}
+                              >
+                                <Share2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                             {isImage ? (
                               <div className="w-full h-40 mb-3 overflow-hidden rounded bg-muted flex items-center justify-center">
                                 <ImageLucide className="h-16 w-16 text-muted-foreground" />
@@ -3387,13 +3430,18 @@ export default function PatientDetail() {
                               <p className="font-medium truncate group-hover:text-primary transition-colors">
                                 {att.fileName}
                               </p>
-                              <div className="flex items-center gap-2 text-sm">
+                              <div className="flex items-center gap-2 text-sm flex-wrap">
                                 <Badge variant="secondary" className="text-xs">
-                                  {att.noteType === 'patient' 
+                                  {att.noteType === 'patient'
                                     ? t('anesthesia.patientDetail.generalNote', 'General Note')
                                     : t('anesthesia.patientDetail.surgeryNote', 'Surgery Note')
                                   }
                                 </Badge>
+                                {att.portalVisible && (
+                                  <Badge variant="outline" className="text-xs border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300">
+                                    {t('anesthesia.patientDetail.sharedWithPatient', 'Shared')}
+                                  </Badge>
+                                )}
                                 {att.fileSize && (
                                   <span className="text-muted-foreground">{(att.fileSize / 1024).toFixed(1)} KB</span>
                                 )}
