@@ -212,6 +212,13 @@ const translations = {
     noMessagesDesc: "Schreiben Sie uns eine Nachricht bei Fragen zu Ihrer Behandlung.",
     today: "Heute",
     yesterday: "Gestern",
+    tabTreatment: "Ihre Behandlung",
+    tabFiles: "Dateien",
+    yourDocuments: "Ihre Dokumente",
+    yourPhotos: "Ihre Bilder",
+    noSharedFiles: "Noch keine Dateien geteilt",
+    tapToEnlarge: "Tippen zum Vergrössern",
+    download: "Herunterladen",
   },
   en: {
     title: "Patient Portal",
@@ -342,6 +349,13 @@ const translations = {
     noMessagesDesc: "Send us a message if you have questions about your treatment.",
     today: "Today",
     yesterday: "Yesterday",
+    tabTreatment: "Your Treatment",
+    tabFiles: "Files",
+    yourDocuments: "Your Documents",
+    yourPhotos: "Your Photos",
+    noSharedFiles: "No files have been shared yet",
+    tapToEnlarge: "Tap to enlarge",
+    download: "Download",
   },
   it: {
     title: "Portale Paziente",
@@ -472,6 +486,13 @@ const translations = {
     noMessagesDesc: "Scrivici un messaggio per domande sul Suo trattamento.",
     today: "Oggi",
     yesterday: "Ieri",
+    tabTreatment: "Il suo trattamento",
+    tabFiles: "File",
+    yourDocuments: "I suoi documenti",
+    yourPhotos: "Le sue immagini",
+    noSharedFiles: "Nessun file ancora condiviso",
+    tapToEnlarge: "Toccare per ingrandire",
+    download: "Scaricare",
   },
   es: {
     title: "Portal del Paciente",
@@ -602,6 +623,13 @@ const translations = {
     noMessagesDesc: "Envíenos un mensaje si tiene preguntas sobre su tratamiento.",
     today: "Hoy",
     yesterday: "Ayer",
+    tabTreatment: "Su tratamiento",
+    tabFiles: "Archivos",
+    yourDocuments: "Sus documentos",
+    yourPhotos: "Sus fotos",
+    noSharedFiles: "Aún no se han compartido archivos",
+    tapToEnlarge: "Toque para ampliar",
+    download: "Descargar",
   },
   fr: {
     title: "Portail Patient",
@@ -732,6 +760,13 @@ const translations = {
     noMessagesDesc: "Envoyez-nous un message si vous avez des questions sur votre traitement.",
     today: "Aujourd'hui",
     yesterday: "Hier",
+    tabTreatment: "Votre traitement",
+    tabFiles: "Fichiers",
+    yourDocuments: "Vos documents",
+    yourPhotos: "Vos photos",
+    noSharedFiles: "Aucun fichier partagé pour le moment",
+    tapToEnlarge: "Appuyez pour agrandir",
+    download: "Télécharger",
   }
 };
 
@@ -923,6 +958,24 @@ function PatientPortalContent({ token }: { token: string }) {
     enabled: !!token && !!data,
   });
 
+  const { data: sharedPhotos = [] } = useQuery<
+    { id: string; fileName: string; mimeType: string; fileSize: number | null; sharedAt: string | null; url: string }[]
+  >({
+    queryKey: [`/api/patient-portal/${token}/shared-photos`],
+    queryFn: async () => {
+      const res = await fetch(`/api/patient-portal/${token}/shared-photos`);
+      if (res.status === 403) { onSessionExpired(); throw new Error('Session expired'); }
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!token && !!data,
+  });
+
+  // Two-tab portal layout. "treatment" is the journey timeline (default),
+  // "files" is the combined home for clinic-shared documents and photos.
+  const [activeTab, setActiveTab] = useState<'treatment' | 'files'>('treatment');
+  const [lightboxPhoto, setLightboxPhoto] = useState<{ url: string; fileName: string } | null>(null);
+
   const handleDownloadBrief = async (briefId: string) => {
     try {
       const res = await fetch(`/api/patient-portal/${token}/shared-briefs/${briefId}/download`, {
@@ -933,6 +986,26 @@ function PatientPortalContent({ token }: { token: string }) {
       window.open(downloadUrl, "_blank");
     } catch (error) {
       console.error("Failed to download document:", error);
+    }
+  };
+
+  const handleDownloadPhoto = async (attachmentId: string, fileName: string) => {
+    try {
+      const res = await fetch(`/api/patient-portal/${token}/shared-photos/${attachmentId}/download`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Download failed");
+      const { downloadUrl } = await res.json();
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = fileName;
+      a.target = "_blank";
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Failed to download photo:", error);
     }
   };
 
@@ -1716,6 +1789,41 @@ function PatientPortalContent({ token }: { token: string }) {
           </CardHeader>
         </Card>
 
+        {/* Tab navigation: treatment journey | shared files */}
+        <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-1 flex gap-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('treatment')}
+            className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === 'treatment'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+            data-testid="tab-treatment"
+          >
+            {t.tabTreatment}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('files')}
+            className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+              activeTab === 'files'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+            data-testid="tab-files"
+          >
+            <span>{t.tabFiles}</span>
+            {(sharedBriefs.length + sharedPhotos.length) > 0 && (
+              <span className="bg-blue-600 text-white text-xs font-semibold rounded-full px-2 py-0.5 leading-none">
+                {sharedBriefs.length + sharedPhotos.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {activeTab === 'treatment' && (<>
+
         {/* Journey Title */}
         <div className="pt-2 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t.yourJourney}</h2>
@@ -2302,50 +2410,116 @@ function PatientPortalContent({ token }: { token: string }) {
           </CardContent>
         </Card>
 
-        {/* Documents Section */}
-        {sharedBriefs.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border p-6">
-            <h3 className="text-lg font-semibold mb-4">
-              {lang === "de" ? "Ihre Dokumente" :
-               lang === "fr" ? "Vos documents" :
-               lang === "it" ? "I vostri documenti" :
-               "Your Documents"}
-            </h3>
-            <div className="space-y-3">
-              {sharedBriefs.map((brief) => (
-                <div
-                  key={brief.id}
-                  className="flex items-center justify-between p-4 rounded-lg border bg-gray-50 hover:bg-gray-100 transition-colors"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm">
-                      {PORTAL_BRIEF_TYPE_LABELS[brief.briefType]?.[lang] ||
-                       PORTAL_BRIEF_TYPE_LABELS[brief.briefType]?.de ||
-                       brief.briefType}
-                    </p>
-                    {brief.signerName && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {brief.signerName} — {new Date(brief.signedAt).toLocaleDateString(
-                          lang === "de" ? "de-CH" :
-                          lang === "fr" ? "fr-CH" :
-                          lang === "it" ? "it-CH" : "en-GB"
+        </>)}
+
+        {activeTab === 'files' && (
+          <div className="space-y-4">
+            {sharedBriefs.length === 0 && sharedPhotos.length === 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-10 text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t.noSharedFiles}</p>
+              </div>
+            )}
+
+            {sharedBriefs.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t.yourDocuments}</h3>
+                <div className="space-y-3">
+                  {sharedBriefs.map((brief) => (
+                    <div
+                      key={brief.id}
+                      className="flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                          {PORTAL_BRIEF_TYPE_LABELS[brief.briefType]?.[lang] ||
+                            PORTAL_BRIEF_TYPE_LABELS[brief.briefType]?.de ||
+                            brief.briefType}
+                        </p>
+                        {brief.signerName && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {brief.signerName} — {new Date(brief.signedAt).toLocaleDateString(
+                              lang === "de" ? "de-CH" :
+                              lang === "fr" ? "fr-CH" :
+                              lang === "it" ? "it-CH" : "en-GB"
+                            )}
+                          </p>
                         )}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => handleDownloadBrief(brief.id)}
-                    className="shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    {lang === "de" ? "Herunterladen" :
-                     lang === "fr" ? "Télécharger" :
-                     lang === "it" ? "Scaricare" :
-                     "Download"}
-                  </button>
+                      </div>
+                      <button
+                        onClick={() => handleDownloadBrief(brief.id)}
+                        className="shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
+                        data-testid={`button-download-brief-${brief.id}`}
+                      >
+                        <Download className="h-4 w-4" />
+                        {t.download}
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
+
+            {sharedPhotos.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t.yourPhotos}</h3>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {sharedPhotos.map((photo) => (
+                    <button
+                      key={photo.id}
+                      type="button"
+                      onClick={() => setLightboxPhoto({ url: photo.url, fileName: photo.fileName })}
+                      className="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 hover:ring-2 hover:ring-primary transition"
+                      data-testid={`button-photo-${photo.id}`}
+                    >
+                      <img
+                        src={photo.url}
+                        alt={photo.fileName}
+                        className="w-full h-full object-cover group-hover:scale-105 transition"
+                        loading="lazy"
+                      />
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">{t.tapToEnlarge}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Lightbox for full-size photo view with download button */}
+        {lightboxPhoto && (
+          <div
+            className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4"
+            onClick={() => setLightboxPhoto(null)}
+            data-testid="photo-lightbox"
+          >
+            <button
+              type="button"
+              onClick={() => setLightboxPhoto(null)}
+              className="absolute top-4 right-4 text-white text-3xl leading-none hover:opacity-80"
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const photo = sharedPhotos.find((p) => p.url === lightboxPhoto.url);
+                if (photo) handleDownloadPhoto(photo.id, photo.fileName);
+              }}
+              className="absolute top-4 left-4 inline-flex items-center gap-2 px-3 py-2 bg-white/90 hover:bg-white text-gray-900 text-sm font-medium rounded-lg transition-colors"
+              data-testid="button-lightbox-download"
+            >
+              <Download className="h-4 w-4" />
+              {t.download}
+            </button>
+            <img
+              src={lightboxPhoto.url}
+              alt={lightboxPhoto.fileName}
+              className="max-w-full max-h-full rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         )}
 
