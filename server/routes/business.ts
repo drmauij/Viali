@@ -166,10 +166,10 @@ function hospitalScopeClause<T>(column: T, hospitalIds: string[]) {
 router.get('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManager, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    
+
     // Get all users associated with this hospital, excluding admin roles
     const hospitalUsers = await storage.getHospitalUsers(hospitalId);
-    
+
     // Group by user ID to deduplicate (one entry per user, not per role)
     // Hourly rate is per user, not per role
     const userMap = new Map<string, {
@@ -184,6 +184,7 @@ router.get('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManager
       overtimeBalanceMinutes: number | null;
       canLogin: boolean;
       createdAt: Date | null;
+      workerPortal: any | null;
     }>();
     
     for (const u of hospitalUsers) {
@@ -214,10 +215,35 @@ router.get('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManager
           overtimeBalanceMinutes: (u.user as any).overtimeBalanceMinutes ?? null,
           canLogin: (u.user as any).canLogin ?? true,
           createdAt: u.user.createdAt,
+          workerPortal: null,
         });
       }
     }
-    
+
+    // Attach external-worker portal data when an externalWorklogLinks entry
+    // exists for the same (hospitalId, email). Done in a single batch query
+    // to avoid N+1.
+    const emails = Array.from(userMap.values())
+      .map((u) => u.email)
+      .filter((e): e is string => !!e)
+      .map((e) => e.toLowerCase());
+    if (emails.length > 0) {
+      const { externalWorklogLinks } = await import("@shared/schema");
+      const links = await db
+        .select()
+        .from(externalWorklogLinks)
+        .where(and(
+          eq(externalWorklogLinks.hospitalId, hospitalId),
+          inArray(externalWorklogLinks.email, emails),
+        ));
+      const byEmail = new Map(links.map((l) => [l.email.toLowerCase(), l]));
+      for (const u of userMap.values()) {
+        if (!u.email) continue;
+        const link = byEmail.get(u.email.toLowerCase());
+        if (link) u.workerPortal = link;
+      }
+    }
+
     const staffList = Array.from(userMap.values());
     res.json(staffList);
   } catch (error) {

@@ -56,7 +56,7 @@ import {
   Edit2,
   Building2,
   Loader2,
-  Shield,
+  Eye,
   UserCheck,
   X,
 } from "lucide-react";
@@ -69,12 +69,31 @@ interface RoleInfo {
   unitType: string | null;
 }
 
-interface RoleAssignment {
-  id: string;
-  role: string;
-  unitId: string | null;
-  unitName: string | null;
-  unitType: string | null;
+interface WorkerPortalData {
+  firstName: string | null;
+  lastName: string | null;
+  profession: string | null;
+  address: string | null;
+  city: string | null;
+  zip: string | null;
+  dateOfBirth: string | null;
+  maritalStatus: string | null;
+  nationality: string | null;
+  religion: string | null;
+  mobile: string | null;
+  ahvNumber: string | null;
+  hasChildBenefits: boolean | null;
+  numberOfChildren: number | null;
+  childBenefitsRecipient: string | null;
+  childBenefitsRegistration: string | null;
+  hasResidencePermit: boolean | null;
+  residencePermitType: string | null;
+  residencePermitValidUntil: string | null;
+  bankName: string | null;
+  bankAddress: string | null;
+  bankAccount: string | null;
+  hasOwnVehicle: boolean | null;
+  lastAccessedAt: string | null;
 }
 
 interface StaffMember {
@@ -90,6 +109,7 @@ interface StaffMember {
   annualVacationDays: number | null;
   canLogin: boolean;
   createdAt: string | null;
+  workerPortal: WorkerPortalData | null;
 }
 
 interface UnitOption {
@@ -216,10 +236,10 @@ export default function SimplifiedStaff() {
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isRolesDialogOpen, setIsRolesDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
-  const [managingRolesStaff, setManagingRolesStaff] = useState<StaffMember | null>(null);
-  
+  const [viewingStaff, setViewingStaff] = useState<StaffMember | null>(null);
+
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -231,11 +251,6 @@ export default function SimplifiedStaff() {
     weeklyTargetHours: '',
     overtimeBalanceHours: '',
     annualVacationDays: '',
-  });
-  
-  const [newRoleData, setNewRoleData] = useState({
-    role: 'nurse',
-    unitId: '',
   });
 
   const { data: staffList = [], isLoading } = useQuery<StaffMember[]>({
@@ -254,16 +269,6 @@ export default function SimplifiedStaff() {
     refetchInterval: 30000,
   });
   const pendingTimeOffCount = pendingTimeOffData?.count || 0;
-
-  const { data: userRoles = [], isLoading: isLoadingRoles } = useQuery<RoleAssignment[]>({
-    queryKey: ['/api/business', activeHospital?.id, 'staff', managingRolesStaff?.id, 'roles'],
-    queryFn: async () => {
-      const res = await fetch(`/api/business/${activeHospital?.id}/staff/${managingRolesStaff?.id}/roles`);
-      if (!res.ok) throw new Error('Failed to fetch roles');
-      return res.json();
-    },
-    enabled: !!activeHospital?.id && !!managingRolesStaff?.id && isRolesDialogOpen,
-  });
 
   const createStaffMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -324,49 +329,6 @@ export default function SimplifiedStaff() {
       toast({
         title: t('common.error'),
         description: error.message || t('business.staff.updateError'),
-        variant: 'destructive',
-      });
-    },
-  });
-
-  const addRoleMutation = useMutation({
-    mutationFn: async ({ userId, role, unitId }: { userId: string; role: string; unitId: string }) => {
-      return apiRequest('POST', `/api/business/${activeHospital?.id}/staff/${userId}/roles`, { role, unitId });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/business', activeHospital?.id, 'staff', managingRolesStaff?.id, 'roles'] });
-      queryClient.invalidateQueries({ queryKey: [`/api/business/${activeHospital?.id}/staff`] });
-      setNewRoleData({ role: 'nurse', unitId: '' });
-      toast({
-        title: t('common.success'),
-        description: t('business.staff.roleAddSuccess'),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('business.staff.roleAddError'),
-        variant: 'destructive',
-      });
-    },
-  });
-
-  const deleteRoleMutation = useMutation({
-    mutationFn: async ({ userId, roleId }: { userId: string; roleId: string }) => {
-      return apiRequest('DELETE', `/api/business/${activeHospital?.id}/staff/${userId}/roles/${roleId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/business', activeHospital?.id, 'staff', managingRolesStaff?.id, 'roles'] });
-      queryClient.invalidateQueries({ queryKey: [`/api/business/${activeHospital?.id}/staff`] });
-      toast({
-        title: t('common.success'),
-        description: t('business.staff.roleDeleteSuccess'),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('business.staff.roleDeleteError'),
         variant: 'destructive',
       });
     },
@@ -434,34 +396,9 @@ export default function SimplifiedStaff() {
     updateStaffMutation.mutate({ userId: editingStaff.id, ...formData });
   };
 
-  const handleManageRoles = (staff: StaffMember) => {
-    setManagingRolesStaff(staff);
-    setNewRoleData({ role: 'nurse', unitId: '' });
-    setIsRolesDialogOpen(true);
-  };
-
-  const handleAddRole = () => {
-    if (!managingRolesStaff || !newRoleData.unitId) {
-      toast({
-        title: t('common.error'),
-        description: t('business.staff.requiredFields'),
-        variant: 'destructive',
-      });
-      return;
-    }
-    addRoleMutation.mutate({
-      userId: managingRolesStaff.id,
-      role: newRoleData.role,
-      unitId: newRoleData.unitId,
-    });
-  };
-
-  const handleDeleteRole = (roleId: string) => {
-    if (!managingRolesStaff) return;
-    deleteRoleMutation.mutate({
-      userId: managingRolesStaff.id,
-      roleId,
-    });
+  const handleViewDetails = (staff: StaffMember) => {
+    setViewingStaff(staff);
+    setIsDetailsDialogOpen(true);
   };
 
   const filteredStaff = useMemo(() => {
@@ -666,14 +603,14 @@ export default function SimplifiedStaff() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => handleManageRoles(staff)}
-                                data-testid={`button-manage-roles-${staff.id}`}
+                                onClick={() => handleViewDetails(staff)}
+                                data-testid={`button-view-staff-${staff.id}`}
                               >
-                                <Shield className="h-4 w-4" />
+                                <Eye className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>{t('business.staff.manageRoles')}</p>
+                              <p>{t('business.staff.viewDetails')}</p>
                             </TooltipContent>
                           </Tooltip>
                           <Tooltip>
@@ -943,117 +880,149 @@ export default function SimplifiedStaff() {
         </DialogContent>
       </Dialog>
 
-      {/* Manage Roles Dialog */}
-      <Dialog open={isRolesDialogOpen} onOpenChange={(open) => {
-        setIsRolesDialogOpen(open);
-        if (!open) setManagingRolesStaff(null);
-      }}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>{t('business.staff.manageRoles')}</DialogTitle>
-            <DialogDescription>
-              {managingRolesStaff?.email || (managingRolesStaff && getDisplayName(managingRolesStaff))}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="border-t pt-4">
-              <Label className="text-base font-semibold">{t('business.staff.roleUnitAssignments')}</Label>
-              <div className="space-y-2 mt-3">
-                {isLoadingRoles ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : userRoles.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-2">{t('business.staff.noRoles')}</p>
-                ) : (
-                  userRoles.map((roleAssignment) => (
-                    <div 
-                      key={roleAssignment.id} 
-                      className="flex items-center justify-between bg-muted p-2 rounded-md"
-                      data-testid={`role-item-${roleAssignment.id}`}
-                    >
-                      <Badge 
-                        variant="outline" 
-                        className={getRoleBadgeStyle(roleAssignment.role, roleAssignment)}
-                      >
-                        {getRoleLabel(roleAssignment.role, roleAssignment)}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteRole(roleAssignment.id)}
-                        disabled={deleteRoleMutation.isPending || userRoles.length <= 1}
-                        data-testid={`button-delete-role-${roleAssignment.id}`}
-                      >
-                        <X className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            <div className="border-t pt-4">
-              <Label className="text-sm font-medium mb-2 block">{t('business.staff.addNewRole')}</Label>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Select 
-                  value={newRoleData.role} 
-                  onValueChange={(value) => setNewRoleData({ ...newRoleData, role: value })}
-                >
-                  <SelectTrigger className="flex-1" data-testid="select-new-role">
-                    <SelectValue placeholder={t('business.staff.selectRole')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="doctor">{t('business.staff.roleDoctor')}</SelectItem>
-                    <SelectItem value="nurse">{t('business.staff.roleNurse')}</SelectItem>
-                    <SelectItem value="manager">{t('business.staff.roleManager')}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select 
-                  value={newRoleData.unitId} 
-                  onValueChange={(value) => setNewRoleData({ ...newRoleData, unitId: value })}
-                >
-                  <SelectTrigger className="flex-1" data-testid="select-new-unit">
-                    <SelectValue placeholder={t('business.staff.selectUnit')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {hospitalUnits.map((unit) => (
-                      <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button 
-                  onClick={handleAddRole}
-                  disabled={!newRoleData.unitId || addRoleMutation.isPending}
-                  data-testid="button-add-role"
-                  className="shrink-0"
-                >
-                  {addRoleMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <i className="fas fa-plus mr-2"></i>
-                  )}
-                  {t('common.add')}
-                </Button>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRolesDialogOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button onClick={() => setIsRolesDialogOpen(false)}>
-              {t('common.save')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Staff Details Dialog (read-only). Surfaces the worker-portal data
+          submitted via /worklog/:token when present, plus the basic staff
+          info we already track. */}
+      <StaffDetailsDialog
+        open={isDetailsDialogOpen}
+        onOpenChange={(open) => {
+          setIsDetailsDialogOpen(open);
+          if (!open) setViewingStaff(null);
+        }}
+        staff={viewingStaff}
+      />
         </TabsContent>
 
         <TabsContent value="timeoff" className="mt-4">
           <StaffTimeOffTab hospitalId={activeHospital.id} />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// ─── Read-only Staff Details Dialog ──────────────────────────────────────
+// Surfaces the data captured by external workers via /worklog/:token plus
+// the standard staff profile fields. All values render as plain text; nothing
+// in this dialog is editable.
+
+interface StaffDetailsDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  staff: StaffMember | null;
+}
+
+function StaffDetailsDialog({ open, onOpenChange, staff }: StaffDetailsDialogProps) {
+  const { t } = useTranslation();
+  if (!staff) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[600px]" />
+      </Dialog>
+    );
+  }
+
+  const wp = staff.workerPortal;
+  const fullName = [staff.firstName, staff.lastName].filter(Boolean).join(' ').trim() || staff.email || '—';
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[640px] max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{fullName}</DialogTitle>
+          <DialogDescription>{staff.email || t('business.staff.viewDetails')}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5 py-2 text-sm">
+          {/* Always-visible profile basics */}
+          <DetailSection title={t('business.staff.detailsProfile')}>
+            <DetailRow label={t('business.staff.staffTypeLabel')} value={staff.staffType === 'internal' ? t('business.staff.internal') : t('business.staff.external')} />
+            <DetailRow label={t('business.staff.hourlyRate')} value={staff.hourlyRate != null ? `${staff.hourlyRate}/h` : '—'} />
+            {wp?.profession && <DetailRow label={t('business.staff.detailsProfession')} value={wp.profession} />}
+            {wp?.dateOfBirth && <DetailRow label={t('business.staff.detailsDateOfBirth')} value={wp.dateOfBirth} />}
+            {wp?.nationality && <DetailRow label={t('business.staff.detailsNationality')} value={wp.nationality} />}
+            {wp?.maritalStatus && <DetailRow label={t('business.staff.detailsMaritalStatus')} value={wp.maritalStatus} />}
+            {wp?.religion && <DetailRow label={t('business.staff.detailsReligion')} value={wp.religion} />}
+            {wp?.mobile && <DetailRow label={t('business.staff.detailsMobile')} value={wp.mobile} />}
+          </DetailSection>
+
+          {wp && (wp.address || wp.city || wp.zip) && (
+            <DetailSection title={t('business.staff.detailsAddress')}>
+              {wp.address && <DetailRow label={t('business.staff.detailsStreet')} value={wp.address} />}
+              {(wp.zip || wp.city) && (
+                <DetailRow label={t('business.staff.detailsCity')} value={[wp.zip, wp.city].filter(Boolean).join(' ')} />
+              )}
+            </DetailSection>
+          )}
+
+          {wp?.ahvNumber && (
+            <DetailSection title={t('business.staff.detailsTax')}>
+              <DetailRow label={t('business.staff.detailsAhv')} value={wp.ahvNumber} />
+            </DetailSection>
+          )}
+
+          {wp && (wp.bankName || wp.bankAccount || wp.bankAddress) && (
+            <DetailSection title={t('business.staff.detailsBank')}>
+              {wp.bankName && <DetailRow label={t('business.staff.detailsBankName')} value={wp.bankName} />}
+              {wp.bankAccount && <DetailRow label={t('business.staff.detailsBankAccount')} value={wp.bankAccount} mono />}
+              {wp.bankAddress && <DetailRow label={t('business.staff.detailsBankAddress')} value={wp.bankAddress} />}
+            </DetailSection>
+          )}
+
+          {wp?.hasResidencePermit !== null && wp?.hasResidencePermit !== undefined && (
+            <DetailSection title={t('business.staff.detailsResidencePermit')}>
+              {wp.hasResidencePermit ? (
+                <>
+                  {wp.residencePermitType && <DetailRow label={t('business.staff.detailsPermitType')} value={wp.residencePermitType} />}
+                  {wp.residencePermitValidUntil && <DetailRow label={t('business.staff.detailsPermitValidUntil')} value={wp.residencePermitValidUntil} />}
+                </>
+              ) : (
+                <p className="text-muted-foreground">{t('business.staff.detailsNoPermit')}</p>
+              )}
+            </DetailSection>
+          )}
+
+          {wp?.hasChildBenefits && (
+            <DetailSection title={t('business.staff.detailsChildBenefits')}>
+              {wp.numberOfChildren != null && <DetailRow label={t('business.staff.detailsNumChildren')} value={String(wp.numberOfChildren)} />}
+              {wp.childBenefitsRecipient && <DetailRow label={t('business.staff.detailsBenefitsRecipient')} value={wp.childBenefitsRecipient} />}
+              {wp.childBenefitsRegistration && <DetailRow label={t('business.staff.detailsBenefitsRegistration')} value={wp.childBenefitsRegistration} />}
+            </DetailSection>
+          )}
+
+          {wp?.hasOwnVehicle !== null && wp?.hasOwnVehicle !== undefined && (
+            <DetailSection title={t('business.staff.detailsMobility')}>
+              <DetailRow label={t('business.staff.detailsOwnVehicle')} value={wp.hasOwnVehicle ? t('common.yes') : t('common.no')} />
+            </DetailSection>
+          )}
+
+          {!wp && staff.staffType === 'external' && (
+            <p className="text-sm text-muted-foreground italic">{t('business.staff.detailsNoPortalData')}</p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.close')}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{title}</h4>
+      <div className="space-y-1.5 border rounded-lg p-3 bg-muted/40">{children}</div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-baseline gap-3">
+      <span className="text-xs text-muted-foreground min-w-[140px]">{label}</span>
+      <span className={mono ? 'font-mono text-sm' : 'text-sm'}>{value}</span>
     </div>
   );
 }
