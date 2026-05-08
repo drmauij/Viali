@@ -1306,7 +1306,16 @@ export function SurgeryPlanningTable({
     }));
   };
   
-  const filteredSurgeries = surgeries;
+  // Hard-filter by surgeon when set — table view treats the surgeon
+  // filter as a true list filter (drop non-matching rows). Calendar
+  // views still use highlight semantics so the user keeps OR-context.
+  const filteredSurgeries = useMemo(
+    () =>
+      surgeonFilter
+        ? surgeries.filter((s: any) => s.surgeonId === surgeonFilter)
+        : surgeries,
+    [surgeries, surgeonFilter],
+  );
 
   const sortedSurgeries = useMemo(() => {
     if (!sortState.field || !sortState.direction) return filteredSurgeries;
@@ -1631,10 +1640,6 @@ export function SurgeryPlanningTable({
                   className={cn(
                     "cursor-pointer hover:bg-muted/50",
                     surgery.isSuspended && "bg-amber-50/50 dark:bg-amber-950/20 border-l-4 border-l-amber-400",
-                    surgeonFilter && (surgery as any).surgeonId === surgeonFilter &&
-                      "bg-yellow-50 dark:bg-yellow-950/30 border-l-4 border-l-yellow-400 dark:border-l-yellow-500",
-                    surgeonFilter && (surgery as any).surgeonId !== surgeonFilter &&
-                      "opacity-40 grayscale"
                   )}
                   onClick={() => toggleRowExpand(surgery.id)}
                   data-testid={`row-surgery-${surgery.id}`}
