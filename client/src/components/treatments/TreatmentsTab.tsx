@@ -221,123 +221,72 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
       )}
 
       {treatments.length > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("treatments.date", "Date")}</TableHead>
-              <TableHead>{t("treatments.lines", "Lines")}</TableHead>
-              <TableHead className="text-right">
-                {t("treatments.total", "Total")}
-              </TableHead>
-              <TableHead>{t("treatments.statusLabel", "Status")}</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {treatments.map((treatment) => {
-              const lineTotal = (treatment.lines ?? []).reduce(
-                (sum, l) => sum + (parseFloat((l.total as string) || "0") || 0),
-                0,
-              );
-              const lineLabels = (treatment.lines ?? [])
-                .slice(0, 3)
-                .map(
-                  (l) =>
-                    (l.serviceId ? servicesMap[l.serviceId]?.name : null) ??
-                    (l.itemId ? itemsMap[l.itemId]?.name : null) ??
-                    "",
-                )
-                .filter(Boolean);
-              const extra = (treatment.lines ?? []).length - lineLabels.length;
+        <div className="space-y-4">
+          {treatments.map((treatment) => {
+            const lines = treatment.lines ?? [];
+            const lineTotal = lines.reduce(
+              (sum, l) => sum + (parseFloat((l.total as string) || "0") || 0),
+              0,
+            );
+            const tHospitalName = hospitalNameById?.[treatment.hospitalId];
 
-              const tHospitalName = hospitalNameById?.[treatment.hospitalId];
-              return (
-                <TableRow key={treatment.id}>
-                  <TableCell className="whitespace-nowrap">
-                    {format(new Date(treatment.performedAt), "d MMM yyyy")}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1 items-center">
-                      {lineLabels.map((lbl) => (
-                        <Badge key={lbl} variant="secondary" className="text-xs">
-                          {lbl}
-                        </Badge>
-                      ))}
-                      {extra > 0 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{extra}
-                        </Badge>
-                      )}
-                      {tHospitalName && (
-                        <Badge
-                          variant="outline"
-                          className="text-xs ml-1 bg-muted/40 text-muted-foreground"
-                          data-testid={`tag-treatment-hospital-${treatment.id}`}
-                        >
-                          <Building2 className="h-3 w-3 mr-1" />
-                          {tHospitalName}
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right font-medium whitespace-nowrap">
-                    {formatCurrency(lineTotal)}
-                  </TableCell>
-                  <TableCell>
+            return (
+              <div
+                key={treatment.id}
+                className="border rounded-lg bg-card overflow-hidden"
+                data-testid={`treatment-card-${treatment.id}`}
+              >
+                {/* Session header — date / status / total / actions */}
+                <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-muted/30 border-b">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium whitespace-nowrap">
+                      {format(new Date(treatment.performedAt), "d MMM yyyy")}
+                    </span>
                     <Badge variant={STATUS_VARIANT[treatment.status] ?? "secondary"}>
                       {t(
                         `treatments.status.${treatment.status}`,
-                        treatment.status.charAt(0).toUpperCase() +
-                          treatment.status.slice(1),
+                        treatment.status.charAt(0).toUpperCase() + treatment.status.slice(1),
                       )}
                     </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1 justify-end">
-                      {/* View / Edit (draft or amended) */}
-                      {(treatment.status === "draft" ||
-                        treatment.status === "amended") && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setEditing(treatment)}
-                        >
+                    {tHospitalName && (
+                      <Badge
+                        variant="outline"
+                        className="text-xs bg-muted/40 text-muted-foreground"
+                        data-testid={`tag-treatment-hospital-${treatment.id}`}
+                      >
+                        <Building2 className="h-3 w-3 mr-1" />
+                        {tHospitalName}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="font-medium whitespace-nowrap">
+                      {formatCurrency(lineTotal)}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {(treatment.status === "draft" || treatment.status === "amended") && (
+                        <Button size="sm" variant="ghost" onClick={() => setEditing(treatment)}>
                           <Pencil className="h-3 w-3 mr-1" />
                           {t("common.edit", "Edit")}
                         </Button>
                       )}
-
-                      {/* View read-only for signed/invoiced */}
-                      {(treatment.status === "signed" ||
-                        treatment.status === "invoiced") && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setEditing(treatment)}
-                        >
+                      {(treatment.status === "signed" || treatment.status === "invoiced") && (
+                        <Button size="sm" variant="ghost" onClick={() => setEditing(treatment)}>
                           {t("common.view", "View")}
                         </Button>
                       )}
-
-                      {/* Create invoice (signed only) */}
-                      {treatment.status === "signed" &&
-                        !treatment.invoiceId && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={invoiceMutation.isPending}
-                            onClick={() =>
-                              invoiceMutation.mutate(treatment.id)
-                            }
-                          >
-                            <FileText className="h-3 w-3 mr-1" />
-                            {t("treatments.createInvoice", "Create Invoice Draft")}
-                          </Button>
-                        )}
-
-                      {/* Amend (signed or invoiced) */}
-                      {(treatment.status === "signed" ||
-                        treatment.status === "invoiced") && (
+                      {treatment.status === "signed" && !treatment.invoiceId && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={invoiceMutation.isPending}
+                          onClick={() => invoiceMutation.mutate(treatment.id)}
+                        >
+                          <FileText className="h-3 w-3 mr-1" />
+                          {t("treatments.createInvoice", "Create Invoice Draft")}
+                        </Button>
+                      )}
+                      {(treatment.status === "signed" || treatment.status === "invoiced") && (
                         <Button
                           size="sm"
                           variant="ghost"
@@ -349,12 +298,65 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
                         </Button>
                       )}
                     </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                  </div>
+                </div>
+
+                {/* Per-line table — Product / Quantity / Zones at a glance */}
+                {lines.length === 0 ? (
+                  <p className="px-4 py-3 text-sm text-muted-foreground italic">
+                    {t("treatments.noLines", "No items recorded")}
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="h-9">{t("treatments.product", "Product")}</TableHead>
+                        <TableHead className="h-9 w-32">{t("treatments.quantity", "Quantity")}</TableHead>
+                        <TableHead className="h-9">{t("treatments.zones", "Zones")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {lines.map((line) => {
+                        const product = line.itemId ? itemsMap[line.itemId]?.name : null;
+                        const service = line.serviceId ? servicesMap[line.serviceId]?.name : null;
+                        const qty = line.dose
+                          ? `${line.dose}${line.doseUnit ? ` ${line.doseUnit}` : ""}`.trim()
+                          : "—";
+                        const zones = (line.zones ?? []) as string[];
+                        return (
+                          <TableRow key={line.id}>
+                            <TableCell className="font-medium py-2">
+                              {product ?? service ?? "—"}
+                              {product && service && (
+                                <span className="text-xs text-muted-foreground ml-1">
+                                  ({service})
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell className="py-2 whitespace-nowrap">{qty}</TableCell>
+                            <TableCell className="py-2">
+                              {zones.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {zones.map((z, i) => (
+                                    <Badge key={i} variant="secondary" className="text-xs">
+                                      {z}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
 
       <TodayAppointmentDialog
