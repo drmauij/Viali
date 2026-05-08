@@ -1025,28 +1025,38 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
       doc.text(`Vendor: Not Specified`, 120, 40);
     }
     
-    // Items table
+    // Items table — name cell carries the supplier/code line as a second
+    // row so the printed order matches what the user sees in the app card
+    // (e.g. "Anandic · Art: VS 6840 · PC: 2955217"). Unit cell appends
+    // pack size when it's known and meaningful (>1) for unit=Pack rows.
     const tableData = order.orderLines.map((line) => {
+      const supplierInfo = getItemSupplierInfo(line, order.vendor?.name);
+      const itemNameCell = supplierInfo ? `${line.item.name}\n${supplierInfo}` : line.item.name;
+      const unit = normalizeUnit(line.item.unit);
+      const packSize = (line as any).packSize ?? line.item.packSize;
+      const unitCell = unit === "Pack" && packSize && Number(packSize) > 1
+        ? `${unit} × ${packSize}`
+        : unit;
       return [
-        line.item.name,
+        itemNameCell,
         `${line.qty}`,
-        normalizeUnit(line.item.unit),
+        unitCell,
         line.item.controlled ? "Yes" : "No",
       ];
     });
-    
+
     autoTable(doc, {
       startY: 70,
       head: [["Item Name", "Quantity", "Unit", "Controlled"]],
       body: tableData,
       theme: "grid",
-      styles: { fontSize: 10, cellPadding: 4 },
+      styles: { fontSize: 10, cellPadding: 4, valign: "top" },
       headStyles: { fillColor: [59, 130, 246], textColor: 255 },
       columnStyles: {
-        0: { cellWidth: 80 },
-        1: { cellWidth: 30, halign: "center" },
-        2: { cellWidth: 40 },
-        3: { cellWidth: 30, halign: "center" },
+        0: { cellWidth: 95 },
+        1: { cellWidth: 25, halign: "center" },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 25, halign: "center" },
       },
     });
     
