@@ -1031,8 +1031,9 @@ export default function Op() {
   useEffect(() => {
     if (!isPreOpLoading && !isPatientLoading && surgeryId) {
       if (isSurgeryMode) {
-        // Surgery mode: check patient-level data and offer questionnaire import
-        if (!hasShownQuestionnaireImportRef.current && !showQuestionnaireImportDialog) {
+        // Surgery mode: only relevant for LA surgeries with no anesthesia pre-op assessment.
+        // When a pre-op assessment exists, weight/allergies are managed there — don't pop this dialog.
+        if (!preOpAssessment && !hasShownQuestionnaireImportRef.current && !showQuestionnaireImportDialog) {
           const patientHasWeight = !!patient?.weight;
           const patientHasAllergies = (patient?.allergies && patient.allergies.length > 0) || !!patient?.otherAllergies;
 
