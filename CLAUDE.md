@@ -73,6 +73,10 @@ If the helpers don't cover a case, extend them there rather than branching local
 
 Use simple, everyday language.
 
+## SQL formatting rule
+
+Whenever you give the user a SQL statement to run by hand (diagnostic, hot-fix, ad-hoc), **format the entire statement on a single line** — no embedded newlines, no leading/trailing indentation, no SQL pretty-printing. The user copies these into terminals/clients where line breaks turn into stray CR characters and break the query. Use spaces between clauses, present each statement as one continuous line in its own fenced block. This applies even to long multi-CTE / multi-join queries.
+
 ## Code Review Reference (2026-02-18)
 
 Review of discharge medications + regional blocks changes. Action items:
