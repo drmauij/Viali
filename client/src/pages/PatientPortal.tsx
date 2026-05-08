@@ -1743,7 +1743,7 @@ function PatientPortalContent({ token }: { token: string }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950">
-      <div className="max-w-lg mx-auto px-4 py-6">
+      <div className="max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto px-4 py-6">
         <div className="w-full space-y-4">
         {/* Header */}
         <div className="flex justify-between items-center">
