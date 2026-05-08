@@ -41,6 +41,7 @@ import SignaturePad from "@/components/SignaturePad";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
 import { dataUrlToBlob } from "@/lib/dataUrlToBlob";
 import { generateWristbandPdf } from "@/lib/wristbandPdf";
+import { printPatientLabel } from "@/lib/patientLabelPdf";
 import AnesthesiaRecordButton from "@/components/anesthesia/AnesthesiaRecordButton";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
@@ -1589,6 +1590,22 @@ export default function PatientDetail() {
     }
   };
 
+  const handlePrintPatientLabel = async () => {
+    if (!patient) return;
+    try {
+      const patientUrl = `${window.location.origin}/patients/${patient.id}`;
+      await printPatientLabel({
+        patientName: `${patient.surname.toUpperCase()}, ${patient.firstName}`,
+        birthday: formatDate(patient.birthday),
+        patientNumber: patient.patientNumber || "",
+        patientUrl,
+      });
+    } catch (error) {
+      console.error("Failed to generate patient label PDF:", error);
+      toast({ title: t('common.error', 'Error'), description: t('anesthesia.patientDetail.patientLabelError', 'Failed to generate patient label'), variant: "destructive" });
+    }
+  };
+
   // Handle PDF download for a surgery - uses centralized PDF generation utility
   const handleDownloadPDF = async (surgery: SurgeryWithAssistants) => {
     if (!patient) {
@@ -1890,15 +1907,26 @@ export default function PatientDetail() {
               </div>
               {canWrite && (
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handlePrintWristband}
-                    data-testid="button-print-wristband"
-                    title={t('anesthesia.patientDetail.printWristband', 'Print Wristband')}
-                  >
-                    <Printer className="h-4 w-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        data-testid="button-print-menu"
+                        title={t('anesthesia.patientDetail.print', 'Print')}
+                      >
+                        <Printer className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handlePrintWristband()} data-testid="menu-print-wristband">
+                        {t('anesthesia.patientDetail.printWristband', 'Print Wristband')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handlePrintPatientLabel} data-testid="menu-print-patient-label">
+                        {t('anesthesia.patientDetail.printPatientLabel', 'Print Patient Label')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   {addons.questionnaire && (
                     <Button
                       variant="outline"
@@ -3070,15 +3098,26 @@ export default function PatientDetail() {
                     <Badge className={getStatusColor(surgery.status)}>
                       {surgery.status}
                     </Badge>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handlePrintWristband(surgery)}
-                      data-testid={`button-print-wristband-${surgery.id}`}
-                      title={t('anesthesia.patientDetail.printWristband', 'Print Wristband')}
-                    >
-                      <Printer className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          data-testid={`button-print-menu-${surgery.id}`}
+                          title={t('anesthesia.patientDetail.print', 'Print')}
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handlePrintWristband(surgery)} data-testid={`menu-print-wristband-${surgery.id}`}>
+                          {t('anesthesia.patientDetail.printWristband', 'Print Wristband')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handlePrintPatientLabel} data-testid={`menu-print-patient-label-${surgery.id}`}>
+                          {t('anesthesia.patientDetail.printPatientLabel', 'Print Patient Label')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button
                       variant="ghost"
                       size="icon"
