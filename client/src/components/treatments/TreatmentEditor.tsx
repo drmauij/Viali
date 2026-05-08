@@ -15,12 +15,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, PenLine } from "lucide-react";
+import { Plus, PenLine, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { TreatmentLineDialog } from "./TreatmentLineDialog";
 import { TreatmentLinesTable } from "./TreatmentLinesTable";
 import { TreatmentPalette } from "./TreatmentPalette";
 import { TreatmentItemConfigDialog } from "./TreatmentItemConfigDialog";
@@ -71,12 +70,12 @@ export function TreatmentEditor({
     existing?.lines ?? [],
   );
 
-  // Dialog state
-  const [lineDialogOpen, setLineDialogOpen] = useState(false);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [editingLine, setEditingLine] = useState<
-    Partial<TreatmentLine> | undefined
-  >(undefined);
+  // Tracks the treatment id once auto-save creates the record on the
+  // server, so subsequent auto-saves PUT instead of POSTing duplicates.
+  const [createdTreatmentId, setCreatedTreatmentId] = useState<string | null>(
+    null,
+  );
+  const treatmentId = existing?.id ?? createdTreatmentId;
 
   // Palette config dialog
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
@@ -248,8 +247,13 @@ export function TreatmentEditor({
   const sanitizeLines = (ls: Partial<TreatmentLine>[]) => ls.map(sanitizeLine);
 
   const saveMutation = useMutation({
-    mutationFn: async (payload: { lines: Partial<TreatmentLine>[]; notes: string; performedAt: Date }) => {
-      if (!existing && !user?.id) {
+    mutationFn: async (payload: {
+      lines: Partial<TreatmentLine>[];
+      notes: string;
+      performedAt: Date;
+      silent?: boolean;
+    }) => {
+      if (!treatmentId && !user?.id) {
         throw new Error(
           t("treatments.noProvider", "You must be signed in to record a treatment"),
         );
@@ -266,22 +270,28 @@ export function TreatmentEditor({
           payload.lines.filter((l) => l.serviceId || l.itemId),
         ),
       };
-      const res = existing
-        ? await apiRequest("PUT", `/api/treatments/${existing.id}`, body)
+      const res = treatmentId
+        ? await apiRequest("PUT", `/api/treatments/${treatmentId}`, body)
         : await apiRequest("POST", "/api/treatments", body);
       return res.json() as Promise<Treatment & { lines: TreatmentLine[] }>;
     },
-    onSuccess: () => {
+    onSuccess: (data, vars) => {
+      if (!treatmentId && data?.id) {
+        setCreatedTreatmentId(data.id);
+      }
       qc.invalidateQueries({ queryKey: ["treatments", patientId] });
+      if (vars.silent) return;
       toast({
         title: t("treatments.savedDraft", "Draft saved"),
       });
       onSaved();
     },
-    onError: (err: any) => {
+    onError: (err: any, vars) => {
       toast({
         variant: "destructive",
-        title: t("treatments.saveFailed", "Save failed"),
+        title: vars.silent
+          ? t("treatments.autoSaveFailed", "Auto-save failed")
+          : t("treatments.saveFailed", "Save failed"),
         description: err.message,
       });
     },
@@ -289,7 +299,7 @@ export function TreatmentEditor({
 
   const signMutation = useMutation({
     mutationFn: async (signature: string) => {
-      if (!existing && !user?.id) {
+      if (!treatmentId && !user?.id) {
         throw new Error(
           t("treatments.noProvider", "You must be signed in to record a treatment"),
         );
@@ -305,18 +315,19 @@ export function TreatmentEditor({
         notes,
         lines: sanitizeLines(lines.filter((l) => l.serviceId || l.itemId)),
       };
-      let treatmentId = existing?.id;
-      if (!treatmentId) {
+      let id = treatmentId;
+      if (!id) {
         const created = await apiRequest(
           "POST",
           "/api/treatments",
           body,
         ).then((r) => r.json() as Promise<Treatment>);
-        treatmentId = created.id;
+        id = created.id;
+        setCreatedTreatmentId(id);
       } else {
-        await apiRequest("PUT", `/api/treatments/${treatmentId}`, body);
+        await apiRequest("PUT", `/api/treatments/${id}`, body);
       }
-      return apiRequest("POST", `/api/treatments/${treatmentId}/sign`, {
+      return apiRequest("POST", `/api/treatments/${id}/sign`, {
         signature,
       }).then((r) => r.json());
     },
@@ -336,36 +347,35 @@ export function TreatmentEditor({
     },
   });
 
+  const isLocked = isTreatmentLocked(existing?.status);
+
   // ---- Line management ----
 
-  const openNewLine = () => {
-    setEditingIndex(null);
-    setEditingLine(undefined);
-    setDialogItemId(null);
-    setLineDialogOpen(true);
-  };
-
-  const openEditLine = (index: number) => {
-    const line = lines[index];
-    setEditingIndex(index);
-    setEditingLine(line);
-    setDialogItemId(line.itemId ?? null);
-    setLineDialogOpen(true);
-  };
-
-  const upsertLine = (line: Partial<TreatmentLine>) => {
-    setLines((prev) => {
-      if (editingIndex === null) {
-        return [...prev, { ...line, lineOrder: prev.length }];
-      }
-      const next = [...prev];
-      next[editingIndex] = { ...next[editingIndex], ...line };
-      return next;
+  // Silently persist the draft after a structural change (line added or
+  // removed). Skips when the treatment isn't ready to be created yet
+  // (no provider + no meaningful lines) so we don't spawn empty stub
+  // records on every "+ Add line" click on a fresh treatment.
+  const autoSaveDraft = (nextLines: Partial<TreatmentLine>[]) => {
+    if (isLocked) return;
+    if (saveMutation.isPending) return;
+    const hasMeaningfulLines = nextLines.some(
+      (l) => l.serviceId || l.itemId,
+    );
+    if (!treatmentId && !hasMeaningfulLines) return;
+    saveMutation.mutate({
+      lines: nextLines,
+      notes,
+      performedAt,
+      silent: true,
     });
   };
 
   const removeLine = (index: number) => {
-    setLines((prev) => prev.filter((_, i) => i !== index));
+    setLines((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      autoSaveDraft(next);
+      return next;
+    });
   };
 
   const handleChangeLine = (
@@ -380,43 +390,53 @@ export function TreatmentEditor({
   };
 
   const handleAddBlankLine = () => {
-    setLines((prev) => [...prev, { lineOrder: prev.length }]);
+    setLines((prev) => {
+      const next = [...prev, { lineOrder: prev.length }];
+      autoSaveDraft(next);
+      return next;
+    });
   };
 
   const applyConfig = (c: TreatmentItemConfig) => {
-    setLines((prev) => [
-      ...prev,
-      {
-        itemId: c.itemId,
-        serviceId: c.defaultServiceId ?? undefined,
-        dose: c.defaultDose ?? undefined,
-        doseUnit: c.defaultDoseUnit ?? undefined,
-        zones: (c.defaultZones as string[]) ?? [],
-        lineOrder: prev.length,
-      },
-    ]);
+    setLines((prev) => {
+      const next = [
+        ...prev,
+        {
+          itemId: c.itemId,
+          serviceId: c.defaultServiceId ?? undefined,
+          dose: c.defaultDose ?? undefined,
+          doseUnit: c.defaultDoseUnit ?? undefined,
+          zones: (c.defaultZones as string[]) ?? [],
+          lineOrder: prev.length,
+        },
+      ];
+      autoSaveDraft(next);
+      return next;
+    });
   };
 
   const copyLinesFromHistory = (src: TreatmentLine[]) => {
-    setLines(
-      src.map((l, i) => ({
-        serviceId: l.serviceId ?? undefined,
-        itemId: l.itemId ?? undefined,
-        dose: l.dose ?? undefined,
-        doseUnit: l.doseUnit ?? undefined,
-        zones: (l.zones as string[]) ?? [],
-        notes: l.notes ?? undefined,
-        unitPrice: l.unitPrice ?? undefined,
-        total: l.total ?? undefined,
-        lineOrder: i,
-      })),
-    );
+    // Bulk-copy is a populate-then-review action, not an atomic add. We
+    // skip autoSaveDraft here so the user reviews/edits the imported
+    // lines before they hit the server (otherwise a fresh draft would
+    // be created mid-review and immediately reappear as a "previous
+    // treatment" in this same form's history list).
+    const next = src.map((l, i) => ({
+      serviceId: l.serviceId ?? undefined,
+      itemId: l.itemId ?? undefined,
+      dose: l.dose ?? undefined,
+      doseUnit: l.doseUnit ?? undefined,
+      zones: (l.zones as string[]) ?? [],
+      notes: l.notes ?? undefined,
+      unitPrice: l.unitPrice ?? undefined,
+      total: l.total ?? undefined,
+      lineOrder: i,
+    }));
+    setLines(next);
     toast({
       title: t("treatments.linesCopied", "Lines copied — review and adjust before signing"),
     });
   };
-
-  const isLocked = isTreatmentLocked(existing?.status);
 
   const validLineCount = lines.filter(
     (l) => l.serviceId || l.itemId,
@@ -444,7 +464,9 @@ export function TreatmentEditor({
       {/* History summary */}
       {history.length > 0 && (
         <HistorySummaryCard
-          sessions={history.filter((h) => h.id !== existing?.id)}
+          sessions={history.filter(
+            (h) => h.id !== existing?.id && h.id !== createdTreatmentId,
+          )}
           servicesMap={servicesMap}
           itemsMap={itemsMap}
           onCopyLines={copyLinesFromHistory}
@@ -488,7 +510,6 @@ export function TreatmentEditor({
               configs={configs}
               itemsMap={itemsMap}
               onPick={applyConfig}
-              onConfigure={() => setConfigDialogOpen(true)}
             />
           )}
 
@@ -499,10 +520,24 @@ export function TreatmentEditor({
                 {t("treatments.lines", "Lines")}
               </span>
               {!isLocked && (
-                <Button size="sm" variant="outline" onClick={handleAddBlankLine}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  {t("treatments.addLine", "Add line")}
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="outline" onClick={handleAddBlankLine}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    {t("treatments.addLine", "Add line")}
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    title={t(
+                      "treatments.configurePalette",
+                      "Configure treatment palette",
+                    )}
+                    onClick={() => setConfigDialogOpen(true)}
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </div>
               )}
             </div>
 
@@ -512,9 +547,9 @@ export function TreatmentEditor({
               items={items}
               lotsByItem={lotsByItem}
               isLocked={isLocked}
+              zoneSuggestions={zoneSuggestions}
               onChangeLine={handleChangeLine}
               onRemoveLine={removeLine}
-              onEditFull={openEditLine}
               onItemSelect={setDialogItemId}
             />
 
@@ -564,19 +599,6 @@ export function TreatmentEditor({
           </div>
         </CardContent>
       </Card>
-
-      {/* Line dialog */}
-      <TreatmentLineDialog
-        open={lineDialogOpen}
-        onOpenChange={setLineDialogOpen}
-        initial={editingLine}
-        services={services}
-        items={items}
-        lotsByItem={lotsByItem}
-        zoneSuggestions={zoneSuggestions}
-        onSave={upsertLine}
-        onItemSelect={setDialogItemId}
-      />
 
       {/* Signature pad */}
       <SignaturePad

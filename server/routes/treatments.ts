@@ -31,9 +31,9 @@ const updateSchema = createSchema.partial();
 // IMPORTANT: these routes must come BEFORE /:id routes to avoid
 // Express matching "configs" as an :id parameter.
 
-// All unique zone tags ever used at this hospital — powers the zone
-// autocomplete in TreatmentLineDialog so nurses can reuse zones entered
-// in prior treatments (not just the current patient's history).
+// All unique zone tags ever used at this hospital — powers the inline
+// zone autocomplete on each treatment line so nurses can reuse zones
+// entered in prior treatments (not just the current patient's history).
 router.get(
   "/api/treatments/zones",
   isAuthenticated,

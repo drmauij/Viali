@@ -56,10 +56,10 @@ export function HistorySummaryCard({
 
           return (
             <div key={s.id} className="border rounded p-2 text-sm">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 min-w-0">
                 <button
                   type="button"
-                  className="flex items-center gap-2 flex-1 text-left"
+                  className="flex items-center gap-2 flex-1 min-w-0 text-left"
                   onClick={() => setExpanded(isOpen ? null : s.id)}
                 >
                   {isOpen ? (
@@ -67,22 +67,26 @@ export function HistorySummaryCard({
                   ) : (
                     <ChevronRight className="h-4 w-4 shrink-0" />
                   )}
-                  <span className="font-medium whitespace-nowrap">
+                  <span className="font-medium whitespace-nowrap shrink-0">
                     {format(new Date(s.performedAt), "d MMM yyyy")}
                   </span>
-                  <span className="text-muted-foreground truncate">
+                  <span className="text-muted-foreground truncate flex-1 min-w-0">
                     {labels.join(", ")}
                     {more > 0 ? ` +${more} more` : ""}
                   </span>
-                  <span className="ml-auto font-medium whitespace-nowrap">
+                  <span className="font-medium whitespace-nowrap shrink-0">
                     {formatCurrency(total)}
                   </span>
                 </button>
                 <Button
                   size="sm"
                   variant="ghost"
+                  className="shrink-0"
                   onClick={() => onCopyLines(s.lines)}
-                  title={t("treatments.copyLines", "Copy lines")}
+                  title={t(
+                    "treatments.copyLinesTooltip",
+                    "Replace the current draft's lines with these",
+                  )}
                 >
                   <Copy className="h-3 w-3 mr-1" />
                   {t("treatments.copy", "Copy")}

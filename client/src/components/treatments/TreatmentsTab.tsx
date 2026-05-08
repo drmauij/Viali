@@ -10,7 +10,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, FileText, RotateCcw, Building2 } from "lucide-react";
+import { Plus, Pencil, FileText, RotateCcw, Building2, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { apiRequest } from "@/lib/queryClient";
@@ -63,6 +73,9 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
   const [todayDialogOpen, setTodayDialogOpen] = useState(false);
   const [todayAppointments, setTodayAppointments] = useState<TodayAppointmentRow[]>([]);
   const [fetchingAppointments, setFetchingAppointments] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<TreatmentWithLines | null>(
+    null,
+  );
 
   useEffect(() => {
     if (defaultOpenForAppointmentId) {
@@ -109,6 +122,23 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
       toast({
         variant: "destructive",
         title: t("treatments.amendFailed", "Amend failed"),
+        description: err.message,
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (treatmentId: string) =>
+      apiRequest("DELETE", `/api/treatments/${treatmentId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["treatments", patientId] });
+      toast({ title: t("treatments.deleted", "Treatment deleted") });
+      setPendingDelete(null);
+    },
+    onError: (err: any) => {
+      toast({
+        variant: "destructive",
+        title: t("treatments.deleteFailed", "Delete failed"),
         description: err.message,
       });
     },
@@ -270,6 +300,18 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
                           {t("common.edit", "Edit")}
                         </Button>
                       )}
+                      {treatment.status === "draft" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setPendingDelete(treatment)}
+                          title={t("treatments.delete", "Delete treatment")}
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          {t("common.delete", "Delete")}
+                        </Button>
+                      )}
                       {(treatment.status === "signed" || treatment.status === "invoiced") && (
                         <Button size="sm" variant="ghost" onClick={() => setEditing(treatment)}>
                           {t("common.view", "View")}
@@ -374,6 +416,43 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
           setEditing("new");
         }}
       />
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("treatments.confirmDeleteTitle", "Delete this treatment?")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                "treatments.confirmDeleteBody",
+                "This permanently removes the draft and all its lines. This action cannot be undone.",
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              {t("common.cancel", "Cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (pendingDelete) deleteMutation.mutate(pendingDelete.id);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending
+                ? t("treatments.deleting", "Deleting…")
+                : t("common.delete", "Delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
