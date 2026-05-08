@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, PenLine, Settings } from "lucide-react";
+import { Plus, PenLine } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -23,7 +23,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { TreatmentLinesTable } from "./TreatmentLinesTable";
 import { TreatmentPalette } from "./TreatmentPalette";
 import { TreatmentItemConfigDialog } from "./TreatmentItemConfigDialog";
-import { HistorySummaryCard } from "./HistorySummaryCard";
 import { NoAppointmentBanner } from "./NoAppointmentBanner";
 import { LinkAppointmentDialog } from "./LinkAppointmentDialog";
 import { isTreatmentLocked } from "./appointmentLinkHelpers";
@@ -38,6 +37,10 @@ interface Props {
   unitId?: string | null;
   appointmentId?: string | null;
   existing?: Treatment & { lines: TreatmentLine[] };
+  /** Pre-fills the lines when starting a new treatment as a duplicate
+   *  of an existing one (Duplicate action from the list). Ignored when
+   *  `existing` is provided. */
+  duplicateFromLines?: TreatmentLine[];
   onSaved: () => void;
   onCancel: () => void;
 }
@@ -48,6 +51,7 @@ export function TreatmentEditor({
   unitId,
   appointmentId: initialAppointmentId,
   existing,
+  duplicateFromLines,
   onSaved,
   onCancel,
 }: Props) {
@@ -66,9 +70,23 @@ export function TreatmentEditor({
     existing?.performedAt ? new Date(existing.performedAt) : new Date(),
   );
   const [notes, setNotes] = useState(existing?.notes ?? "");
-  const [lines, setLines] = useState<Partial<TreatmentLine>[]>(
-    existing?.lines ?? [],
-  );
+  const [lines, setLines] = useState<Partial<TreatmentLine>[]>(() => {
+    if (existing?.lines) return existing.lines;
+    if (duplicateFromLines) {
+      return duplicateFromLines.map((l, i) => ({
+        serviceId: l.serviceId ?? undefined,
+        itemId: l.itemId ?? undefined,
+        dose: l.dose ?? undefined,
+        doseUnit: l.doseUnit ?? undefined,
+        zones: (l.zones as string[]) ?? [],
+        notes: l.notes ?? undefined,
+        unitPrice: l.unitPrice ?? undefined,
+        total: l.total ?? undefined,
+        lineOrder: i,
+      }));
+    }
+    return [];
+  });
 
   // Tracks the treatment id once auto-save creates the record on the
   // server, so subsequent auto-saves PUT instead of POSTing duplicates.
@@ -188,10 +206,6 @@ export function TreatmentEditor({
   const itemsMap = useMemo(
     () => Object.fromEntries(items.map((i) => [i.id, i])),
     [items],
-  );
-  const servicesMap = useMemo(
-    () => Object.fromEntries(services.map((s) => [s.id, s])),
-    [services],
   );
 
   // Hospital-wide zone suggestions — nurses can reuse zones from any
@@ -415,29 +429,6 @@ export function TreatmentEditor({
     });
   };
 
-  const copyLinesFromHistory = (src: TreatmentLine[]) => {
-    // Bulk-copy is a populate-then-review action, not an atomic add. We
-    // skip autoSaveDraft here so the user reviews/edits the imported
-    // lines before they hit the server (otherwise a fresh draft would
-    // be created mid-review and immediately reappear as a "previous
-    // treatment" in this same form's history list).
-    const next = src.map((l, i) => ({
-      serviceId: l.serviceId ?? undefined,
-      itemId: l.itemId ?? undefined,
-      dose: l.dose ?? undefined,
-      doseUnit: l.doseUnit ?? undefined,
-      zones: (l.zones as string[]) ?? [],
-      notes: l.notes ?? undefined,
-      unitPrice: l.unitPrice ?? undefined,
-      total: l.total ?? undefined,
-      lineOrder: i,
-    }));
-    setLines(next);
-    toast({
-      title: t("treatments.linesCopied", "Lines copied — review and adjust before signing"),
-    });
-  };
-
   const validLineCount = lines.filter(
     (l) => l.serviceId || l.itemId,
   ).length;
@@ -461,47 +452,34 @@ export function TreatmentEditor({
         }}
       />
 
-      {/* History summary */}
-      {history.length > 0 && (
-        <HistorySummaryCard
-          sessions={history.filter(
-            (h) => h.id !== existing?.id && h.id !== createdTreatmentId,
-          )}
-          servicesMap={servicesMap}
-          itemsMap={itemsMap}
-          onCopyLines={copyLinesFromHistory}
-        />
-      )}
-
       <Card>
         <CardHeader>
-          <CardTitle>
-            {existing
-              ? t("treatments.editTreatment", "Edit Treatment")
-              : t("treatments.newTreatment", "New Treatment")}
-          </CardTitle>
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <CardTitle>
+              {existing
+                ? t("treatments.editTreatment", "Edit Treatment")
+                : t("treatments.newTreatment", "New Treatment")}
+            </CardTitle>
+            <Input
+              type="datetime-local"
+              value={performedAt.toISOString().slice(0, 16)}
+              onChange={(e) => setPerformedAt(new Date(e.target.value))}
+              disabled={isLocked}
+              aria-label={t("treatments.dateTime", "Date / time")}
+              className="h-8 w-[14rem]"
+            />
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Header fields */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>{t("treatments.dateTime", "Date / time")}</Label>
-              <Input
-                type="datetime-local"
-                value={performedAt.toISOString().slice(0, 16)}
-                onChange={(e) => setPerformedAt(new Date(e.target.value))}
-                disabled={isLocked}
-              />
-            </div>
-            <div>
-              <Label>{t("treatments.sessionNotes", "Session notes")}</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                disabled={isLocked}
-              />
-            </div>
+          {/* Session notes — full-width single column */}
+          <div>
+            <Label>{t("treatments.sessionNotes", "Session notes")}</Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              disabled={isLocked}
+            />
           </div>
 
           {/* Palette */}
@@ -510,6 +488,7 @@ export function TreatmentEditor({
               configs={configs}
               itemsMap={itemsMap}
               onPick={applyConfig}
+              onConfigure={() => setConfigDialogOpen(true)}
             />
           )}
 
@@ -520,24 +499,10 @@ export function TreatmentEditor({
                 {t("treatments.lines", "Lines")}
               </span>
               {!isLocked && (
-                <div className="flex items-center gap-1">
-                  <Button size="sm" variant="outline" onClick={handleAddBlankLine}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    {t("treatments.addLine", "Add line")}
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8"
-                    title={t(
-                      "treatments.configurePalette",
-                      "Configure treatment palette",
-                    )}
-                    onClick={() => setConfigDialogOpen(true)}
-                  >
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Button size="sm" variant="outline" onClick={handleAddBlankLine}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  {t("treatments.addLine", "Add line")}
+                </Button>
               )}
             </div>
 

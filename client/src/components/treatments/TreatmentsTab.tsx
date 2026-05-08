@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, FileText, RotateCcw, Building2, Trash2 } from "lucide-react";
+import { Plus, Pencil, FileText, RotateCcw, Building2, Trash2, Copy } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -76,6 +76,10 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
   const [pendingDelete, setPendingDelete] = useState<TreatmentWithLines | null>(
     null,
   );
+  // When a user clicks Duplicate on an existing treatment, we open a fresh
+  // editor pre-populated with that treatment's lines (the source treatment
+  // itself is left untouched).
+  const [duplicateLines, setDuplicateLines] = useState<TreatmentLine[] | undefined>();
 
   useEffect(() => {
     if (defaultOpenForAppointmentId) {
@@ -216,6 +220,11 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
   if (editing !== null) {
     const existingTreatment =
       editing === "new" ? undefined : (editing as TreatmentWithLines);
+    const closeEditor = () => {
+      setEditing(null);
+      setPendingAppointmentId(undefined);
+      setDuplicateLines(undefined);
+    };
     return (
       <TreatmentEditor
         patientId={patientId}
@@ -223,8 +232,9 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
         unitId={unitId}
         appointmentId={editing === "new" ? pendingAppointmentId : undefined}
         existing={existingTreatment}
-        onSaved={() => { setEditing(null); setPendingAppointmentId(undefined); }}
-        onCancel={() => { setEditing(null); setPendingAppointmentId(undefined); }}
+        duplicateFromLines={editing === "new" ? duplicateLines : undefined}
+        onSaved={closeEditor}
+        onCancel={closeEditor}
       />
     );
   }
@@ -300,6 +310,22 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
                           {t("common.edit", "Edit")}
                         </Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setDuplicateLines(treatment.lines ?? []);
+                          setPendingAppointmentId(undefined);
+                          setEditing("new");
+                        }}
+                        title={t(
+                          "treatments.duplicateTooltip",
+                          "Start a new treatment pre-filled with these lines",
+                        )}
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        {t("treatments.duplicate", "Duplicate")}
+                      </Button>
                       {treatment.status === "draft" && (
                         <Button
                           size="sm"
