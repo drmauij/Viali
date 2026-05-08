@@ -600,7 +600,7 @@ export function PatientDocumentsSection({
     return (
       <div
         key={doc.id}
-        className={`relative border rounded-lg overflow-hidden ${needsReview && isRecentDoc ? 'ring-2 ring-amber-400' : ''}`}
+        className={`relative border rounded-lg bg-card overflow-hidden ${needsReview && isRecentDoc ? 'ring-2 ring-amber-400' : ''}`}
         data-testid={`document-card-${doc.id}`}
       >
         {isCompactView ? (
@@ -852,7 +852,7 @@ export function PatientDocumentsSection({
     return (
       <div
         key={`brief-${brief.id}`}
-        className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+        className="flex items-center justify-between p-3 border rounded-lg bg-card hover:bg-accent/50 transition-colors"
         data-testid={`brief-card-${brief.id}`}
       >
         <div className="flex items-center gap-3 min-w-0">
@@ -1072,7 +1072,6 @@ export function PatientDocumentsSection({
     );
   };
 
-  const hasDocuments = documents.length > 0 || briefs.length > 0;
   const totalItems = documents.length + briefs.length;
 
   const headerContent = (
@@ -1080,20 +1079,22 @@ export function PatientDocumentsSection({
       {hideTitle ? (
         <span /> /* spacer keeps justify-between alignment when title is hidden */
       ) : (
-        <CardTitle className={`text-lg flex items-center gap-2 ${hasDocuments ? 'text-blue-600 dark:text-blue-400' : ''}`}>
+        <CardTitle className="text-lg flex items-center gap-2">
           <FileText className="h-5 w-5" />
           {t('anesthesia.patientDetail.patientDocuments', 'Patient Documents')} ({totalItems})
         </CardTitle>
       )}
       <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={(e) => { e.stopPropagation(); setIsCompactView(!isCompactView); }}
-          data-testid="button-toggle-view"
-        >
-          {isCompactView ? <Grid className="h-4 w-4" /> : <List className="h-4 w-4" />}
-        </Button>
+        {documents.length > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => { e.stopPropagation(); setIsCompactView(!isCompactView); }}
+            data-testid="button-toggle-view"
+          >
+            {isCompactView ? <Grid className="h-4 w-4" /> : <List className="h-4 w-4" />}
+          </Button>
+        )}
         {canWrite && (
           <>
             {onGenerateBrief && (
@@ -1495,7 +1496,7 @@ export function PatientDocumentsSection({
   if (variant === "accordion") {
     return (
       <AccordionItem value="patient-documents">
-        <Card className={hasDocuments ? "border-blue-400 dark:border-blue-600" : ""}>
+        <Card>
           <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-patient-documents">
             {headerContent}
           </AccordionTrigger>
@@ -1513,18 +1514,16 @@ export function PatientDocumentsSection({
   }
 
   return (
-    <Card className={hasDocuments ? "border-blue-400 dark:border-blue-600" : ""}>
-      <CardHeader className="pb-3">
+    <div className="space-y-4">
+      <div className="space-y-1">
         {headerContent}
         {!hideTitle && (
           <p className="text-sm text-muted-foreground">
             {t('anesthesia.patientDetail.patientDocumentsDesc', 'Documents associated with this patient, including files from questionnaires and staff uploads.')}
           </p>
         )}
-      </CardHeader>
-      <CardContent>
-        {content}
-      </CardContent>
-    </Card>
+      </div>
+      {content}
+    </div>
   );
 }
