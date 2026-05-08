@@ -796,6 +796,79 @@ export async function getNoteAttachment(id: string): Promise<NoteAttachment | un
   return attachment;
 }
 
+export async function setNoteAttachmentPortalVisibility(
+  attachmentId: string,
+  userId: string | null,
+  visible: boolean,
+): Promise<NoteAttachment | undefined> {
+  const [updated] = await db
+    .update(noteAttachments)
+    .set({
+      portalVisible: visible,
+      portalSharedAt: visible ? new Date() : null,
+      portalSharedBy: visible ? userId : null,
+    })
+    .where(eq(noteAttachments.id, attachmentId))
+    .returning();
+  return updated;
+}
+
+// Returns image-only note attachments that a clinician has explicitly shared
+// with the patient portal, scoped to a single patient. Spans both
+// patient-level notes and surgery-level notes for that patient.
+export async function getPortalVisiblePhotosForPatient(
+  patientId: string,
+): Promise<NoteAttachment[]> {
+  const patientPhotos = await db
+    .select()
+    .from(noteAttachments)
+    .innerJoin(patientNotes, and(
+      eq(noteAttachments.noteType, "patient"),
+      eq(noteAttachments.noteId, patientNotes.id),
+    ))
+    .where(and(
+      eq(patientNotes.patientId, patientId),
+      eq(noteAttachments.portalVisible, true),
+      sql`${noteAttachments.mimeType} LIKE 'image/%'`,
+    ));
+
+  const surgeryPhotos = await db
+    .select()
+    .from(noteAttachments)
+    .innerJoin(surgeryNotes, and(
+      eq(noteAttachments.noteType, "surgery"),
+      eq(noteAttachments.noteId, surgeryNotes.id),
+    ))
+    .innerJoin(surgeries, eq(surgeryNotes.surgeryId, surgeries.id))
+    .where(and(
+      eq(surgeries.patientId, patientId),
+      eq(noteAttachments.portalVisible, true),
+      sql`${noteAttachments.mimeType} LIKE 'image/%'`,
+    ));
+
+  const all = [
+    ...patientPhotos.map((row) => row.note_attachments),
+    ...surgeryPhotos.map((row) => row.note_attachments),
+  ];
+  all.sort((a, b) => {
+    const ta = a.portalSharedAt ? new Date(a.portalSharedAt).getTime() : 0;
+    const tb = b.portalSharedAt ? new Date(b.portalSharedAt).getTime() : 0;
+    return tb - ta;
+  });
+  return all;
+}
+
+// Verify a single shared photo belongs to a given patient — used by the
+// portal-side download endpoint as a defence in depth check before
+// generating a presigned URL.
+export async function getPortalVisiblePhotoForPatient(
+  attachmentId: string,
+  patientId: string,
+): Promise<NoteAttachment | undefined> {
+  const all = await getPortalVisiblePhotosForPatient(patientId);
+  return all.find((a) => a.id === attachmentId);
+}
+
 export async function getPatientNoteAttachments(patientId: string): Promise<(NoteAttachment & { noteContent: string | null })[]> {
   const patientNoteAttachmentsResult = await db
     .select({

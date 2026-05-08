@@ -27,6 +27,7 @@ import {
   getNoteAttachments,
   createNoteAttachment,
   getNoteAttachment,
+  setNoteAttachmentPortalVisibility,
   createAuditLog,
 } from "../../storage/anesthesia";
 import { db } from "../../db";
@@ -1503,6 +1504,39 @@ router.get('/api/notes/:noteType/:noteId/attachments', isAuthenticated, async (r
   } catch (error) {
     logger.error("Error fetching note attachments:", error);
     res.status(500).json({ message: "Failed to fetch attachments" });
+  }
+});
+
+// Toggle portal visibility on a single note attachment (image-only in
+// practice — the portal endpoint filters to image/* MIME types — but the
+// flag itself works for any attachment type).
+router.post('/api/notes/attachments/:attachmentId/share', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { attachmentId } = req.params;
+    const attachment = await getNoteAttachment(attachmentId);
+    if (!attachment) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+    const updated = await setNoteAttachmentPortalVisibility(attachmentId, req.user?.id, true);
+    res.json(updated);
+  } catch (error) {
+    logger.error("Error sharing note attachment:", error);
+    res.status(500).json({ message: "Failed to share attachment" });
+  }
+});
+
+router.post('/api/notes/attachments/:attachmentId/unshare', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { attachmentId } = req.params;
+    const attachment = await getNoteAttachment(attachmentId);
+    if (!attachment) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+    const updated = await setNoteAttachmentPortalVisibility(attachmentId, null, false);
+    res.json(updated);
+  } catch (error) {
+    logger.error("Error unsharing note attachment:", error);
+    res.status(500).json({ message: "Failed to unshare attachment" });
   }
 });
 

@@ -3197,6 +3197,77 @@ router.get(
   },
 );
 
+// List portal-shared photos for the patient — image MIME types only.
+// Returns each photo with a short-lived presigned S3 URL so the portal can
+// render it directly via <img src> without an extra round trip.
+router.get(
+  "/api/patient-portal/:token/shared-photos",
+  requirePortalVerification("patient"),
+  async (req: any, res: Response) => {
+    try {
+      const link = await storage.getQuestionnaireLinkByToken(req.params.token);
+      if (!link || !link.patientId) {
+        return res.status(404).json({ message: "Invalid portal link" });
+      }
+
+      const { getPortalVisiblePhotosForPatient } = await import("../storage/anesthesia");
+      const photos = await getPortalVisiblePhotosForPatient(link.patientId);
+
+      const { ObjectStorageService } = await import("../objectStorage");
+      const s3 = new ObjectStorageService();
+
+      const result = await Promise.all(
+        photos.map(async (p) => ({
+          id: p.id,
+          fileName: p.fileName,
+          mimeType: p.mimeType,
+          fileSize: p.fileSize,
+          sharedAt: p.portalSharedAt,
+          url: await s3.getObjectDownloadURL(p.storageKey, 900),
+        })),
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      logger.error("Error fetching portal shared photos:", error);
+      res.status(500).json({ message: error.message });
+    }
+  },
+);
+
+// Download a single shared photo — returns a fresh 15-min presigned URL.
+// Same auth + ownership checks as the list endpoint, plus a per-attachment
+// verification that this photo really is shared with this patient.
+router.get(
+  "/api/patient-portal/:token/shared-photos/:attachmentId/download",
+  requirePortalVerification("patient"),
+  async (req: any, res: Response) => {
+    try {
+      const link = await storage.getQuestionnaireLinkByToken(req.params.token);
+      if (!link || !link.patientId) {
+        return res.status(404).json({ message: "Invalid portal link" });
+      }
+
+      const { getPortalVisiblePhotoForPatient } = await import("../storage/anesthesia");
+      const photo = await getPortalVisiblePhotoForPatient(req.params.attachmentId, link.patientId);
+      if (!photo) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { ObjectStorageService } = await import("../objectStorage");
+      const s3 = new ObjectStorageService();
+      const downloadUrl = await s3.getObjectDownloadURL(photo.storageKey, 900);
+
+      logger.info(`Portal photo download: attachmentId=${photo.id} patientId=${link.patientId}`);
+
+      res.json({ downloadUrl, fileName: photo.fileName });
+    } catch (error: any) {
+      logger.error("Error downloading shared photo:", error);
+      res.status(500).json({ message: error.message });
+    }
+  },
+);
+
 // Delete patient portal upload (only if source=patient_upload and not yet reviewed)
 router.delete('/api/patient-portal/:token/documents/:docId', patientDocUploadLimiter, async (req: Request, res: Response) => {
   try {
