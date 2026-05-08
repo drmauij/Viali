@@ -1751,6 +1751,13 @@
       "when": 1780300000000,
       "tag": "0249_external_surgery_request_extra_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 250,
+      "version": "7",
+      "when": 1780400000000,
+      "tag": "0250_note_attachments_portal_share",
+      "breakpoints": true
     }
   ]
 }

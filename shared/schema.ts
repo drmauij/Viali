@@ -1338,9 +1338,13 @@ export const noteAttachments = pgTable("note_attachments", {
   fileSize: integer("file_size"),
   uploadedBy: varchar("uploaded_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  portalVisible: boolean("portal_visible").default(false).notNull(),
+  portalSharedAt: timestamp("portal_shared_at"),
+  portalSharedBy: varchar("portal_shared_by").references(() => users.id),
 }, (table) => [
   index("idx_note_attachments_note").on(table.noteType, table.noteId),
   index("idx_note_attachments_uploaded_by").on(table.uploadedBy),
+  index("idx_note_attachments_portal_visible").on(table.portalVisible),
 ]);
 
 export const insertNoteAttachmentSchema = createInsertSchema(noteAttachments).omit({ 

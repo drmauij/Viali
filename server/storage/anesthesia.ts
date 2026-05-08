@@ -808,6 +808,9 @@ export async function getPatientNoteAttachments(patientId: string): Promise<(Not
       fileSize: noteAttachments.fileSize,
       uploadedBy: noteAttachments.uploadedBy,
       createdAt: noteAttachments.createdAt,
+      portalVisible: noteAttachments.portalVisible,
+      portalSharedAt: noteAttachments.portalSharedAt,
+      portalSharedBy: noteAttachments.portalSharedBy,
       noteContent: patientNotes.content,
     })
     .from(noteAttachments)
@@ -828,6 +831,9 @@ export async function getPatientNoteAttachments(patientId: string): Promise<(Not
       fileSize: noteAttachments.fileSize,
       uploadedBy: noteAttachments.uploadedBy,
       createdAt: noteAttachments.createdAt,
+      portalVisible: noteAttachments.portalVisible,
+      portalSharedAt: noteAttachments.portalSharedAt,
+      portalSharedBy: noteAttachments.portalSharedBy,
       noteContent: surgeryNotes.content,
     })
     .from(noteAttachments)
