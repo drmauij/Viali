@@ -76,3 +76,25 @@ describe("SurgeryRequestForm — reservation toggle placement", () => {
     expect(ancestorSection).toBe("surgery");
   });
 });
+
+describe("SurgeryRequestForm — section 2 sub-groups", () => {
+  it("renders three labeled groups inside the surgery section", () => {
+    const { container } = render(
+      <SurgeryRequestForm
+        {...baseProps}
+        currentSurgeon={{
+          firstName: "R",
+          lastName: "S",
+          email: "r@example.com",
+          phone: null,
+        }}
+      />,
+      { wrapper: makeQueryWrapper() },
+    );
+    const surgery = container.querySelector('[data-section="surgery"]');
+    expect(surgery).not.toBeNull();
+    expect(surgery!.querySelector('[data-subgroup="schedule"]')).not.toBeNull();
+    expect(surgery!.querySelector('[data-subgroup="procedure"]')).not.toBeNull();
+    expect(surgery!.querySelector('[data-subgroup="coverage"]')).not.toBeNull();
+  });
+});

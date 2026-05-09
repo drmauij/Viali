@@ -550,6 +550,7 @@ export function SurgeryRequestForm({
           </AccordionTrigger>
           <AccordionContent forceMount>
             <div className="space-y-4 pt-2" data-section="surgery">
+              {/* Reservation toggle — top of surgery section */}
               <div className="flex items-center justify-between p-3 rounded-lg border border-primary/40 bg-primary/5">
                 <div className="pr-3">
                   <Label htmlFor="reservationOnly" className="cursor-pointer font-medium">
@@ -566,251 +567,251 @@ export function SurgeryRequestForm({
                   data-testid="switch-reservation-only"
                 />
               </div>
-              {!values.isReservationOnly && (
-                <div className="space-y-2">
-                  <Label>{t("surgeryName")} *</Label>
-                  <Popover open={chopOpen} onOpenChange={setChopOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        role="combobox"
-                        className="w-full justify-between font-normal"
-                        data-testid="button-chop-search"
-                      >
-                        <span className="truncate text-left">
-                          {values.surgeryName || t("chopSearch.placeholder")}
-                          {values.chopCode && (
-                            <span className="ml-2 font-mono text-xs text-muted-foreground">
-                              {values.chopCode}
-                            </span>
-                          )}
-                        </span>
-                        <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="p-0 w-[420px]" align="start">
-                      <Command shouldFilter={false}>
-                        <CommandInput
-                          placeholder={t("chopSearch.placeholder")}
-                          value={chopQuery}
-                          onValueChange={setChopQuery}
-                        />
-                        <CommandList className="max-h-[300px] overflow-auto">
-                          <CommandEmpty>
-                            {chopQuery.trim().length < 2
-                              ? t("chopSearch.typeMore")
-                              : t("chopSearch.empty")}
-                          </CommandEmpty>
-                          <CommandGroup>
-                            {chopResults.map((c) => (
-                              <CommandItem
-                                key={c.id}
-                                value={c.id}
-                                onSelect={() => {
-                                  update("surgeryName", c.descriptionDe);
-                                  update("chopCode", c.code);
-                                  setChopOpen(false);
-                                }}
-                                data-testid={`chop-option-${c.code}`}
-                              >
-                                <span className="font-mono text-xs mr-2 text-muted-foreground">
-                                  {c.code}
-                                </span>
-                                <span>{c.descriptionDe}</span>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  <Input
-                    placeholder={t("chopSearch.useCustom")}
-                    value={values.surgeryName}
-                    onChange={(e) => {
-                      update("surgeryName", e.target.value);
-                      update("chopCode", "");
-                    }}
-                    data-testid="input-surgery-name"
-                  />
+
+              {/* Schedule */}
+              <div data-subgroup="schedule" className="space-y-3 pt-2">
+                <div className="text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+                  {t("subgroup.schedule")}
                 </div>
-              )}
-
-              {!values.isReservationOnly && (
-                <div className="space-y-2">
-                  <Label htmlFor="surgerySide">{t("surgerySide.label")}</Label>
-                  <Select
-                    value={values.surgerySide || undefined}
-                    onValueChange={(v) => update("surgerySide", v as SurgerySideValue)}
-                  >
-                    <SelectTrigger id="surgerySide" data-testid="select-surgery-side">
-                      <SelectValue placeholder="—" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="left">{t("surgerySide.left")}</SelectItem>
-                      <SelectItem value="right">{t("surgerySide.right")}</SelectItem>
-                      <SelectItem value="both">{t("surgerySide.both")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {!values.isReservationOnly && (
-                <PatientPositionFields
-                  patientPosition={values.patientPosition}
-                  leftArmPosition={values.leftArmPosition}
-                  rightArmPosition={values.rightArmPosition}
-                  onPatientPositionChange={(v) => update("patientPosition", v)}
-                  onLeftArmPositionChange={(v) => update("leftArmPosition", v)}
-                  onRightArmPositionChange={(v) => update("rightArmPosition", v)}
-                  testIdPrefix="request-"
-                />
-              )}
-
-              {!values.isReservationOnly && (
-                <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                  <div>
-                    <Label htmlFor="antibioseProphylaxe" className="cursor-pointer">
-                      {t("antibioticProphylaxis.label")}
-                    </Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {t("antibioticProphylaxis.description")}
-                    </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="wishedDate">{t("wishedDate")} *</Label>
+                    <DateInput
+                      value={values.wishedDate}
+                      onChange={(v) => update("wishedDate", v)}
+                      data-testid="input-wished-date"
+                    />
                   </div>
-                  <Switch
-                    id="antibioseProphylaxe"
-                    checked={values.antibioseProphylaxe}
-                    onCheckedChange={(c) => update("antibioseProphylaxe", c)}
-                    data-testid="switch-antibiose-prophylaxe"
-                  />
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="wishedDate">{t("wishedDate")} *</Label>
-                  <DateInput
-                    value={values.wishedDate}
-                    onChange={(v) => update("wishedDate", v)}
-                    data-testid="input-wished-date"
-                  />
+                  <div className="space-y-2">
+                    <Label htmlFor="surgeryDuration">{t("durationMinutes")} *</Label>
+                    <Input
+                      id="surgeryDuration"
+                      type="number"
+                      min={5}
+                      max={720}
+                      value={values.surgeryDurationMinutes}
+                      onChange={(e) =>
+                        update("surgeryDurationMinutes", parseInt(e.target.value) || 60)
+                      }
+                      data-testid="input-surgery-duration"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="surgeryDuration">{t("durationMinutes")} *</Label>
-                  <Input
-                    id="surgeryDuration"
-                    type="number"
-                    min={5}
-                    max={720}
-                    value={values.surgeryDurationMinutes}
-                    onChange={(e) =>
-                      update("surgeryDurationMinutes", parseInt(e.target.value) || 60)
-                    }
-                    data-testid="input-surgery-duration"
+                  <div className="flex justify-between items-center">
+                    <Label>{t("preferredTimeRange")}</Label>
+                    <span className="text-xs text-muted-foreground">
+                      {formatTimeMins(values.wishedTimeFrom ?? TIME_SLIDER_MIN)} –{" "}
+                      {formatTimeMins(values.wishedTimeTo ?? TIME_SLIDER_MAX)}
+                    </span>
+                  </div>
+                  <Slider
+                    min={TIME_SLIDER_MIN}
+                    max={TIME_SLIDER_MAX}
+                    step={TIME_SLIDER_STEP}
+                    value={[
+                      values.wishedTimeFrom ?? TIME_SLIDER_MIN,
+                      values.wishedTimeTo ?? TIME_SLIDER_MAX,
+                    ]}
+                    onValueChange={([from, to]) => {
+                      update("wishedTimeFrom", from);
+                      update("wishedTimeTo", to);
+                    }}
+                    data-testid="slider-time-range"
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label>{t("preferredTimeRange")}</Label>
-                  <span className="text-xs text-muted-foreground">
-                    {formatTimeMins(values.wishedTimeFrom ?? TIME_SLIDER_MIN)} –{" "}
-                    {formatTimeMins(values.wishedTimeTo ?? TIME_SLIDER_MAX)}
-                  </span>
-                </div>
-                <Slider
-                  min={TIME_SLIDER_MIN}
-                  max={TIME_SLIDER_MAX}
-                  step={TIME_SLIDER_STEP}
-                  value={[
-                    values.wishedTimeFrom ?? TIME_SLIDER_MIN,
-                    values.wishedTimeTo ?? TIME_SLIDER_MAX,
-                  ]}
-                  onValueChange={([from, to]) => {
-                    update("wishedTimeFrom", from);
-                    update("wishedTimeTo", to);
-                  }}
-                  data-testid="slider-time-range"
-                />
-              </div>
-
+              {/* Procedure — entire group only renders for full requests */}
               {!values.isReservationOnly && (
-                <div className="space-y-2">
-                  <Label htmlFor="coverageType">{t("coverageType")} *</Label>
-                  <Select
-                    value={values.coverageType || undefined}
-                    onValueChange={(v) => update("coverageType", v)}
-                  >
-                    <SelectTrigger id="coverageType" data-testid="select-coverage-type">
-                      <SelectValue placeholder={t("coverageTypePlaceholder")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Selbstzahler">{t("coverageSelbstzahler")}</SelectItem>
-                      <SelectItem value="Krankenkasse">{t("coverageKrankenkasse")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {!values.isReservationOnly && (
-                <div className="space-y-2">
-                  <Label htmlFor="stayType">{t("stayType")} *</Label>
-                  <Select
-                    value={values.stayType || undefined}
-                    onValueChange={(v) => update("stayType", v as "ambulant" | "overnight")}
-                  >
-                    <SelectTrigger id="stayType" data-testid="select-stay-type">
-                      <SelectValue placeholder={t("stayTypePlaceholder")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ambulant">{t("stayAmbulant")}</SelectItem>
-                      <SelectItem value="overnight">{t("stayOvernight")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {!values.isReservationOnly && (
-                <div className="space-y-2">
-                  <Label htmlFor="diagnosis">
-                    {t("diagnosis")}
-                    {values.coverageType === "Krankenkasse" ? " *" : ""}
-                  </Label>
-                  <Input
-                    id="diagnosis"
-                    value={values.diagnosis}
-                    onChange={(e) => update("diagnosis", e.target.value)}
+                <div data-subgroup="procedure" className="space-y-3 pt-2">
+                  <div className="text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+                    {t("subgroup.procedure")}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t("surgeryName")} *</Label>
+                    <Popover open={chopOpen} onOpenChange={setChopOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between font-normal"
+                          data-testid="button-chop-search"
+                        >
+                          <span className="truncate text-left">
+                            {values.surgeryName || t("chopSearch.placeholder")}
+                            {values.chopCode && (
+                              <span className="ml-2 font-mono text-xs text-muted-foreground">
+                                {values.chopCode}
+                              </span>
+                            )}
+                          </span>
+                          <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="p-0 w-[420px]" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput
+                            placeholder={t("chopSearch.placeholder")}
+                            value={chopQuery}
+                            onValueChange={setChopQuery}
+                          />
+                          <CommandList className="max-h-[300px] overflow-auto">
+                            <CommandEmpty>
+                              {chopQuery.trim().length < 2
+                                ? t("chopSearch.typeMore")
+                                : t("chopSearch.empty")}
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {chopResults.map((c) => (
+                                <CommandItem
+                                  key={c.id}
+                                  value={c.id}
+                                  onSelect={() => {
+                                    update("surgeryName", c.descriptionDe);
+                                    update("chopCode", c.code);
+                                    setChopOpen(false);
+                                  }}
+                                  data-testid={`chop-option-${c.code}`}
+                                >
+                                  <span className="font-mono text-xs mr-2 text-muted-foreground">
+                                    {c.code}
+                                  </span>
+                                  <span>{c.descriptionDe}</span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <Input
+                      placeholder={t("chopSearch.useCustom")}
+                      value={values.surgeryName}
+                      onChange={(e) => {
+                        update("surgeryName", e.target.value);
+                        update("chopCode", "");
+                      }}
+                      data-testid="input-surgery-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="surgerySide">{t("surgerySide.label")}</Label>
+                    <Select
+                      value={values.surgerySide || undefined}
+                      onValueChange={(v) => update("surgerySide", v as SurgerySideValue)}
+                    >
+                      <SelectTrigger id="surgerySide" data-testid="select-surgery-side">
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="left">{t("surgerySide.left")}</SelectItem>
+                        <SelectItem value="right">{t("surgerySide.right")}</SelectItem>
+                        <SelectItem value="both">{t("surgerySide.both")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <PatientPositionFields
+                    patientPosition={values.patientPosition}
+                    leftArmPosition={values.leftArmPosition}
+                    rightArmPosition={values.rightArmPosition}
+                    onPatientPositionChange={(v) => update("patientPosition", v)}
+                    onLeftArmPositionChange={(v) => update("leftArmPosition", v)}
+                    onRightArmPositionChange={(v) => update("rightArmPosition", v)}
+                    testIdPrefix="request-"
                   />
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <div>
+                      <Label htmlFor="antibioseProphylaxe" className="cursor-pointer">
+                        {t("antibioticProphylaxis.label")}
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {t("antibioticProphylaxis.description")}
+                      </p>
+                    </div>
+                    <Switch
+                      id="antibioseProphylaxe"
+                      checked={values.antibioseProphylaxe}
+                      onCheckedChange={(c) => update("antibioseProphylaxe", c)}
+                      data-testid="switch-antibiose-prophylaxe"
+                    />
+                  </div>
                 </div>
               )}
 
+              {/* Coverage — entire group only renders for full requests */}
               {!values.isReservationOnly && (
-                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <Label htmlFor="withAnesthesia" className="cursor-pointer">
-                    {t("withAnesthesia")}
-                  </Label>
-                  <Switch
-                    id="withAnesthesia"
-                    checked={values.withAnesthesia}
-                    onCheckedChange={(c) => update("withAnesthesia", c)}
-                  />
+                <div data-subgroup="coverage" className="space-y-3 pt-2">
+                  <div className="text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+                    {t("subgroup.coverage")}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="coverageType">{t("coverageType")} *</Label>
+                    <Select
+                      value={values.coverageType || undefined}
+                      onValueChange={(v) => update("coverageType", v)}
+                    >
+                      <SelectTrigger id="coverageType" data-testid="select-coverage-type">
+                        <SelectValue placeholder={t("coverageTypePlaceholder")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Selbstzahler">{t("coverageSelbstzahler")}</SelectItem>
+                        <SelectItem value="Krankenkasse">{t("coverageKrankenkasse")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="stayType">{t("stayType")} *</Label>
+                    <Select
+                      value={values.stayType || undefined}
+                      onValueChange={(v) => update("stayType", v as "ambulant" | "overnight")}
+                    >
+                      <SelectTrigger id="stayType" data-testid="select-stay-type">
+                        <SelectValue placeholder={t("stayTypePlaceholder")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ambulant">{t("stayAmbulant")}</SelectItem>
+                        <SelectItem value="overnight">{t("stayOvernight")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="diagnosis">
+                      {t("diagnosis")}
+                      {values.coverageType === "Krankenkasse" ? " *" : ""}
+                    </Label>
+                    <Input
+                      id="diagnosis"
+                      value={values.diagnosis}
+                      onChange={(e) => update("diagnosis", e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <Label htmlFor="withAnesthesia" className="cursor-pointer">
+                      {t("withAnesthesia")}
+                    </Label>
+                    <Switch
+                      id="withAnesthesia"
+                      checked={values.withAnesthesia}
+                      onCheckedChange={(c) => update("withAnesthesia", c)}
+                    />
+                  </div>
+                  {values.withAnesthesia && (
+                    <div className="space-y-2">
+                      <Label htmlFor="anesthesiaNotes">{t("anesthesiaNotes")}</Label>
+                      <Textarea
+                        id="anesthesiaNotes"
+                        rows={3}
+                        value={values.anesthesiaNotes}
+                        onChange={(e) => update("anesthesiaNotes", e.target.value)}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
-              {!values.isReservationOnly && values.withAnesthesia && (
-                <div className="space-y-2">
-                  <Label htmlFor="anesthesiaNotes">{t("anesthesiaNotes")}</Label>
-                  <Textarea
-                    id="anesthesiaNotes"
-                    rows={3}
-                    value={values.anesthesiaNotes}
-                    onChange={(e) => update("anesthesiaNotes", e.target.value)}
-                  />
-                </div>
-              )}
-
+              {/* surgeryNotes — outside any subgroup */}
               <div className="space-y-2">
                 <Label htmlFor="surgeryNotes">{t("surgeryNotes")}</Label>
                 <Textarea
