@@ -572,6 +572,7 @@ router.get(
         firstName: u.firstName,
         lastName: u.lastName,
         email: u.email,
+        phone: u.phone,
         isPraxis: u.isPraxis,
       });
     } catch (error) {
