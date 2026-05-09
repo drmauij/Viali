@@ -789,6 +789,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
     firstName: string | null;
     lastName: string | null;
     email: string | null;
+    phone: string | null;
     isPraxis: boolean;
   }>({
     queryKey: [`/api/surgeon-portal/${token}/me`],
@@ -1200,6 +1201,16 @@ function SurgeonPortalContent({ token }: { token: string }) {
                     onSelectedSurgeonIdChange={setSelectedSurgeonId}
                     showSurgeonPicker={showSurgeonPicker}
                     showSurgeonDetailsBlock={false}
+                    currentSurgeon={
+                      me
+                        ? {
+                            firstName: me.firstName,
+                            lastName: me.lastName,
+                            email: me.email,
+                            phone: me.phone,
+                          }
+                        : undefined
+                    }
                     t={tFn}
                     locale={lang === "de" ? "de" : "en"}
                     onSubmit={(values) => submitRequest.mutate(values)}

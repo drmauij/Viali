@@ -141,6 +141,19 @@ export interface SurgeryRequestFormProps {
    */
   showSurgeonDetailsBlock: boolean;
 
+  /**
+   * Read-only summary of the authenticated surgeon. When provided AND
+   * `showSurgeonPicker` is false, renders an identification card on Step 1
+   * in place of the (hidden) picker. The form does not use this for any
+   * mutable state — submission still uses `selectedSurgeonId`.
+   */
+  currentSurgeon?: {
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+    phone: string | null;
+  };
+
   t: (key: string) => string;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   locale: "de" | "en";
@@ -215,6 +228,7 @@ export function SurgeryRequestForm({
   onSelectedSurgeonIdChange,
   showSurgeonPicker,
   showSurgeonDetailsBlock,
+  currentSurgeon,
   t,
   onSubmit,
   isSubmitting,
@@ -432,6 +446,28 @@ export function SurgeryRequestForm({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              )}
+
+              {!showSurgeonPicker && currentSurgeon && (
+                <div
+                  className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3"
+                  data-testid="surgeon-summary-card"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
+                    {`${(currentSurgeon.lastName ?? "").trim()[0] ?? ""}${(currentSurgeon.firstName ?? "").trim()[0] ?? ""}`.toUpperCase() || "—"}
+                  </div>
+                  <div className="min-w-0 flex-1 text-sm leading-snug">
+                    <div className="truncate font-medium">
+                      {[currentSurgeon.firstName, currentSurgeon.lastName].filter(Boolean).join(" ")}
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {[currentSurgeon.email, currentSurgeon.phone].filter(Boolean).join(" · ")}
+                    </div>
+                  </div>
+                  <div className="hidden sm:block text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {t("surgeonCard.submittingAs")}
+                  </div>
                 </div>
               )}
 
