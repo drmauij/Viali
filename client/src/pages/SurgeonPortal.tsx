@@ -171,6 +171,15 @@ const translations: Record<string, Record<string, string>> = {
     "documents.selectFiles": "Dateien auswählen",
     "documents.uploading": "Wird hochgeladen",
     "documents.uploadDisabled": "Datei-Upload ist in dieser Ansicht nicht verfügbar.",
+    // Phase 1 UX additions
+    "surgeonCard.submittingAs": "absendend als",
+    "chopSearch.useFreeText": "Freien Text eingeben",
+    "chopSearch.backToSearch": "Zurück zur Suche",
+    "validation.required": "Pflichtfeld",
+    "missingFields": "Noch erforderlich",
+    "subgroup.schedule": "Termin",
+    "subgroup.procedure": "Eingriff",
+    "subgroup.coverage": "Abrechnung",
   },
   en: {
     // Gate
@@ -288,6 +297,15 @@ const translations: Record<string, Record<string, string>> = {
     "documents.selectFiles": "Select files",
     "documents.uploading": "Uploading",
     "documents.uploadDisabled": "File upload is not available in this view.",
+    // Phase 1 UX additions
+    "surgeonCard.submittingAs": "submitting as",
+    "chopSearch.useFreeText": "Use custom name",
+    "chopSearch.backToSearch": "Back to search",
+    "validation.required": "Required",
+    "missingFields": "Still required",
+    "subgroup.schedule": "Schedule",
+    "subgroup.procedure": "Procedure",
+    "subgroup.coverage": "Coverage",
   },
 };
 
