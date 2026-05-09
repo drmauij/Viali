@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useIdleLogout } from "../client/src/hooks/useIdleLogout";
+import { makeQueryClient } from "./test-utils";
 
 function wrapper(initialConfig: { idleTimeoutMinutes: number; idleWarningSeconds: number }) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const qc = makeQueryClient();
   qc.setQueryData(["/api/auth/idle-config"], initialConfig);
   // eslint-disable-next-line react/display-name
   return ({ children }: { children: ReactNode }) => (

@@ -1,24 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SurgeryRequestForm } from "../client/src/components/surgery/SurgeryRequestForm";
-
-beforeAll(() => {
-  // jsdom does not ship ResizeObserver; Radix UI needs it.
-  globalThis.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  };
-});
-
-function makeWrapper() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
-  );
-}
+import { makeQueryWrapper } from "./test-utils";
 
 const t = (key: string) => key;
 
@@ -46,7 +30,7 @@ describe("SurgeryRequestForm — surgeon summary card", () => {
           phone: "+41 79 123 45 67",
         }}
       />,
-      { wrapper: makeWrapper() },
+      { wrapper: makeQueryWrapper() },
     );
     expect(screen.getByText(/Roman Skoblo/)).toBeTruthy();
     expect(screen.getByText(/roman@example.com/)).toBeTruthy();
@@ -66,7 +50,7 @@ describe("SurgeryRequestForm — surgeon summary card", () => {
           phone: "+41 79 123 45 67",
         }}
       />,
-      { wrapper: makeWrapper() },
+      { wrapper: makeQueryWrapper() },
     );
     expect(screen.queryByText(/surgeonCard.submittingAs/)).toBeNull();
   });

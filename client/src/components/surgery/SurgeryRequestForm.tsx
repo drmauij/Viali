@@ -214,6 +214,12 @@ function formatTimeMins(mins: number | null | undefined): string {
   return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
 }
 
+function surgeonInitials(firstName: string | null, lastName: string | null): string {
+  const last = (lastName ?? "").trim()[0] ?? "";
+  const first = (firstName ?? "").trim()[0] ?? "";
+  return (last + first).toUpperCase() || "—";
+}
+
 type SectionKey = "surgeon" | "surgery" | "patient" | "documents";
 
 interface ChopProcedure {
@@ -455,7 +461,7 @@ export function SurgeryRequestForm({
                   data-testid="surgeon-summary-card"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
-                    {`${(currentSurgeon.lastName ?? "").trim()[0] ?? ""}${(currentSurgeon.firstName ?? "").trim()[0] ?? ""}`.toUpperCase() || "—"}
+                    {surgeonInitials(currentSurgeon.firstName, currentSurgeon.lastName)}
                   </div>
                   <div className="min-w-0 flex-1 text-sm leading-snug">
                     <div className="truncate font-medium">
