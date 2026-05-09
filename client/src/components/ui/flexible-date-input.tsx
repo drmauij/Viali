@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
 
@@ -10,6 +10,8 @@ interface FlexibleDateInputProps {
   id?: string;
   className?: string;
   "data-testid"?: string;
+  onBlur?: React.FocusEventHandler<HTMLInputElement>;
+  "aria-invalid"?: boolean | "true" | "false";
 }
 
 export function FlexibleDateInput({
@@ -20,6 +22,8 @@ export function FlexibleDateInput({
   id,
   className,
   "data-testid": dataTestId,
+  onBlur: onBlurProp,
+  "aria-invalid": ariaInvalid,
 }: FlexibleDateInputProps) {
   const [displayValue, setDisplayValue] = useState("");
   const [isFocused, setIsFocused] = useState(false);
@@ -77,7 +81,7 @@ export function FlexibleDateInput({
     setIsFocused(true);
   };
 
-  const handleBlur = () => {
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     setIsFocused(false);
     const parsed = parseFlexibleDate(displayValue);
     if (parsed) {
@@ -85,6 +89,7 @@ export function FlexibleDateInput({
       lastExternalValue.current = parsed.isoDate;
       onChange(parsed.isoDate);
     }
+    onBlurProp?.(e);
   };
 
   return (
@@ -99,6 +104,7 @@ export function FlexibleDateInput({
       disabled={disabled}
       className={className}
       data-testid={dataTestId}
+      aria-invalid={ariaInvalid}
     />
   );
 }

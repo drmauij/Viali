@@ -316,6 +316,53 @@ export function SurgeryRequestForm({
     await onSubmit(values);
   };
 
+  // ─── Per-field touched tracking + inline validation ─────────────────
+  type FieldKey =
+    | "selectedSurgeonId"
+    | "wishedDate"
+    | "surgeryDurationMinutes"
+    | "surgeryName"
+    | "coverageType"
+    | "stayType"
+    | "diagnosis"
+    | "patientFirstName"
+    | "patientLastName"
+    | "patientBirthday"
+    | "patientPhone"
+    | "patientStreet"
+    | "patientPostalCode"
+    | "patientCity";
+
+  const [touched, setTouched] = useState<Set<FieldKey>>(new Set());
+  const markTouched = (k: FieldKey) =>
+    setTouched((prev) => (prev.has(k) ? prev : new Set(prev).add(k)));
+
+  const fieldValid = useMemo<Record<FieldKey, boolean>>(() => {
+    const reservation = values.isReservationOnly;
+    return {
+      selectedSurgeonId: !showSurgeonPicker || !!selectedSurgeonId,
+      wishedDate: !!values.wishedDate,
+      surgeryDurationMinutes:
+        values.surgeryDurationMinutes >= 5 && values.surgeryDurationMinutes <= 720,
+      surgeryName: reservation ? true : !!values.surgeryName,
+      coverageType: reservation ? true : !!values.coverageType,
+      stayType: reservation ? true : !!values.stayType,
+      diagnosis:
+        reservation || values.coverageType !== "Krankenkasse"
+          ? true
+          : !!values.diagnosis,
+      patientFirstName: reservation ? true : !!values.patientFirstName,
+      patientLastName: reservation ? true : !!values.patientLastName,
+      patientBirthday: reservation ? true : !!values.patientBirthday,
+      patientPhone: reservation ? true : !!values.patientPhone,
+      patientStreet: reservation ? true : !!values.patientStreet,
+      patientPostalCode: reservation ? true : !!values.patientPostalCode,
+      patientCity: reservation ? true : !!values.patientCity,
+    };
+  }, [values, selectedSurgeonId, showSurgeonPicker]);
+
+  const showError = (k: FieldKey) => touched.has(k) && !fieldValid[k];
+
   // ─── Accordion open-state ───────────────────────────────────────────
   const [openSection, setOpenSection] = useState<SectionKey>("surgeon");
 
@@ -442,7 +489,13 @@ export function SurgeryRequestForm({
                     value={selectedSurgeonId}
                     onValueChange={onSelectedSurgeonIdChange}
                   >
-                    <SelectTrigger id="operating-surgeon" data-testid="select-operating-surgeon">
+                    <SelectTrigger
+                      id="operating-surgeon"
+                      data-testid="select-operating-surgeon"
+                      onBlur={() => markTouched("selectedSurgeonId")}
+                      aria-invalid={showError("selectedSurgeonId") || undefined}
+                      className={showError("selectedSurgeonId") ? "border-destructive" : undefined}
+                    >
                       <SelectValue placeholder={t("selectSurgeon")} />
                     </SelectTrigger>
                     <SelectContent>
@@ -453,6 +506,9 @@ export function SurgeryRequestForm({
                       ))}
                     </SelectContent>
                   </Select>
+                  {showError("selectedSurgeonId") && (
+                    <p className="text-xs text-destructive">{t("validation.required")}</p>
+                  )}
                 </div>
               )}
 
@@ -577,11 +633,23 @@ export function SurgeryRequestForm({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="wishedDate">{t("wishedDate")} *</Label>
+                    {/* Proxy input for testid / blur / aria-invalid / change (calendar picker has no native input element) */}
+                    <input
+                      data-testid="input-wished-date"
+                      className="sr-only"
+                      value={values.wishedDate}
+                      aria-invalid={showError("wishedDate") || undefined}
+                      onBlur={() => markTouched("wishedDate")}
+                      onChange={(e) => update("wishedDate", e.target.value)}
+                    />
                     <DateInput
                       value={values.wishedDate}
-                      onChange={(v) => update("wishedDate", v)}
-                      data-testid="input-wished-date"
+                      onChange={(v) => { update("wishedDate", v); }}
+                      className={showError("wishedDate") ? "border-destructive" : undefined}
                     />
+                    {showError("wishedDate") && (
+                      <p className="text-xs text-destructive">{t("validation.required")}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="surgeryDuration">{t("durationMinutes")} *</Label>
@@ -594,8 +662,14 @@ export function SurgeryRequestForm({
                       onChange={(e) =>
                         update("surgeryDurationMinutes", parseInt(e.target.value) || 60)
                       }
+                      onBlur={() => markTouched("surgeryDurationMinutes")}
+                      aria-invalid={showError("surgeryDurationMinutes") || undefined}
+                      className={showError("surgeryDurationMinutes") ? "border-destructive" : undefined}
                       data-testid="input-surgery-duration"
                     />
+                    {showError("surgeryDurationMinutes") && (
+                      <p className="text-xs text-destructive">{t("validation.required")}</p>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -640,7 +714,9 @@ export function SurgeryRequestForm({
                               type="button"
                               variant="outline"
                               role="combobox"
-                              className="w-full justify-between font-normal"
+                              className={"w-full justify-between font-normal" + (showError("surgeryName") ? " border-destructive" : "")}
+                              onBlur={() => markTouched("surgeryName")}
+                              aria-invalid={showError("surgeryName") || undefined}
                               data-testid="button-chop-search"
                             >
                               <span className="truncate text-left">
@@ -690,6 +766,9 @@ export function SurgeryRequestForm({
                             </Command>
                           </PopoverContent>
                         </Popover>
+                        {showError("surgeryName") && (
+                          <p className="text-xs text-destructive">{t("validation.required")}</p>
+                        )}
                         <button
                           type="button"
                           className="text-xs text-primary hover:underline"
@@ -707,8 +786,14 @@ export function SurgeryRequestForm({
                             update("surgeryName", e.target.value);
                             update("chopCode", "");
                           }}
+                          onBlur={() => markTouched("surgeryName")}
+                          aria-invalid={showError("surgeryName") || undefined}
+                          className={showError("surgeryName") ? "border-destructive" : undefined}
                           data-testid="input-surgery-name-custom"
                         />
+                        {showError("surgeryName") && (
+                          <p className="text-xs text-destructive">{t("validation.required")}</p>
+                        )}
                         <button
                           type="button"
                           className="text-xs text-primary hover:underline"
@@ -780,7 +865,13 @@ export function SurgeryRequestForm({
                       value={values.coverageType || undefined}
                       onValueChange={(v) => update("coverageType", v)}
                     >
-                      <SelectTrigger id="coverageType" data-testid="select-coverage-type">
+                      <SelectTrigger
+                        id="coverageType"
+                        data-testid="select-coverage-type"
+                        onBlur={() => markTouched("coverageType")}
+                        aria-invalid={showError("coverageType") || undefined}
+                        className={showError("coverageType") ? "border-destructive" : undefined}
+                      >
                         <SelectValue placeholder={t("coverageTypePlaceholder")} />
                       </SelectTrigger>
                       <SelectContent>
@@ -788,6 +879,9 @@ export function SurgeryRequestForm({
                         <SelectItem value="Krankenkasse">{t("coverageKrankenkasse")}</SelectItem>
                       </SelectContent>
                     </Select>
+                    {showError("coverageType") && (
+                      <p className="text-xs text-destructive">{t("validation.required")}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="stayType">{t("stayType")} *</Label>
@@ -795,7 +889,13 @@ export function SurgeryRequestForm({
                       value={values.stayType || undefined}
                       onValueChange={(v) => update("stayType", v as "ambulant" | "overnight")}
                     >
-                      <SelectTrigger id="stayType" data-testid="select-stay-type">
+                      <SelectTrigger
+                        id="stayType"
+                        data-testid="select-stay-type"
+                        onBlur={() => markTouched("stayType")}
+                        aria-invalid={showError("stayType") || undefined}
+                        className={showError("stayType") ? "border-destructive" : undefined}
+                      >
                         <SelectValue placeholder={t("stayTypePlaceholder")} />
                       </SelectTrigger>
                       <SelectContent>
@@ -803,6 +903,9 @@ export function SurgeryRequestForm({
                         <SelectItem value="overnight">{t("stayOvernight")}</SelectItem>
                       </SelectContent>
                     </Select>
+                    {showError("stayType") && (
+                      <p className="text-xs text-destructive">{t("validation.required")}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="diagnosis">
@@ -813,7 +916,13 @@ export function SurgeryRequestForm({
                       id="diagnosis"
                       value={values.diagnosis}
                       onChange={(e) => update("diagnosis", e.target.value)}
+                      onBlur={() => markTouched("diagnosis")}
+                      aria-invalid={showError("diagnosis") || undefined}
+                      className={showError("diagnosis") ? "border-destructive" : undefined}
                     />
+                    {showError("diagnosis") && (
+                      <p className="text-xs text-destructive">{t("validation.required")}</p>
+                    )}
                   </div>
                   <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                     <Label htmlFor="withAnesthesia" className="cursor-pointer">
@@ -885,8 +994,14 @@ export function SurgeryRequestForm({
                         id="patientFirstName"
                         value={values.patientFirstName}
                         onChange={(e) => update("patientFirstName", e.target.value)}
+                        onBlur={() => markTouched("patientFirstName")}
+                        aria-invalid={showError("patientFirstName") || undefined}
+                        className={showError("patientFirstName") ? "border-destructive" : undefined}
                         data-testid="input-patient-first-name"
                       />
+                      {showError("patientFirstName") && (
+                        <p className="text-xs text-destructive">{t("validation.required")}</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="patientLastName">{t("lastName")} *</Label>
@@ -894,8 +1009,14 @@ export function SurgeryRequestForm({
                         id="patientLastName"
                         value={values.patientLastName}
                         onChange={(e) => update("patientLastName", e.target.value)}
+                        onBlur={() => markTouched("patientLastName")}
+                        aria-invalid={showError("patientLastName") || undefined}
+                        className={showError("patientLastName") ? "border-destructive" : undefined}
                         data-testid="input-patient-last-name"
                       />
+                      {showError("patientLastName") && (
+                        <p className="text-xs text-destructive">{t("validation.required")}</p>
+                      )}
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -903,18 +1024,30 @@ export function SurgeryRequestForm({
                     <FlexibleDateInput
                       value={values.patientBirthday}
                       onChange={(v) => update("patientBirthday", v)}
+                      onBlur={() => markTouched("patientBirthday")}
+                      aria-invalid={showError("patientBirthday") || undefined}
+                      className={showError("patientBirthday") ? "border-destructive" : undefined}
                     />
+                    {showError("patientBirthday") && (
+                      <p className="text-xs text-destructive">{t("validation.required")}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="patientPhone">
                       <Phone className="h-4 w-4 inline mr-1" />
                       {t("phone")} *
                     </Label>
-                    <PhoneInputWithCountry
-                      id="patientPhone"
-                      value={values.patientPhone}
-                      onChange={(v) => update("patientPhone", v)}
-                    />
+                    <div onBlur={() => markTouched("patientPhone")}>
+                      <PhoneInputWithCountry
+                        id="patientPhone"
+                        value={values.patientPhone}
+                        onChange={(v) => update("patientPhone", v)}
+                        className={showError("patientPhone") ? "border-destructive" : undefined}
+                      />
+                    </div>
+                    {showError("patientPhone") && (
+                      <p className="text-xs text-destructive">{t("validation.required")}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="patientEmail">
@@ -935,7 +1068,13 @@ export function SurgeryRequestForm({
                         id="patientStreet"
                         value={values.patientStreet}
                         onChange={(e) => update("patientStreet", e.target.value)}
+                        onBlur={() => markTouched("patientStreet")}
+                        aria-invalid={showError("patientStreet") || undefined}
+                        className={showError("patientStreet") ? "border-destructive" : undefined}
                       />
+                      {showError("patientStreet") && (
+                        <p className="text-xs text-destructive">{t("validation.required")}</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="patientPostalCode">{t("postalCode")} *</Label>
@@ -943,7 +1082,13 @@ export function SurgeryRequestForm({
                         id="patientPostalCode"
                         value={values.patientPostalCode}
                         onChange={(e) => update("patientPostalCode", e.target.value)}
+                        onBlur={() => markTouched("patientPostalCode")}
+                        aria-invalid={showError("patientPostalCode") || undefined}
+                        className={showError("patientPostalCode") ? "border-destructive" : undefined}
                       />
+                      {showError("patientPostalCode") && (
+                        <p className="text-xs text-destructive">{t("validation.required")}</p>
+                      )}
                     </div>
                     <div className="space-y-2 sm:col-span-2">
                       <Label htmlFor="patientCity">{t("city")} *</Label>
@@ -951,7 +1096,13 @@ export function SurgeryRequestForm({
                         id="patientCity"
                         value={values.patientCity}
                         onChange={(e) => update("patientCity", e.target.value)}
+                        onBlur={() => markTouched("patientCity")}
+                        aria-invalid={showError("patientCity") || undefined}
+                        className={showError("patientCity") ? "border-destructive" : undefined}
                       />
+                      {showError("patientCity") && (
+                        <p className="text-xs text-destructive">{t("validation.required")}</p>
+                      )}
                     </div>
                   </div>
                 </>

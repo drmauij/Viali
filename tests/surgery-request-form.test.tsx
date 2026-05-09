@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { SurgeryRequestForm } from "../client/src/components/surgery/SurgeryRequestForm";
 import { makeQueryWrapper } from "./test-utils";
 
@@ -96,6 +96,34 @@ describe("SurgeryRequestForm — section 2 sub-groups", () => {
     expect(surgery!.querySelector('[data-subgroup="schedule"]')).not.toBeNull();
     expect(surgery!.querySelector('[data-subgroup="procedure"]')).not.toBeNull();
     expect(surgery!.querySelector('[data-subgroup="coverage"]')).not.toBeNull();
+  });
+});
+
+describe("SurgeryRequestForm — inline validation", () => {
+  it("shows 'Required' on a date field after blur when empty, clears once filled", () => {
+    const { container } = render(
+      <SurgeryRequestForm
+        {...baseProps}
+        currentSurgeon={{ firstName: "R", lastName: "S", email: null, phone: null }}
+      />,
+      { wrapper: makeQueryWrapper() },
+    );
+
+    // Find date input by data-testid (in the schedule subgroup)
+    const dateInput = container.querySelector('[data-testid="input-wished-date"]') as HTMLInputElement | null;
+    expect(dateInput).not.toBeNull();
+
+    // No error before blur
+    expect(dateInput!.getAttribute("aria-invalid")).not.toBe("true");
+
+    // Blur with empty value → error appears
+    fireEvent.blur(dateInput!);
+    expect(dateInput!.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getAllByText(/validation.required/).length).toBeGreaterThan(0);
+
+    // Type a valid value → error clears
+    fireEvent.change(dateInput!, { target: { value: "2026-06-01" } });
+    expect(dateInput!.getAttribute("aria-invalid")).not.toBe("true");
   });
 });
 

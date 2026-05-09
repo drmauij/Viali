@@ -22,6 +22,8 @@ export interface DateInputProps {
   disabled?: boolean;
   className?: string;
   "data-testid"?: string;
+  onBlur?: React.FocusEventHandler<HTMLButtonElement>;
+  "aria-invalid"?: boolean | "true" | "false";
 }
 
 /**
@@ -39,6 +41,8 @@ export function DateInput({
   disabled,
   className,
   "data-testid": testId,
+  onBlur,
+  "aria-invalid": ariaInvalid,
 }: DateInputProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -58,6 +62,8 @@ export function DateInput({
             className,
           )}
           data-testid={testId}
+          onBlur={onBlur}
+          aria-invalid={ariaInvalid}
         >
           <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
           {value ? formatDate(selectedDate!) : placeholder}
