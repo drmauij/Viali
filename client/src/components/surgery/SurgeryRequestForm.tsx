@@ -354,6 +354,7 @@ export function SurgeryRequestForm({
   // ─── CHOP search ────────────────────────────────────────────────────
   const [chopOpen, setChopOpen] = useState(false);
   const [chopQuery, setChopQuery] = useState("");
+  const [chopMode, setChopMode] = useState<"search" | "custom">("search");
   const { data: chopResults = [] } = useQuery<ChopProcedure[]>({
     queryKey: ["/api/chop-procedures", chopQuery],
     enabled: chopQuery.trim().length >= 2,
@@ -630,71 +631,98 @@ export function SurgeryRequestForm({
                   </div>
                   <div className="space-y-2">
                     <Label>{t("surgeryName")} *</Label>
-                    <Popover open={chopOpen} onOpenChange={setChopOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          role="combobox"
-                          className="w-full justify-between font-normal"
-                          data-testid="button-chop-search"
-                        >
-                          <span className="truncate text-left">
-                            {values.surgeryName || t("chopSearch.placeholder")}
-                            {values.chopCode && (
-                              <span className="ml-2 font-mono text-xs text-muted-foreground">
-                                {values.chopCode}
-                              </span>
-                            )}
-                          </span>
-                          <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="p-0 w-[420px]" align="start">
-                        <Command shouldFilter={false}>
-                          <CommandInput
-                            placeholder={t("chopSearch.placeholder")}
-                            value={chopQuery}
-                            onValueChange={setChopQuery}
-                          />
-                          <CommandList className="max-h-[300px] overflow-auto">
-                            <CommandEmpty>
-                              {chopQuery.trim().length < 2
-                                ? t("chopSearch.typeMore")
-                                : t("chopSearch.empty")}
-                            </CommandEmpty>
-                            <CommandGroup>
-                              {chopResults.map((c) => (
-                                <CommandItem
-                                  key={c.id}
-                                  value={c.id}
-                                  onSelect={() => {
-                                    update("surgeryName", c.descriptionDe);
-                                    update("chopCode", c.code);
-                                    setChopOpen(false);
-                                  }}
-                                  data-testid={`chop-option-${c.code}`}
-                                >
-                                  <span className="font-mono text-xs mr-2 text-muted-foreground">
-                                    {c.code}
+
+                    {chopMode === "search" ? (
+                      <>
+                        <Popover open={chopOpen} onOpenChange={setChopOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between font-normal"
+                              data-testid="button-chop-search"
+                            >
+                              <span className="truncate text-left">
+                                {values.surgeryName || t("chopSearch.placeholder")}
+                                {values.chopCode && (
+                                  <span className="ml-2 font-mono text-xs text-muted-foreground">
+                                    {values.chopCode}
                                   </span>
-                                  <span>{c.descriptionDe}</span>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    <Input
-                      placeholder={t("chopSearch.useCustom")}
-                      value={values.surgeryName}
-                      onChange={(e) => {
-                        update("surgeryName", e.target.value);
-                        update("chopCode", "");
-                      }}
-                      data-testid="input-surgery-name"
-                    />
+                                )}
+                              </span>
+                              <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="p-0 w-[420px]" align="start">
+                            <Command shouldFilter={false}>
+                              <CommandInput
+                                placeholder={t("chopSearch.placeholder")}
+                                value={chopQuery}
+                                onValueChange={setChopQuery}
+                              />
+                              <CommandList className="max-h-[300px] overflow-auto">
+                                <CommandEmpty>
+                                  {chopQuery.trim().length < 2
+                                    ? t("chopSearch.typeMore")
+                                    : t("chopSearch.empty")}
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  {chopResults.map((c) => (
+                                    <CommandItem
+                                      key={c.id}
+                                      value={c.id}
+                                      onSelect={() => {
+                                        update("surgeryName", c.descriptionDe);
+                                        update("chopCode", c.code);
+                                        setChopOpen(false);
+                                      }}
+                                      data-testid={`chop-option-${c.code}`}
+                                    >
+                                      <span className="font-mono text-xs mr-2 text-muted-foreground">
+                                        {c.code}
+                                      </span>
+                                      <span>{c.descriptionDe}</span>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <button
+                          type="button"
+                          className="text-xs text-primary hover:underline"
+                          onClick={() => setChopMode("custom")}
+                        >
+                          + {t("chopSearch.useFreeText")}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Input
+                          placeholder={t("chopSearch.useCustom")}
+                          value={values.surgeryName}
+                          onChange={(e) => {
+                            update("surgeryName", e.target.value);
+                            update("chopCode", "");
+                          }}
+                          data-testid="input-surgery-name-custom"
+                        />
+                        <button
+                          type="button"
+                          className="text-xs text-primary hover:underline"
+                          onClick={() => {
+                            if (!values.chopCode) {
+                              update("surgeryName", "");
+                            }
+                            setChopMode("search");
+                          }}
+                        >
+                          ← {t("chopSearch.backToSearch")}
+                        </button>
+                      </>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="surgerySide">{t("surgerySide.label")}</Label>

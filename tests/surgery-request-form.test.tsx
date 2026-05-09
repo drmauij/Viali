@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { SurgeryRequestForm } from "../client/src/components/surgery/SurgeryRequestForm";
 import { makeQueryWrapper } from "./test-utils";
 
@@ -96,5 +96,33 @@ describe("SurgeryRequestForm — section 2 sub-groups", () => {
     expect(surgery!.querySelector('[data-subgroup="schedule"]')).not.toBeNull();
     expect(surgery!.querySelector('[data-subgroup="procedure"]')).not.toBeNull();
     expect(surgery!.querySelector('[data-subgroup="coverage"]')).not.toBeNull();
+  });
+});
+
+describe("SurgeryRequestForm — CHOP picker cleanup", () => {
+  it("defaults to combobox mode and toggles to custom-text input on click", () => {
+    const { container } = render(
+      <SurgeryRequestForm
+        {...baseProps}
+        currentSurgeon={{ firstName: "R", lastName: "S", email: null, phone: null }}
+      />,
+      { wrapper: makeQueryWrapper() },
+    );
+    // Default: combobox visible, plain custom input not visible
+    expect(container.querySelector('[data-testid="button-chop-search"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="input-surgery-name-custom"]')).toBeNull();
+
+    // Click "Use custom name"
+    const link = screen.getByText(/chopSearch.useFreeText/);
+    fireEvent.click(link);
+
+    expect(container.querySelector('[data-testid="button-chop-search"]')).toBeNull();
+    expect(container.querySelector('[data-testid="input-surgery-name-custom"]')).not.toBeNull();
+
+    // Click "Back to search" — combobox restored
+    const back = screen.getByText(/chopSearch.backToSearch/);
+    fireEvent.click(back);
+    expect(container.querySelector('[data-testid="button-chop-search"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="input-surgery-name-custom"]')).toBeNull();
   });
 });
