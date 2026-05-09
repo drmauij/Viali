@@ -55,3 +55,24 @@ describe("SurgeryRequestForm — surgeon summary card", () => {
     expect(screen.queryByText(/surgeonCard.submittingAs/)).toBeNull();
   });
 });
+
+describe("SurgeryRequestForm — reservation toggle placement", () => {
+  it("renders the reservation switch inside the surgery (step 2) section, not the surgeon section", () => {
+    const { container } = render(
+      <SurgeryRequestForm
+        {...baseProps}
+        currentSurgeon={{
+          firstName: "R",
+          lastName: "S",
+          email: "r@example.com",
+          phone: "+41 79 000 00 00",
+        }}
+      />,
+      { wrapper: makeQueryWrapper() },
+    );
+    const toggle = container.querySelector('[data-testid="switch-reservation-only"]');
+    expect(toggle).not.toBeNull();
+    const ancestorSection = toggle?.closest('[data-section]')?.getAttribute("data-section");
+    expect(ancestorSection).toBe("surgery");
+  });
+});

@@ -432,8 +432,8 @@ export function SurgeryRequestForm({
               {t("accordion.surgeon")}
             </span>
           </AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-4 pt-2">
+          <AccordionContent forceMount>
+            <div className="space-y-4 pt-2" data-section="surgeon">
               {showSurgeonPicker && (
                 <div className="space-y-2">
                   <Label htmlFor="operating-surgeon">{t("operatingSurgeon")}</Label>
@@ -524,23 +524,6 @@ export function SurgeryRequestForm({
                 </div>
               )}
 
-              <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                <div>
-                  <Label htmlFor="reservationOnly" className="cursor-pointer">
-                    {t("reservationOnly")}
-                  </Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {t("reservationOnlyDesc")}
-                  </p>
-                </div>
-                <Switch
-                  id="reservationOnly"
-                  checked={values.isReservationOnly}
-                  onCheckedChange={(checked) => update("isReservationOnly", checked)}
-                  data-testid="switch-reservation-only"
-                />
-              </div>
-
               {!isLastVisible("surgeon") && (
                 <div className="flex justify-end">
                   <Button
@@ -565,8 +548,24 @@ export function SurgeryRequestForm({
               {t("accordion.surgery")}
             </span>
           </AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-4 pt-2">
+          <AccordionContent forceMount>
+            <div className="space-y-4 pt-2" data-section="surgery">
+              <div className="flex items-center justify-between p-3 rounded-lg border border-primary/40 bg-primary/5">
+                <div className="pr-3">
+                  <Label htmlFor="reservationOnly" className="cursor-pointer font-medium">
+                    {t("reservationOnly")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {t("reservationOnlyDesc")}
+                  </p>
+                </div>
+                <Switch
+                  id="reservationOnly"
+                  checked={values.isReservationOnly}
+                  onCheckedChange={(checked) => update("isReservationOnly", checked)}
+                  data-testid="switch-reservation-only"
+                />
+              </div>
               {!values.isReservationOnly && (
                 <div className="space-y-2">
                   <Label>{t("surgeryName")} *</Label>
@@ -847,8 +846,8 @@ export function SurgeryRequestForm({
               {t("accordion.patient")}
             </span>
           </AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-4 pt-2">
+          <AccordionContent forceMount>
+            <div className="space-y-4 pt-2" data-section="patient">
               <>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -955,8 +954,8 @@ export function SurgeryRequestForm({
               <span className="text-xs text-muted-foreground">({t("optional")})</span>
             </span>
           </AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-4 pt-2">
+          <AccordionContent forceMount>
+            <div className="space-y-4 pt-2" data-section="documents">
               {uploadFile ? (
                 <>
                   <div
