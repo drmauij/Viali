@@ -603,6 +603,199 @@ function SurgeonPortalGate({ token, children }: SurgeonPortalGateProps) {
   );
 }
 
+// ========== MY DATA DIALOG ==========
+
+type MyData = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+};
+
+function MyDataDialog({
+  open,
+  onOpenChange,
+  initial,
+  email,
+  t,
+  token,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  initial: MyData;
+  email: string;
+  t: (key: string) => string;
+  token: string;
+}) {
+  const { toast } = useToast();
+  const [values, setValues] = useState<MyData>(initial);
+  const [touched, setTouched] = useState<Set<keyof MyData>>(new Set());
+
+  // Re-initialize when the dialog opens or the underlying me data changes.
+  useEffect(() => {
+    if (open) {
+      setValues(initial);
+      setTouched(new Set());
+    }
+  }, [open, initial]);
+
+  const dirty =
+    values.firstName !== initial.firstName ||
+    values.lastName !== initial.lastName ||
+    values.phone !== initial.phone;
+
+  const fieldValid = {
+    firstName: values.firstName.trim().length > 0,
+    lastName: values.lastName.trim().length > 0,
+  };
+  const showError = (k: keyof typeof fieldValid) =>
+    touched.has(k) && !fieldValid[k];
+  const markTouched = (k: keyof MyData) =>
+    setTouched((prev) => (prev.has(k) ? prev : new Set(prev).add(k)));
+
+  const mutation = useMutation({
+    mutationFn: async (payload: MyData) => {
+      const res = await fetch(`/api/surgeon-portal/${token}/me`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          firstName: payload.firstName.trim(),
+          lastName: payload.lastName.trim(),
+          phone: payload.phone.trim() === "" ? null : payload.phone.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || res.statusText);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/surgeon-portal/${token}/me`],
+      });
+      toast({ title: t("myData.saveSuccess") });
+      onOpenChange(false);
+    },
+    onError: (e: Error) => {
+      toast({
+        title: t("myData.saveFailed"),
+        description: e.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const canSubmit =
+    dirty && fieldValid.firstName && fieldValid.lastName && !mutation.isPending;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("myData.title")}</DialogTitle>
+        </DialogHeader>
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setTouched(new Set(["firstName", "lastName", "phone"]));
+            if (!fieldValid.firstName || !fieldValid.lastName) return;
+            if (!dirty || mutation.isPending) return;
+            mutation.mutate(values);
+          }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="my-data-email">{t("email")}</Label>
+            <Input id="my-data-email" value={email} disabled readOnly />
+            <p className="text-xs text-muted-foreground">
+              {t("myData.emailHint")}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="my-data-first-name">{t("firstName")} *</Label>
+            <Input
+              id="my-data-first-name"
+              value={values.firstName}
+              onChange={(e) =>
+                setValues((v) => ({ ...v, firstName: e.target.value }))
+              }
+              onBlur={() => markTouched("firstName")}
+              aria-invalid={showError("firstName") || undefined}
+              className={
+                showError("firstName") ? "border-destructive" : undefined
+              }
+              data-testid="input-my-data-first-name"
+            />
+            {showError("firstName") && (
+              <p className="text-xs text-destructive">
+                {t("validation.required")}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="my-data-last-name">{t("lastName")} *</Label>
+            <Input
+              id="my-data-last-name"
+              value={values.lastName}
+              onChange={(e) =>
+                setValues((v) => ({ ...v, lastName: e.target.value }))
+              }
+              onBlur={() => markTouched("lastName")}
+              aria-invalid={showError("lastName") || undefined}
+              className={
+                showError("lastName") ? "border-destructive" : undefined
+              }
+              data-testid="input-my-data-last-name"
+            />
+            {showError("lastName") && (
+              <p className="text-xs text-destructive">
+                {t("validation.required")}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="my-data-phone">{t("phone")}</Label>
+            <Input
+              id="my-data-phone"
+              value={values.phone}
+              onChange={(e) =>
+                setValues((v) => ({ ...v, phone: e.target.value }))
+              }
+              data-testid="input-my-data-phone"
+            />
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-end pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={mutation.isPending}
+              data-testid="button-my-data-cancel"
+            >
+              {t("myData.cancel")}
+            </Button>
+            <Button
+              type="submit"
+              disabled={!canSubmit}
+              data-testid="button-my-data-save"
+            >
+              {mutation.isPending && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              {t("myData.save")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ========== SURGERY INTERFACES ==========
 
 interface Surgery {
@@ -1633,6 +1826,22 @@ function SurgeonPortalContent({ token }: { token: string }) {
           token={token}
           lang={lang}
           onSuccess={() => fetchSurgeries(currentMonth)}
+        />
+      )}
+
+      {/* My Data dialog */}
+      {me && (
+        <MyDataDialog
+          open={myDataOpen}
+          onOpenChange={setMyDataOpen}
+          initial={{
+            firstName: me.firstName ?? "",
+            lastName: me.lastName ?? "",
+            phone: me.phone ?? "",
+          }}
+          email={me.email ?? ""}
+          t={tFn}
+          token={token}
         />
       )}
     </div>
