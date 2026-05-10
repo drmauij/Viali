@@ -295,22 +295,22 @@ function ProgressHeader({
 
   return (
     <div
-      className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-card/80"
+      className="sticky top-0 z-20 -mx-6 -mt-2 flex items-center gap-3 border-b border-border bg-card px-6 py-3 shadow-sm"
       data-testid="form-progress-header"
     >
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         {visibleSections.map((key) => {
           const complete = isComplete(key);
           const active = key === openSection;
           const dotClass = active
-            ? "h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-primary/30"
+            ? "h-3 w-3 rounded-full bg-primary ring-2 ring-primary/30"
             : complete
-              ? "h-2.5 w-2.5 rounded-full bg-emerald-600"
-              : "h-2.5 w-2.5 rounded-full border border-muted-foreground/40";
+              ? "h-3 w-3 rounded-full bg-emerald-600"
+              : "h-3 w-3 rounded-full border border-muted-foreground/40";
           return <div key={key} className={dotClass} data-progress-dot data-key={key} />;
         })}
       </div>
-      <div className="flex-1 truncate text-xs text-muted-foreground">
+      <div className="flex-1 truncate text-sm text-muted-foreground">
         {stepOfTotalText} — <span className="font-medium text-foreground">{currentTitle}</span>
       </div>
     </div>
