@@ -1050,22 +1050,35 @@ function SurgeonPortalContent({ token }: { token: string }) {
   const [progressPinned, setProgressPinned] = useState(false);
   const progressInFlowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    // Radix unmounts inactive Tabs.Content, so the in-flow header element
-    // is destroyed and re-created when the user switches tabs. Tear down
-    // the observer cleanly each time and reset the pinned state — otherwise
-    // the fixed clone leaks across tabs based on stale measurements.
+    // Pin the fixed clone to the viewport once the in-flow header has
+    // scrolled out of view. We use a window scroll listener (instead of
+    // IntersectionObserver) because Radix Tabs.Content unmount/remount
+    // cycles + the conditional in-flow render were occasionally leaving
+    // the observer attached to a stale DOM node, so the pinned state
+    // would silently fail to update on scroll. A plain scroll listener
+    // re-reads the current ref every event — always sees the live node.
     if (view !== "newRequest" || !progressState) {
       setProgressPinned(false);
       return;
     }
-    const el = progressInFlowRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => setProgressPinned(!entry.isIntersecting),
-      { threshold: 0 },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
+    const update = () => {
+      const el = progressInFlowRef.current;
+      if (!el) {
+        setProgressPinned(false);
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      // Pin once the in-flow header's bottom edge has crossed above the
+      // viewport top. A small +4 buffer prevents flicker around 0.
+      setProgressPinned(rect.bottom < 4);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
   }, [view, progressState !== null]);
 
   const [myDataOpen, setMyDataOpen] = useState(false);
