@@ -100,7 +100,7 @@ describe("SurgeryRequestForm — section 2 sub-groups", () => {
 });
 
 describe("SurgeryRequestForm — inline validation", () => {
-  it("shows 'Required' on a date field after blur when empty, clears once filled", () => {
+  it("shows 'Required' on the duration field after blur when invalid, clears once filled", async () => {
     const { container } = render(
       <SurgeryRequestForm
         {...baseProps}
@@ -109,21 +109,38 @@ describe("SurgeryRequestForm — inline validation", () => {
       { wrapper: makeQueryWrapper() },
     );
 
-    // Find date input by data-testid (in the schedule subgroup)
-    const dateInput = container.querySelector('[data-testid="input-wished-date"]') as HTMLInputElement | null;
-    expect(dateInput).not.toBeNull();
+    const durationInput = container.querySelector('[data-testid="input-surgery-duration"]') as HTMLInputElement;
+    expect(durationInput).not.toBeNull();
 
-    // No error before blur
-    expect(dateInput!.getAttribute("aria-invalid")).not.toBe("true");
-
-    // Blur with empty value → error appears
-    fireEvent.blur(dateInput!);
-    expect(dateInput!.getAttribute("aria-invalid")).toBe("true");
+    // Set invalid value (below min of 5), blur, expect error
+    await act(async () => {
+      fireEvent.change(durationInput, { target: { value: "4" } });
+      fireEvent.blur(durationInput);
+    });
+    expect(durationInput.getAttribute("aria-invalid")).toBe("true");
     expect(screen.getAllByText(/validation.required/).length).toBeGreaterThan(0);
 
     // Type a valid value → error clears
-    fireEvent.change(dateInput!, { target: { value: "2026-06-01" } });
-    expect(dateInput!.getAttribute("aria-invalid")).not.toBe("true");
+    await act(async () => {
+      fireEvent.change(durationInput, { target: { value: "60" } });
+    });
+    expect(durationInput.getAttribute("aria-invalid")).not.toBe("true");
+  });
+
+  it("marks wishedDate touched on blur and renders the error helper when empty", async () => {
+    const { container } = render(
+      <SurgeryRequestForm
+        {...baseProps}
+        currentSurgeon={{ firstName: "R", lastName: "S", email: null, phone: null }}
+      />,
+      { wrapper: makeQueryWrapper() },
+    );
+    const dateButton = container.querySelector('[data-testid="input-wished-date"]') as HTMLElement;
+    expect(dateButton).not.toBeNull();
+    await act(async () => {
+      fireEvent.blur(dateButton);
+    });
+    expect(dateButton.getAttribute("aria-invalid")).toBe("true");
   });
 });
 

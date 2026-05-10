@@ -220,6 +220,10 @@ function surgeonInitials(firstName: string | null, lastName: string | null): str
   return (last + first).toUpperCase() || "—";
 }
 
+function FieldError({ t }: { t: (k: string) => string }) {
+  return <p className="text-xs text-destructive">{t("validation.required")}</p>;
+}
+
 type SectionKey = "surgeon" | "surgery" | "patient" | "documents";
 
 interface ChopProcedure {
@@ -507,7 +511,7 @@ export function SurgeryRequestForm({
                     </SelectContent>
                   </Select>
                   {showError("selectedSurgeonId") && (
-                    <p className="text-xs text-destructive">{t("validation.required")}</p>
+                    <FieldError t={t} />
                   )}
                 </div>
               )}
@@ -633,23 +637,15 @@ export function SurgeryRequestForm({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="wishedDate">{t("wishedDate")} *</Label>
-                    {/* Proxy input for testid / blur / aria-invalid / change (calendar picker has no native input element) */}
-                    <input
-                      data-testid="input-wished-date"
-                      className="sr-only"
-                      value={values.wishedDate}
-                      aria-invalid={showError("wishedDate") || undefined}
-                      onBlur={() => markTouched("wishedDate")}
-                      onChange={(e) => update("wishedDate", e.target.value)}
-                    />
                     <DateInput
                       value={values.wishedDate}
-                      onChange={(v) => { update("wishedDate", v); }}
+                      onChange={(v) => update("wishedDate", v)}
+                      onBlur={() => markTouched("wishedDate")}
+                      aria-invalid={showError("wishedDate") || undefined}
                       className={showError("wishedDate") ? "border-destructive" : undefined}
+                      data-testid="input-wished-date"
                     />
-                    {showError("wishedDate") && (
-                      <p className="text-xs text-destructive">{t("validation.required")}</p>
-                    )}
+                    {showError("wishedDate") && <FieldError t={t} />}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="surgeryDuration">{t("durationMinutes")} *</Label>
@@ -668,7 +664,7 @@ export function SurgeryRequestForm({
                       data-testid="input-surgery-duration"
                     />
                     {showError("surgeryDurationMinutes") && (
-                      <p className="text-xs text-destructive">{t("validation.required")}</p>
+                      <FieldError t={t} />
                     )}
                   </div>
                 </div>
@@ -767,7 +763,7 @@ export function SurgeryRequestForm({
                           </PopoverContent>
                         </Popover>
                         {showError("surgeryName") && (
-                          <p className="text-xs text-destructive">{t("validation.required")}</p>
+                          <FieldError t={t} />
                         )}
                         <button
                           type="button"
@@ -792,7 +788,7 @@ export function SurgeryRequestForm({
                           data-testid="input-surgery-name-custom"
                         />
                         {showError("surgeryName") && (
-                          <p className="text-xs text-destructive">{t("validation.required")}</p>
+                          <FieldError t={t} />
                         )}
                         <button
                           type="button"
@@ -880,7 +876,7 @@ export function SurgeryRequestForm({
                       </SelectContent>
                     </Select>
                     {showError("coverageType") && (
-                      <p className="text-xs text-destructive">{t("validation.required")}</p>
+                      <FieldError t={t} />
                     )}
                   </div>
                   <div className="space-y-2">
@@ -904,7 +900,7 @@ export function SurgeryRequestForm({
                       </SelectContent>
                     </Select>
                     {showError("stayType") && (
-                      <p className="text-xs text-destructive">{t("validation.required")}</p>
+                      <FieldError t={t} />
                     )}
                   </div>
                   <div className="space-y-2">
@@ -921,7 +917,7 @@ export function SurgeryRequestForm({
                       className={showError("diagnosis") ? "border-destructive" : undefined}
                     />
                     {showError("diagnosis") && (
-                      <p className="text-xs text-destructive">{t("validation.required")}</p>
+                      <FieldError t={t} />
                     )}
                   </div>
                   <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
@@ -1000,7 +996,7 @@ export function SurgeryRequestForm({
                         data-testid="input-patient-first-name"
                       />
                       {showError("patientFirstName") && (
-                        <p className="text-xs text-destructive">{t("validation.required")}</p>
+                        <FieldError t={t} />
                       )}
                     </div>
                     <div className="space-y-2">
@@ -1015,7 +1011,7 @@ export function SurgeryRequestForm({
                         data-testid="input-patient-last-name"
                       />
                       {showError("patientLastName") && (
-                        <p className="text-xs text-destructive">{t("validation.required")}</p>
+                        <FieldError t={t} />
                       )}
                     </div>
                   </div>
@@ -1029,7 +1025,7 @@ export function SurgeryRequestForm({
                       className={showError("patientBirthday") ? "border-destructive" : undefined}
                     />
                     {showError("patientBirthday") && (
-                      <p className="text-xs text-destructive">{t("validation.required")}</p>
+                      <FieldError t={t} />
                     )}
                   </div>
                   <div className="space-y-2">
@@ -1046,7 +1042,7 @@ export function SurgeryRequestForm({
                       />
                     </div>
                     {showError("patientPhone") && (
-                      <p className="text-xs text-destructive">{t("validation.required")}</p>
+                      <FieldError t={t} />
                     )}
                   </div>
                   <div className="space-y-2">
@@ -1073,7 +1069,7 @@ export function SurgeryRequestForm({
                         className={showError("patientStreet") ? "border-destructive" : undefined}
                       />
                       {showError("patientStreet") && (
-                        <p className="text-xs text-destructive">{t("validation.required")}</p>
+                        <FieldError t={t} />
                       )}
                     </div>
                     <div className="space-y-2">
@@ -1087,7 +1083,7 @@ export function SurgeryRequestForm({
                         className={showError("patientPostalCode") ? "border-destructive" : undefined}
                       />
                       {showError("patientPostalCode") && (
-                        <p className="text-xs text-destructive">{t("validation.required")}</p>
+                        <FieldError t={t} />
                       )}
                     </div>
                     <div className="space-y-2 sm:col-span-2">
@@ -1101,7 +1097,7 @@ export function SurgeryRequestForm({
                         className={showError("patientCity") ? "border-destructive" : undefined}
                       />
                       {showError("patientCity") && (
-                        <p className="text-xs text-destructive">{t("validation.required")}</p>
+                        <FieldError t={t} />
                       )}
                     </div>
                   </div>
