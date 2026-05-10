@@ -257,3 +257,48 @@ describe("SurgeryRequestForm — sticky progress header", () => {
     expect(header.textContent).toContain("accordion.surgery");
   });
 });
+
+describe("SurgeryRequestForm — mobile attributes", () => {
+  it("sets inputMode='numeric' on the surgery duration field", () => {
+    const { container } = render(
+      <SurgeryRequestForm
+        {...baseProps}
+        currentSurgeon={{ firstName: "R", lastName: "S", email: null, phone: null }}
+      />,
+      { wrapper: makeQueryWrapper() },
+    );
+    openSurgerySection(container);
+    const duration = container.querySelector('[data-testid="input-surgery-duration"]') as HTMLInputElement;
+    expect(duration).not.toBeNull();
+    expect(duration.getAttribute("inputmode")).toBe("numeric");
+  });
+
+  it("sets autoComplete + inputMode on patient identity fields after advancing past surgery", () => {
+    // Provide valid surgery values so surgeon Continue jumps straight to patient
+    const { container } = render(
+      <SurgeryRequestForm
+        {...baseProps}
+        currentSurgeon={{ firstName: "R", lastName: "S", email: null, phone: null }}
+        initialValues={{
+          wishedDate: "2026-06-01",
+          surgeryName: "Test surgery",
+          coverageType: "Selbstzahler",
+          stayType: "ambulant",
+          surgeryDurationMinutes: 60,
+        }}
+      />,
+      { wrapper: makeQueryWrapper() },
+    );
+    // advanceFrom("surgeon") skips to patient because surgery is already valid
+    openSurgerySection(container);
+
+    const firstName = container.querySelector('[data-testid="input-patient-first-name"]') as HTMLInputElement;
+    expect(firstName).not.toBeNull();
+    expect(firstName.getAttribute("autocomplete")).toBe("given-name");
+
+    const postalCode = container.querySelector('#patientPostalCode') as HTMLInputElement;
+    expect(postalCode).not.toBeNull();
+    expect(postalCode.getAttribute("autocomplete")).toBe("postal-code");
+    expect(postalCode.getAttribute("inputmode")).toBe("numeric");
+  });
+});

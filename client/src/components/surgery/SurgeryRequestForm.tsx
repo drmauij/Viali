@@ -800,11 +800,11 @@ export function SurgeryRequestForm({
           <AccordionContent>
             <div className="space-y-4 pt-2" data-section="surgery">
               {/* Reservation toggle — top of surgery section */}
-              <div className="flex items-center justify-between p-3 rounded-lg border border-primary/40 bg-primary/5">
+              <label htmlFor="reservationOnly" className="flex items-center justify-between p-3 rounded-lg border border-primary/40 bg-primary/5 cursor-pointer">
                 <div className="pr-3">
-                  <Label htmlFor="reservationOnly" className="cursor-pointer font-medium">
+                  <span className="font-medium">
                     {t("reservationOnly")}
-                  </Label>
+                  </span>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {t("reservationOnlyDesc")}
                   </p>
@@ -815,14 +815,14 @@ export function SurgeryRequestForm({
                   onCheckedChange={(checked) => update("isReservationOnly", checked)}
                   data-testid="switch-reservation-only"
                 />
-              </div>
+              </label>
 
               {/* Schedule */}
               <div data-subgroup="schedule" className="space-y-3 pt-2">
                 <div className="text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
                   {t("subgroup.schedule")}
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="wishedDate">{t("wishedDate")} *</Label>
                     <DateInput
@@ -840,6 +840,7 @@ export function SurgeryRequestForm({
                     <Input
                       id="surgeryDuration"
                       type="number"
+                      inputMode="numeric"
                       min={5}
                       max={720}
                       value={values.surgeryDurationMinutes}
@@ -955,7 +956,7 @@ export function SurgeryRequestForm({
                         )}
                         <button
                           type="button"
-                          className="text-xs text-primary hover:underline"
+                          className="text-xs text-primary hover:underline py-2 -my-2"
                           onClick={() => setChopMode("custom")}
                         >
                           + {t("chopSearch.useFreeText")}
@@ -980,7 +981,7 @@ export function SurgeryRequestForm({
                         )}
                         <button
                           type="button"
-                          className="text-xs text-primary hover:underline"
+                          className="text-xs text-primary hover:underline py-2 -my-2"
                           onClick={() => {
                             if (!values.chopCode) {
                               update("surgeryName", "");
@@ -1018,11 +1019,11 @@ export function SurgeryRequestForm({
                     onRightArmPositionChange={(v) => update("rightArmPosition", v)}
                     testIdPrefix="request-"
                   />
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                  <label htmlFor="antibioseProphylaxe" className="flex items-center justify-between p-3 rounded-lg border border-border cursor-pointer">
                     <div>
-                      <Label htmlFor="antibioseProphylaxe" className="cursor-pointer">
+                      <span className="font-medium">
                         {t("antibioticProphylaxis.label")}
-                      </Label>
+                      </span>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {t("antibioticProphylaxis.description")}
                       </p>
@@ -1033,7 +1034,7 @@ export function SurgeryRequestForm({
                       onCheckedChange={(c) => update("antibioseProphylaxe", c)}
                       data-testid="switch-antibiose-prophylaxe"
                     />
-                  </div>
+                  </label>
                 </div>
               )}
 
@@ -1108,16 +1109,16 @@ export function SurgeryRequestForm({
                       <FieldError t={t} />
                     )}
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <Label htmlFor="withAnesthesia" className="cursor-pointer">
+                  <label htmlFor="withAnesthesia" className="flex items-center justify-between p-3 bg-muted rounded-lg cursor-pointer">
+                    <span className="font-medium">
                       {t("withAnesthesia")}
-                    </Label>
+                    </span>
                     <Switch
                       id="withAnesthesia"
                       checked={values.withAnesthesia}
                       onCheckedChange={(c) => update("withAnesthesia", c)}
                     />
-                  </div>
+                  </label>
                   {values.withAnesthesia && (
                     <div className="space-y-2">
                       <Label htmlFor="anesthesiaNotes">{t("anesthesiaNotes")}</Label>
@@ -1183,6 +1184,7 @@ export function SurgeryRequestForm({
                       <Label htmlFor="patientFirstName">{t("firstName")} *</Label>
                       <Input
                         id="patientFirstName"
+                        autoComplete="given-name"
                         value={values.patientFirstName}
                         onChange={(e) => update("patientFirstName", e.target.value)}
                         onBlur={() => markTouched("patientFirstName")}
@@ -1198,6 +1200,7 @@ export function SurgeryRequestForm({
                       <Label htmlFor="patientLastName">{t("lastName")} *</Label>
                       <Input
                         id="patientLastName"
+                        autoComplete="family-name"
                         value={values.patientLastName}
                         onChange={(e) => update("patientLastName", e.target.value)}
                         onBlur={() => markTouched("patientLastName")}
@@ -1248,6 +1251,7 @@ export function SurgeryRequestForm({
                     <Input
                       id="patientEmail"
                       type="email"
+                      autoComplete="email"
                       value={values.patientEmail}
                       onChange={(e) => update("patientEmail", e.target.value)}
                     />
@@ -1257,6 +1261,7 @@ export function SurgeryRequestForm({
                       <Label htmlFor="patientStreet">{t("street")} *</Label>
                       <Input
                         id="patientStreet"
+                        autoComplete="street-address"
                         value={values.patientStreet}
                         onChange={(e) => update("patientStreet", e.target.value)}
                         onBlur={() => markTouched("patientStreet")}
@@ -1271,6 +1276,8 @@ export function SurgeryRequestForm({
                       <Label htmlFor="patientPostalCode">{t("postalCode")} *</Label>
                       <Input
                         id="patientPostalCode"
+                        autoComplete="postal-code"
+                        inputMode="numeric"
                         value={values.patientPostalCode}
                         onChange={(e) => update("patientPostalCode", e.target.value)}
                         onBlur={() => markTouched("patientPostalCode")}
@@ -1285,6 +1292,7 @@ export function SurgeryRequestForm({
                       <Label htmlFor="patientCity">{t("city")} *</Label>
                       <Input
                         id="patientCity"
+                        autoComplete="address-level2"
                         value={values.patientCity}
                         onChange={(e) => update("patientCity", e.target.value)}
                         onBlur={() => markTouched("patientCity")}
