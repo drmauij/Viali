@@ -1590,10 +1590,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
               </Card>
             ) : (
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">{t.newRequest}</CardTitle>
-                </CardHeader>
-                <CardContent>
+                <CardContent className="pt-6">
                   <SurgeryRequestForm
                     availableSurgeons={availableSurgeons}
                     selectedSurgeonId={selectedSurgeonId}
@@ -1618,6 +1615,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
                     initialValues={restoredInitialValues}
                     onValuesChange={handleFormChange}
                     onProgressChange={setProgressState}
+                    onEditProfile={() => setMyDataOpen(true)}
                   />
                 </CardContent>
               </Card>
