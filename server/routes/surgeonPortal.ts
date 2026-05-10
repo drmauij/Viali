@@ -3,6 +3,7 @@ import logger from "../logger";
 import { storage } from "../storage";
 import { db } from "../db";
 import { eq, sql } from "drizzle-orm";
+import { z } from "zod";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
@@ -577,6 +578,64 @@ router.get(
       });
     } catch (error) {
       logger.error("Error in /me:", error);
+      res.status(500).json({ message: "Failed" });
+    }
+  },
+);
+
+const updateMeSchema = z
+  .object({
+    firstName: z.string().trim().min(1, "firstName cannot be empty").max(120),
+    lastName: z.string().trim().min(1, "lastName cannot be empty").max(120),
+    phone: z.union([z.string().trim().max(40), z.null()]),
+  })
+  .strict();
+
+/**
+ * PATCH /api/surgeon-portal/:token/me
+ * Updates the authenticated surgeon's first name, last name, and phone.
+ * Email and all other fields are intentionally excluded (schema is .strict()).
+ * Empty-string phone is normalized to null.
+ */
+router.patch(
+  "/api/surgeon-portal/:token/me",
+  requireSurgeonSession,
+  async (req: Request, res: Response) => {
+    try {
+      const parsed = updateMeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Invalid payload",
+          errors: parsed.error.flatten(),
+        });
+      }
+      const email = ((req as any).surgeonEmail as string).toLowerCase();
+      const phoneNormalized =
+        parsed.data.phone === "" ? null : parsed.data.phone;
+
+      const [updated] = await db
+        .update(users)
+        .set({
+          firstName: parsed.data.firstName,
+          lastName: parsed.data.lastName,
+          phone: phoneNormalized,
+          updatedAt: new Date(),
+        })
+        .where(sql`LOWER(${users.email}) = ${email}`)
+        .returning();
+
+      if (!updated) return res.status(404).json({ message: "Not found" });
+
+      res.json({
+        id: updated.id,
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        email: updated.email,
+        phone: updated.phone,
+        isPraxis: updated.isPraxis,
+      });
+    } catch (error) {
+      logger.error("Error in PATCH /me:", error);
       res.status(500).json({ message: "Failed" });
     }
   },

@@ -175,3 +175,60 @@ describe("POST /api/surgeon-portal/:token/requests", () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe("PATCH /api/surgeon-portal/:token/me", () => {
+  it("solo doctor updates own first/last/phone", async () => {
+    const session = await makeSession(soloUser.email);
+    const res = await request(app)
+      .patch(`/api/surgeon-portal/${portalToken}/me`)
+      .set("Cookie", `portal_session=${session}`)
+      .send({ firstName: "NewFirst", lastName: "NewLast", phone: "+41 79 999 99 99" });
+    expect(res.status).toBe(200);
+    expect(res.body.firstName).toBe("NewFirst");
+    expect(res.body.lastName).toBe("NewLast");
+    expect(res.body.phone).toBe("+41 79 999 99 99");
+    expect(res.body.email).toBe(soloUser.email);
+
+    const [row] = await db.select().from(users).where(eq(users.id, soloUser.id));
+    expect(row.firstName).toBe("NewFirst");
+    expect(row.lastName).toBe("NewLast");
+    expect(row.phone).toBe("+41 79 999 99 99");
+  });
+
+  it("rejects empty firstName with 400", async () => {
+    const session = await makeSession(soloUser.email);
+    const res = await request(app)
+      .patch(`/api/surgeon-portal/${portalToken}/me`)
+      .set("Cookie", `portal_session=${session}`)
+      .send({ firstName: "", lastName: "Still", phone: null });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects unknown keys (email change attempt)", async () => {
+    const beforeRow = await db.select().from(users).where(eq(users.id, soloUser.id));
+    const beforeEmail = beforeRow[0].email;
+    const session = await makeSession(soloUser.email);
+    const res = await request(app)
+      .patch(`/api/surgeon-portal/${portalToken}/me`)
+      .set("Cookie", `portal_session=${session}`)
+      .send({
+        firstName: "Still",
+        lastName: "Same",
+        phone: null,
+        email: "evil@example.com",
+      });
+    expect(res.status).toBe(400);
+    const [row] = await db.select().from(users).where(eq(users.id, soloUser.id));
+    expect(row.email).toBe(beforeEmail);
+  });
+
+  it("normalizes empty phone string to null", async () => {
+    const session = await makeSession(soloUser.email);
+    const res = await request(app)
+      .patch(`/api/surgeon-portal/${portalToken}/me`)
+      .set("Cookie", `portal_session=${session}`)
+      .send({ firstName: "First", lastName: "Last", phone: "" });
+    expect(res.status).toBe(200);
+    expect(res.body.phone).toBeNull();
+  });
+});
