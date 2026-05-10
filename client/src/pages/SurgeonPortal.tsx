@@ -48,6 +48,7 @@ import {
   isSameDay,
   isToday,
   format,
+  formatDistanceToNow,
 } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { generateSurgeonSummaryPDF } from "@/lib/surgeonSummaryPdf";
@@ -57,7 +58,6 @@ import {
   clearDraft,
   type SurgeonPortalDraft,
 } from "@/lib/surgeon-portal-draft";
-import { formatDistanceToNow } from "date-fns";
 
 // ========== TRANSLATIONS ==========
 
@@ -867,12 +867,13 @@ function SurgeonPortalContent({ token }: { token: string }) {
   const handleFormChange = useCallback(
     (values: SurgeryRequestFormValues) => {
       if (!me?.email) return;
+      if (draftBanner) return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
         saveDraft(token, me.email!, values as unknown as Record<string, unknown>);
       }, 800);
     },
-    [me?.email, token],
+    [me?.email, token, draftBanner],
   );
 
   useEffect(() => {
