@@ -582,7 +582,7 @@ export function SurgeryRequestForm({
               {t("accordion.surgeon")}
             </span>
           </AccordionTrigger>
-          <AccordionContent forceMount>
+          <AccordionContent>
             <div className="space-y-4 pt-2" data-section="surgeon">
               {showSurgeonPicker && (
                 <div className="space-y-2">
@@ -715,7 +715,7 @@ export function SurgeryRequestForm({
               {t("accordion.surgery")}
             </span>
           </AccordionTrigger>
-          <AccordionContent forceMount>
+          <AccordionContent>
             <div className="space-y-4 pt-2" data-section="surgery">
               {/* Reservation toggle — top of surgery section */}
               <div className="flex items-center justify-between p-3 rounded-lg border border-primary/40 bg-primary/5">
@@ -1094,7 +1094,7 @@ export function SurgeryRequestForm({
               {t("accordion.patient")}
             </span>
           </AccordionTrigger>
-          <AccordionContent forceMount>
+          <AccordionContent>
             <div className="space-y-4 pt-2" data-section="patient">
               <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -1250,7 +1250,7 @@ export function SurgeryRequestForm({
               <span className="text-xs text-muted-foreground">({t("optional")})</span>
             </span>
           </AccordionTrigger>
-          <AccordionContent forceMount>
+          <AccordionContent>
             <div className="space-y-4 pt-2" data-section="documents">
               {uploadFile ? (
                 <>

@@ -18,6 +18,16 @@ const baseProps = {
   isSubmitting: false,
 };
 
+function openSurgerySection(container: HTMLElement) {
+  const surgeonContinue = container.querySelector(
+    '[data-testid="button-continue-surgeon"]',
+  ) as HTMLButtonElement;
+  if (!surgeonContinue) {
+    throw new Error("expected button-continue-surgeon to exist");
+  }
+  fireEvent.click(surgeonContinue);
+}
+
 describe("SurgeryRequestForm — surgeon summary card", () => {
   it("renders the surgeon summary card when picker is hidden and currentSurgeon is provided", () => {
     render(
@@ -70,6 +80,7 @@ describe("SurgeryRequestForm — reservation toggle placement", () => {
       />,
       { wrapper: makeQueryWrapper() },
     );
+    openSurgerySection(container);
     const toggle = container.querySelector('[data-testid="switch-reservation-only"]');
     expect(toggle).not.toBeNull();
     const ancestorSection = toggle?.closest('[data-section]')?.getAttribute("data-section");
@@ -91,6 +102,7 @@ describe("SurgeryRequestForm — section 2 sub-groups", () => {
       />,
       { wrapper: makeQueryWrapper() },
     );
+    openSurgerySection(container);
     const surgery = container.querySelector('[data-section="surgery"]');
     expect(surgery).not.toBeNull();
     expect(surgery!.querySelector('[data-subgroup="schedule"]')).not.toBeNull();
@@ -108,6 +120,7 @@ describe("SurgeryRequestForm — inline validation", () => {
       />,
       { wrapper: makeQueryWrapper() },
     );
+    openSurgerySection(container);
 
     const durationInput = container.querySelector('[data-testid="input-surgery-duration"]') as HTMLInputElement;
     expect(durationInput).not.toBeNull();
@@ -135,6 +148,7 @@ describe("SurgeryRequestForm — inline validation", () => {
       />,
       { wrapper: makeQueryWrapper() },
     );
+    openSurgerySection(container);
     const dateButton = container.querySelector('[data-testid="input-wished-date"]') as HTMLElement;
     expect(dateButton).not.toBeNull();
     await act(async () => {
@@ -153,6 +167,7 @@ describe("SurgeryRequestForm — CHOP picker cleanup", () => {
       />,
       { wrapper: makeQueryWrapper() },
     );
+    openSurgerySection(container);
     // Default: combobox visible, plain custom input not visible
     expect(container.querySelector('[data-testid="button-chop-search"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="input-surgery-name-custom"]')).toBeNull();
