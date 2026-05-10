@@ -743,39 +743,37 @@ export function SurgeryRequestForm({
               )}
 
               {!showSurgeonPicker && currentSurgeon && (
-                <div className="space-y-1">
-                  <div
-                    className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3"
-                    data-testid="surgeon-summary-card"
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
-                      {surgeonInitials(currentSurgeon.firstName, currentSurgeon.lastName)}
+                <div
+                  className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3"
+                  data-testid="surgeon-summary-card"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
+                    {surgeonInitials(currentSurgeon.firstName, currentSurgeon.lastName)}
+                  </div>
+                  <div className="min-w-0 flex-1 text-sm leading-snug">
+                    <div className="truncate font-medium">
+                      {[currentSurgeon.firstName, currentSurgeon.lastName].filter(Boolean).join(" ")}
                     </div>
-                    <div className="min-w-0 flex-1 text-sm leading-snug">
-                      <div className="truncate font-medium">
-                        {[currentSurgeon.firstName, currentSurgeon.lastName].filter(Boolean).join(" ")}
-                      </div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {[currentSurgeon.email, currentSurgeon.phone].filter(Boolean).join(" · ")}
-                      </div>
-                    </div>
-                    <div className="hidden sm:block text-[10px] uppercase tracking-wider text-muted-foreground">
-                      {t("surgeonCard.submittingAs")}
+                    <div className="truncate text-xs text-muted-foreground">
+                      {[currentSurgeon.email, currentSurgeon.phone].filter(Boolean).join(" · ")}
                     </div>
                   </div>
-                  {onEditProfile && (
-                    <div className="flex justify-end">
+                  <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {t("surgeonCard.submittingAs")}
+                    </span>
+                    {onEditProfile && (
                       <button
                         type="button"
                         onClick={onEditProfile}
-                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline px-1 py-1 -my-1"
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
                         data-testid="button-edit-profile-from-summary"
                       >
                         <Pencil className="h-3 w-3" />
-                        {t("accountMenu.editProfile")}
+                        {t("surgeonCard.correctInfo")}
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               )}
 

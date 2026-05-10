@@ -196,6 +196,7 @@ const translations: Record<string, Record<string, string>> = {
     "documents.uploadDisabled": "Datei-Upload ist in dieser Ansicht nicht verfügbar.",
     // Phase 1 UX additions
     "surgeonCard.submittingAs": "absendend als",
+    "surgeonCard.correctInfo": "Daten korrigieren",
     "chopSearch.useFreeText": "Freien Text eingeben",
     "chopSearch.backToSearch": "Zurück zur Suche",
     "validation.required": "Pflichtfeld",
@@ -336,6 +337,7 @@ const translations: Record<string, Record<string, string>> = {
     "documents.uploadDisabled": "File upload is not available in this view.",
     // Phase 1 UX additions
     "surgeonCard.submittingAs": "submitting as",
+    "surgeonCard.correctInfo": "Correct info",
     "chopSearch.useFreeText": "Use custom name",
     "chopSearch.backToSearch": "Back to search",
     "validation.required": "Required",
