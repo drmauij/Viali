@@ -236,7 +236,7 @@ function formatTimeMins(mins: number | null | undefined): string {
   return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
 }
 
-function surgeonInitials(firstName: string | null, lastName: string | null): string {
+export function surgeonInitials(firstName: string | null, lastName: string | null): string {
   const last = (lastName ?? "").trim()[0] ?? "";
   const first = (firstName ?? "").trim()[0] ?? "";
   return (last + first).toUpperCase() || "—";
