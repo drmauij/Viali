@@ -1020,7 +1020,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
   const [hospitalName, setHospitalName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  const [view, setView] = useState<"calendar" | "newRequest">("calendar");
+  const [view, setView] = useState<"calendar" | "newRequest">("newRequest");
   // Captures the values of the most-recently-submitted request so we can show
   // a confirmation card on the New Request tab. Cleared by "Submit another"
   // (resets form) or by clicking the Calendar tab.
@@ -1458,8 +1458,8 @@ function SurgeonPortalContent({ token }: { token: string }) {
       >
         <div className="max-w-2xl mx-auto px-4 pt-4">
           <TabsList className="grid grid-cols-2 w-full">
-            <TabsTrigger value="calendar" data-testid="tab-calendar">{t.calendarTab}</TabsTrigger>
             <TabsTrigger value="newRequest" data-testid="tab-new-request">{t.newRequest}</TabsTrigger>
+            <TabsTrigger value="calendar" data-testid="tab-calendar">{t.calendarTab}</TabsTrigger>
           </TabsList>
         </div>
 
