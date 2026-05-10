@@ -199,6 +199,14 @@ const translations: Record<string, Record<string, string>> = {
     "draft.banner.savedAgo": "gespeichert vor {when}",
     "draft.banner.restore": "Wiederherstellen",
     "draft.banner.discard": "Verwerfen",
+    // Account menu + My Data
+    "accountMenu.editProfile": "Profil bearbeiten",
+    "myData.title": "Meine Daten",
+    "myData.emailHint": "Wird zur Anmeldung verwendet — kann nicht geändert werden",
+    "myData.cancel": "Abbrechen",
+    "myData.save": "Speichern",
+    "myData.saveSuccess": "Profil aktualisiert",
+    "myData.saveFailed": "Aktualisierung fehlgeschlagen",
   },
   en: {
     // Gate
@@ -331,6 +339,14 @@ const translations: Record<string, Record<string, string>> = {
     "draft.banner.savedAgo": "saved {when} ago",
     "draft.banner.restore": "Restore",
     "draft.banner.discard": "Discard",
+    // Account menu + My Data
+    "accountMenu.editProfile": "Edit profile",
+    "myData.title": "My Data",
+    "myData.emailHint": "Used to log in — cannot be changed",
+    "myData.cancel": "Cancel",
+    "myData.save": "Save changes",
+    "myData.saveSuccess": "Profile updated",
+    "myData.saveFailed": "Update failed",
   },
 };
 
