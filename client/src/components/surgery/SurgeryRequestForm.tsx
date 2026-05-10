@@ -253,6 +253,64 @@ function MissingFieldsCallout({
 
 type SectionKey = "surgeon" | "surgery" | "patient" | "documents";
 
+type SectionTitleKey =
+  | "accordion.surgeon"
+  | "accordion.surgery"
+  | "accordion.patient"
+  | "accordion.documents";
+
+const SECTION_TITLE_KEY: Record<SectionKey, SectionTitleKey> = {
+  surgeon: "accordion.surgeon",
+  surgery: "accordion.surgery",
+  patient: "accordion.patient",
+  documents: "accordion.documents",
+};
+
+function ProgressHeader({
+  visibleSections,
+  openSection,
+  isComplete,
+  t,
+}: {
+  visibleSections: SectionKey[];
+  openSection: SectionKey;
+  isComplete: (key: SectionKey) => boolean;
+  t: (key: string) => string;
+}) {
+  const total = visibleSections.length;
+  const currentIdx = Math.max(0, visibleSections.indexOf(openSection));
+  const stepNumber = currentIdx + 1;
+
+  const stepOfTotalText = t("progress.stepOfTotal")
+    .replace("{step}", String(stepNumber))
+    .replace("{total}", String(total));
+
+  const currentTitle = t(SECTION_TITLE_KEY[openSection] ?? "accordion.surgeon");
+
+  return (
+    <div
+      className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-card/80"
+      data-testid="form-progress-header"
+    >
+      <div className="flex items-center gap-1.5">
+        {visibleSections.map((key) => {
+          const complete = isComplete(key);
+          const active = key === openSection;
+          const dotClass = active
+            ? "h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-primary/30"
+            : complete
+              ? "h-2.5 w-2.5 rounded-full bg-emerald-600"
+              : "h-2.5 w-2.5 rounded-full border border-muted-foreground/40";
+          return <div key={key} className={dotClass} data-progress-dot data-key={key} />;
+        })}
+      </div>
+      <div className="flex-1 truncate text-xs text-muted-foreground">
+        {stepOfTotalText} — <span className="font-medium text-foreground">{currentTitle}</span>
+      </div>
+    </div>
+  );
+}
+
 interface ChopProcedure {
   id: string;
   code: string;
@@ -586,6 +644,12 @@ export function SurgeryRequestForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <ProgressHeader
+        visibleSections={visibleSections}
+        openSection={openSection}
+        isComplete={isSectionComplete}
+        t={t}
+      />
       <Accordion
         type="single"
         value={openSection}

@@ -213,3 +213,47 @@ describe("SurgeryRequestForm — missing-fields callout", () => {
     expect(callout!.textContent).toContain("missingFields");
   });
 });
+
+describe("SurgeryRequestForm — sticky progress header", () => {
+  it("renders 4 dots and a 'Step 1 of 4' label in default mode", () => {
+    const { container } = render(
+      <SurgeryRequestForm
+        {...baseProps}
+        currentSurgeon={{ firstName: "R", lastName: "S", email: null, phone: null }}
+      />,
+      { wrapper: makeQueryWrapper() },
+    );
+    const header = container.querySelector('[data-testid="form-progress-header"]');
+    expect(header).not.toBeNull();
+    const dots = header!.querySelectorAll('[data-progress-dot]');
+    expect(dots.length).toBe(4);
+    expect(header!.textContent).toContain("progress.stepOfTotal");
+    expect(header!.textContent).toContain("accordion.surgeon");
+  });
+
+  it("renders 2 dots in reservation-only mode", () => {
+    const { container } = render(
+      <SurgeryRequestForm
+        {...baseProps}
+        currentSurgeon={{ firstName: "R", lastName: "S", email: null, phone: null }}
+        initialValues={{ isReservationOnly: true }}
+      />,
+      { wrapper: makeQueryWrapper() },
+    );
+    const dots = container.querySelectorAll('[data-progress-dot]');
+    expect(dots.length).toBe(2);
+  });
+
+  it("advances the active dot when surgeon Continue is clicked", () => {
+    const { container } = render(
+      <SurgeryRequestForm
+        {...baseProps}
+        currentSurgeon={{ firstName: "R", lastName: "S", email: null, phone: null }}
+      />,
+      { wrapper: makeQueryWrapper() },
+    );
+    openSurgerySection(container);
+    const header = container.querySelector('[data-testid="form-progress-header"]')!;
+    expect(header.textContent).toContain("accordion.surgery");
+  });
+});
