@@ -224,6 +224,25 @@ function FieldError({ t }: { t: (k: string) => string }) {
   return <p className="text-xs text-destructive">{t("validation.required")}</p>;
 }
 
+function MissingFieldsCallout({
+  testId,
+  label,
+  names,
+}: {
+  testId: string;
+  label: string;
+  names: string[];
+}) {
+  return (
+    <div
+      className="rounded-md border border-amber-500/50 bg-amber-50 dark:bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300"
+      data-testid={testId}
+    >
+      <span className="font-medium">{label}:</span> {names.join(", ")}
+    </div>
+  );
+}
+
 type SectionKey = "surgeon" | "surgery" | "patient" | "documents";
 
 interface ChopProcedure {
@@ -316,7 +335,11 @@ export function SurgeryRequestForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit || isSubmitting) return;
+    if (!canSubmit) {
+      touchAllVisible();
+      return;
+    }
+    if (isSubmitting) return;
     await onSubmit(values);
   };
 
@@ -367,6 +390,45 @@ export function SurgeryRequestForm({
 
   const showError = (k: FieldKey) => touched.has(k) && !fieldValid[k];
 
+  const FIELD_LABEL_KEY: Record<FieldKey, string> = {
+    selectedSurgeonId: "operatingSurgeon",
+    wishedDate: "wishedDate",
+    surgeryDurationMinutes: "durationMinutes",
+    surgeryName: "surgeryName",
+    coverageType: "coverageType",
+    stayType: "stayType",
+    diagnosis: "diagnosis",
+    patientFirstName: "firstName",
+    patientLastName: "lastName",
+    patientBirthday: "birthday",
+    patientPhone: "phone",
+    patientStreet: "street",
+    patientPostalCode: "postalCode",
+    patientCity: "city",
+  };
+
+  const FIELDS_BY_SECTION: Record<SectionKey, FieldKey[]> = {
+    surgeon: ["selectedSurgeonId"],
+    surgery: [
+      "wishedDate",
+      "surgeryDurationMinutes",
+      "surgeryName",
+      "coverageType",
+      "stayType",
+      "diagnosis",
+    ],
+    patient: [
+      "patientFirstName",
+      "patientLastName",
+      "patientBirthday",
+      "patientPhone",
+      "patientStreet",
+      "patientPostalCode",
+      "patientCity",
+    ],
+    documents: [],
+  };
+
   // ─── Accordion open-state ───────────────────────────────────────────
   const [openSection, setOpenSection] = useState<SectionKey>("surgeon");
 
@@ -390,7 +452,35 @@ export function SurgeryRequestForm({
   const isLastVisible = (key: SectionKey) =>
     visibleSections.indexOf(key) === visibleSections.length - 1;
 
+  const missingFieldLabels = (section: SectionKey | "all"): string[] => {
+    const keys =
+      section === "all"
+        ? visibleSections.flatMap((s) => FIELDS_BY_SECTION[s])
+        : FIELDS_BY_SECTION[section];
+    return keys.filter((k) => !fieldValid[k]).map((k) => t(FIELD_LABEL_KEY[k]));
+  };
+
+  const touchAllInSection = (section: SectionKey) => {
+    setTouched((prev) => {
+      const next = new Set(prev);
+      for (const k of FIELDS_BY_SECTION[section]) next.add(k);
+      return next;
+    });
+  };
+
+  const touchAllVisible = () => {
+    setTouched((prev) => {
+      const next = new Set(prev);
+      for (const s of visibleSections) for (const k of FIELDS_BY_SECTION[s]) next.add(k);
+      return next;
+    });
+  };
+
   const advanceFrom = (current: SectionKey) => {
+    if (!sectionValidity[current]) {
+      touchAllInSection(current);
+      return;
+    }
     const i = visibleSections.indexOf(current);
     for (let j = i + 1; j < visibleSections.length; j++) {
       const k = visibleSections[j];
@@ -586,16 +676,24 @@ export function SurgeryRequestForm({
               )}
 
               {!isLastVisible("surgeon") && (
-                <div className="flex justify-end">
-                  <Button
-                    type="button"
-                    onClick={() => advanceFrom("surgeon")}
-                    disabled={!sectionValidity.surgeon}
-                    data-testid="button-continue-surgeon"
-                  >
-                    {t("accordion.continue")}
-                  </Button>
-                </div>
+                <>
+                  {!sectionValidity.surgeon && missingFieldLabels("surgeon").length > 0 && touched.size > 0 && (
+                    <MissingFieldsCallout
+                      testId="missing-fields-callout-surgeon"
+                      label={t("missingFields")}
+                      names={missingFieldLabels("surgeon")}
+                    />
+                  )}
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      onClick={() => advanceFrom("surgeon")}
+                      data-testid="button-continue-surgeon"
+                    >
+                      {t("accordion.continue")}
+                    </Button>
+                  </div>
+                </>
               )}
             </div>
           </AccordionContent>
@@ -956,16 +1054,24 @@ export function SurgeryRequestForm({
               </div>
 
               {!isLastVisible("surgery") && (
-                <div className="flex justify-end">
-                  <Button
-                    type="button"
-                    onClick={() => advanceFrom("surgery")}
-                    disabled={!sectionValidity.surgery}
-                    data-testid="button-continue-surgery"
-                  >
-                    {t("accordion.continue")}
-                  </Button>
-                </div>
+                <>
+                  {!sectionValidity.surgery && missingFieldLabels("surgery").length > 0 && touched.size > 0 && (
+                    <MissingFieldsCallout
+                      testId="missing-fields-callout-surgery"
+                      label={t("missingFields")}
+                      names={missingFieldLabels("surgery")}
+                    />
+                  )}
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      onClick={() => advanceFrom("surgery")}
+                      data-testid="button-continue-surgery"
+                    >
+                      {t("accordion.continue")}
+                    </Button>
+                  </div>
+                </>
               )}
             </div>
           </AccordionContent>
@@ -1104,16 +1210,24 @@ export function SurgeryRequestForm({
                 </>
 
               {!isLastVisible("patient") && (
-                <div className="flex justify-end">
-                  <Button
-                    type="button"
-                    onClick={() => advanceFrom("patient")}
-                    disabled={!sectionValidity.patient}
-                    data-testid="button-continue-patient"
-                  >
-                    {t("accordion.continue")}
-                  </Button>
-                </div>
+                <>
+                  {!sectionValidity.patient && missingFieldLabels("patient").length > 0 && touched.size > 0 && (
+                    <MissingFieldsCallout
+                      testId="missing-fields-callout-patient"
+                      label={t("missingFields")}
+                      names={missingFieldLabels("patient")}
+                    />
+                  )}
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      onClick={() => advanceFrom("patient")}
+                      data-testid="button-continue-patient"
+                    >
+                      {t("accordion.continue")}
+                    </Button>
+                  </div>
+                </>
               )}
             </div>
           </AccordionContent>
@@ -1208,15 +1322,24 @@ export function SurgeryRequestForm({
         )}
       </Accordion>
 
-      <div className="flex justify-end pt-2">
-        <Button
-          type="submit"
-          disabled={!canSubmit || isSubmitting}
-          data-testid="button-submit-surgery-request"
-        >
-          {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          {t("submit")}
-        </Button>
+      <div className="flex flex-col gap-2 pt-2">
+        {!canSubmit && missingFieldLabels("all").length > 0 && touched.size > 0 && (
+          <MissingFieldsCallout
+            testId="missing-fields-callout-submit"
+            label={t("missingFields")}
+            names={missingFieldLabels("all")}
+          />
+        )}
+        <div className="flex justify-end">
+          <Button
+            type="submit"
+            disabled={!canSubmit || isSubmitting}
+            data-testid="button-submit-surgery-request"
+          >
+            {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {t("submit")}
+          </Button>
+        </div>
       </div>
     </form>
   );

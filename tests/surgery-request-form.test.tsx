@@ -171,3 +171,30 @@ describe("SurgeryRequestForm — CHOP picker cleanup", () => {
     expect(container.querySelector('[data-testid="input-surgery-name-custom"]')).toBeNull();
   });
 });
+
+describe("SurgeryRequestForm — missing-fields callout", () => {
+  it("shows the amber callout listing missing fields when Continue is clicked on an invalid section", () => {
+    const { container } = render(
+      <SurgeryRequestForm
+        {...baseProps}
+        currentSurgeon={{ firstName: "R", lastName: "S", email: null, phone: null }}
+      />,
+      { wrapper: makeQueryWrapper() },
+    );
+
+    // Click Continue on the surgeon section first to advance to step 2
+    const cont1 = container.querySelector('[data-testid="button-continue-surgeon"]') as HTMLButtonElement;
+    expect(cont1).not.toBeNull();
+    fireEvent.click(cont1);
+
+    // Now click Continue on the surgery section with all required fields empty
+    const cont2 = container.querySelector('[data-testid="button-continue-surgery"]') as HTMLButtonElement;
+    expect(cont2).not.toBeNull();
+    fireEvent.click(cont2);
+
+    // Callout appears, listing missing field labels
+    const callout = container.querySelector('[data-testid="missing-fields-callout-surgery"]');
+    expect(callout).not.toBeNull();
+    expect(callout!.textContent).toContain("missingFields");
+  });
+});
