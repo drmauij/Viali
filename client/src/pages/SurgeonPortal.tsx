@@ -180,6 +180,12 @@ const translations: Record<string, Record<string, string>> = {
     "subgroup.schedule": "Termin",
     "subgroup.procedure": "Eingriff",
     "subgroup.coverage": "Abrechnung",
+    // Phase 2 UX additions
+    "progress.stepOfTotal": "Schritt {step} von {total}",
+    "draft.banner.title": "Vorherigen Entwurf fortsetzen",
+    "draft.banner.savedAgo": "gespeichert vor {when}",
+    "draft.banner.restore": "Wiederherstellen",
+    "draft.banner.discard": "Verwerfen",
   },
   en: {
     // Gate
@@ -306,6 +312,12 @@ const translations: Record<string, Record<string, string>> = {
     "subgroup.schedule": "Schedule",
     "subgroup.procedure": "Procedure",
     "subgroup.coverage": "Coverage",
+    // Phase 2 UX additions
+    "progress.stepOfTotal": "Step {step} of {total}",
+    "draft.banner.title": "Continuing your previous draft",
+    "draft.banner.savedAgo": "saved {when} ago",
+    "draft.banner.restore": "Restore",
+    "draft.banner.discard": "Discard",
   },
 };
 
