@@ -1273,6 +1273,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
                       variant="outline"
                       onClick={() => {
                         setSubmittedSummary(null);
+                        setRestoredInitialValues(undefined);
                         setView("calendar");
                       }}
                       data-testid="button-go-to-calendar"
@@ -1280,7 +1281,10 @@ function SurgeonPortalContent({ token }: { token: string }) {
                       {tFn("goToCalendar")}
                     </Button>
                     <Button
-                      onClick={() => setSubmittedSummary(null)}
+                      onClick={() => {
+                        setSubmittedSummary(null);
+                        setRestoredInitialValues(undefined);
+                      }}
                       data-testid="button-submit-another"
                     >
                       {tFn("submitAnother")}
