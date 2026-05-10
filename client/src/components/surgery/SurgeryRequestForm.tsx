@@ -183,6 +183,14 @@ export interface SurgeryRequestFormProps {
    * to persist a localStorage draft.
    */
   onValuesChange?: (values: SurgeryRequestFormValues) => void;
+
+  /**
+   * Fired whenever the active section, the visible sections, or any
+   * section's completion state changes. Used by the parent to render a
+   * sticky progress header outside the form's DOM (so `position: sticky`
+   * isn't trapped by the surrounding Card / CardContent overflow).
+   */
+  onProgressChange?: (state: ProgressState) => void;
 }
 
 const DEFAULT_VALUES: SurgeryRequestFormValues = {
@@ -257,7 +265,7 @@ function MissingFieldsCallout({
   );
 }
 
-type SectionKey = "surgeon" | "surgery" | "patient" | "documents";
+export type SectionKey = "surgeon" | "surgery" | "patient" | "documents";
 
 type SectionTitleKey =
   | "accordion.surgeon"
@@ -272,15 +280,21 @@ const SECTION_TITLE_KEY: Record<SectionKey, SectionTitleKey> = {
   documents: "accordion.documents",
 };
 
-function ProgressHeader({
+export type ProgressState = {
+  openSection: SectionKey;
+  visibleSections: SectionKey[];
+  completed: Record<SectionKey, boolean>;
+};
+
+export function ProgressHeader({
   visibleSections,
   openSection,
-  isComplete,
+  completed,
   t,
 }: {
   visibleSections: SectionKey[];
   openSection: SectionKey;
-  isComplete: (key: SectionKey) => boolean;
+  completed: Record<SectionKey, boolean>;
   t: (key: string) => string;
 }) {
   const total = visibleSections.length;
@@ -295,16 +309,16 @@ function ProgressHeader({
 
   return (
     <div
-      className="sticky top-0 z-20 -mx-6 -mt-2 flex items-center gap-3 border-b border-border bg-card px-6 py-3 shadow-sm"
+      className="sticky top-0 z-20 mb-3 flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-sm"
       data-testid="form-progress-header"
     >
       <div className="flex items-center gap-2">
         {visibleSections.map((key) => {
-          const complete = isComplete(key);
+          const isComplete = completed[key];
           const active = key === openSection;
           const dotClass = active
             ? "h-3 w-3 rounded-full bg-primary ring-2 ring-primary/30"
-            : complete
+            : isComplete
               ? "h-3 w-3 rounded-full bg-emerald-600"
               : "h-3 w-3 rounded-full border border-muted-foreground/40";
           return <div key={key} className={dotClass} data-progress-dot data-key={key} />;
@@ -336,6 +350,7 @@ export function SurgeryRequestForm({
   initialValues,
   uploadFile,
   onValuesChange,
+  onProgressChange,
 }: SurgeryRequestFormProps) {
   const [values, setValues] = useState<SurgeryRequestFormValues>(() => ({
     ...DEFAULT_VALUES,
@@ -653,14 +668,24 @@ export function SurgeryRequestForm({
     return `flex items-center gap-2${dim ? " text-muted-foreground" : ""}`;
   };
 
+  useEffect(() => {
+    onProgressChange?.({
+      openSection,
+      visibleSections,
+      completed: {
+        surgeon: isSectionComplete("surgeon"),
+        surgery: isSectionComplete("surgery"),
+        patient: isSectionComplete("patient"),
+        documents: isSectionComplete("documents"),
+      },
+    });
+    // visibleSections is derived from values.isReservationOnly; values covers
+    // both that and the field-level inputs that drive sectionValidity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSection, values, onProgressChange]);
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <ProgressHeader
-        visibleSections={visibleSections}
-        openSection={openSection}
-        isComplete={isSectionComplete}
-        t={t}
-      />
       <Accordion
         type="single"
         value={openSection}

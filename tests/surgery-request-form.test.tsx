@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { SurgeryRequestForm } from "../client/src/components/surgery/SurgeryRequestForm";
+import {
+  SurgeryRequestForm,
+  ProgressHeader,
+  type ProgressState,
+} from "../client/src/components/surgery/SurgeryRequestForm";
 import { makeQueryWrapper } from "./test-utils";
 
 const t = (key: string) => key;
@@ -214,47 +218,96 @@ describe("SurgeryRequestForm — missing-fields callout", () => {
   });
 });
 
-describe("SurgeryRequestForm — sticky progress header", () => {
+describe("ProgressHeader (standalone)", () => {
   it("renders 4 dots and a 'Step 1 of 4' label in default mode", () => {
     const { container } = render(
-      <SurgeryRequestForm
-        {...baseProps}
-        currentSurgeon={{ firstName: "R", lastName: "S", email: null, phone: null }}
+      <ProgressHeader
+        visibleSections={["surgeon", "surgery", "patient", "documents"]}
+        openSection="surgeon"
+        completed={{ surgeon: false, surgery: false, patient: false, documents: false }}
+        t={t}
       />,
-      { wrapper: makeQueryWrapper() },
     );
     const header = container.querySelector('[data-testid="form-progress-header"]');
     expect(header).not.toBeNull();
-    const dots = header!.querySelectorAll('[data-progress-dot]');
-    expect(dots.length).toBe(4);
+    expect(header!.querySelectorAll("[data-progress-dot]").length).toBe(4);
     expect(header!.textContent).toContain("progress.stepOfTotal");
     expect(header!.textContent).toContain("accordion.surgeon");
   });
 
   it("renders 2 dots in reservation-only mode", () => {
     const { container } = render(
+      <ProgressHeader
+        visibleSections={["surgeon", "surgery"]}
+        openSection="surgeon"
+        completed={{ surgeon: false, surgery: false, patient: false, documents: false }}
+        t={t}
+      />,
+    );
+    expect(container.querySelectorAll("[data-progress-dot]").length).toBe(2);
+  });
+
+  it("shows the active section name when openSection changes", () => {
+    const { container } = render(
+      <ProgressHeader
+        visibleSections={["surgeon", "surgery", "patient", "documents"]}
+        openSection="surgery"
+        completed={{ surgeon: true, surgery: false, patient: false, documents: false }}
+        t={t}
+      />,
+    );
+    const header = container.querySelector('[data-testid="form-progress-header"]')!;
+    expect(header.textContent).toContain("accordion.surgery");
+  });
+});
+
+describe("SurgeryRequestForm — onProgressChange callback", () => {
+  it("fires with the initial section state on mount", () => {
+    const calls: ProgressState[] = [];
+    render(
+      <SurgeryRequestForm
+        {...baseProps}
+        currentSurgeon={{ firstName: "R", lastName: "S", email: null, phone: null }}
+        onProgressChange={(s) => calls.push(s)}
+      />,
+      { wrapper: makeQueryWrapper() },
+    );
+    expect(calls.length).toBeGreaterThan(0);
+    const last = calls[calls.length - 1];
+    expect(last.openSection).toBe("surgeon");
+    expect(last.visibleSections).toEqual(["surgeon", "surgery", "patient", "documents"]);
+    expect(last.completed.surgeon).toBe(true);
+    expect(last.completed.surgery).toBe(false);
+  });
+
+  it("fires with reservation-only visibleSections after the toggle is set via initialValues", () => {
+    const calls: ProgressState[] = [];
+    render(
       <SurgeryRequestForm
         {...baseProps}
         currentSurgeon={{ firstName: "R", lastName: "S", email: null, phone: null }}
         initialValues={{ isReservationOnly: true }}
+        onProgressChange={(s) => calls.push(s)}
       />,
       { wrapper: makeQueryWrapper() },
     );
-    const dots = container.querySelectorAll('[data-progress-dot]');
-    expect(dots.length).toBe(2);
+    const last = calls[calls.length - 1];
+    expect(last.visibleSections).toEqual(["surgeon", "surgery"]);
   });
 
-  it("advances the active dot when surgeon Continue is clicked", () => {
+  it("advances openSection in the callback when surgeon Continue is clicked", () => {
+    const calls: ProgressState[] = [];
     const { container } = render(
       <SurgeryRequestForm
         {...baseProps}
         currentSurgeon={{ firstName: "R", lastName: "S", email: null, phone: null }}
+        onProgressChange={(s) => calls.push(s)}
       />,
       { wrapper: makeQueryWrapper() },
     );
     openSurgerySection(container);
-    const header = container.querySelector('[data-testid="form-progress-header"]')!;
-    expect(header.textContent).toContain("accordion.surgery");
+    const last = calls[calls.length - 1];
+    expect(last.openSection).toBe("surgery");
   });
 });
 

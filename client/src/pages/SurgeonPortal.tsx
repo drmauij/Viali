@@ -12,7 +12,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { SurgeryRequestForm, type AvailableSurgeon, type SurgeryRequestFormValues } from "@/components/surgery/SurgeryRequestForm";
+import {
+  SurgeryRequestForm,
+  ProgressHeader,
+  type AvailableSurgeon,
+  type SurgeryRequestFormValues,
+  type ProgressState,
+} from "@/components/surgery/SurgeryRequestForm";
 import {
   InputOTP,
   InputOTPGroup,
@@ -815,6 +821,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
   });
 
   // Draft persistence
+  const [progressState, setProgressState] = useState<ProgressState | null>(null);
   const [draftBanner, setDraftBanner] = useState<SurgeonPortalDraft | null>(null);
   const [restoredInitialValues, setRestoredInitialValues] = useState<
     SurgeryRequestFormValues | undefined
@@ -1192,6 +1199,14 @@ function SurgeonPortalContent({ token }: { token: string }) {
 
         <TabsContent value="newRequest" className="mt-0">
           <div className="max-w-2xl mx-auto px-4 py-6">
+            {progressState && !submittedSummary && (
+              <ProgressHeader
+                visibleSections={progressState.visibleSections}
+                openSection={progressState.openSection}
+                completed={progressState.completed}
+                t={tFn}
+              />
+            )}
             {draftBanner && !submittedSummary && (
               <div
                 className="mb-3 rounded-lg border border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200 flex flex-wrap items-center gap-3"
@@ -1321,6 +1336,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
                     uploadFile={uploadFile}
                     initialValues={restoredInitialValues}
                     onValuesChange={handleFormChange}
+                    onProgressChange={setProgressState}
                   />
                 </CardContent>
               </Card>
