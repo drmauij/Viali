@@ -822,6 +822,23 @@ function SurgeonPortalContent({ token }: { token: string }) {
 
   // Draft persistence
   const [progressState, setProgressState] = useState<ProgressState | null>(null);
+  // Tracks whether the in-flow progress header has scrolled out of view.
+  // When true, render a fixed copy pinned to the viewport top — gives us a
+  // reliable "sticky" effect that doesn't depend on the surrounding overflow
+  // chain (Radix Tabs / Card / etc. were trapping `position: sticky`).
+  const [progressPinned, setProgressPinned] = useState(false);
+  const progressInFlowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = progressInFlowRef.current;
+    if (!el || !progressState) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setProgressPinned(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [progressState !== null]);
+
   const [draftBanner, setDraftBanner] = useState<SurgeonPortalDraft | null>(null);
   const [restoredInitialValues, setRestoredInitialValues] = useState<
     SurgeryRequestFormValues | undefined
@@ -1197,15 +1214,30 @@ function SurgeonPortalContent({ token }: { token: string }) {
           </TabsList>
         </div>
 
-        <TabsContent value="newRequest" className="mt-0">
-          <div className="max-w-2xl mx-auto px-4 py-6">
-            {progressState && !submittedSummary && (
+        {progressState && !submittedSummary && progressPinned && (
+          <div className="fixed top-0 left-0 right-0 z-30 border-b border-border bg-card shadow-md">
+            <div className="max-w-2xl mx-auto px-4 py-2">
               <ProgressHeader
                 visibleSections={progressState.visibleSections}
                 openSection={progressState.openSection}
                 completed={progressState.completed}
                 t={tFn}
               />
+            </div>
+          </div>
+        )}
+
+        <TabsContent value="newRequest" className="mt-0">
+          <div className="max-w-2xl mx-auto px-4 py-6">
+            {progressState && !submittedSummary && (
+              <div ref={progressInFlowRef} className="mb-3">
+                <ProgressHeader
+                  visibleSections={progressState.visibleSections}
+                  openSection={progressState.openSection}
+                  completed={progressState.completed}
+                  t={tFn}
+                />
+              </div>
             )}
             {draftBanner && !submittedSummary && (
               <div

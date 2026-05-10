@@ -309,7 +309,7 @@ export function ProgressHeader({
 
   return (
     <div
-      className="sticky top-0 z-20 mb-3 flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-sm"
+      className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-sm"
       data-testid="form-progress-header"
     >
       <div className="flex items-center gap-2">
