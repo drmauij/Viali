@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +51,13 @@ import {
 } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { generateSurgeonSummaryPDF } from "@/lib/surgeonSummaryPdf";
+import {
+  loadDraft,
+  saveDraft,
+  clearDraft,
+  type SurgeonPortalDraft,
+} from "@/lib/surgeon-portal-draft";
+import { formatDistanceToNow } from "date-fns";
 
 // ========== TRANSLATIONS ==========
 
@@ -807,6 +814,21 @@ function SurgeonPortalContent({ token }: { token: string }) {
     queryKey: [`/api/surgeon-portal/${token}/me`],
   });
 
+  // Draft persistence
+  const [draftBanner, setDraftBanner] = useState<SurgeonPortalDraft | null>(null);
+  const [restoredInitialValues, setRestoredInitialValues] = useState<
+    SurgeryRequestFormValues | undefined
+  >(undefined);
+
+  useEffect(() => {
+    if (!me?.email) return;
+    const existing = loadDraft(token, me.email);
+    if (existing) {
+      setDraftBanner(existing);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me?.email]);
+
   const { data: children = [] } = useQuery<AvailableSurgeon[]>({
     queryKey: [`/api/surgeon-portal/${token}/children`],
     enabled: !!me?.isPraxis,
@@ -839,6 +861,25 @@ function SurgeonPortalContent({ token }: { token: string }) {
       setSelectedSurgeonId(availableSurgeons[0].id);
     }
   }, [availableSurgeons, selectedSurgeonId]);
+
+  // Debounced draft save
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleFormChange = useCallback(
+    (values: SurgeryRequestFormValues) => {
+      if (!me?.email) return;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        saveDraft(token, me.email!, values as unknown as Record<string, unknown>);
+      }, 800);
+    },
+    [me?.email, token],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, []);
 
   // Upload one file: requests presigned PUT URL, uploads, returns metadata.
   // The form stages files locally; the actual /documents row is only created
@@ -952,6 +993,9 @@ function SurgeonPortalContent({ token }: { token: string }) {
       // jump to the calendar. The list query still refreshes in the
       // background so the calendar tab is up-to-date when they click over.
       setSubmittedSummary(variables);
+      if (me?.email) {
+        clearDraft(token, me.email);
+      }
       queryClient.invalidateQueries({
         queryKey: [`/api/surgeon-portal/${token}/surgeries`],
       });
@@ -1147,6 +1191,48 @@ function SurgeonPortalContent({ token }: { token: string }) {
 
         <TabsContent value="newRequest" className="mt-0">
           <div className="max-w-2xl mx-auto px-4 py-6">
+            {draftBanner && !submittedSummary && (
+              <div
+                className="mb-3 rounded-lg border border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200 flex flex-wrap items-center gap-3"
+                data-testid="draft-restore-banner"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium">{tFn("draft.banner.title")}</div>
+                  <div className="text-xs opacity-80">
+                    {tFn("draft.banner.savedAgo").replace(
+                      "{when}",
+                      formatDistanceToNow(new Date(draftBanner.savedAt), {
+                        locale: lang === "de" ? de : enUS,
+                      }),
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setRestoredInitialValues(
+                      draftBanner.values as unknown as SurgeryRequestFormValues,
+                    );
+                    setDraftBanner(null);
+                  }}
+                  data-testid="button-draft-restore"
+                >
+                  {tFn("draft.banner.restore")}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (me?.email) clearDraft(token, me.email);
+                    setDraftBanner(null);
+                  }}
+                  data-testid="button-draft-discard"
+                >
+                  {tFn("draft.banner.discard")}
+                </Button>
+              </div>
+            )}
             {submittedSummary ? (
               <Card data-testid="card-request-confirmation">
                 <CardHeader>
@@ -1228,6 +1314,8 @@ function SurgeonPortalContent({ token }: { token: string }) {
                     onSubmit={(values) => submitRequest.mutate(values)}
                     isSubmitting={submitRequest.isPending}
                     uploadFile={uploadFile}
+                    initialValues={restoredInitialValues}
+                    onValuesChange={handleFormChange}
                   />
                 </CardContent>
               </Card>

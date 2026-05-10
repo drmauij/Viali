@@ -177,6 +177,12 @@ export interface SurgeryRequestFormProps {
    * Resolves with `null` on failure (parent shows the toast).
    */
   uploadFile?: (file: File) => Promise<Omit<AttachedFile, "id" | "isUploading"> | null>;
+
+  /**
+   * Fired whenever the form's internal values change. Used by the parent
+   * to persist a localStorage draft.
+   */
+  onValuesChange?: (values: SurgeryRequestFormValues) => void;
 }
 
 const DEFAULT_VALUES: SurgeryRequestFormValues = {
@@ -329,6 +335,7 @@ export function SurgeryRequestForm({
   isSubmitting,
   initialValues,
   uploadFile,
+  onValuesChange,
 }: SurgeryRequestFormProps) {
   const [values, setValues] = useState<SurgeryRequestFormValues>(() => ({
     ...DEFAULT_VALUES,
@@ -340,6 +347,10 @@ export function SurgeryRequestForm({
     setValues((prev) => ({ ...prev, ...initialValues }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialValues]);
+
+  useEffect(() => {
+    onValuesChange?.(values);
+  }, [values, onValuesChange]);
 
   const update = <K extends keyof SurgeryRequestFormValues>(
     field: K,

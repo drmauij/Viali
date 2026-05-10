@@ -302,3 +302,24 @@ describe("SurgeryRequestForm — mobile attributes", () => {
     expect(postalCode.getAttribute("inputmode")).toBe("numeric");
   });
 });
+
+describe("SurgeryRequestForm — initialValues rehydrate", () => {
+  it("rehydrates form values from initialValues prop", () => {
+    const { container } = render(
+      <SurgeryRequestForm
+        {...baseProps}
+        currentSurgeon={{ firstName: "R", lastName: "S", email: null, phone: null }}
+        initialValues={{
+          surgeryName: "Restored procedure",
+          surgeryDurationMinutes: 90,
+        }}
+      />,
+      { wrapper: makeQueryWrapper() },
+    );
+    openSurgerySection(container);
+    const chopButton = container.querySelector('[data-testid="button-chop-search"]');
+    expect(chopButton?.textContent).toContain("Restored procedure");
+    const duration = container.querySelector('[data-testid="input-surgery-duration"]') as HTMLInputElement;
+    expect(duration.value).toBe("90");
+  });
+});
