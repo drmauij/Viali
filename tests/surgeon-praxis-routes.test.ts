@@ -231,4 +231,24 @@ describe("PATCH /api/surgeon-portal/:token/me", () => {
     expect(res.status).toBe(200);
     expect(res.body.phone).toBeNull();
   });
+
+  it("does not write to a different user's row even if email is forged in body", async () => {
+    // Solo user authenticates; tries to PATCH but with another user's email in body.
+    // Expectation: 400 (strict schema), AND praxisUser's row stays untouched.
+    const beforePraxis = await db.select().from(users).where(eq(users.id, praxisUser.id));
+    const session = await makeSession(soloUser.email);
+    const res = await request(app)
+      .patch(`/api/surgeon-portal/${portalToken}/me`)
+      .set("Cookie", `portal_session=${session}`)
+      .send({
+        firstName: "Hijack",
+        lastName: "Attempt",
+        phone: null,
+        email: praxisUser.email, // forged
+      });
+    expect(res.status).toBe(400);
+    const [praxisAfter] = await db.select().from(users).where(eq(users.id, praxisUser.id));
+    expect(praxisAfter.firstName).toBe(beforePraxis[0].firstName);
+    expect(praxisAfter.lastName).toBe(beforePraxis[0].lastName);
+  });
 });
