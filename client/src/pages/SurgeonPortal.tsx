@@ -18,7 +18,17 @@ import {
   type AvailableSurgeon,
   type SurgeryRequestFormValues,
   type ProgressState,
+  surgeonInitials,
 } from "@/components/surgery/SurgeryRequestForm";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Pencil } from "lucide-react";
 import {
   InputOTP,
   InputOTPGroup,
@@ -855,6 +865,8 @@ function SurgeonPortalContent({ token }: { token: string }) {
     return () => obs.disconnect();
   }, [progressState !== null]);
 
+  const [myDataOpen, setMyDataOpen] = useState(false);
+
   const [draftBanner, setDraftBanner] = useState<SurgeonPortalDraft | null>(null);
   const [restoredInitialValues, setRestoredInitialValues] = useState<
     SurgeryRequestFormValues | undefined
@@ -1178,38 +1190,58 @@ function SurgeonPortalContent({ token }: { token: string }) {
             <h1 className="text-lg font-semibold">{t.title}</h1>
             {hospitalName && <p className="text-sm text-muted-foreground">{hospitalName}</p>}
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex gap-1">
-              <Globe className="h-4 w-4 text-muted-foreground mt-1.5 mr-1" />
-              {["de", "en"].map((l) => (
-                <Button
-                  key={l}
-                  variant={l === lang ? "default" : "ghost"}
-                  size="sm"
-                  className="px-2 py-1 h-7 text-xs"
-                  onClick={() => switchLang(l)}
-                >
-                  {LANGUAGE_LABELS[l]}
-                </Button>
-              ))}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-              onClick={async () => {
-                try {
-                  await fetch(`/api/surgeon-portal/${token}/logout`, { method: "POST" });
-                } catch {
-                  // proceed with reload regardless
-                }
-                window.location.reload();
-              }}
-              title={t.logout}
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold hover:opacity-90 transition-opacity"
+                data-testid="account-menu-trigger"
+              >
+                {surgeonInitials(me?.firstName ?? null, me?.lastName ?? null)}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="font-normal">
+                <div className="font-medium leading-tight">
+                  {[me?.firstName, me?.lastName].filter(Boolean).join(" ") || "—"}
+                </div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {me?.email ?? ""}
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => setMyDataOpen(true)}
+                data-testid="menu-item-edit-profile"
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                {tFn("accountMenu.editProfile")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => switchLang(lang === "de" ? "en" : "de")}
+                data-testid="menu-item-toggle-language"
+              >
+                <Globe className="h-4 w-4 mr-2" />
+                {lang === "de" ? "English" : "Deutsch"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onSelect={async () => {
+                  try {
+                    await fetch(`/api/surgeon-portal/${token}/logout`, { method: "POST" });
+                  } catch {
+                    // proceed with reload regardless
+                  }
+                  window.location.reload();
+                }}
+                data-testid="menu-item-logout"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                {t.logout}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
