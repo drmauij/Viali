@@ -6,6 +6,14 @@
  * Structure:
  *   - Single-open accordion with per-section Continue button
  *   - Sections: Operating surgeon → Surgery details → Patient details → Documents
+ *   - Step 1 shows a read-only surgeon summary card when no picker is needed
+ *   - Step 2 carries the "reservation only" scope toggle and is split into
+ *     three labeled sub-groups: Schedule / Procedure / Coverage
+ *   - CHOP procedure picker collapses to one entry point with a "+ Use custom
+ *     name" toggle for free-text fallback
+ *   - Required fields show inline validation (red border + Pflichtfeld helper)
+ *     once touched; an amber "missing fields" callout appears above each
+ *     Continue / Submit button when the section / form is invalid
  *   - Documents section is optional; submit becomes available once
  *     surgeon/surgery/patient sections are valid
  *
@@ -1088,8 +1096,7 @@ export function SurgeryRequestForm({
           </AccordionTrigger>
           <AccordionContent forceMount>
             <div className="space-y-4 pt-2" data-section="patient">
-              <>
-                  <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="patientFirstName">{t("firstName")} *</Label>
                       <Input
@@ -1207,7 +1214,6 @@ export function SurgeryRequestForm({
                       )}
                     </div>
                   </div>
-                </>
 
               {!isLastVisible("patient") && (
                 <>
