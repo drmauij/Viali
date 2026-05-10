@@ -9,6 +9,7 @@ import {
   externalSurgeryRequests,
   portalAccessSessions,
   surgeonActionRequests,
+  userHospitalRoles,
   type SurgeonActionRequest,
 } from "@shared/schema";
 
@@ -484,4 +485,72 @@ export async function togglePraxis(userId: string, isPraxis: boolean) {
     .update(users)
     .set({ isPraxis })
     .where(eq(users.id, userId));
+}
+
+/**
+ * Surgeon-portal eligibility gate. Used by the OTP request/verify handlers
+ * to silently drop login attempts from emails that aren't onboarded as
+ * surgeons at the requesting clinic.
+ *
+ * Eligible at clinic `hospitalId` if the user is non-archived AND ANY of:
+ *  1. Has a userHospitalRoles row at THIS clinic with role 'doctor' or 'admin'
+ *     (covers solo doctors + clinic admins).
+ *  2. is_praxis=true AND has any userHospitalRoles row at THIS clinic
+ *     (proves the praxis is associated with this clinic, regardless of which
+ *     role they hold there).
+ *  3. parent_surgeon_id is set (i.e. they're a praxis child) AND the parent
+ *     has any userHospitalRoles row at THIS clinic.
+ *
+ * Email match is case-insensitive (matches the rest of the portal flow).
+ */
+export async function isUserEligibleForSurgeonPortal(
+  email: string,
+  hospitalId: string,
+): Promise<boolean> {
+  const normalizedEmail = email.toLowerCase();
+
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(sql`LOWER(${users.email}) = ${normalizedEmail}`)
+    .limit(1);
+
+  if (!user) return false;
+  if (user.archivedAt) return false;
+
+  // Path 1 + 2 entry: any of this user's role rows at this clinic.
+  const roleRows = await db
+    .select({ role: userHospitalRoles.role })
+    .from(userHospitalRoles)
+    .where(
+      and(
+        eq(userHospitalRoles.userId, user.id),
+        eq(userHospitalRoles.hospitalId, hospitalId),
+      ),
+    );
+
+  // 1: solo doctor or clinic admin at this clinic.
+  if (roleRows.some((r) => r.role === "doctor" || r.role === "admin")) {
+    return true;
+  }
+  // 2: praxis with any role at this clinic.
+  if (user.isPraxis && roleRows.length > 0) {
+    return true;
+  }
+  // 3: praxis child whose parent has any role at this clinic.
+  if (user.parentSurgeonId) {
+    const [parentRole] = await db
+      .select({ id: userHospitalRoles.id })
+      .from(userHospitalRoles)
+      .where(
+        and(
+          eq(userHospitalRoles.userId, user.parentSurgeonId),
+          eq(userHospitalRoles.hospitalId, hospitalId),
+        ),
+      )
+      .limit(1);
+    if (parentRole) return true;
+  }
+
+  return false;
 }

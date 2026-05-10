@@ -372,7 +372,13 @@ interface SurgeonPortalGateProps {
 }
 
 function SurgeonPortalGate({ token, children }: SurgeonPortalGateProps) {
-  const [state, setState] = useState<"checking" | "enter-email" | "verify-code" | "verified">("checking");
+  const [state, setState] = useState<
+    "checking" | "enter-email" | "verify-code" | "verified" | "not-onboarded"
+  >("checking");
+  const [notOnboardedInfo, setNotOnboardedInfo] = useState<{
+    message: string;
+    contactEmail: string | null;
+  } | null>(null);
   const [lang, setLang] = useState("de");
   const [hospitalName, setHospitalName] = useState("");
   const [email, setEmail] = useState("");
@@ -448,6 +454,17 @@ function SurgeonPortalGate({ token, children }: SurgeonPortalGateProps) {
       if (res.ok) {
         setState("verify-code");
         setCooldown(60);
+      } else if (res.status === 403) {
+        const data = await res.json().catch(() => ({}));
+        if (data?.code === "NOT_ONBOARDED") {
+          setNotOnboardedInfo({
+            message: data.message || t.error,
+            contactEmail: data.contactEmail ?? null,
+          });
+          setState("not-onboarded");
+        } else {
+          setError(t.error);
+        }
       } else {
         setError(t.error);
       }
@@ -539,7 +556,38 @@ function SurgeonPortalGate({ token, children }: SurgeonPortalGateProps) {
               </div>
             )}
 
-            {state === "enter-email" ? (
+            {state === "not-onboarded" && notOnboardedInfo ? (
+              <div className="space-y-4">
+                <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>{notOnboardedInfo.message}</span>
+                </div>
+                {notOnboardedInfo.contactEmail && (
+                  <p className="text-sm text-muted-foreground text-center">
+                    {lang === "de" ? "Kontakt: " : "Contact: "}
+                    <a
+                      href={`mailto:${notOnboardedInfo.contactEmail}`}
+                      className="text-primary hover:underline"
+                      data-testid="link-not-onboarded-contact"
+                    >
+                      {notOnboardedInfo.contactEmail}
+                    </a>
+                  </p>
+                )}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setNotOnboardedInfo(null);
+                    setError(null);
+                    setState("enter-email");
+                  }}
+                  data-testid="button-not-onboarded-back"
+                >
+                  {lang === "de" ? "Andere E-Mail versuchen" : "Try a different email"}
+                </Button>
+              </div>
+            ) : state === "enter-email" ? (
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="surgeon-email">{t.emailLabel}</Label>

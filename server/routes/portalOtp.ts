@@ -20,6 +20,7 @@ import {
 } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import logger from "../logger";
+import { isUserEligibleForSurgeonPortal } from "../storage/surgeonPortal";
 
 const router = Router();
 
@@ -241,6 +242,42 @@ router.post(
         const { email } = req.body as { email?: string; method?: string };
         if (!email || !email.includes("@")) {
           return res.json({ sent: true }); // Don't leak validation
+        }
+        // Surgeon-portal eligibility gate. Reject early with a helpful
+        // not-onboarded response so the surgeon sees a clear actionable
+        // message instead of a "code sent" that never arrives. We trade
+        // strict enumeration resistance for usability — the rate-limit
+        // above caps any probing.
+        if (info.hospitalId) {
+          const eligible = await isUserEligibleForSurgeonPortal(
+            email,
+            info.hospitalId,
+          );
+          if (!eligible) {
+            const [hospital] = await db
+              .select({
+                externalSurgeryNotificationEmail:
+                  hospitals.externalSurgeryNotificationEmail,
+                companyEmail: hospitals.companyEmail,
+              })
+              .from(hospitals)
+              .where(eq(hospitals.id, info.hospitalId))
+              .limit(1);
+            const contactEmail =
+              hospital?.externalSurgeryNotificationEmail ||
+              hospital?.companyEmail ||
+              null;
+            const isGerman = info.language === "de";
+            const message = isGerman
+              ? "Bevor Sie eine OP-Anfrage senden können, müssen Sie als operierender Chirurg in der Klinik registriert sein."
+              : "Before you can send a surgery request, you need to be onboarded as an operating surgeon at the clinic.";
+            return res.status(403).json({
+              code: "NOT_ONBOARDED",
+              message,
+              contactEmail,
+              hospitalName: info.hospitalName,
+            });
+          }
         }
         deliverTo = email;
       } else {
@@ -489,6 +526,26 @@ router.post(
       if (!isValid) {
         logger.info(`[DEBUG-AUTH] verify-code: bcrypt compare FAILED for deliveredTo=${verification.deliveredTo}`);
         return res.status(400).json({ message: "Invalid code" });
+      }
+
+      // Belt-and-braces: re-check surgeon-portal eligibility at session
+      // creation time. The user could in principle have lost their role
+      // between requesting the code and entering it. Cheap query, big
+      // safety win.
+      if (portalType === "surgeon" && verification.deliveredTo) {
+        const verifyInfo = await resolveContactInfo("surgeon", token);
+        if (verifyInfo.hospitalId) {
+          const stillEligible = await isUserEligibleForSurgeonPortal(
+            verification.deliveredTo,
+            verifyInfo.hospitalId,
+          );
+          if (!stillEligible) {
+            return res.status(403).json({
+              code: "NOT_ONBOARDED",
+              message: "You are no longer authorized to access this portal.",
+            });
+          }
+        }
       }
 
       // Success — mark used + create session
