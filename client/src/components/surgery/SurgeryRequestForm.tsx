@@ -559,12 +559,21 @@ export function SurgeryRequestForm({
   };
 
   // ─── Render helper: section header indicator ────────────────────────
-  const sectionIcon = (key: SectionKey) =>
-    sectionValidity[key] ? (
+  // Documents is optional, so sectionValidity.documents is always true.
+  // Show the green check only when the user has actually attached a file —
+  // otherwise the "complete" tick on an untouched optional section reads as
+  // misleading affirmation.
+  const sectionIcon = (key: SectionKey) => {
+    const complete =
+      key === "documents"
+        ? values.attachedFiles.length > 0
+        : sectionValidity[key];
+    return complete ? (
       <CheckCircle2 className="h-4 w-4 text-emerald-600" />
     ) : (
       <Circle className="h-4 w-4 text-muted-foreground" />
     );
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
