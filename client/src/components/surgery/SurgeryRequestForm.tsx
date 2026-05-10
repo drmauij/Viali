@@ -560,19 +560,28 @@ export function SurgeryRequestForm({
 
   // ─── Render helper: section header indicator ────────────────────────
   // Documents is optional, so sectionValidity.documents is always true.
-  // Show the green check only when the user has actually attached a file —
-  // otherwise the "complete" tick on an untouched optional section reads as
-  // misleading affirmation.
-  const sectionIcon = (key: SectionKey) => {
-    const complete =
-      key === "documents"
-        ? values.attachedFiles.length > 0
-        : sectionValidity[key];
-    return complete ? (
+  // Treat "complete" as "the user has actually done something" — for
+  // documents that means at least one attached file. Otherwise the green
+  // tick + bold title on an untouched optional section reads as misleading
+  // affirmation.
+  const isSectionComplete = (key: SectionKey): boolean =>
+    key === "documents"
+      ? values.attachedFiles.length > 0
+      : sectionValidity[key];
+
+  const sectionIcon = (key: SectionKey) =>
+    isSectionComplete(key) ? (
       <CheckCircle2 className="h-4 w-4 text-emerald-600" />
     ) : (
       <Circle className="h-4 w-4 text-muted-foreground" />
     );
+
+  // Dim the title of upcoming sections so the active step stays prominent.
+  // The currently-open section keeps full contrast even while it's still
+  // incomplete — it's where the surgeon is actively working.
+  const triggerLabelClass = (key: SectionKey): string => {
+    const dim = !isSectionComplete(key) && openSection !== key;
+    return `flex items-center gap-2${dim ? " text-muted-foreground" : ""}`;
   };
 
   return (
@@ -586,7 +595,7 @@ export function SurgeryRequestForm({
         {/* ─── Section 1: Operating surgeon ────────────────────────── */}
         <AccordionItem value="surgeon">
           <AccordionTrigger>
-            <span className="flex items-center gap-2">
+            <span className={triggerLabelClass("surgeon")}>
               {sectionIcon("surgeon")}
               {t("accordion.surgeon")}
             </span>
@@ -719,7 +728,7 @@ export function SurgeryRequestForm({
         {/* ─── Section 2: Surgery details ──────────────────────────── */}
         <AccordionItem value="surgery">
           <AccordionTrigger>
-            <span className="flex items-center gap-2">
+            <span className={triggerLabelClass("surgery")}>
               {sectionIcon("surgery")}
               {t("accordion.surgery")}
             </span>
@@ -1098,7 +1107,7 @@ export function SurgeryRequestForm({
         {!values.isReservationOnly && (
         <AccordionItem value="patient">
           <AccordionTrigger>
-            <span className="flex items-center gap-2">
+            <span className={triggerLabelClass("patient")}>
               {sectionIcon("patient")}
               {t("accordion.patient")}
             </span>
@@ -1253,7 +1262,7 @@ export function SurgeryRequestForm({
         {!values.isReservationOnly && (
         <AccordionItem value="documents">
           <AccordionTrigger>
-            <span className="flex items-center gap-2">
+            <span className={triggerLabelClass("documents")}>
               {sectionIcon("documents")}
               {t("accordion.documents")}
               <span className="text-xs text-muted-foreground">({t("optional")})</span>
