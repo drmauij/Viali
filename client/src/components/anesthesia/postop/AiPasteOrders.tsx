@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Sparkles, ChevronDown, ChevronRight, AlertTriangle, Check, X } from 'lucide-react';
+import { Sparkles, AlertTriangle, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useActiveHospital } from '@/hooks/useActiveHospital';
@@ -53,7 +53,6 @@ export function AiPasteOrders({ hospitalId, existingItems, onApply }: Props) {
   const { t } = useTranslation();
   const hospital = useActiveHospital();
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ParseResult | null>(null);
@@ -121,7 +120,6 @@ export function AiPasteOrders({ hospitalId, existingItems, onApply }: Props) {
     onApply(withFreshIds);
     setResult(null);
     setText('');
-    setOpen(false);
     toast({
       title: t('postopOrders.ai.appliedTitle', 'Applied'),
       description: t('postopOrders.ai.appliedBody', '{{n}} items added. Review and save to persist.', { n: withFreshIds.length }),
@@ -134,21 +132,8 @@ export function AiPasteOrders({ hospitalId, existingItems, onApply }: Props) {
 
   return (
     <div className="border rounded-md bg-muted/30">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium hover:bg-accent/50 rounded-t-md"
-      >
-        {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        <Sparkles className="w-4 h-4 text-primary" />
-        <span>{t('postopOrders.ai.title', 'Paste orders in natural language')}</span>
-        <span className="text-xs text-muted-foreground ml-1">
-          {t('postopOrders.ai.beta', '(AI-assisted)')}
-        </span>
-      </button>
-      {open && (
-        <div className="px-3 pb-3 space-y-2">
-          <Textarea
+      <div className="p-3 space-y-2">
+        <Textarea
             value={text}
             onChange={e => setText(e.target.value)}
             rows={4}
@@ -223,8 +208,7 @@ export function AiPasteOrders({ hospitalId, existingItems, onApply }: Props) {
               </div>
             </div>
           )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }

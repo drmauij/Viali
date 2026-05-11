@@ -7182,6 +7182,22 @@
       "tasks": "Aufgaben"
     },
     "aiPasteToggle": "KI-Paste Verordnungen…",
+    "ai": {
+      "placeholder": "z.B. Paracetamol 1g q6h po, Novalgin 1g q8h bei Bedarf max. 3/Tag iv, Kefzol 2g IV einmal 4h nach erster Dosis, Blutbild täglich",
+      "hint": "Gemischt DE/EN unterstützt. Nichts wird gespeichert, bis Sie auf Anwenden klicken und die Vorlage speichern.",
+      "parse": "Analysieren",
+      "parsing": "Analysiere...",
+      "preview": "Vorgeschlagene Einträge ({{n}})",
+      "noItems": "Nichts hinzuzufügen.",
+      "unresolved": "Nicht im Bestand (wird als Freitext gespeichert)",
+      "discard": "Verwerfen",
+      "apply": "Anwenden",
+      "noItemsTitle": "Keine Einträge erkannt",
+      "noItemsBody": "Versuchen Sie es spezifischer (Medikament, Dosis, Weg, Frequenz).",
+      "errorTitle": "KI-Analyse fehlgeschlagen",
+      "appliedTitle": "Angewendet",
+      "appliedBody": "{{n}} Einträge hinzugefügt. Prüfen und Vorlage speichern."
+    },
     "edit": "Bearbeiten",
     "postopTasks": "Postoperative Aufgaben",
     "overdue": "überfällig",

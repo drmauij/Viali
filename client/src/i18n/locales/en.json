@@ -7081,6 +7081,22 @@
       "tasks": "Tasks"
     },
     "aiPasteToggle": "AI paste orders…",
+    "ai": {
+      "placeholder": "e.g. Paracetamol 1g q6h po, Novalgin 1g q8h PRN max 3/day iv, Kefzol 2g IV einmal 4h nach erster Dosis, Blood count daily",
+      "hint": "Mixed DE/EN supported. Nothing is saved until you click Apply and then Save the template.",
+      "parse": "Parse",
+      "parsing": "Parsing...",
+      "preview": "Proposed items ({{n}})",
+      "noItems": "Nothing to add.",
+      "unresolved": "Not in inventory (will be saved as free text)",
+      "discard": "Discard",
+      "apply": "Apply",
+      "noItemsTitle": "No items extracted",
+      "noItemsBody": "Try being more specific (drug, dose, route, frequency).",
+      "errorTitle": "AI parse failed",
+      "appliedTitle": "Applied",
+      "appliedBody": "{{n}} items added. Review and save to persist."
+    },
     "edit": "Edit",
     "postopTasks": "Postoperative Tasks",
     "overdue": "overdue",

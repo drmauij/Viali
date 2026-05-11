@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, ChevronDown, ChevronRight, Pill, Activity, FlaskConical, ClipboardList, Save, Check, X } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Pill, Activity, FlaskConical, ClipboardList, Save, Check, X, Sparkles } from 'lucide-react';
 import { createEmptyItem, normalizeItem, type PostopOrderItem, type PostopOrderItemType } from '@shared/postopOrderItems';
 import { ItemEditor } from './itemEditors';
 import type { TemplateRow } from '@/hooks/usePostopOrderTemplates';
@@ -153,6 +153,29 @@ export function PostopOrdersEditor({ items: rawItems, templateId, templates, can
           </div>
         </div>
 
+        {/* AI paste — at top, collapsed by default, for bulk natural-language entry */}
+        {canEdit && (
+          <div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground -ml-2"
+              onClick={() => setAiPasteOpen(!aiPasteOpen)}
+              data-testid="toggle-ai-paste"
+              disabled={hasDraft}
+            >
+              {aiPasteOpen ? <ChevronDown className="w-3 h-3 mr-1" /> : <ChevronRight className="w-3 h-3 mr-1" />}
+              <Sparkles className="w-3 h-3 mr-1 text-primary" />
+              {t('postopOrders.aiPasteToggle', 'AI paste orders…')}
+            </Button>
+            {aiPasteOpen && (
+              <div className="mt-2">
+                <AiPasteOrders hospitalId={hospitalId} existingItems={items} onApply={appendItems} />
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 2x2 grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {(Object.keys(CARD_TYPES) as CardKey[]).map(key => (
@@ -175,28 +198,6 @@ export function PostopOrdersEditor({ items: rawItems, templateId, templates, can
             />
           ))}
         </div>
-
-        {/* AI paste */}
-        {canEdit && (
-          <div className="border-t pt-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs text-muted-foreground"
-              onClick={() => setAiPasteOpen(!aiPasteOpen)}
-              data-testid="toggle-ai-paste"
-              disabled={hasDraft}
-            >
-              {aiPasteOpen ? <ChevronDown className="w-3 h-3 mr-1" /> : <ChevronRight className="w-3 h-3 mr-1" />}
-              {t('postopOrders.aiPasteToggle', 'AI paste orders…')}
-            </Button>
-            {aiPasteOpen && (
-              <div className="mt-2">
-                <AiPasteOrders hospitalId={hospitalId} existingItems={items} onApply={appendItems} />
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Save as template */}
         {canEdit && onSaveAsTemplate && items.length > 0 && (
