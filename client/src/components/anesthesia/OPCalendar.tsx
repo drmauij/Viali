@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import SignaturePad from "@/components/SignaturePad";
 import type { ChecklistTemplate, ChecklistCompletion } from "@shared/schema";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download, Circle, Pencil, PauseCircle, CheckCircle2, XCircle, ClipboardCheck, FileSignature, FileText, MoreHorizontal } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download, Circle, Pencil, PauseCircle, CheckCircle2, XCircle, ClipboardCheck, FileSignature, FileText, MoreHorizontal, Lock, LockOpen } from "lucide-react";
 import { formatDate, formatDateHeader, formatMonthYear, formatTime as formatTimeUtil, getDateFnsTimeFormat, formatDateForInput, getWeekStartsOn } from "@/lib/dateUtils";
 import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
 import { useQuery } from "@tanstack/react-query";
@@ -290,6 +290,13 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [staffBoxOpen, setStaffBoxOpen] = useState(true);
+  // Edit-lock for the calendar. Default locked on mount and re-locks
+  // whenever the user switches view (day/week/month) — prevents accidental
+  // touch-drag from shifting or resizing an already-planned surgery.
+  // New-surgery creation (empty-slot drag) is intentionally not gated; its
+  // QuickCreateSurgeryDialog already requires an explicit confirm.
+  const [isCalendarLocked, setIsCalendarLocked] = useState(true);
+  useEffect(() => { setIsCalendarLocked(true); }, [currentView]);
   const preSearchDateRef = useRef<Date | null>(null);
 
   // Drag and drop sensors
@@ -1018,17 +1025,31 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
   // Handle event drop (drag and drop)
   const handleEventDrop = useCallback(async ({ event, start, end, resourceId }: any) => {
     if (!canPlanSurgery) return;
+    if (isCalendarLocked) {
+      toast({
+        title: t("opCalendar.lock.blockedToast", "Calendar is locked. Click the lock to enable changes."),
+        variant: "destructive",
+      });
+      return;
+    }
     const surgeryId = event.surgeryId;
     const newRoomId = resourceId || event.resource || null;
     await sendReschedulePatch({ surgeryId, start, end, newRoomId });
-  }, [canPlanSurgery, sendReschedulePatch]);
+  }, [canPlanSurgery, sendReschedulePatch, isCalendarLocked, toast, t]);
 
   // Handle event resize
   const handleEventResize = useCallback(async ({ event, start, end }: any) => {
     if (!canPlanSurgery) return;
+    if (isCalendarLocked) {
+      toast({
+        title: t("opCalendar.lock.blockedToast", "Calendar is locked. Click the lock to enable changes."),
+        variant: "destructive",
+      });
+      return;
+    }
     const surgeryId = event.surgeryId;
     await sendReschedulePatch({ surgeryId, start, end, newRoomId: null });
-  }, [canPlanSurgery, sendReschedulePatch]);
+  }, [canPlanSurgery, sendReschedulePatch, isCalendarLocked, toast, t]);
 
   // Detect if the currently selected day falls within a closure
   const dayClosure = useMemo(() => {
@@ -1492,6 +1513,31 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
             onClear={handleSearchClear}
           />
         )}
+        {/* Edit lock — guards move/resize of existing surgeries against
+            accidental touch-drags. Re-locks on view switch. */}
+        {canPlanSurgery && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCalendarLocked(prev => !prev)}
+            data-testid="button-calendar-lock"
+            title={isCalendarLocked
+              ? t("opCalendar.lock.tooltipLocked", "Locked — click to unlock")
+              : t("opCalendar.lock.tooltipUnlocked", "Edit mode — click to lock")}
+            className={cn(
+              "h-8 sm:h-9 px-2 gap-1.5",
+              !isCalendarLocked && "border-amber-500 text-amber-600 dark:text-amber-400 hover:text-amber-600 dark:hover:text-amber-400",
+            )}
+            aria-pressed={!isCalendarLocked}
+          >
+            {isCalendarLocked ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
+            {!isCalendarLocked && (
+              <span className="hidden sm:inline text-xs font-medium">
+                {t("opCalendar.lock.unlocked", "Edit mode")}
+              </span>
+            )}
+          </Button>
+        )}
         {/* Navigation buttons */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <Button
@@ -1739,6 +1785,13 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
                 }
               }}
               onEventDrop={canPlanSurgery ? async (surgeryId, newStart, newEnd, newRoomId) => {
+                if (isCalendarLocked) {
+                  toast({
+                    title: t("opCalendar.lock.blockedToast", "Calendar is locked. Click the lock to enable changes."),
+                    variant: "destructive",
+                  });
+                  return;
+                }
                 try {
                   await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
                     plannedDate: newStart.toISOString(),

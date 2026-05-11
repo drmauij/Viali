@@ -6892,6 +6892,13 @@
     }
   },
   "opCalendar": {
+    "lock": {
+      "locked": "Locked",
+      "unlocked": "Edit mode",
+      "tooltipLocked": "Locked — click to unlock",
+      "tooltipUnlocked": "Edit mode — click to lock",
+      "blockedToast": "Calendar is locked. Click the lock to enable changes."
+    },
     "today": "Today",
     "day": "Day",
     "week": "Week",

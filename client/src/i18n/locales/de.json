@@ -6993,6 +6993,13 @@
     }
   },
   "opCalendar": {
+    "lock": {
+      "locked": "Gesperrt",
+      "unlocked": "Bearbeitungsmodus",
+      "tooltipLocked": "Gesperrt — anklicken zum Entsperren",
+      "tooltipUnlocked": "Bearbeitungsmodus — anklicken zum Sperren",
+      "blockedToast": "Kalender ist gesperrt. Schloss anklicken, um Änderungen zu erlauben."
+    },
     "today": "Heute",
     "day": "Tag",
     "week": "Woche",
