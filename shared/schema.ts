@@ -165,6 +165,7 @@ export const hospitals = pgTable("hospitals", {
   addonLogistics: boolean("addon_logistics").default(false), // Centralized order management (+5 CHF/month)
   addonClinic: boolean("addon_clinic").default(false), // Clinic module with invoices & appointments (+10 CHF/month)
   addonPatientChat: boolean("addon_patient_chat").default(false), // 2-way patient chat via portal
+  addonAmbulantEligibility: boolean("addon_ambulant_eligibility").notNull().default(false), // Pre-op ambulant eligibility scoring (Caprini/STOP-BANG/RCRI/Apfel) + gate
   // Idle session auto-logout (Security tab). 0 = disabled. Applies to staff sessions only,
   // not patient/portal sessions. Enforced server-side; client shows a countdown warning.
   idleTimeoutMinutes: integer("idle_timeout_minutes").default(0).notNull(),
@@ -1186,6 +1187,13 @@ export const surgeries = pgTable("surgeries", {
   admissionTime: timestamp("admission_time"), // Patient arrival time (Eintritt)
   stayType: varchar("stay_type", { enum: ["ambulant", "overnight"] }), // Ambulant or with overnight stay
 
+  // Ambulant eligibility (gated by hospitals.addonAmbulantEligibility)
+  surgeryRiskClass: varchar("surgery_risk_class", { enum: ["minor", "standard", "large", "critical"] }),
+  ambulantQuickCheck: jsonb("ambulant_quick_check"),
+  ambulantOverrideReason: text("ambulant_override_reason"),
+  ambulantOverrideBy: varchar("ambulant_override_by").references(() => users.id),
+  ambulantOverrideAt: timestamp("ambulant_override_at"),
+
   // Business/Billing
   price: decimal("price", { precision: 10, scale: 2 }), // Surgery price
   coverageType: varchar("coverage_type"), // Kostenträger: Selbstzahler, Krankenkasse, etc.
@@ -2105,7 +2113,14 @@ export const preOpAssessments = pgTable("preop_assessments", {
   callbackPhoneNumber: varchar("callback_phone_number"),
   callbackInvitationSentAt: timestamp("callback_invitation_sent_at"),
   callbackInvitationMethod: varchar("callback_invitation_method"), // 'sms' | 'email'
-  
+
+  // Ambulant eligibility (Sprint 2 — anesthesia full assessment)
+  osasSnoringLoud: boolean("osas_snoring_loud"),
+  osasObservedApnea: boolean("osas_observed_apnea"),
+  osasDaytimeTiredness: boolean("osas_daytime_tiredness"),
+  neckCircumferenceCm: decimal("neck_circumference_cm", { precision: 4, scale: 1 }),
+  ambulantFullAssessment: jsonb("ambulant_full_assessment"),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
