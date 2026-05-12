@@ -3268,6 +3268,83 @@ router.get(
   },
 );
 
+// List portal-shared documents for the patient — staff-uploaded images and
+// PDFs that have been toggled visible. Each row includes a 15-min presigned
+// URL so the portal can render images inline. Mirrors /shared-photos.
+router.get(
+  "/api/patient-portal/:token/shared-documents",
+  requirePortalVerification("patient"),
+  async (req: any, res: Response) => {
+    try {
+      const link = await storage.getQuestionnaireLinkByToken(req.params.token);
+      if (!link || !link.patientId) {
+        return res.status(404).json({ message: "Invalid portal link" });
+      }
+
+      const docs = await storage.getPortalVisiblePatientDocumentsForPatient(link.patientId);
+
+      const { ObjectStorageService } = await import("../objectStorage");
+      const s3 = new ObjectStorageService();
+
+      const stripObjectsPrefix = (url: string) =>
+        url.startsWith("/objects/") ? url.slice("/objects/".length) : url;
+
+      const result = await Promise.all(
+        docs.map(async (d) => ({
+          id: d.id,
+          fileName: d.fileName,
+          mimeType: d.mimeType,
+          category: d.category,
+          fileSize: d.fileSize,
+          sharedAt: d.portalSharedAt,
+          url: d.fileUrl ? await s3.getObjectDownloadURL(stripObjectsPrefix(d.fileUrl), 900) : null,
+        })),
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      logger.error("Error fetching portal shared documents:", error);
+      res.status(500).json({ message: error.message });
+    }
+  },
+);
+
+// Download a single shared document — fresh 15-min presigned URL.
+// Defence-in-depth: verifies portal_visible AND patient ownership.
+router.get(
+  "/api/patient-portal/:token/shared-documents/:docId/download",
+  requirePortalVerification("patient"),
+  async (req: any, res: Response) => {
+    try {
+      const link = await storage.getQuestionnaireLinkByToken(req.params.token);
+      if (!link || !link.patientId) {
+        return res.status(404).json({ message: "Invalid portal link" });
+      }
+
+      const doc = await storage.getPortalVisiblePatientDocumentForPatient(
+        req.params.docId,
+        link.patientId,
+      );
+      if (!doc) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { ObjectStorageService } = await import("../objectStorage");
+      const s3 = new ObjectStorageService();
+      const stripObjectsPrefix = (url: string) =>
+        url.startsWith("/objects/") ? url.slice("/objects/".length) : url;
+      const downloadUrl = await s3.getObjectDownloadURL(stripObjectsPrefix(doc.fileUrl), 900);
+
+      logger.info(`Portal document download: docId=${doc.id} patientId=${link.patientId}`);
+
+      res.json({ downloadUrl, fileName: doc.fileName });
+    } catch (error: any) {
+      logger.error("Error downloading shared document:", error);
+      res.status(500).json({ message: error.message });
+    }
+  },
+);
+
 // Delete patient portal upload (only if source=patient_upload and not yet reviewed)
 router.delete('/api/patient-portal/:token/documents/:docId', patientDocUploadLimiter, async (req: Request, res: Response) => {
   try {

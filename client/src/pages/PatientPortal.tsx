@@ -216,6 +216,7 @@ const translations = {
     tabFiles: "Dateien",
     yourDocuments: "Ihre Dokumente",
     yourPhotos: "Ihre Bilder",
+    sharedFiles: "Von der Klinik geteilte Dateien",
     noSharedFiles: "Noch keine Dateien geteilt",
     tapToEnlarge: "Tippen zum Vergrössern",
     download: "Herunterladen",
@@ -353,6 +354,7 @@ const translations = {
     tabFiles: "Files",
     yourDocuments: "Your Documents",
     yourPhotos: "Your Photos",
+    sharedFiles: "Files shared by the clinic",
     noSharedFiles: "No files have been shared yet",
     tapToEnlarge: "Tap to enlarge",
     download: "Download",
@@ -490,6 +492,7 @@ const translations = {
     tabFiles: "File",
     yourDocuments: "I suoi documenti",
     yourPhotos: "Le sue immagini",
+    sharedFiles: "File condivisi dalla clinica",
     noSharedFiles: "Nessun file ancora condiviso",
     tapToEnlarge: "Toccare per ingrandire",
     download: "Scaricare",
@@ -627,6 +630,7 @@ const translations = {
     tabFiles: "Archivos",
     yourDocuments: "Sus documentos",
     yourPhotos: "Sus fotos",
+    sharedFiles: "Archivos compartidos por la clínica",
     noSharedFiles: "Aún no se han compartido archivos",
     tapToEnlarge: "Toque para ampliar",
     download: "Descargar",
@@ -764,6 +768,7 @@ const translations = {
     tabFiles: "Fichiers",
     yourDocuments: "Vos documents",
     yourPhotos: "Vos photos",
+    sharedFiles: "Fichiers partagés par la clinique",
     noSharedFiles: "Aucun fichier partagé pour le moment",
     tapToEnlarge: "Appuyez pour agrandir",
     download: "Télécharger",
@@ -964,6 +969,19 @@ function PatientPortalContent({ token }: { token: string }) {
     queryKey: [`/api/patient-portal/${token}/shared-photos`],
     queryFn: async () => {
       const res = await fetch(`/api/patient-portal/${token}/shared-photos`);
+      if (res.status === 403) { onSessionExpired(); throw new Error('Session expired'); }
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!token && !!data,
+  });
+
+  const { data: sharedDocs = [] } = useQuery<
+    { id: string; fileName: string; mimeType: string | null; category: string; fileSize: number | null; sharedAt: string | null; url: string | null }[]
+  >({
+    queryKey: [`/api/patient-portal/${token}/shared-documents`],
+    queryFn: async () => {
+      const res = await fetch(`/api/patient-portal/${token}/shared-documents`);
       if (res.status === 403) { onSessionExpired(); throw new Error('Session expired'); }
       if (!res.ok) return [];
       return res.json();
@@ -1814,9 +1832,9 @@ function PatientPortalContent({ token }: { token: string }) {
             data-testid="tab-files"
           >
             <span>{t.tabFiles}</span>
-            {(sharedBriefs.length + sharedPhotos.length) > 0 && (
+            {(sharedBriefs.length + sharedPhotos.length + sharedDocs.length) > 0 && (
               <span className="bg-blue-600 text-white text-xs font-semibold rounded-full px-2 py-0.5 leading-none">
-                {sharedBriefs.length + sharedPhotos.length}
+                {sharedBriefs.length + sharedPhotos.length + sharedDocs.length}
               </span>
             )}
           </button>
@@ -2414,7 +2432,7 @@ function PatientPortalContent({ token }: { token: string }) {
 
         {activeTab === 'files' && (
           <div className="space-y-4">
-            {sharedBriefs.length === 0 && sharedPhotos.length === 0 && (
+            {sharedBriefs.length === 0 && sharedPhotos.length === 0 && sharedDocs.length === 0 && (
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-10 text-center">
                 <p className="text-sm text-gray-500 dark:text-gray-400">{t.noSharedFiles}</p>
               </div>
@@ -2481,6 +2499,46 @@ function PatientPortalContent({ token }: { token: string }) {
                   ))}
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">{t.tapToEnlarge}</p>
+              </div>
+            )}
+
+            {sharedDocs.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">{t.sharedFiles}</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {sharedDocs.map((doc) => {
+                    const isImage = doc.mimeType?.startsWith('image/');
+                    return (
+                      <a
+                        key={doc.id}
+                        href={doc.url ?? '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 hover:ring-2 hover:ring-primary transition"
+                        data-testid={`shared-document-${doc.id}`}
+                      >
+                        <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+                          {isImage && doc.url ? (
+                            <img
+                              src={doc.url}
+                              alt={doc.fileName}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <FileText className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+                          )}
+                        </div>
+                        <div className="p-2 space-y-0.5">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" title={doc.fileName}>
+                            {doc.fileName}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{doc.category}</p>
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

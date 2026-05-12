@@ -34,6 +34,9 @@ export type PatientDocument = {
   reviewed?: boolean | null;
   questionnaireUploadId?: string | null;
   documentFolderId?: string | null;
+  portalVisible?: boolean;
+  portalSharedAt?: string | null;
+  portalSharedBy?: string | null;
   createdAt: string;
 };
 
@@ -133,7 +136,13 @@ export function PatientDocumentsSection({
   // Brief state
   const [deleteBriefConfirm, setDeleteBriefConfirm] = useState<DischargeBrief | null>(null);
   const [exportingBriefId, setExportingBriefId] = useState<string | null>(null);
-  const [shareDialogBrief, setShareDialogBrief] = useState<DischargeBrief | null>(null);
+
+  // Share dialog handles both briefs and patient documents — discriminated
+  // by `kind` so the same UI surface drives both flows.
+  type ShareDialogTarget =
+    | { kind: "brief"; item: DischargeBrief }
+    | { kind: "document"; item: PatientDocument };
+  const [shareDialogTarget, setShareDialogTarget] = useState<ShareDialogTarget | null>(null);
 
   // Drag-and-drop state
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -411,14 +420,29 @@ export function PatientDocumentsSection({
     },
   });
 
-  const shareMutation = useMutation({
-    mutationFn: async (briefId: string) => {
-      await apiRequest("POST", `/api/discharge-briefs/${briefId}/share`);
-    },
-    onSuccess: () => {
+  // URL builder picks the endpoint by target kind. Briefs only need the
+  // brief id; documents need patientId + docId.
+  const buildShareUrl = (target: ShareDialogTarget, action: "share" | "unshare" | "notify-patient") =>
+    target.kind === "brief"
+      ? `/api/discharge-briefs/${target.item.id}/${action}`
+      : `/api/patients/${target.item.patientId}/documents/${target.item.id}/${action}`;
+
+  const invalidateShareQueries = (target: ShareDialogTarget) => {
+    if (target.kind === "brief") {
       queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/discharge-briefs`] });
+    } else {
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/documents`] });
+    }
+  };
+
+  const shareMutation = useMutation({
+    mutationFn: async (target: ShareDialogTarget) => {
+      await apiRequest("POST", buildShareUrl(target, "share"));
+    },
+    onSuccess: (_data, target) => {
+      invalidateShareQueries(target);
       toast({ title: t("dischargeBriefs.shared", "Document shared to patient portal") });
-      setShareDialogBrief(null);
+      setShareDialogTarget(null);
     },
     onError: (error: Error) => {
       toast({ title: t("dischargeBriefs.shareError", "Failed to share"), description: error.message, variant: "destructive" });
@@ -426,13 +450,13 @@ export function PatientDocumentsSection({
   });
 
   const unshareMutation = useMutation({
-    mutationFn: async (briefId: string) => {
-      await apiRequest("POST", `/api/discharge-briefs/${briefId}/unshare`);
+    mutationFn: async (target: ShareDialogTarget) => {
+      await apiRequest("POST", buildShareUrl(target, "unshare"));
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/discharge-briefs`] });
+    onSuccess: (_data, target) => {
+      invalidateShareQueries(target);
       toast({ title: t("dischargeBriefs.unshared", "Document removed from patient portal") });
-      setShareDialogBrief(null);
+      setShareDialogTarget(null);
     },
     onError: (error: Error) => {
       toast({ title: t("dischargeBriefs.unshareError", "Failed to unshare"), description: error.message, variant: "destructive" });
@@ -440,8 +464,8 @@ export function PatientDocumentsSection({
   });
 
   const notifyMutation = useMutation({
-    mutationFn: async ({ briefId, method }: { briefId: string; method: string }) => {
-      await apiRequest("POST", `/api/discharge-briefs/${briefId}/notify-patient`, { method });
+    mutationFn: async ({ target, method }: { target: ShareDialogTarget; method: string }) => {
+      await apiRequest("POST", buildShareUrl(target, "notify-patient"), { method });
     },
     onSuccess: () => {
       toast({ title: t("dischargeBriefs.notified", "Patient notified") });
@@ -450,6 +474,15 @@ export function PatientDocumentsSection({
       toast({ title: t("dischargeBriefs.notifyError", "Failed to notify patient"), description: error.message, variant: "destructive" });
     },
   });
+
+  // Mirrors the server-side isDocumentShareable guard. The Share2 button
+  // renders only on eligible documents — hidden, not greyed, for the rest.
+  const isDocumentShareEligible = (doc: PatientDocument): boolean => {
+    const mime = doc.mimeType ?? "";
+    if (!mime.startsWith("image/") && mime !== "application/pdf") return false;
+    const source = doc.source ?? "";
+    return source === "staff_upload" || source === "import";
+  };
 
   const handleExportBriefPdf = async (briefId: string) => {
     setExportingBriefId(briefId);
@@ -705,6 +738,22 @@ export function PatientDocumentsSection({
                   <Button size="sm" variant="ghost" onClick={() => handlePreviewDocument(doc)} data-testid={`button-preview-${doc.id}`}>
                     <Eye className="h-4 w-4" />
                   </Button>
+                  {canWrite && isDocumentShareEligible(doc) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={doc.portalVisible ? "text-green-600" : ""}
+                      onClick={() => setShareDialogTarget({ kind: "document", item: doc })}
+                      title={
+                        doc.portalVisible
+                          ? t('anesthesia.patientDetail.unsharePicture', 'Stop sharing with patient')
+                          : t('anesthesia.patientDetail.sharePicture', 'Share with patient portal')
+                      }
+                      data-testid={`button-share-document-${doc.id}`}
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </Button>
+                  )}
                   {canWrite && (
                     <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteConfirmDoc(doc)} data-testid={`button-delete-${doc.id}`}>
                       <Trash2 className="h-4 w-4" />
@@ -759,6 +808,25 @@ export function PatientDocumentsSection({
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
+                  )}
+                  {canWrite && isDocumentShareEligible(doc) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={`h-6 w-6 p-0 ${doc.portalVisible ? "text-green-600" : ""}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShareDialogTarget({ kind: "document", item: doc });
+                      }}
+                      title={
+                        doc.portalVisible
+                          ? t('anesthesia.patientDetail.unsharePicture', 'Stop sharing with patient')
+                          : t('anesthesia.patientDetail.sharePicture', 'Share with patient portal')
+                      }
+                      data-testid={`button-share-document-grid-${doc.id}`}
+                    >
+                      <Share2 className="h-3 w-3" />
+                    </Button>
                   )}
                   {canWrite && (
                     <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive" onClick={() => setDeleteConfirmDoc(doc)} data-testid={`button-delete-${doc.id}`}>
@@ -913,7 +981,7 @@ export function PatientDocumentsSection({
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => setShareDialogBrief(brief)}
+              onClick={() => setShareDialogTarget({ kind: "brief", item: brief })}
               title={t('dischargeBriefs.share', 'Share')}
               className={brief.portalVisible ? "text-green-600" : ""}
             >
@@ -1394,25 +1462,25 @@ export function PatientDocumentsSection({
         </DialogContent>
       </Dialog>
 
-      {/* Share to portal dialog */}
-      <Dialog open={!!shareDialogBrief} onOpenChange={(open) => { if (!open) setShareDialogBrief(null); }}>
+      {/* Share to portal dialog — handles briefs + patient documents */}
+      <Dialog open={!!shareDialogTarget} onOpenChange={(open) => { if (!open) setShareDialogTarget(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t("dischargeBriefs.shareTitle", "Share Document")}</DialogTitle>
           </DialogHeader>
-          {shareDialogBrief && (
+          {shareDialogTarget && (
             <div className="space-y-4 py-2">
-              {!shareDialogBrief.portalVisible ? (
+              {!shareDialogTarget.item.portalVisible ? (
                 <>
                   <p className="text-sm text-muted-foreground">
                     {t("dischargeBriefs.shareConfirmation", "This document will be visible to the patient on their portal.")}
                   </p>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setShareDialogBrief(null)}>
+                    <Button variant="outline" onClick={() => setShareDialogTarget(null)}>
                       {t("common.cancel", "Cancel")}
                     </Button>
                     <Button
-                      onClick={() => shareMutation.mutate(shareDialogBrief.id)}
+                      onClick={() => shareMutation.mutate(shareDialogTarget)}
                       disabled={shareMutation.isPending}
                     >
                       {shareMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -1433,7 +1501,7 @@ export function PatientDocumentsSection({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => notifyMutation.mutate({ briefId: shareDialogBrief.id, method: "email" })}
+                        onClick={() => notifyMutation.mutate({ target: shareDialogTarget, method: "email" })}
                         disabled={notifyMutation.isPending}
                       >
                         {notifyMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
@@ -1442,7 +1510,7 @@ export function PatientDocumentsSection({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => notifyMutation.mutate({ briefId: shareDialogBrief.id, method: "sms" })}
+                        onClick={() => notifyMutation.mutate({ target: shareDialogTarget, method: "sms" })}
                         disabled={notifyMutation.isPending}
                       >
                         {notifyMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
@@ -1455,7 +1523,7 @@ export function PatientDocumentsSection({
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => unshareMutation.mutate(shareDialogBrief.id)}
+                      onClick={() => unshareMutation.mutate(shareDialogTarget)}
                       disabled={unshareMutation.isPending}
                     >
                       {unshareMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
