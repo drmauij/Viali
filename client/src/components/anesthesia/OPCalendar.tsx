@@ -77,6 +77,8 @@ interface CalendarEvent {
     time: number | null;
   }> | null;
   admissionTime?: string | null;
+  ambulantQuickCheck?: { decision: 'green' | 'yellow' | 'red'; reasons: string[]; hardExclusions: string[]; yellowFactors: string[] } | null;
+  hasAmbulantOverride?: boolean;
 }
 
 type CalendarResource = {
@@ -610,6 +612,8 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         questionnaireStatus: surgery.questionnaireStatus || null,
         timeMarkers: surgery.timeMarkers || null,
         admissionTime: surgery.admissionTime ?? null,
+        ambulantQuickCheck: surgery.ambulantQuickCheck ?? null,
+        hasAmbulantOverride: Boolean(surgery.ambulantOverrideReason),
       };
     });
     // surgeonFilter included so events are rebuilt with fresh isOwnSurgery/isOtherSurgery flags.
@@ -1363,6 +1367,30 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
                   <span className="hidden sm:inline text-[10px] font-medium truncate">{preOpStatus.label}</span>
                 </div>
               )
+            )}
+            {event.ambulantQuickCheck?.decision && !event.isCancelled && !event.isSuspended && currentView !== 'month' && (
+              <div
+                className={`flex items-center gap-0.5 leading-tight mt-0.5 px-1 py-0.5 rounded w-fit max-w-full ${
+                  event.ambulantQuickCheck.decision === 'red'
+                    ? 'bg-red-200/80 text-red-900'
+                    : event.ambulantQuickCheck.decision === 'yellow'
+                      ? 'bg-amber-200/80 text-amber-900'
+                      : 'bg-green-200/80 text-green-900'
+                }`}
+                data-testid={`ambulant-pill-${event.surgeryId}`}
+                title={
+                  [...event.ambulantQuickCheck.hardExclusions, ...event.ambulantQuickCheck.yellowFactors].join(' · ') ||
+                  (event.ambulantQuickCheck.decision === 'green' ? 'Ambulant geeignet' :
+                   event.ambulantQuickCheck.decision === 'yellow' ? 'Anästhesie-Rücksprache empfohlen' :
+                   'Ambulant nicht empfohlen')
+                }
+              >
+                <span className="text-[10px] font-semibold">
+                  {event.ambulantQuickCheck.decision === 'red' ? '🔴' :
+                   event.ambulantQuickCheck.decision === 'yellow' ? '🟡' : '🟢'}
+                </span>
+                {event.hasAmbulantOverride && <span className="text-[10px]">⚠</span>}
+              </div>
             )}
           </>
         )}

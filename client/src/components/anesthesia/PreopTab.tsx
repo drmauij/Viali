@@ -23,6 +23,18 @@ import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSett
 import { useTranslation } from "react-i18next";
 import { formatTime } from "@/lib/dateUtils";
 import type { PreOpAssessment } from "@shared/schema";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useMemo } from "react";
+import { StopBangSection } from "@/components/surgery/StopBangSection";
+import { AmbulantFullAssessmentPanel } from "@/components/anesthesia/AmbulantFullAssessmentPanel";
+import { AmbulantOverrideModal } from "@/components/anesthesia/AmbulantOverrideModal";
+import { calculateCaprini } from "@shared/scoring/caprini";
+import { calculateStopBang } from "@shared/scoring/stopBang";
+import { calculateRcri } from "@shared/scoring/rcri";
+import { calculateApfel } from "@shared/scoring/apfel";
+import { calculateFull } from "@shared/scoring/ambulantEligibility";
+import { deriveRecommendations } from "@shared/scoring/recommendations";
+import type { FullAssessmentInputs, SurgeryRiskClass } from "@shared/scoring/types";
 
 interface PreopTabProps {
   surgeryId: string;
@@ -80,6 +92,12 @@ const preOpFormSchema = z.object({
   consentText: z.string().optional(),
   patientSignature: z.string().optional(),
   consentDate: z.string().optional(),
+  // Ambulant eligibility (Sprint 2)
+  osasSnoringLoud: z.boolean().optional(),
+  osasObservedApnea: z.boolean().optional(),
+  osasDaytimeTiredness: z.boolean().optional(),
+  neckCircumferenceCm: z.number().nullable().optional(),
+  ambulantOverrideReason: z.string().nullable().optional(),
 });
 
 type PreOpFormData = z.infer<typeof preOpFormSchema>;
@@ -92,6 +110,18 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [doctorSignatureModalOpen, setDoctorSignatureModalOpen] = useState(false);
   const [patientSignatureModalOpen, setPatientSignatureModalOpen] = useState(false);
+  const [ambulantOverrideOpen, setAmbulantOverrideOpen] = useState(false);
+  const activeHospital = useActiveHospital();
+  const ambulantEligibilityEnabled = activeHospital?.addonAmbulantEligibility === true;
+
+  const { data: surgery } = useQuery<any>({
+    queryKey: [`/api/anesthesia/surgeries/${surgeryId}`],
+    enabled: ambulantEligibilityEnabled && !!surgeryId,
+  });
+  const { data: patient } = useQuery<any>({
+    queryKey: [`/api/patients/${surgery?.patientId}`],
+    enabled: ambulantEligibilityEnabled && !!surgery?.patientId,
+  });
 
   const { data: assessment, isLoading } = useQuery<PreOpAssessment>({
     queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`],
@@ -151,6 +181,11 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
       consentText: "",
       patientSignature: "",
       consentDate: "",
+      osasSnoringLoud: false,
+      osasObservedApnea: false,
+      osasDaytimeTiredness: false,
+      neckCircumferenceCm: null,
+      ambulantOverrideReason: null,
     },
   });
 
@@ -205,6 +240,11 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         consentText: assessment.consentText || "",
         patientSignature: assessment.patientSignature || "",
         consentDate: assessment.consentDate || "",
+        osasSnoringLoud: (assessment as any).osasSnoringLoud ?? false,
+        osasObservedApnea: (assessment as any).osasObservedApnea ?? false,
+        osasDaytimeTiredness: (assessment as any).osasDaytimeTiredness ?? false,
+        neckCircumferenceCm: (assessment as any).neckCircumferenceCm != null ? Number((assessment as any).neckCircumferenceCm) : null,
+        ambulantOverrideReason: (assessment as any).ambulantFullAssessment?.override?.reason ?? null,
       });
     }
   }, [assessment, form]);
@@ -268,8 +308,13 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         patientSignature: data.patientSignature,
         consentDate: data.consentDate,
         status,
+        osasSnoringLoud: data.osasSnoringLoud,
+        osasObservedApnea: data.osasObservedApnea,
+        osasDaytimeTiredness: data.osasDaytimeTiredness,
+        neckCircumferenceCm: data.neckCircumferenceCm,
+        ambulantOverrideReason: data.ambulantOverrideReason,
       });
-      
+
       return response.json();
     },
     onSuccess: (newAssessment) => {
@@ -340,8 +385,13 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         patientSignature: data.patientSignature,
         consentDate: data.consentDate,
         status,
+        osasSnoringLoud: data.osasSnoringLoud,
+        osasObservedApnea: data.osasObservedApnea,
+        osasDaytimeTiredness: data.osasDaytimeTiredness,
+        neckCircumferenceCm: data.neckCircumferenceCm,
+        ambulantOverrideReason: data.ambulantOverrideReason,
       });
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -380,13 +430,96 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
   useEffect(() => {
     // Don't set up auto-save interval for guest users
     if (isCompleted || !canWrite) return;
-    
+
     const interval = setInterval(() => {
       autoSave();
     }, 30000);
 
     return () => clearInterval(interval);
   }, [isCompleted, autoSave, canWrite]);
+
+  // Watch form values that feed eligibility scoring so the panel re-renders live.
+  const osasSnoringLoud = form.watch("osasSnoringLoud") ?? false;
+  const osasObservedApnea = form.watch("osasObservedApnea") ?? false;
+  const osasDaytimeTiredness = form.watch("osasDaytimeTiredness") ?? false;
+  const neckCircumferenceCm = form.watch("neckCircumferenceCm") ?? null;
+  const ambulantOverrideReason = form.watch("ambulantOverrideReason") ?? null;
+  const watchedHeight = form.watch("height") ?? "";
+  const watchedWeight = form.watch("weight") ?? "";
+
+  const ambulantScoring = useMemo(() => {
+    if (!ambulantEligibilityEnabled || !patient || !surgery) return null;
+    const ageYears = patient?.birthday
+      ? Math.floor((Date.now() - new Date(patient.birthday).getTime()) / (365.25 * 24 * 3600 * 1000))
+      : null;
+    // Patient row has weight but no height; pre-med form provides both.
+    const w = watchedWeight ? Number(watchedWeight) : patient?.weight ? Number(patient.weight) : null;
+    const h = watchedHeight ? Number(watchedHeight) : null;
+    let bmi: number | null = null;
+    if (w && h) {
+      const meters = h > 3 ? h / 100 : h;
+      bmi = w / (meters * meters);
+    }
+    const rawSex = (patient?.sex ?? "").toString().toUpperCase();
+    const sex: "male" | "female" | null = rawSex === "M"
+      ? "male"
+      : rawSex === "F"
+        ? "female"
+        : null;
+    const plannedMinutes = surgery.plannedDate && surgery.actualEndTime
+      ? Math.round((new Date(surgery.actualEndTime).getTime() - new Date(surgery.plannedDate).getTime()) / 60000)
+      : null;
+
+    const inputs: FullAssessmentInputs = {
+      ageYears,
+      bmi,
+      sex,
+      plannedMinutes,
+      surgeryRiskClass: (surgery.surgeryRiskClass ?? null) as SurgeryRiskClass | null,
+      stayType: (surgery.stayType ?? null) as "ambulant" | "overnight" | null,
+      knownOsasUntreated: false,
+      vteHistory: false,
+      activeCancer: false,
+      hasLegSwelling: false,
+      hasVaricoseVeins: false,
+      isPregnantOrPostpartum: false,
+      onOcOrHrt: false,
+      expectedBedrestOver72h: false,
+      familyThrombophilia: false,
+      strokeWithin30Days: false,
+      hipOrLegFracture: false,
+      spinalCordInjury: false,
+      snoringLoud: Boolean(osasSnoringLoud),
+      daytimeTiredness: Boolean(osasDaytimeTiredness),
+      observedApnea: Boolean(osasObservedApnea),
+      hasHypertension: false,
+      neckCircumferenceCm: neckCircumferenceCm != null ? Number(neckCircumferenceCm) : null,
+      hasCAD: false,
+      hasCHF: false,
+      hasCerebrovascularDisease: false,
+      isInsulinDependentDiabetic: false,
+      creatinineMgDl: null,
+      isNonSmoker: true,
+      hasPostopNauseaHistory: false,
+      postopOpioidsPlanned: false,
+      expectedBloodLossMl: null,
+      hasCaregiver24h: true,
+      distanceToClinicMinutes: null,
+      patientCanUnderstandDischarge: true,
+    };
+
+    const caprini = calculateCaprini(inputs);
+    const stopBang = calculateStopBang(inputs);
+    const rcri = calculateRcri(inputs);
+    const apfel = calculateApfel(inputs);
+    const eligibility = calculateFull(inputs, { caprini, stopBang, rcri, apfel });
+    const recommendations = deriveRecommendations(caprini, apfel, stopBang, eligibility);
+    return { caprini, stopBang, rcri, apfel, eligibility, recommendations };
+  }, [
+    ambulantEligibilityEnabled, patient, surgery,
+    osasSnoringLoud, osasObservedApnea, osasDaytimeTiredness, neckCircumferenceCm,
+    watchedHeight, watchedWeight,
+  ]);
 
   const handleManualSave = async () => {
     const formData = form.getValues();
@@ -469,6 +602,38 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
           )}
         </div>
       </div>
+
+      {ambulantScoring && (
+        <>
+          <AmbulantFullAssessmentPanel
+            eligibility={ambulantScoring.eligibility}
+            scores={ambulantScoring}
+            recommendations={ambulantScoring.recommendations}
+            hasOverride={Boolean(ambulantOverrideReason)}
+            onRequestOverride={() => setAmbulantOverrideOpen(true)}
+          />
+          <StopBangSection
+            values={{
+              osasSnoringLoud,
+              osasObservedApnea,
+              osasDaytimeTiredness,
+              neckCircumferenceCm: neckCircumferenceCm != null ? Number(neckCircumferenceCm) : null,
+            }}
+            onChange={(patch) => {
+              if ('osasSnoringLoud' in patch) form.setValue('osasSnoringLoud', patch.osasSnoringLoud!, { shouldDirty: true });
+              if ('osasObservedApnea' in patch) form.setValue('osasObservedApnea', patch.osasObservedApnea!, { shouldDirty: true });
+              if ('osasDaytimeTiredness' in patch) form.setValue('osasDaytimeTiredness', patch.osasDaytimeTiredness!, { shouldDirty: true });
+              if ('neckCircumferenceCm' in patch) form.setValue('neckCircumferenceCm', patch.neckCircumferenceCm ?? null, { shouldDirty: true });
+            }}
+          />
+          <AmbulantOverrideModal
+            open={ambulantOverrideOpen}
+            onOpenChange={setAmbulantOverrideOpen}
+            eligibility={ambulantScoring.eligibility}
+            onSubmit={async (reason) => form.setValue('ambulantOverrideReason', reason, { shouldDirty: true })}
+          />
+        </>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-6">

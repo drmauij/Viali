@@ -72,6 +72,9 @@ import {
   type PatientPositionType,
   type ArmPositionType,
 } from "@/components/surgery/PatientPositionFields";
+import { calculateQuick } from "@shared/scoring/ambulantEligibility";
+import { AmbulantEligibilityBadge } from "@/components/anesthesia/AmbulantEligibilityBadge";
+import type { SurgeryRiskClass } from "@shared/scoring/types";
 
 export type AvailableSurgeon = {
   id: string;
@@ -112,6 +115,7 @@ export interface SurgeryRequestFormValues {
   diagnosis: string;
   coverageType: string;
   stayType: "" | "ambulant" | "overnight";
+  surgeryRiskClass: "" | "minor" | "standard" | "large" | "critical";
   wishedDate: string;
   wishedTimeFrom: number | null;
   wishedTimeTo: number | null;
@@ -200,6 +204,13 @@ export interface SurgeryRequestFormProps {
    * knowing how it's rendered.
    */
   onEditProfile?: () => void;
+
+  /**
+   * When true, render the surgery_risk_class dropdown + an advisory ambulant
+   * eligibility badge below the stay-type. The portal flow has no override —
+   * a 🔴 case is still submitted; the clinic queue handles it. Default false.
+   */
+  ambulantEligibilityEnabled?: boolean;
 }
 
 const DEFAULT_VALUES: SurgeryRequestFormValues = {
@@ -221,6 +232,7 @@ const DEFAULT_VALUES: SurgeryRequestFormValues = {
   diagnosis: "",
   coverageType: "",
   stayType: "",
+  surgeryRiskClass: "",
   wishedDate: "",
   wishedTimeFrom: null,
   wishedTimeTo: null,
@@ -361,6 +373,7 @@ export function SurgeryRequestForm({
   onValuesChange,
   onProgressChange,
   onEditProfile,
+  ambulantEligibilityEnabled = false,
 }: SurgeryRequestFormProps) {
   const [values, setValues] = useState<SurgeryRequestFormValues>(() => ({
     ...DEFAULT_VALUES,
@@ -1151,6 +1164,43 @@ export function SurgeryRequestForm({
                       <FieldError t={t} />
                     )}
                   </div>
+                  {ambulantEligibilityEnabled && (
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="surgeryRiskClass">Eingriffstyp-Klassifikation *</Label>
+                      <Select
+                        value={values.surgeryRiskClass || undefined}
+                        onValueChange={(v) => update("surgeryRiskClass", v as SurgeryRiskClass)}
+                      >
+                        <SelectTrigger id="surgeryRiskClass" data-testid="select-risk-class">
+                          <SelectValue placeholder="Bitte wählen…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="minor">Klein (z.B. kleine Lipo, einfache Naht)</SelectItem>
+                          <SelectItem value="standard">Standard (z.B. Augmentation, kleine BSA)</SelectItem>
+                          <SelectItem value="large">Gross (z.B. Mastopexie, mittl. Abdominoplastik)</SelectItem>
+                          <SelectItem value="critical">Kritisch (z.B. Body-Lift, grosse Abdominoplastik, &gt;5L Lipo)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {values.surgeryRiskClass && (
+                        <AmbulantEligibilityBadge
+                          eligibility={calculateQuick({
+                            ageYears: values.patientBirthday
+                              ? Math.floor((Date.now() - new Date(values.patientBirthday).getTime()) / (365.25 * 24 * 3600 * 1000))
+                              : null,
+                            bmi: null,
+                            sex: null,
+                            plannedMinutes: values.surgeryDurationMinutes || null,
+                            surgeryRiskClass: values.surgeryRiskClass || null,
+                            stayType: (values.stayType || null) as 'ambulant' | 'overnight' | null,
+                            knownOsasUntreated: false,
+                            vteHistory: false,
+                            activeCancer: false,
+                          })}
+                          hasOverride={false}
+                        />
+                      )}
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="diagnosis">
                       {t("diagnosis")}

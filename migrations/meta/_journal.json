@@ -1765,6 +1765,13 @@
       "when": 1780500000000,
       "tag": "0251_patient_documents_portal_share",
       "breakpoints": true
+    },
+    {
+      "idx": 252,
+      "version": "7",
+      "when": 1780600000000,
+      "tag": "0252_ambulant_eligibility",
+      "breakpoints": true
     }
   ]
 }
