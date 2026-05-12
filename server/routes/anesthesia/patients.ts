@@ -1102,6 +1102,118 @@ router.post('/api/patients/:id/documents/:docId/notify-patient', isAuthenticated
   }
 });
 
+// ========== PATIENT PORTAL LINK ROUTES ==========
+
+// Read the patient's currently-active portal link. Used by the patient
+// detail header badge to show "Portal aktiv" vs "Portal kein Zugang".
+router.get('/api/patients/:id/portal-link/status', isAuthenticated, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(id);
+    if (!patient) return res.status(404).json({ message: "Patient not found" });
+
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
+    if (!hasAccess) return res.status(403).json({ message: "Access denied" });
+
+    const link = await storage.getActivePatientPortalLink(id);
+    if (!link) {
+      return res.json({ active: false, link: null });
+    }
+
+    res.json({
+      active: true,
+      link: {
+        id: link.id,
+        token: link.token,
+        expiresAt: link.expiresAt,
+        status: link.status,
+        surgeryId: link.surgeryId,
+        createdAt: link.createdAt,
+      },
+    });
+  } catch (error: any) {
+    logger.error("Error fetching portal link status:", error);
+    res.status(500).json({ message: "Failed to fetch portal link status" });
+  }
+});
+
+// Create (or return existing active) portal link for a patient. Idempotent
+// — re-issuing during an active window returns the same link with
+// `reused: true`. Used by the patient-header badge and the share-flow
+// confirmation prompt.
+router.post('/api/patients/:id/portal-link', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(id);
+    if (!patient) return res.status(404).json({ message: "Patient not found" });
+
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
+    if (!hasAccess) return res.status(403).json({ message: "Access denied" });
+
+    const { link, reused } = await storage.getOrCreateActivePatientPortalLink(
+      id,
+      patient.hospitalId,
+      userId,
+    );
+
+    res.json({
+      link: {
+        id: link.id,
+        token: link.token,
+        expiresAt: link.expiresAt,
+        status: link.status,
+        surgeryId: link.surgeryId,
+        createdAt: link.createdAt,
+      },
+      url: `${process.env.APP_URL || "https://use.viali.app"}/patient/${link.token}`,
+      reused,
+    });
+  } catch (error: any) {
+    logger.error("Error creating portal link:", error);
+    res.status(500).json({ message: "Failed to create portal link" });
+  }
+});
+
+// Revoke a portal link by flipping its status to 'expired'. Patient cannot
+// access the portal via this token afterward. Audit logged.
+router.post('/api/patients/:id/portal-link/revoke', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(id);
+    if (!patient) return res.status(404).json({ message: "Patient not found" });
+
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
+    if (!hasAccess) return res.status(403).json({ message: "Access denied" });
+
+    const link = await storage.getActivePatientPortalLink(id);
+    if (!link) {
+      return res.status(404).json({ message: "No active portal link" });
+    }
+
+    await storage.updateQuestionnaireLink(link.id, { status: "expired" });
+
+    await createAuditLog({
+      recordType: "patient_questionnaire_link",
+      recordId: link.id,
+      action: "update",
+      userId,
+      oldValue: { status: link.status },
+      newValue: { status: "expired" },
+    });
+
+    res.json({ success: true });
+  } catch (error: any) {
+    logger.error("Error revoking portal link:", error);
+    res.status(500).json({ message: "Failed to revoke portal link" });
+  }
+});
+
 // ========== PATIENT DOCUMENT FOLDER ROUTES ==========
 
 router.get('/api/patients/:id/document-folders', isAuthenticated, async (req: any, res) => {

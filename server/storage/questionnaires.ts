@@ -1,5 +1,6 @@
 import { db } from "../db";
 import { eq, and, ne, desc, asc, isNull, inArray, gt, or } from "drizzle-orm";
+import { nanoid } from "nanoid";
 import { ensurePatientHospitalLink } from "../utils/patientHospitalLink";
 import {
   patientQuestionnaireLinks,
@@ -502,6 +503,78 @@ export async function getPortalVisiblePatientDocumentForPatient(
       ),
     );
   return row;
+}
+
+// Find the patient's currently-active portal link, or create one if none
+// exists. "Active" means status not 'expired'/'invalidated' AND expiresAt
+// in the future. The new link is portal-only (no surgery, no questionnaire
+// response) with a 90-day expiry. Used by the patient-header badge and
+// the share-flow auto-creation prompt.
+export async function getOrCreateActivePatientPortalLink(
+  patientId: string,
+  hospitalId: string,
+  userId: string | null,
+): Promise<{ link: typeof patientQuestionnaireLinks.$inferSelect; reused: boolean }> {
+  const all = await db
+    .select()
+    .from(patientQuestionnaireLinks)
+    .where(eq(patientQuestionnaireLinks.patientId, patientId))
+    .orderBy(desc(patientQuestionnaireLinks.createdAt));
+
+  const now = new Date();
+  const active = all.find(
+    (l) =>
+      (l.status as string) !== "expired" &&
+      (l.status as string) !== "invalidated" &&
+      l.expiresAt &&
+      new Date(l.expiresAt) > now,
+  );
+
+  if (active) {
+    return { link: active, reused: true };
+  }
+
+  const token = nanoid(32);
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 90);
+
+  const [created] = await db
+    .insert(patientQuestionnaireLinks)
+    .values({
+      token,
+      hospitalId,
+      patientId,
+      surgeryId: null,
+      createdBy: userId,
+      expiresAt,
+      status: "pending",
+      language: "de",
+    })
+    .returning();
+
+  return { link: created, reused: false };
+}
+
+// Read-only status lookup for the patient-header badge.
+export async function getActivePatientPortalLink(
+  patientId: string,
+): Promise<typeof patientQuestionnaireLinks.$inferSelect | null> {
+  const all = await db
+    .select()
+    .from(patientQuestionnaireLinks)
+    .where(eq(patientQuestionnaireLinks.patientId, patientId))
+    .orderBy(desc(patientQuestionnaireLinks.createdAt));
+
+  const now = new Date();
+  const active = all.find(
+    (l) =>
+      (l.status as string) !== "expired" &&
+      (l.status as string) !== "invalidated" &&
+      l.expiresAt &&
+      new Date(l.expiresAt) > now,
+  );
+
+  return active ?? null;
 }
 
 // ========== PATIENT MESSAGE OPERATIONS ==========

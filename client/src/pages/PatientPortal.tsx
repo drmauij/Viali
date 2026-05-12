@@ -217,6 +217,8 @@ const translations = {
     yourDocuments: "Ihre Dokumente",
     yourPhotos: "Ihre Bilder",
     sharedFiles: "Von der Klinik geteilte Dateien",
+    welcomeTitle: "Willkommen im Patientenportal von {hospital}",
+    welcomeBody: "Dokumente und Mitteilungen Ihrer Klinik werden hier verfügbar gemacht. Tippen Sie auf Dateien, um sie einzusehen.",
     noSharedFiles: "Noch keine Dateien geteilt",
     tapToEnlarge: "Tippen zum Vergrössern",
     download: "Herunterladen",
@@ -355,6 +357,8 @@ const translations = {
     yourDocuments: "Your Documents",
     yourPhotos: "Your Photos",
     sharedFiles: "Files shared by the clinic",
+    welcomeTitle: "Welcome to {hospital}'s patient portal",
+    welcomeBody: "Documents and messages from your clinic will appear here. Tap Files to view them.",
     noSharedFiles: "No files have been shared yet",
     tapToEnlarge: "Tap to enlarge",
     download: "Download",
@@ -493,6 +497,8 @@ const translations = {
     yourDocuments: "I suoi documenti",
     yourPhotos: "Le sue immagini",
     sharedFiles: "File condivisi dalla clinica",
+    welcomeTitle: "Benvenuto nel portale paziente di {hospital}",
+    welcomeBody: "Documenti e messaggi della sua clinica saranno disponibili qui. Tocchi File per visualizzarli.",
     noSharedFiles: "Nessun file ancora condiviso",
     tapToEnlarge: "Toccare per ingrandire",
     download: "Scaricare",
@@ -631,6 +637,8 @@ const translations = {
     yourDocuments: "Sus documentos",
     yourPhotos: "Sus fotos",
     sharedFiles: "Archivos compartidos por la clínica",
+    welcomeTitle: "Bienvenido al portal del paciente de {hospital}",
+    welcomeBody: "Los documentos y mensajes de su clínica aparecerán aquí. Toque Archivos para verlos.",
     noSharedFiles: "Aún no se han compartido archivos",
     tapToEnlarge: "Toque para ampliar",
     download: "Descargar",
@@ -769,6 +777,8 @@ const translations = {
     yourDocuments: "Vos documents",
     yourPhotos: "Vos photos",
     sharedFiles: "Fichiers partagés par la clinique",
+    welcomeTitle: "Bienvenue dans le portail patient de {hospital}",
+    welcomeBody: "Les documents et messages de votre clinique apparaîtront ici. Touchez Fichiers pour les consulter.",
     noSharedFiles: "Aucun fichier partagé pour le moment",
     tapToEnlarge: "Appuyez pour agrandir",
     download: "Télécharger",
@@ -991,7 +1001,10 @@ function PatientPortalContent({ token }: { token: string }) {
 
   // Two-tab portal layout. "treatment" is the journey timeline (default),
   // "files" is the combined home for clinic-shared documents and photos.
+  // For portal-only links (no surgery context) the treatment tab is replaced
+  // with a welcome card; see render below.
   const [activeTab, setActiveTab] = useState<'treatment' | 'files'>('treatment');
+  const portalIsSurgeryless = !!data && !data.surgery;
   const [lightboxPhoto, setLightboxPhoto] = useState<{ url: string; fileName: string } | null>(null);
 
   const handleDownloadBrief = async (briefId: string) => {
@@ -1125,6 +1138,17 @@ function PatientPortalContent({ token }: { token: string }) {
       console.error('Failed to create update link:', err);
     }
   };
+
+  // Portal-only links have no surgery → default to the Dateien tab once
+  // we know the link is surgeryless. Run only when surgery flips, so a user
+  // who manually navigates back to Treatment isn't yanked away mid-session.
+  const hasSwitchedToFilesRef = useRef(false);
+  useEffect(() => {
+    if (portalIsSurgeryless && !hasSwitchedToFilesRef.current) {
+      hasSwitchedToFilesRef.current = true;
+      setActiveTab('files');
+    }
+  }, [portalIsSurgeryless]);
 
   useEffect(() => {
     if (data?.language) {
@@ -1840,7 +1864,26 @@ function PatientPortalContent({ token }: { token: string }) {
           </button>
         </div>
 
-        {activeTab === 'treatment' && (<>
+        {activeTab === 'treatment' && portalIsSurgeryless && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center space-y-3">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              {t.welcomeTitle?.replace("{hospital}", data.hospital.name) ?? `Willkommen — ${data.hospital.name}`}
+            </h2>
+            <p className="text-sm text-muted-foreground dark:text-gray-400 max-w-md mx-auto">
+              {t.welcomeBody ?? "Dokumente und Nachrichten Ihrer Klinik finden Sie unter Dateien."}
+            </p>
+            <button
+              type="button"
+              onClick={() => setActiveTab('files')}
+              className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              <FileText className="h-4 w-4" />
+              {t.tabFiles}
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'treatment' && !portalIsSurgeryless && (<>
 
         {/* Journey Title */}
         <div className="pt-2 flex items-center justify-between">

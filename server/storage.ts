@@ -807,6 +807,8 @@ export interface IStorage {
   setPatientDocumentPortalVisibility(docId: string, userId: string | null, visible: boolean): Promise<PatientDocument | undefined>;
   getPortalVisiblePatientDocumentsForPatient(patientId: string): Promise<PatientDocument[]>;
   getPortalVisiblePatientDocumentForPatient(docId: string, patientId: string): Promise<PatientDocument | undefined>;
+  getOrCreateActivePatientPortalLink(patientId: string, hospitalId: string, userId: string | null): Promise<{ link: PatientQuestionnaireLink; reused: boolean }>;
+  getActivePatientPortalLink(patientId: string): Promise<PatientQuestionnaireLink | null>;
 
   // ========== PATIENT DOCUMENT FOLDER OPERATIONS ==========
   getPatientDocumentFolders(patientId: string): Promise<PatientDocumentFolder[]>;
@@ -1569,6 +1571,8 @@ export class DatabaseStorage implements IStorage {
   setPatientDocumentPortalVisibility = questionnaireStorage.setPatientDocumentPortalVisibility;
   getPortalVisiblePatientDocumentsForPatient = questionnaireStorage.getPortalVisiblePatientDocumentsForPatient;
   getPortalVisiblePatientDocumentForPatient = questionnaireStorage.getPortalVisiblePatientDocumentForPatient;
+  getOrCreateActivePatientPortalLink = questionnaireStorage.getOrCreateActivePatientPortalLink;
+  getActivePatientPortalLink = questionnaireStorage.getActivePatientPortalLink;
   getPatientMessages = questionnaireStorage.getPatientMessages;
   createPatientMessage = questionnaireStorage.createPatientMessage;
   getPersonalTodos = questionnaireStorage.getPersonalTodos;

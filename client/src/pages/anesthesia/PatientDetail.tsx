@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
+import { PatientPortalLinkBadge } from "@/components/shared/PatientPortalLinkBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1925,6 +1926,9 @@ export default function PatientDetail() {
                     <span className={isBirthdayUnknown(patient.birthday) ? "text-amber-500 font-medium" : "text-foreground font-medium"} data-testid="text-patient-birthday">{isBirthdayUnknown(patient.birthday) ? t('common.birthdayNotProvided', 'Birthday not provided') : `${formatDate(patient.birthday)} (${calculateAge(patient.birthday)} years)`}</span>
                     <span className="text-muted-foreground" data-testid="text-patient-number"> • Patient ID: {patient.patientNumber}</span>
                   </p>
+                  <div className="mt-2">
+                    <PatientPortalLinkBadge patientId={patient.id} canWrite={canWrite} />
+                  </div>
                 </div>
               </div>
               {canWrite && (

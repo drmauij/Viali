@@ -420,6 +420,24 @@ export function PatientDocumentsSection({
     },
   });
 
+  // Portal-link status drives the auto-creation prompt below. If the
+  // patient has no active portal link, clicking Share or Notify shows a
+  // confirmation; on confirm we create the link, then run the action.
+  type PendingShareAction =
+    | { kind: "share"; target: ShareDialogTarget }
+    | { kind: "notify"; target: ShareDialogTarget; method: "email" | "sms" };
+  const [pendingShareAction, setPendingShareAction] = useState<PendingShareAction | null>(null);
+
+  const portalStatusKey = [`/api/patients/${patientId}/portal-link/status`];
+  const { data: portalStatus } = useQuery<{ active: boolean }>({
+    queryKey: portalStatusKey,
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/patients/${patientId}/portal-link/status`);
+      return res.json();
+    },
+    enabled: !!patientId,
+  });
+
   // URL builder picks the endpoint by target kind. Briefs only need the
   // brief id; documents need patientId + docId.
   const buildShareUrl = (target: ShareDialogTarget, action: "share" | "unshare" | "notify-patient") =>
@@ -474,6 +492,50 @@ export function PatientDocumentsSection({
       toast({ title: t("dischargeBriefs.notifyError", "Failed to notify patient"), description: error.message, variant: "destructive" });
     },
   });
+
+  // Creates a 90-day portal link, then chains into the pending share/notify
+  // action that triggered the prompt. Surfaces inside the share dialog so
+  // staff confirm-once and the original action completes in the same flow.
+  const createPortalLinkMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/patients/${patientId}/portal-link`);
+      return res.json();
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: portalStatusKey });
+      const action = pendingShareAction;
+      setPendingShareAction(null);
+      if (!action) return;
+      if (action.kind === "share") {
+        shareMutation.mutate(action.target);
+      } else {
+        notifyMutation.mutate({ target: action.target, method: action.method });
+      }
+    },
+    onError: (error: Error) => {
+      toast({ title: t("portalLink.createError", "Failed to create portal link"), description: error.message, variant: "destructive" });
+      setPendingShareAction(null);
+    },
+  });
+
+  // Wrappers used by the dialog buttons. If portal link is active → fire
+  // the mutation immediately. Otherwise → queue the action, show the
+  // confirmation block.
+  const handleShareClick = (target: ShareDialogTarget) => {
+    if (portalStatus?.active) {
+      shareMutation.mutate(target);
+    } else {
+      setPendingShareAction({ kind: "share", target });
+    }
+  };
+
+  const handleNotifyClick = (target: ShareDialogTarget, method: "email" | "sms") => {
+    if (portalStatus?.active) {
+      notifyMutation.mutate({ target, method });
+    } else {
+      setPendingShareAction({ kind: "notify", target, method });
+    }
+  };
 
   // Mirrors the server-side isDocumentShareable guard. The Share2 button
   // renders only on eligible documents — hidden, not greyed, for the rest.
@@ -1463,12 +1525,45 @@ export function PatientDocumentsSection({
       </Dialog>
 
       {/* Share to portal dialog — handles briefs + patient documents */}
-      <Dialog open={!!shareDialogTarget} onOpenChange={(open) => { if (!open) setShareDialogTarget(null); }}>
+      <Dialog open={!!shareDialogTarget} onOpenChange={(open) => { if (!open) { setShareDialogTarget(null); setPendingShareAction(null); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t("dischargeBriefs.shareTitle", "Share Document")}</DialogTitle>
           </DialogHeader>
-          {shareDialogTarget && (
+          {shareDialogTarget && pendingShareAction && (
+            // Auto-create portal link confirmation. Replaces the normal share
+            // controls until the user confirms or cancels the link creation.
+            <div className="space-y-4 py-2">
+              <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm space-y-2">
+                <p className="font-medium text-amber-900 dark:text-amber-200">
+                  {t("portalLink.needLinkTitle", "Patient has no portal access yet")}
+                </p>
+                <p className="text-amber-800 dark:text-amber-300">
+                  {t(
+                    "portalLink.needLinkBody",
+                    "Sharing requires portal access. Creating a 90-day portal link for this patient now. Continue?",
+                  )}
+                </p>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setPendingShareAction(null)}
+                  disabled={createPortalLinkMutation.isPending}
+                >
+                  {t("common.cancel", "Cancel")}
+                </Button>
+                <Button
+                  onClick={() => createPortalLinkMutation.mutate()}
+                  disabled={createPortalLinkMutation.isPending}
+                >
+                  {createPortalLinkMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {t("portalLink.createAndContinue", "Create link and continue")}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+          {shareDialogTarget && !pendingShareAction && (
             <div className="space-y-4 py-2">
               {!shareDialogTarget.item.portalVisible ? (
                 <>
@@ -1480,7 +1575,7 @@ export function PatientDocumentsSection({
                       {t("common.cancel", "Cancel")}
                     </Button>
                     <Button
-                      onClick={() => shareMutation.mutate(shareDialogTarget)}
+                      onClick={() => handleShareClick(shareDialogTarget)}
                       disabled={shareMutation.isPending}
                     >
                       {shareMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -1501,7 +1596,7 @@ export function PatientDocumentsSection({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => notifyMutation.mutate({ target: shareDialogTarget, method: "email" })}
+                        onClick={() => handleNotifyClick(shareDialogTarget, "email")}
                         disabled={notifyMutation.isPending}
                       >
                         {notifyMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
@@ -1510,7 +1605,7 @@ export function PatientDocumentsSection({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => notifyMutation.mutate({ target: shareDialogTarget, method: "sms" })}
+                        onClick={() => handleNotifyClick(shareDialogTarget, "sms")}
                         disabled={notifyMutation.isPending}
                       >
                         {notifyMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
