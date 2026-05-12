@@ -69,6 +69,7 @@ export default function SettingsPage() {
     hidePatientCancel: false,
     noShowFeeMessage: "" as string,
     addonPatientChat: false,
+    addonAmbulantEligibility: false,
     clinicKind: "mixed" as "aesthetic" | "surgical" | "mixed",
     currency: "CHF" as string,
     dateFormat: "european" as string,
@@ -184,6 +185,7 @@ export default function SettingsPage() {
         hidePatientCancel: fullHospitalData.hidePatientCancel ?? false,
         noShowFeeMessage: fullHospitalData.noShowFeeMessage || "",
         addonPatientChat: fullHospitalData.addonPatientChat ?? false,
+        addonAmbulantEligibility: fullHospitalData.addonAmbulantEligibility ?? false,
         clinicKind: (fullHospitalData.clinicKind ?? "mixed") as "aesthetic" | "surgical" | "mixed",
         currency: fullHospitalData.currency || "CHF",
         dateFormat: fullHospitalData.dateFormat || "european",
@@ -2121,6 +2123,25 @@ export default function SettingsPage() {
                     setHospitalForm(prev => ({ ...prev, addonPatientChat: checked }));
                     updateHospitalMutation.mutate({ ...hospitalForm, addonPatientChat: checked });
                   }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
+                <div className="flex-1">
+                  <Label className="text-sm font-medium">
+                    Ambulant-Eignungsprüfung (Klinische Entscheidungshilfe)
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Aktiviert die Caprini-/STOP-BANG-/RCRI-/Apfel-Scoring-Engine und das Ampel-Gating bei Buchung.
+                  </p>
+                </div>
+                <Switch
+                  checked={hospitalForm.addonAmbulantEligibility}
+                  onCheckedChange={(checked) => {
+                    setHospitalForm(prev => ({ ...prev, addonAmbulantEligibility: checked }));
+                    updateHospitalMutation.mutate({ ...hospitalForm, addonAmbulantEligibility: checked });
+                  }}
+                  data-testid="toggle-addon-ambulant-eligibility"
                 />
               </div>
             </div>
