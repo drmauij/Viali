@@ -360,7 +360,7 @@ export default function AnesthesiaSettings() {
         `/api/anesthesia/settings/${activeHospital?.id}/suggest-concepts`,
         { items },
       );
-      return res as unknown as { suggestions: Array<{ itemId: string; suggestedConcept: ScoringConcept | null }> };
+      return (await res.json()) as { suggestions: Array<{ itemId: string; suggestedConcept: ScoringConcept | null }> };
     },
     onSuccess: (data) => {
       const next: Record<string, ScoringConcept> = { ...aiSuggestions };
