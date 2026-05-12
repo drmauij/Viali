@@ -8,6 +8,8 @@ import { UserCircle, AlertCircle, Download, X, Wifi, WifiOff, RefreshCw, Users, 
 import { formatDate, isBirthdayUnknown } from "@/lib/dateUtils";
 import { useTranslation } from "react-i18next";
 import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
+import { AmbulantEligibilityBadge } from "./AmbulantEligibilityBadge";
+import type { EligibilityResult } from "@shared/scoring/types";
 
 type ConnectionState = 'connected' | 'connecting' | 'disconnected' | 'stale';
 
@@ -30,6 +32,7 @@ interface PatientInfoHeaderProps {
   cameraDeviceName?: string | null;
   isCameraConnected?: boolean;
   onOpenCameraDialog?: () => void;
+  isPacuMode?: boolean;
 }
 
 export function PatientInfoHeader({
@@ -51,6 +54,7 @@ export function PatientInfoHeader({
   cameraDeviceName,
   isCameraConnected = false,
   onOpenCameraDialog,
+  isPacuMode = false,
 }: PatientInfoHeaderProps) {
   const { t, i18n } = useTranslation();
   const isGerman = i18n.language === 'de';
@@ -231,6 +235,19 @@ export function PatientInfoHeader({
             </div>
             <ChevronRight className="h-4 w-4 text-primary/50 shrink-0" />
           </div>
+
+          {/* Ambulant Eligibility - PACU mode only, yellow/red only */}
+          {isPacuMode && surgery?.ambulantQuickCheck && (() => {
+            const eligibility = surgery.ambulantQuickCheck as EligibilityResult;
+            if (!eligibility?.decision || eligibility.decision === 'green') return null;
+            return (
+              <AmbulantEligibilityBadge
+                eligibility={eligibility}
+                hasOverride={Boolean(surgery.ambulantOverrideReason)}
+                variant="pill"
+              />
+            );
+          })()}
 
           {/* Procedure Details Dialog */}
           <Dialog open={showProcedureDialog} onOpenChange={setShowProcedureDialog}>

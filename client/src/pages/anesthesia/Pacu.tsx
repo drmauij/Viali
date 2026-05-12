@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import { formatTime as formatTimeUtil } from "@/lib/dateUtils";
 import { usePacuVitals } from "@/hooks/usePacuVitals";
 import { PacuVitalsCard } from "@/components/anesthesia/PacuVitalsCard";
+import { AmbulantEligibilityBadge } from "@/components/anesthesia/AmbulantEligibilityBadge";
+import type { EligibilityResult } from "@shared/scoring/types";
 
 type PacuPatient = {
   anesthesiaRecordId: string;
@@ -33,6 +35,8 @@ type PacuPatient = {
   pacuBedName?: string | null;
   plannedTime?: string | null;
   admissionTime?: string | null;
+  ambulantQuickCheck?: EligibilityResult | null;
+  hasAmbulantOverride?: boolean;
 };
 
 interface SurgeryRoom {
@@ -149,6 +153,17 @@ function PacuPatientCard({
               <HeartPulse className="h-4 w-4 mr-2 text-muted-foreground flex-shrink-0" />
               <span className="truncate" data-testid={`text-procedure-${patient.surgeryId}`}>{patient.procedure}</span>
             </div>
+            {/* Ambulant eligibility — surfaced for PACU nurses making
+                discharge decisions. Suppress 🟢 (no action signal) to
+                avoid visual clutter on routine cases. */}
+            {patient.ambulantQuickCheck?.decision &&
+             patient.ambulantQuickCheck.decision !== 'green' && (
+              <AmbulantEligibilityBadge
+                eligibility={patient.ambulantQuickCheck}
+                hasOverride={Boolean(patient.hasAmbulantOverride)}
+                variant="pill"
+              />
+            )}
 
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="h-4 w-4 mr-2 flex-shrink-0" />

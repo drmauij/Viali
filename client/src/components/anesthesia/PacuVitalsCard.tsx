@@ -11,8 +11,10 @@ import { cn } from "@/lib/utils";
 import { PacuSparkline } from "./PacuSparkline";
 import { PacuLastVitals } from "./PacuLastVitals";
 import { PacuVitalsAlerts } from "./PacuVitalsAlerts";
+import { AmbulantEligibilityBadge } from "./AmbulantEligibilityBadge";
 import { checkVitalsAlerts } from "@/lib/vitalsThresholds";
 import type { VitalPointWithId, BPPointWithId } from "@/hooks/useVitalsQuery";
+import type { EligibilityResult } from "@shared/scoring/types";
 
 type PacuPatient = {
   anesthesiaRecordId: string;
@@ -29,6 +31,8 @@ type PacuPatient = {
   statusTimestamp: number;
   pacuBedId?: string | null;
   pacuBedName?: string | null;
+  ambulantQuickCheck?: EligibilityResult | null;
+  hasAmbulantOverride?: boolean;
 };
 
 interface SurgeryRoom {
@@ -150,6 +154,14 @@ export function PacuVitalsCard({
             <h3 className="font-semibold text-lg truncate">
               {patient.patientName}
             </h3>
+            {patient.ambulantQuickCheck?.decision &&
+              patient.ambulantQuickCheck.decision !== 'green' && (
+                <AmbulantEligibilityBadge
+                  eligibility={patient.ambulantQuickCheck}
+                  hasOverride={Boolean(patient.hasAmbulantOverride)}
+                  variant="pill"
+                />
+              )}
           </div>
           <p className="text-sm text-muted-foreground">
             {patient.dateOfBirth || ''} • {patient.age} {t('anesthesia.pacu.yearsOld')}

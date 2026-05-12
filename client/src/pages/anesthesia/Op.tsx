@@ -1254,6 +1254,7 @@ export default function Op() {
           cameraDeviceName={connectedCameraDevice?.name}
           isCameraConnected={!!anesthesiaRecord?.cameraDeviceId}
           onOpenCameraDialog={!isSurgeryMode ? () => setShowCameraDialog(true) : undefined}
+          isPacuMode={isPacuMode}
         />
 
         {/* Tabbed Content */}

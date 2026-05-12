@@ -1133,6 +1133,8 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
   clinicRoomName: string | null;
   plannedTime: string | null;
   admissionTime: string | null;
+  ambulantQuickCheck: unknown;
+  hasAmbulantOverride: boolean;
 }>> {
   const clinicRoom = alias(surgeryRooms, "clinic_room");
 
@@ -1236,6 +1238,8 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
         clinicRoomName: row.clinic_room?.name || null,
         plannedTime: null,
         admissionTime: null,
+        ambulantQuickCheck: (row.surgery as any).ambulantQuickCheck ?? null,
+        hasAmbulantOverride: Boolean((row.surgery as any).ambulantOverrideReason),
       };
     })
     .filter((item): item is NonNullable<typeof item> => item !== null);
@@ -1318,6 +1322,8 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
         clinicRoomName: row.clinic_room?.name || null,
         plannedTime: row.surgery.plannedDate ? new Date(row.surgery.plannedDate).toISOString() : null,
         admissionTime: computeAdmissionISO(row.surgery.plannedDate, offsetMinutes),
+        ambulantQuickCheck: (row.surgery as any).ambulantQuickCheck ?? null,
+        hasAmbulantOverride: Boolean((row.surgery as any).ambulantOverrideReason),
       };
     });
 
