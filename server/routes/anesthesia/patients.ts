@@ -10,7 +10,7 @@ import {
   patientQuestionnaireLinks,
 } from "@shared/schema";
 import { z } from "zod";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, desc } from "drizzle-orm";
 import {
   requireWriteAccess,
   requireStrictHospitalAccess,
@@ -1002,15 +1002,25 @@ router.post('/api/patients/:id/documents/:docId/notify-patient', isAuthenticated
       });
     }
 
-    const [link] = await db
+    // Pick the most recent active (non-expired) portal link for the patient.
+    // Sorting ASC and taking the first row picks the OLDEST link, which is
+    // almost always expired — same bug also existed in the brief notify path.
+    const allLinks = await db
       .select()
       .from(patientQuestionnaireLinks)
       .where(eq(patientQuestionnaireLinks.patientId, id))
-      .orderBy(patientQuestionnaireLinks.createdAt)
-      .limit(1);
+      .orderBy(desc(patientQuestionnaireLinks.createdAt));
+
+    const now = new Date();
+    const link = allLinks.find(
+      (l) =>
+        l.status !== "expired" &&
+        l.expiresAt &&
+        new Date(l.expiresAt) > now,
+    );
 
     if (!link) {
-      return res.status(400).json({ message: "Patient has no portal link" });
+      return res.status(400).json({ message: "Patient has no active portal link" });
     }
 
     const portalUrl = `${process.env.APP_URL || "https://use.viali.app"}/patient/${link.token}`;

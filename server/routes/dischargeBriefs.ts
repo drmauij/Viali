@@ -34,7 +34,7 @@ import { createAuditLog } from "../storage/anesthesia";
 import { getPatient } from "../storage/anesthesia";
 import { storage, db } from "../storage";
 import { patients, patientQuestionnaireLinks, hospitals } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { sendSms } from "../sms";
 import { htmlChecklistsToTaskLists } from "../utils/docxToTaskList";
 import { preserveTaskListsFromTemplate } from "../utils/preserveTaskLists";
@@ -632,16 +632,25 @@ router.post(
         return res.status(404).json({ message: "Patient not found" });
       }
 
-      // Find the patient's portal token for the link
-      const [link] = await db
+      // Pick the most recent active (non-expired) portal link.
+      // Sorting ASC and taking the first row picks the OLDEST link, which is
+      // almost always expired.
+      const allLinks = await db
         .select()
         .from(patientQuestionnaireLinks)
         .where(eq(patientQuestionnaireLinks.patientId, brief.patientId))
-        .orderBy(patientQuestionnaireLinks.createdAt)
-        .limit(1);
+        .orderBy(desc(patientQuestionnaireLinks.createdAt));
+
+      const now = new Date();
+      const link = allLinks.find(
+        (l) =>
+          l.status !== "expired" &&
+          l.expiresAt &&
+          new Date(l.expiresAt) > now,
+      );
 
       if (!link) {
-        return res.status(400).json({ message: "Patient has no portal link" });
+        return res.status(400).json({ message: "Patient has no active portal link" });
       }
 
       const portalUrl = `${process.env.APP_URL || "https://use.viali.app"}/patient/${link.token}`;
