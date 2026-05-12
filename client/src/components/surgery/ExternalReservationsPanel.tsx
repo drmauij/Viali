@@ -36,6 +36,8 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDateLong, formatDate, formatDateTime } from "@/lib/dateUtils";
 import { setDraggedRequest } from "@/components/surgery/useExternalRequestDrag";
 import type { ExternalSurgeryRequest } from "@shared/schema";
+import { AmbulantEligibilityBadge } from "@/components/anesthesia/AmbulantEligibilityBadge";
+import type { EligibilityResult } from "@shared/scoring/types";
 
 export interface SurgeryRoom {
   id: string;
@@ -346,6 +348,14 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
               <p className="text-sm">
                 {t('anesthesia.stayType', 'Stay Type')}: {request.stayType === 'overnight' ? t('anesthesia.stayTypeOvernight', 'Overnight Stay') : t('anesthesia.stayTypeAmbulant', 'Outpatient')}
               </p>
+            )}
+            {(request as any).ambulantQuickCheck?.decision && (
+              <div className="text-sm">
+                <AmbulantEligibilityBadge
+                  eligibility={(request as any).ambulantQuickCheck as EligibilityResult}
+                  variant="pill"
+                />
+              </div>
             )}
             {request.surgeryNotes && (
               <p className="text-sm text-muted-foreground">{request.surgeryNotes}</p>
@@ -1132,6 +1142,15 @@ export function ExternalReservationsPanel({
                   <p className="text-sm">
                     {t('anesthesia.stayType', 'Stay Type')}: {request.stayType === 'overnight' ? t('anesthesia.stayTypeOvernight', 'Overnight Stay') : t('anesthesia.stayTypeAmbulant', 'Outpatient')}
                   </p>
+                )}
+
+                {(request as any).ambulantQuickCheck?.decision && (
+                  <div className="text-sm">
+                    <AmbulantEligibilityBadge
+                      eligibility={(request as any).ambulantQuickCheck as EligibilityResult}
+                      variant="pill"
+                    />
+                  </div>
                 )}
 
                 {request.surgeryNotes && (
