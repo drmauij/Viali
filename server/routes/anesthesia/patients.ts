@@ -1013,7 +1013,7 @@ router.post('/api/patients/:id/documents/:docId/notify-patient', isAuthenticated
       return res.status(400).json({ message: "Patient has no portal link" });
     }
 
-    const portalUrl = `${process.env.APP_URL || "https://use.viali.app"}/patient-portal/${link.token}`;
+    const portalUrl = `${process.env.APP_URL || "https://use.viali.app"}/patient/${link.token}`;
 
     const [hospital] = await db
       .select()
