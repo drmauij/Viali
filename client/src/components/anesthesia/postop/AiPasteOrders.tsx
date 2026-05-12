@@ -111,9 +111,14 @@ export function AiPasteOrders({ hospitalId, existingItems, onApply }: Props) {
 
   const apply = () => {
     if (!result) return;
+    // Skip items flagged as having no matching medication config — the server
+    // validator would reject the entire save otherwise. The user can re-paste
+    // a corrected text or configure the missing meds first.
+    const applicable = result.items.filter(it => !(it as PostopOrderItem & MaybeUnmapped)._unmapped);
+    const skipped = result.items.length - applicable.length;
     // Assign fresh IDs in case AI reused any, and ensure uniqueness with existing.
     const existingIds = new Set(existingItems.map(i => i.id));
-    const withFreshIds = result.items.map(it => {
+    const withFreshIds = applicable.map(it => {
       if (!it.id || existingIds.has(it.id)) return { ...it, id: crypto.randomUUID() };
       return it;
     });
@@ -122,7 +127,13 @@ export function AiPasteOrders({ hospitalId, existingItems, onApply }: Props) {
     setText('');
     toast({
       title: t('postopOrders.ai.appliedTitle', 'Applied'),
-      description: t('postopOrders.ai.appliedBody', '{{n}} items added. Review and save to persist.', { n: withFreshIds.length }),
+      description: skipped > 0
+        ? t(
+            'postopOrders.ai.appliedPartial',
+            '{{n}} added, {{skipped}} skipped (missing medication configuration).',
+            { n: withFreshIds.length, skipped },
+          )
+        : t('postopOrders.ai.appliedBody', '{{n}} items added. Review and save to persist.', { n: withFreshIds.length }),
     });
   };
 
@@ -169,17 +180,43 @@ export function AiPasteOrders({ hospitalId, existingItems, onApply }: Props) {
                 </div>
               )}
               <ul className="space-y-1">
-                {result.items.map((it, idx) => (
-                  <li
-                    key={idx}
-                    className="text-sm px-2 py-1.5 rounded bg-green-500/10 border border-green-500/30"
-                  >
-                    <span className="text-xs uppercase text-green-700 dark:text-green-400 font-medium mr-2">
-                      {it.type}
-                    </span>
-                    {summarizeItem(it)}
-                  </li>
-                ))}
+                {result.items.map((it, idx) => {
+                  const unmapped = (it as PostopOrderItem & MaybeUnmapped)._unmapped === true;
+                  return (
+                    <li
+                      key={idx}
+                      className={
+                        unmapped
+                          ? 'text-sm px-2 py-1.5 rounded bg-amber-500/10 border border-amber-500/30'
+                          : 'text-sm px-2 py-1.5 rounded bg-green-500/10 border border-green-500/30'
+                      }
+                    >
+                      <div className="flex items-start gap-2">
+                        <span
+                          className={
+                            unmapped
+                              ? 'text-xs uppercase text-amber-700 dark:text-amber-400 font-medium'
+                              : 'text-xs uppercase text-green-700 dark:text-green-400 font-medium'
+                          }
+                        >
+                          {it.type}
+                        </span>
+                        <span className="flex-1">{summarizeItem(it)}</span>
+                      </div>
+                      {unmapped && (
+                        <div className="mt-1 flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          <span>
+                            {t(
+                              'postopOrders.ai.missingConfig',
+                              'Missing configuration — will be skipped on Apply. Configure this medication first or correct the name.',
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
               {result.unresolved.length > 0 && (
                 <div className="text-xs px-2 py-1.5 rounded bg-yellow-500/10 border border-yellow-500/30 flex items-start gap-2">
@@ -201,7 +238,11 @@ export function AiPasteOrders({ hospitalId, existingItems, onApply }: Props) {
                   <X className="w-4 h-4 mr-1" />
                   {t('postopOrders.ai.discard', 'Discard')}
                 </Button>
-                <Button size="sm" onClick={apply} disabled={result.items.length === 0}>
+                <Button
+                  size="sm"
+                  onClick={apply}
+                  disabled={result.items.every(it => (it as PostopOrderItem & MaybeUnmapped)._unmapped === true)}
+                >
                   <Check className="w-4 h-4 mr-1" />
                   {t('postopOrders.ai.apply', 'Apply')}
                 </Button>

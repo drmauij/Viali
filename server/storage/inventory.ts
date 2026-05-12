@@ -131,6 +131,32 @@ export async function getItem(id: string): Promise<Item | undefined> {
   return item;
 }
 
+/**
+ * Returns active items in this unit that have at least one medication_configs
+ * row — i.e. the medications the postop order validator accepts. Used by the
+ * AI parser so the LLM is only shown medications that can actually be ordered.
+ */
+export async function getConfiguredMedicationItems(
+  hospitalId: string,
+  unitId: string,
+): Promise<{ id: string; name: string; description: string | null }[]> {
+  const result = await db
+    .selectDistinct({
+      id: items.id,
+      name: items.name,
+      description: items.description,
+    })
+    .from(items)
+    .innerJoin(medicationConfigs, eq(medicationConfigs.itemId, items.id))
+    .where(and(
+      eq(items.hospitalId, hospitalId),
+      eq(items.unitId, unitId),
+      eq(items.status, 'active'),
+    ))
+    .orderBy(asc(items.name));
+  return result;
+}
+
 export async function createItem(item: InsertItem): Promise<Item> {
   const [created] = await db.insert(items).values(item).returning();
   return created;

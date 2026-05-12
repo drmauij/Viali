@@ -1,5 +1,5 @@
 import logger from "../logger";
-import { getItems } from "../storage/inventory";
+import { getConfiguredMedicationItems } from "../storage/inventory";
 import type { PostopOrderItem } from "@shared/postopOrderItems";
 
 const ANTHROPIC_MODEL = "claude-sonnet-4-5-20250929";
@@ -86,7 +86,12 @@ export async function parsePostopOrders(
     throw new Error("ANTHROPIC_API_KEY not configured");
   }
 
-  const inventory = await getItems(hospitalId, unitId);
+  // Only feed the LLM medications that have at least one medication_configs
+  // row — those are the names the save-time validator will accept. Otherwise
+  // the AI can pick a generic-inventory SKU (e.g. "Paracetamol 1g/100ml Amp")
+  // whose anesthesia-configured twin (e.g. "PARACETAMOL 1g") is what the
+  // chart actually needs.
+  const inventory = await getConfiguredMedicationItems(hospitalId, unitId);
   const deduped = dedupeInventory(inventory).slice(0, MAX_INVENTORY_SIZE);
   const inventoryLines = deduped
     .map(i => i.description && i.description !== i.name ? `- ${i.name} (${i.description})` : `- ${i.name}`)
