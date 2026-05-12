@@ -993,11 +993,15 @@ export const patientDocuments = pgTable("patient_documents", {
   episodeFolderId: varchar("episode_folder_id"),
   tissueSampleId: varchar("tissue_sample_id").references((): any => tissueSamples.id, { onDelete: "set null" }), // Forward reference — tissueSamples declared below
   documentFolderId: varchar("document_folder_id"),
+  portalVisible: boolean("portal_visible").default(false).notNull(),
+  portalSharedAt: timestamp("portal_shared_at"),
+  portalSharedBy: varchar("portal_shared_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_patient_documents_hospital").on(table.hospitalId),
   index("idx_patient_documents_patient").on(table.patientId),
   index("idx_patient_documents_tissue_sample").on(table.tissueSampleId),
+  index("idx_patient_documents_portal_visible").on(table.portalVisible),
 ]);
 
 // Patient Episodes - Clinical journey grouping (broader than hospital admission)
