@@ -240,25 +240,21 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const ambulantEligibilityEnabled = activeHospital?.addonAmbulantEligibility === true;
 
   const patientAgeYears = useMemo<number | null>(() => {
-    if (!patient?.dateOfBirth) return null;
-    const ms = Date.now() - new Date(patient.dateOfBirth).getTime();
+    if (!patient?.birthday) return null;
+    const ms = Date.now() - new Date(patient.birthday).getTime();
     return Math.floor(ms / (365.25 * 24 * 3600 * 1000));
-  }, [patient?.dateOfBirth]);
+  }, [patient?.birthday]);
 
-  const patientBmi = useMemo<number | null>(() => {
-    const w = Number(patient?.weight);
-    const h = Number(patient?.height);
-    if (!w || !h) return null;
-    const meters = h > 3 ? h / 100 : h;
-    return w / (meters * meters);
-  }, [patient?.weight, patient?.height]);
+  // Patient row has weight but no height; height lives on preop_assessment.
+  // BMI is null at booking time — composite still gates on duration, age, OSAS, etc.
+  const patientBmi: number | null = null;
 
   const patientSex = useMemo<'male' | 'female' | null>(() => {
-    const s = (patient?.sex || patient?.gender || '').toLowerCase();
-    if (s.startsWith('m') || s === 'male') return 'male';
-    if (s.startsWith('f') || s === 'female' || s.startsWith('w')) return 'female';
+    const s = (patient?.sex || '').toString().toUpperCase();
+    if (s === 'M') return 'male';
+    if (s === 'F') return 'female';
     return null;
-  }, [patient?.sex, patient?.gender]);
+  }, [patient?.sex]);
 
   const ambulantEligibility = useMemo(() => calculateQuick({
     ageYears: patientAgeYears,

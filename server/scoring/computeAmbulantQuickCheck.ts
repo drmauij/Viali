@@ -63,25 +63,24 @@ export function deriveQuickCheckInputsFromBody(
         )
       : null;
 
-  const ageYears = patient?.dateOfBirth
+  const ageYears = patient?.birthday
     ? Math.floor(
-        (Date.now() - new Date(patient.dateOfBirth).getTime()) /
+        (Date.now() - new Date(patient.birthday).getTime()) /
           (365.25 * 24 * 3600 * 1000),
       )
     : null;
 
+  // Patient row has weight but no height; height comes from preop_assessment.
+  // At booking time we don't have height — BMI is null and the badge degrades
+  // gracefully (gates that need BMI just won't fire).
   const w = patient?.weight ? Number(patient.weight) : null;
-  const h = patient?.height ? Number(patient.height) : null;
-  let bmi: number | null = null;
-  if (w && h) {
-    const meters = h > 3 ? h / 100 : h;
-    bmi = w / (meters * meters);
-  }
+  const bmi: number | null = null;
+  void w; // BMI requires height; left intentionally undefined at booking time.
 
-  const rawSex = (patient?.sex ?? patient?.gender ?? "").toString().toLowerCase();
-  const sex: "male" | "female" | null = rawSex.startsWith("m")
+  const rawSex = (patient?.sex ?? "").toString().toUpperCase();
+  const sex: "male" | "female" | null = rawSex === "M"
     ? "male"
-    : rawSex.startsWith("f") || rawSex.startsWith("w")
+    : rawSex === "F"
       ? "female"
       : null;
 

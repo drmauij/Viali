@@ -1,0 +1,91 @@
+import { useState } from 'react';
+import { ChevronRight, ChevronDown } from 'lucide-react';
+import { AmbulantEligibilityBadge } from './AmbulantEligibilityBadge';
+import type {
+  EligibilityResult,
+  ScoreResult,
+  CapriniResult,
+  StopBangResult,
+  RcriResult,
+  ApfelResult,
+} from '@shared/scoring/types';
+import type { Recommendations } from '@shared/scoring/recommendations';
+
+interface Props {
+  eligibility: EligibilityResult;
+  scores: { caprini: CapriniResult; stopBang: StopBangResult; rcri: RcriResult; apfel: ApfelResult };
+  recommendations: Recommendations;
+  hasOverride: boolean;
+  onSwitchToOvernight?: () => void;
+  onRequestOverride?: () => void;
+}
+
+function ScoreRow({ label, result, suffix }: { label: string; result: ScoreResult; suffix?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-t py-1.5 text-sm">
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 text-left"
+        onClick={() => setOpen((o) => !o)}
+        data-testid={`score-row-${label.toLowerCase()}`}
+      >
+        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        <span className="w-24 font-medium">{label}</span>
+        <span className="w-12 text-right">{result.score}</span>
+        <span className="ml-2 text-muted-foreground">
+          {result.category}
+          {suffix ? ` · ${suffix}` : ''}
+        </span>
+      </button>
+      {open && (
+        <table className="ml-6 mt-1 text-xs">
+          <tbody>
+            {result.breakdown.map((row) => (
+              <tr key={row.criterion} className={row.met ? 'font-medium' : 'text-muted-foreground'}>
+                <td className="pr-3">{row.met ? '✓' : '○'}</td>
+                <td className="pr-3">{row.criterion}</td>
+                <td className="pr-3 text-right">{row.points} Pkt.</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+export function AmbulantFullAssessmentPanel({
+  eligibility,
+  scores,
+  recommendations,
+  hasOverride,
+  onSwitchToOvernight,
+  onRequestOverride,
+}: Props) {
+  return (
+    <div className="space-y-3 rounded-md border p-4" data-testid="full-assessment-panel">
+      <AmbulantEligibilityBadge
+        eligibility={eligibility}
+        hasOverride={hasOverride}
+        onSwitchToOvernight={onSwitchToOvernight}
+        onRequestOverride={onRequestOverride}
+      />
+
+      <div className="border rounded-md p-2">
+        <div className="font-semibold text-sm pb-1">Klinische Scores</div>
+        <ScoreRow label="Caprini" result={scores.caprini} />
+        <ScoreRow label="STOP-BANG" result={scores.stopBang} />
+        <ScoreRow label="RCRI" result={scores.rcri} suffix={`${scores.rcri.macePercent.toFixed(1)}% MACE`} />
+        <ScoreRow label="Apfel" result={scores.apfel} suffix={`${scores.apfel.ponvPercent}% PONV`} />
+      </div>
+
+      <div className="rounded-md bg-slate-50 p-3 text-sm space-y-1">
+        <div className="font-semibold">Empfehlungen</div>
+        <div>• VTE-Prophylaxe: {recommendations.vteProphylaxis}</div>
+        <div>• PONV-Prophylaxe: {recommendations.ponvProphylaxis}</div>
+        <div>• Monitoring: {recommendations.monitoring}</div>
+      </div>
+    </div>
+  );
+}

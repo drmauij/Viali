@@ -9,6 +9,151 @@ import { Resend } from "resend";
 import { sendSms, isSmsConfiguredForHospital } from "../../sms";
 import { nanoid } from "nanoid";
 import logger from "../../logger";
+import { calculateCaprini } from "@shared/scoring/caprini";
+import { calculateStopBang } from "@shared/scoring/stopBang";
+import { calculateRcri } from "@shared/scoring/rcri";
+import { calculateApfel } from "@shared/scoring/apfel";
+import { calculateFull } from "@shared/scoring/ambulantEligibility";
+import { deriveRecommendations } from "@shared/scoring/recommendations";
+import { AMBULANT_THRESHOLDS } from "@shared/scoring/thresholds";
+import type { FullAssessmentInputs, SurgeryRiskClass } from "@shared/scoring/types";
+import { createAuditLog } from "../../storage/anesthesia";
+
+/**
+ * Recompute the full ambulant assessment server-side and write it into the
+ * body so it persists alongside the row. Returns the audit payload (or null
+ * if no override) for the caller to write after the DB insert/update so we
+ * have a real recordId.
+ */
+async function applyAmbulantFullAssessment(
+  req: any,
+  body: any,
+  surgery: any,
+): Promise<{ status: number; payload: any } | { audit: any | null }> {
+  const hospital = await storage.getHospital(surgery.hospitalId);
+  if (!hospital?.addonAmbulantEligibility) return { audit: null };
+
+  const patient = surgery.patientId ? await storage.getPatient(surgery.patientId) : null;
+
+  const ageYears = patient?.birthday
+    ? Math.floor((Date.now() - new Date(patient.birthday).getTime()) / (365.25 * 24 * 3600 * 1000))
+    : null;
+
+  // Height lives on the preop_assessment row (this body) not the patient row.
+  // Weight is on both — prefer body, fall back to patient.
+  const wRaw = body.weight ?? patient?.weight;
+  const hRaw = body.height;
+  const w = wRaw ? Number(wRaw) : null;
+  const h = hRaw ? Number(hRaw) : null;
+  let bmi: number | null = null;
+  if (w && h) {
+    const meters = h > 3 ? h / 100 : h;
+    bmi = w / (meters * meters);
+  }
+
+  const rawSex = (patient?.sex ?? "").toString().toUpperCase();
+  const sex: "male" | "female" | null = rawSex === "M"
+    ? "male"
+    : rawSex === "F"
+      ? "female"
+      : null;
+
+  const plannedMinutes = surgery.plannedDate && surgery.actualEndTime
+    ? Math.round((new Date(surgery.actualEndTime).getTime() - new Date(surgery.plannedDate).getTime()) / 60000)
+    : null;
+
+  const heart = body.heartIllnesses ?? {};
+  const coag = body.coagulationIllnesses ?? {};
+  const neuro = body.neuroIllnesses ?? {};
+  const metab = body.metabolicIllnesses ?? {};
+  const infect = body.infectiousIllnesses ?? {};
+
+  const inputs: FullAssessmentInputs = {
+    ageYears,
+    bmi,
+    sex,
+    plannedMinutes,
+    surgeryRiskClass: (surgery.surgeryRiskClass ?? null) as SurgeryRiskClass | null,
+    stayType: (surgery.stayType ?? null) as "ambulant" | "overnight" | null,
+    knownOsasUntreated: Boolean(body.knownOsasUntreated),
+    vteHistory: Boolean(coag.vteHistory),
+    activeCancer: Boolean(infect.activeCancer),
+    hasLegSwelling: Boolean(body.hasLegSwelling),
+    hasVaricoseVeins: Boolean(body.hasVaricoseVeins),
+    isPregnantOrPostpartum: Boolean(body.isPregnantOrPostpartum),
+    onOcOrHrt: Boolean(body.onOcOrHrt),
+    expectedBedrestOver72h: Boolean(body.expectedBedrestOver72h),
+    familyThrombophilia: Boolean(coag.familyThrombophilia),
+    strokeWithin30Days: Boolean(neuro.recentStroke),
+    hipOrLegFracture: Boolean(body.hipOrLegFracture),
+    spinalCordInjury: Boolean(neuro.spinalCordInjury),
+    snoringLoud: Boolean(body.osasSnoringLoud),
+    daytimeTiredness: Boolean(body.osasDaytimeTiredness),
+    observedApnea: Boolean(body.osasObservedApnea),
+    hasHypertension: Boolean(heart.hypertension),
+    neckCircumferenceCm: body.neckCircumferenceCm != null ? Number(body.neckCircumferenceCm) : null,
+    hasCAD: Boolean(heart.cad),
+    hasCHF: Boolean(heart.chf),
+    hasCerebrovascularDisease: Boolean(neuro.stroke),
+    isInsulinDependentDiabetic: Boolean(metab.diabetesInsulin),
+    creatinineMgDl: body.creatinineMgDl != null ? Number(body.creatinineMgDl) : null,
+    isNonSmoker: !Boolean(body.noxen?.nicotine),
+    hasPostopNauseaHistory: Boolean(body.hasPostopNauseaHistory),
+    postopOpioidsPlanned: Boolean(body.postopOpioidsPlanned),
+    expectedBloodLossMl: body.expectedBloodLossMl != null ? Number(body.expectedBloodLossMl) : null,
+    hasCaregiver24h: Boolean(body.outpatientCaregiverFirstName) || Boolean(body.hasCaregiver24h),
+    distanceToClinicMinutes: body.distanceToClinicMinutes != null ? Number(body.distanceToClinicMinutes) : null,
+    patientCanUnderstandDischarge: body.patientCanUnderstandDischarge !== false,
+  };
+
+  const scores = {
+    caprini: calculateCaprini(inputs),
+    stopBang: calculateStopBang(inputs),
+    rcri: calculateRcri(inputs),
+    apfel: calculateApfel(inputs),
+  };
+  const eligibility = calculateFull(inputs, scores);
+  const recommendations = deriveRecommendations(scores.caprini, scores.apfel, scores.stopBang, eligibility);
+
+  const overrideReason: string | null =
+    typeof body.ambulantOverrideReason === "string" ? body.ambulantOverrideReason.trim() : null;
+
+  if (overrideReason && overrideReason.length < AMBULANT_THRESHOLDS.OVERRIDE_REASON_MIN_CHARS) {
+    return {
+      status: 400,
+      payload: {
+        error: "override_reason_too_short",
+        minChars: AMBULANT_THRESHOLDS.OVERRIDE_REASON_MIN_CHARS,
+      },
+    };
+  }
+
+  body.ambulantFullAssessment = {
+    decision: eligibility.decision,
+    reasons: eligibility.reasons,
+    hardExclusions: eligibility.hardExclusions,
+    yellowFactors: eligibility.yellowFactors,
+    scores,
+    recommendations,
+    override: overrideReason
+      ? { reason: overrideReason, by: req.user.id, at: new Date().toISOString() }
+      : undefined,
+    calculatedAt: new Date().toISOString(),
+    calculatedBy: req.user.id,
+  };
+
+  return {
+    audit: overrideReason
+      ? {
+          action: "amend" as const,
+          recordType: "ambulant_eligibility_full",
+          userId: req.user.id,
+          reason: overrideReason,
+          newValue: { decision: eligibility.decision, inputs, scores },
+        }
+      : null,
+  };
+}
 
 const router = Router();
 
@@ -101,6 +246,16 @@ router.post('/api/anesthesia/preop', isAuthenticated, requireStrictHospitalAcces
   try {
     const userId = req.user.id;
 
+    const surgeryForAmbulant = req.body.surgeryId ? await storage.getSurgery(req.body.surgeryId) : null;
+    let ambulantAudit: any = null;
+    if (surgeryForAmbulant) {
+      const ambulantResult = await applyAmbulantFullAssessment(req, req.body, surgeryForAmbulant);
+      if ('status' in ambulantResult) {
+        return res.status(ambulantResult.status).json(ambulantResult.payload);
+      }
+      ambulantAudit = ambulantResult.audit;
+    }
+
     const validatedData = insertPreOpAssessmentSchema.parse(req.body);
 
     const surgery = await storage.getSurgery(validatedData.surgeryId);
@@ -133,7 +288,11 @@ router.post('/api/anesthesia/preop', isAuthenticated, requireStrictHospitalAcces
     }
 
     const newAssessment = await storage.createPreOpAssessment(validatedData);
-    
+
+    if (ambulantAudit) {
+      await createAuditLog({ ...ambulantAudit, recordId: newAssessment.id });
+    }
+
     res.status(201).json(newAssessment);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -204,8 +363,18 @@ router.patch('/api/anesthesia/preop/:id', isAuthenticated, requireStrictHospital
       }
     }
 
+    const ambulantResult = await applyAmbulantFullAssessment(req, req.body, surgery);
+    if ('status' in ambulantResult) {
+      return res.status(ambulantResult.status).json(ambulantResult.payload);
+    }
+    const ambulantAudit = ambulantResult.audit;
+
     const updatedAssessment = await storage.updatePreOpAssessment(id, req.body);
-    
+
+    if (ambulantAudit) {
+      await createAuditLog({ ...ambulantAudit, recordId: updatedAssessment.id });
+    }
+
     res.json(updatedAssessment);
   } catch (error) {
     logger.error("Error updating pre-op assessment:", error);
