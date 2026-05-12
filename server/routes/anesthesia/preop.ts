@@ -30,9 +30,7 @@ async function applyAmbulantFullAssessment(
   body: any,
   surgery: any,
 ): Promise<{ status: number; payload: any } | { audit: any | null }> {
-  const hospital = await storage.getHospital(surgery.hospitalId);
-  if (!hospital?.addonAmbulantEligibility) return { audit: null };
-
+  // Ambulant assessment runs for every pre-op — no per-hospital opt-in.
   const patient = surgery.patientId ? await storage.getPatient(surgery.patientId) : null;
 
   const ageYears = patient?.birthday

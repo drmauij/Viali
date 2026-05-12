@@ -75,6 +75,7 @@ import {
 import { calculateQuick } from "@shared/scoring/ambulantEligibility";
 import { AmbulantEligibilityBadge } from "@/components/anesthesia/AmbulantEligibilityBadge";
 import type { SurgeryRiskClass } from "@shared/scoring/types";
+import { useTranslation as useI18nTranslation } from "react-i18next";
 
 export type AvailableSurgeon = {
   id: string;
@@ -206,9 +207,10 @@ export interface SurgeryRequestFormProps {
   onEditProfile?: () => void;
 
   /**
-   * When true, render the surgery_risk_class dropdown + an advisory ambulant
-   * eligibility badge below the stay-type. The portal flow has no override —
-   * a 🔴 case is still submitted; the clinic queue handles it. Default false.
+   * Render the surgery_risk_class dropdown + an advisory ambulant eligibility
+   * badge below the stay-type. The portal flow has no override — a 🔴 case is
+   * still submitted; the clinic queue handles it. Defaults true; pass false
+   * to suppress for callers that pre-classify externally.
    */
   ambulantEligibilityEnabled?: boolean;
 }
@@ -373,8 +375,9 @@ export function SurgeryRequestForm({
   onValuesChange,
   onProgressChange,
   onEditProfile,
-  ambulantEligibilityEnabled = false,
+  ambulantEligibilityEnabled = true,
 }: SurgeryRequestFormProps) {
+  const { t: ti18n } = useI18nTranslation();
   const [values, setValues] = useState<SurgeryRequestFormValues>(() => ({
     ...DEFAULT_VALUES,
     ...initialValues,
@@ -1166,19 +1169,19 @@ export function SurgeryRequestForm({
                   </div>
                   {ambulantEligibilityEnabled && (
                     <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="surgeryRiskClass">Eingriffstyp-Klassifikation *</Label>
+                      <Label htmlFor="surgeryRiskClass">{ti18n('ambulantEligibility.riskClassLabel', 'Surgery risk class *')}</Label>
                       <Select
                         value={values.surgeryRiskClass || undefined}
                         onValueChange={(v) => update("surgeryRiskClass", v as SurgeryRiskClass)}
                       >
                         <SelectTrigger id="surgeryRiskClass" data-testid="select-risk-class">
-                          <SelectValue placeholder="Bitte wählen…" />
+                          <SelectValue placeholder={ti18n('ambulantEligibility.riskClassPlaceholder', 'Please select…')} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="minor">Klein (z.B. kleine Lipo, einfache Naht)</SelectItem>
-                          <SelectItem value="standard">Standard (z.B. Augmentation, kleine BSA)</SelectItem>
-                          <SelectItem value="large">Gross (z.B. Mastopexie, mittl. Abdominoplastik)</SelectItem>
-                          <SelectItem value="critical">Kritisch (z.B. Body-Lift, grosse Abdominoplastik, &gt;5L Lipo)</SelectItem>
+                          <SelectItem value="minor">{ti18n('ambulantEligibility.riskClass.minor', 'Minor (e.g. small lipo, simple suture)')}</SelectItem>
+                          <SelectItem value="standard">{ti18n('ambulantEligibility.riskClass.standard', 'Standard (e.g. augmentation, small BSA)')}</SelectItem>
+                          <SelectItem value="large">{ti18n('ambulantEligibility.riskClass.large', 'Large (e.g. mastopexy, mid abdominoplasty)')}</SelectItem>
+                          <SelectItem value="critical">{ti18n('ambulantEligibility.riskClass.critical', 'Critical (e.g. body lift, large abdominoplasty, >5L lipo)')}</SelectItem>
                         </SelectContent>
                       </Select>
                       {values.surgeryRiskClass && (

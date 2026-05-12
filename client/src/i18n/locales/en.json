@@ -8715,5 +8715,51 @@
       "otherLabel": "Other lab (specify)",
       "manualPlaceholder": "Lab name"
     }
+  },
+  "ambulantEligibility": {
+    "riskClassLabel": "Surgery risk class *",
+    "riskClassPlaceholder": "Please select…",
+    "riskClass": {
+      "minor": "Minor (e.g. small lipo, simple suture)",
+      "standard": "Standard (e.g. augmentation, small BSA)",
+      "large": "Large (e.g. mastopexy, mid abdominoplasty)",
+      "critical": "Critical (e.g. body lift, large abdominoplasty, >5L lipo)"
+    },
+    "decision": {
+      "green": "Outpatient eligible",
+      "yellow": "Anesthesia review recommended",
+      "red": "Outpatient not recommended"
+    },
+    "hardExclusions": "Hard exclusions:",
+    "riskFactors": "Risk factors:",
+    "switchToOvernight": "Plan as overnight",
+    "requestOverride": "Override with reason",
+    "overrideActive": "Override active",
+    "modal": {
+      "title": "Outpatient procedure with justification",
+      "riskFactorsLabel": "Risk factors:",
+      "reasonPlaceholder": "Clinical justification for outpatient procedure despite risk factors…",
+      "minCharsNotice": "Min. {{min}} characters ({{count}}/{{min}}). Justification is permanently recorded in the audit log.",
+      "cancel": "Cancel",
+      "confirm": "Confirm override"
+    },
+    "stopBang": {
+      "title": "STOP-BANG (Sleep apnea screening)",
+      "snoring": "Loud snoring (audible through a wall)",
+      "apnea": "Observed apnea",
+      "tiredness": "Daytime tiredness / falling asleep during the day",
+      "neckCm": "Neck circumference (cm)",
+      "autoNotice": "BMI, age, sex and hypertension are taken from the patient record."
+    },
+    "panel": {
+      "clinicalScores": "Clinical scores",
+      "recommendations": "Recommendations",
+      "vteProphylaxis": "VTE prophylaxis",
+      "ponvProphylaxis": "PONV prophylaxis",
+      "monitoring": "Monitoring"
+    },
+    "save": {
+      "blockedTooltip": "Risk check red — override required or plan as overnight"
+    }
   }
 }

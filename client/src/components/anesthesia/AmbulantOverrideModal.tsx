@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function AmbulantOverrideModal({ open, onOpenChange, eligibility, onSubmit }: Props) {
+  const { t } = useTranslation();
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const minChars = AMBULANT_THRESHOLDS.OVERRIDE_REASON_MIN_CHARS;
@@ -34,12 +36,12 @@ export function AmbulantOverrideModal({ open, onOpenChange, eligibility, onSubmi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent data-testid="ambulant-override-modal">
         <DialogHeader>
-          <DialogTitle>Ambulante Durchführung mit Begründung</DialogTitle>
+          <DialogTitle>{t('ambulantEligibility.modal.title', 'Outpatient procedure with justification')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
           <div className="rounded-md bg-red-50 p-3 text-sm">
-            <strong>Risikofaktoren:</strong>
+            <strong>{t('ambulantEligibility.modal.riskFactorsLabel', 'Risk factors:')}</strong>
             <ul className="mt-1 list-disc pl-5">
               {eligibility.hardExclusions.map((r) => <li key={r}>{r}</li>)}
             </ul>
@@ -48,23 +50,28 @@ export function AmbulantOverrideModal({ open, onOpenChange, eligibility, onSubmi
           <Textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="Klinische Begründung für ambulante Durchführung trotz Risikofaktoren..."
+            placeholder={t('ambulantEligibility.modal.reasonPlaceholder', 'Clinical justification for outpatient procedure despite risk factors…')}
             rows={5}
             data-testid="ambulant-override-reason"
           />
           <p className="text-xs text-muted-foreground">
-            Min. {minChars} Zeichen ({reason.trim().length}/{minChars}). Begründung wird permanent im Audit-Log gespeichert.
+            {t('ambulantEligibility.modal.minCharsNotice', 'Min. {{min}} characters ({{count}}/{{min}}). Justification is permanently recorded in the audit log.', {
+              min: minChars,
+              count: reason.trim().length,
+            })}
           </p>
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Abbrechen</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            {t('ambulantEligibility.modal.cancel', 'Cancel')}
+          </Button>
           <Button
             onClick={handle}
             disabled={tooShort || submitting}
             data-testid="ambulant-override-confirm"
           >
-            Override bestätigen
+            {t('ambulantEligibility.modal.confirm', 'Confirm override')}
           </Button>
         </DialogFooter>
       </DialogContent>

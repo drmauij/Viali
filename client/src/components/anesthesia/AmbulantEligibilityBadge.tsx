@@ -1,4 +1,5 @@
 import { CheckCircle2, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { EligibilityResult } from '@shared/scoring/types';
 
@@ -23,12 +24,6 @@ const ICONS = {
   red: ShieldAlert,
 };
 
-const LABELS = {
-  green: 'Ambulant geeignet',
-  yellow: 'Anästhesie-Rücksprache empfohlen',
-  red: 'Ambulant nicht empfohlen',
-};
-
 export function AmbulantEligibilityBadge({
   eligibility,
   hasOverride = false,
@@ -37,19 +32,25 @@ export function AmbulantEligibilityBadge({
   onRequestOverride,
   className,
 }: Props) {
+  const { t } = useTranslation();
   const { decision, hardExclusions, yellowFactors } = eligibility;
   const c = COLORS[decision];
   const Icon = ICONS[decision];
 
+  const label =
+    decision === 'green' ? t('ambulantEligibility.decision.green', 'Outpatient eligible')
+    : decision === 'yellow' ? t('ambulantEligibility.decision.yellow', 'Anesthesia review recommended')
+    : t('ambulantEligibility.decision.red', 'Outpatient not recommended');
+
   if (variant === 'pill') {
     return (
       <span
-        title={[...hardExclusions, ...yellowFactors].join(' · ') || LABELS[decision]}
+        title={[...hardExclusions, ...yellowFactors].join(' · ') || label}
         className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs', c.bg, c.border, c.text, className)}
         data-testid={`ambulant-pill-${decision}`}
       >
         <Icon className="h-3 w-3" />
-        {LABELS[decision]}
+        {label}
         {hasOverride && <span className="ml-1">⚠</span>}
       </span>
     );
@@ -62,13 +63,15 @@ export function AmbulantEligibilityBadge({
     >
       <div className="flex items-center gap-2 font-semibold">
         <Icon className="h-4 w-4" />
-        {LABELS[decision]}
-        {hasOverride && <span className="ml-auto text-xs">⚠ Override aktiv</span>}
+        {label}
+        {hasOverride && (
+          <span className="ml-auto text-xs">⚠ {t('ambulantEligibility.overrideActive', 'Override active')}</span>
+        )}
       </div>
 
       {hardExclusions.length > 0 && (
         <div>
-          <div className="font-medium">Harte Ausschlüsse:</div>
+          <div className="font-medium">{t('ambulantEligibility.hardExclusions', 'Hard exclusions:')}</div>
           <ul className="list-disc pl-5">
             {hardExclusions.map((r) => <li key={r}>{r}</li>)}
           </ul>
@@ -77,7 +80,7 @@ export function AmbulantEligibilityBadge({
 
       {yellowFactors.length > 0 && decision !== 'red' && (
         <div>
-          <div className="font-medium">Risikofaktoren:</div>
+          <div className="font-medium">{t('ambulantEligibility.riskFactors', 'Risk factors:')}</div>
           <ul className="list-disc pl-5">
             {yellowFactors.map((r) => <li key={r}>{r}</li>)}
           </ul>
@@ -93,7 +96,7 @@ export function AmbulantEligibilityBadge({
               className="rounded border border-red-300 bg-white px-3 py-1 text-sm hover:bg-red-100"
               data-testid="ambulant-switch-overnight"
             >
-              Stationär planen
+              {t('ambulantEligibility.switchToOvernight', 'Plan as overnight')}
             </button>
           )}
           {onRequestOverride && (
@@ -103,7 +106,7 @@ export function AmbulantEligibilityBadge({
               className="rounded border border-red-300 bg-white px-3 py-1 text-sm hover:bg-red-100"
               data-testid="ambulant-request-override"
             >
-              Override mit Grund
+              {t('ambulantEligibility.requestOverride', 'Override with reason')}
             </button>
           )}
         </div>

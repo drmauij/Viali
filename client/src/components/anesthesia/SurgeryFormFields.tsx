@@ -352,7 +352,7 @@ export function SurgeryFormFields({
         <div className="space-y-3 rounded-md border border-dashed p-3">
           <div className="space-y-1.5">
             <Label htmlFor={tid('select-risk-class')}>
-              Eingriffstyp-Klassifikation *
+              {t('ambulantEligibility.riskClassLabel', 'Surgery risk class *')}
             </Label>
             <Select
               value={surgeryRiskClass || undefined}
@@ -360,13 +360,13 @@ export function SurgeryFormFields({
               disabled={disabled}
             >
               <SelectTrigger data-testid={tid('select-risk-class')}>
-                <SelectValue placeholder="Bitte wählen…" />
+                <SelectValue placeholder={t('ambulantEligibility.riskClassPlaceholder', 'Please select…')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="minor">Klein (z.B. kleine Lipo, einfache Naht)</SelectItem>
-                <SelectItem value="standard">Standard (z.B. Augmentation, kleine BSA)</SelectItem>
-                <SelectItem value="large">Gross (z.B. Mastopexie, mittl. Abdominoplastik)</SelectItem>
-                <SelectItem value="critical">Kritisch (z.B. Body-Lift, grosse Abdominoplastik, &gt;5L Lipo)</SelectItem>
+                <SelectItem value="minor">{t('ambulantEligibility.riskClass.minor', 'Minor (e.g. small lipo, simple suture)')}</SelectItem>
+                <SelectItem value="standard">{t('ambulantEligibility.riskClass.standard', 'Standard (e.g. augmentation, small BSA)')}</SelectItem>
+                <SelectItem value="large">{t('ambulantEligibility.riskClass.large', 'Large (e.g. mastopexy, mid abdominoplasty)')}</SelectItem>
+                <SelectItem value="critical">{t('ambulantEligibility.riskClass.critical', 'Critical (e.g. body lift, large abdominoplasty, >5L lipo)')}</SelectItem>
               </SelectContent>
             </Select>
           </div>

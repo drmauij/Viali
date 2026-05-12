@@ -30,30 +30,21 @@ import { AMBULANT_THRESHOLDS } from "@shared/scoring/thresholds";
  * surgery write. Mutates `body` in-place to ensure server-computed snapshot
  * and override metadata win over anything the client sent.
  *
- * Returns `null` when the addon is off (nothing to do) or when validation
- * passed. Returns a `{status, payload}` object when the request must be
- * rejected — caller forwards as the HTTP response.
+ * Returns `null` when validation passed (or risk_class isn't set yet —
+ * snapshot is skipped on first save). Returns a `{status, payload}` object
+ * when the request must be rejected — caller forwards as the HTTP response.
+ *
+ * No per-hospital opt-in: this is a clinical-safety check, not a billing addon.
  */
 async function applyAmbulantValidation(
   req: any,
   body: any,
   existingSurgery: any | null,
 ): Promise<{ status: number; payload: any } | null> {
-  const hospitalId = body.hospitalId ?? existingSurgery?.hospitalId;
-  if (!hospitalId) return null;
-  const hospital = await storage.getHospital(hospitalId);
-  if (!hospital?.addonAmbulantEligibility) return null;
-
   const riskClass = body.surgeryRiskClass ?? existingSurgery?.surgeryRiskClass;
-  if (!riskClass) {
-    return {
-      status: 400,
-      payload: {
-        error: "surgery_risk_class_required",
-        message: "surgery_risk_class is required when ambulant eligibility addon is on",
-      },
-    };
-  }
+  // Risk class is optional — when missing, skip the gate (legacy surgeries
+  // never had one; the badge surfaces in UI only once it's set).
+  if (!riskClass) return null;
 
   const patient = body.patientId
     ? await storage.getPatient(body.patientId)

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -13,9 +14,12 @@ interface Props {
 }
 
 export function StopBangSection({ values, onChange }: Props) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-3 rounded-md border p-3" data-testid="stopbang-section">
-      <h4 className="text-sm font-semibold">STOP-BANG (Schlafapnoe-Screening)</h4>
+      <h4 className="text-sm font-semibold">
+        {t('ambulantEligibility.stopBang.title', 'STOP-BANG (Sleep apnea screening)')}
+      </h4>
 
       <label className="flex items-center gap-2 text-sm">
         <Checkbox
@@ -23,7 +27,7 @@ export function StopBangSection({ values, onChange }: Props) {
           onCheckedChange={(v) => onChange({ osasSnoringLoud: v === true })}
           data-testid="stopbang-snoring"
         />
-        Lautes Schnarchen (durch Wand hörbar)
+        {t('ambulantEligibility.stopBang.snoring', 'Loud snoring (audible through a wall)')}
       </label>
 
       <label className="flex items-center gap-2 text-sm">
@@ -32,7 +36,7 @@ export function StopBangSection({ values, onChange }: Props) {
           onCheckedChange={(v) => onChange({ osasObservedApnea: v === true })}
           data-testid="stopbang-apnea"
         />
-        Beobachtete Atemaussetzer
+        {t('ambulantEligibility.stopBang.apnea', 'Observed apnea')}
       </label>
 
       <label className="flex items-center gap-2 text-sm">
@@ -41,11 +45,13 @@ export function StopBangSection({ values, onChange }: Props) {
           onCheckedChange={(v) => onChange({ osasDaytimeTiredness: v === true })}
           data-testid="stopbang-tiredness"
         />
-        Tagesmüdigkeit / Einschlafen tagsüber
+        {t('ambulantEligibility.stopBang.tiredness', 'Daytime tiredness / falling asleep during the day')}
       </label>
 
       <div className="space-y-1">
-        <Label htmlFor="neck-circumference">Halsumfang (cm)</Label>
+        <Label htmlFor="neck-circumference">
+          {t('ambulantEligibility.stopBang.neckCm', 'Neck circumference (cm)')}
+        </Label>
         <Input
           id="neck-circumference"
           type="number"
@@ -59,7 +65,7 @@ export function StopBangSection({ values, onChange }: Props) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        BMI, Alter, Geschlecht und Hypertonie werden automatisch aus dem Patientendatensatz übernommen.
+        {t('ambulantEligibility.stopBang.autoNotice', 'BMI, age, sex and hypertension are taken from the patient record.')}
       </p>
     </div>
   );

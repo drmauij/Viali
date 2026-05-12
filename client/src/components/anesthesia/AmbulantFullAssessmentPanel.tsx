@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { AmbulantEligibilityBadge } from './AmbulantEligibilityBadge';
 import type {
@@ -20,7 +21,7 @@ interface Props {
   onRequestOverride?: () => void;
 }
 
-function ScoreRow({ label, result, suffix }: { label: string; result: ScoreResult; suffix?: string }) {
+function ScoreRow({ label, result, suffix, pointsLabel }: { label: string; result: ScoreResult; suffix?: string; pointsLabel: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="border-t py-1.5 text-sm">
@@ -45,7 +46,7 @@ function ScoreRow({ label, result, suffix }: { label: string; result: ScoreResul
               <tr key={row.criterion} className={row.met ? 'font-medium' : 'text-muted-foreground'}>
                 <td className="pr-3">{row.met ? '✓' : '○'}</td>
                 <td className="pr-3">{row.criterion}</td>
-                <td className="pr-3 text-right">{row.points} Pkt.</td>
+                <td className="pr-3 text-right">{row.points} {pointsLabel}</td>
               </tr>
             ))}
           </tbody>
@@ -63,6 +64,8 @@ export function AmbulantFullAssessmentPanel({
   onSwitchToOvernight,
   onRequestOverride,
 }: Props) {
+  const { t } = useTranslation();
+  const pointsLabel = t('common.pointsAbbr', 'pts');
   return (
     <div className="space-y-3 rounded-md border p-4" data-testid="full-assessment-panel">
       <AmbulantEligibilityBadge
@@ -73,18 +76,22 @@ export function AmbulantFullAssessmentPanel({
       />
 
       <div className="border rounded-md p-2">
-        <div className="font-semibold text-sm pb-1">Klinische Scores</div>
-        <ScoreRow label="Caprini" result={scores.caprini} />
-        <ScoreRow label="STOP-BANG" result={scores.stopBang} />
-        <ScoreRow label="RCRI" result={scores.rcri} suffix={`${scores.rcri.macePercent.toFixed(1)}% MACE`} />
-        <ScoreRow label="Apfel" result={scores.apfel} suffix={`${scores.apfel.ponvPercent}% PONV`} />
+        <div className="font-semibold text-sm pb-1">
+          {t('ambulantEligibility.panel.clinicalScores', 'Clinical scores')}
+        </div>
+        <ScoreRow label="Caprini" result={scores.caprini} pointsLabel={pointsLabel} />
+        <ScoreRow label="STOP-BANG" result={scores.stopBang} pointsLabel={pointsLabel} />
+        <ScoreRow label="RCRI" result={scores.rcri} suffix={`${scores.rcri.macePercent.toFixed(1)}% MACE`} pointsLabel={pointsLabel} />
+        <ScoreRow label="Apfel" result={scores.apfel} suffix={`${scores.apfel.ponvPercent}% PONV`} pointsLabel={pointsLabel} />
       </div>
 
       <div className="rounded-md bg-slate-50 p-3 text-sm space-y-1">
-        <div className="font-semibold">Empfehlungen</div>
-        <div>• VTE-Prophylaxe: {recommendations.vteProphylaxis}</div>
-        <div>• PONV-Prophylaxe: {recommendations.ponvProphylaxis}</div>
-        <div>• Monitoring: {recommendations.monitoring}</div>
+        <div className="font-semibold">
+          {t('ambulantEligibility.panel.recommendations', 'Recommendations')}
+        </div>
+        <div>• {t('ambulantEligibility.panel.vteProphylaxis', 'VTE prophylaxis')}: {recommendations.vteProphylaxis}</div>
+        <div>• {t('ambulantEligibility.panel.ponvProphylaxis', 'PONV prophylaxis')}: {recommendations.ponvProphylaxis}</div>
+        <div>• {t('ambulantEligibility.panel.monitoring', 'Monitoring')}: {recommendations.monitoring}</div>
       </div>
     </div>
   );

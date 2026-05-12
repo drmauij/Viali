@@ -1380,9 +1380,9 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
                 data-testid={`ambulant-pill-${event.surgeryId}`}
                 title={
                   [...event.ambulantQuickCheck.hardExclusions, ...event.ambulantQuickCheck.yellowFactors].join(' · ') ||
-                  (event.ambulantQuickCheck.decision === 'green' ? 'Ambulant geeignet' :
-                   event.ambulantQuickCheck.decision === 'yellow' ? 'Anästhesie-Rücksprache empfohlen' :
-                   'Ambulant nicht empfohlen')
+                  (event.ambulantQuickCheck.decision === 'green' ? t('ambulantEligibility.decision.green', 'Outpatient eligible') :
+                   event.ambulantQuickCheck.decision === 'yellow' ? t('ambulantEligibility.decision.yellow', 'Anesthesia review recommended') :
+                   t('ambulantEligibility.decision.red', 'Outpatient not recommended'))
                 }
               >
                 <span className="text-[10px] font-semibold">

@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   TISSUE_SAMPLE_TYPES,
+  tissueSampleStatusLabel,
   type TissueSampleType,
 } from "@shared/tissueSampleTypes";
 import type { TissueSample } from "@shared/schema";
@@ -33,7 +34,7 @@ interface Props {
 }
 
 export function UpdateStatusDialog({ sample, open, onOpenChange }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
   const config =
@@ -82,7 +83,7 @@ export function UpdateStatusDialog({ sample, open, onOpenChange }: Props) {
               <SelectContent>
                 {(config?.statuses ?? []).map((s) => (
                   <SelectItem key={s} value={s}>
-                    {s}
+                    {tissueSampleStatusLabel(s, i18n.language)}
                   </SelectItem>
                 ))}
               </SelectContent>

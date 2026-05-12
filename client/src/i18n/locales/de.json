@@ -8732,5 +8732,51 @@
       "otherLabel": "Anderes Labor (manuell eingeben)",
       "manualPlaceholder": "Laborname"
     }
+  },
+  "ambulantEligibility": {
+    "riskClassLabel": "Eingriffstyp-Klassifikation *",
+    "riskClassPlaceholder": "Bitte wählen…",
+    "riskClass": {
+      "minor": "Klein (z.B. kleine Lipo, einfache Naht)",
+      "standard": "Standard (z.B. Augmentation, kleine BSA)",
+      "large": "Gross (z.B. Mastopexie, mittl. Abdominoplastik)",
+      "critical": "Kritisch (z.B. Body-Lift, grosse Abdominoplastik, >5L Lipo)"
+    },
+    "decision": {
+      "green": "Ambulant geeignet",
+      "yellow": "Anästhesie-Rücksprache empfohlen",
+      "red": "Ambulant nicht empfohlen"
+    },
+    "hardExclusions": "Harte Ausschlüsse:",
+    "riskFactors": "Risikofaktoren:",
+    "switchToOvernight": "Stationär planen",
+    "requestOverride": "Override mit Grund",
+    "overrideActive": "Override aktiv",
+    "modal": {
+      "title": "Ambulante Durchführung mit Begründung",
+      "riskFactorsLabel": "Risikofaktoren:",
+      "reasonPlaceholder": "Klinische Begründung für ambulante Durchführung trotz Risikofaktoren…",
+      "minCharsNotice": "Min. {{min}} Zeichen ({{count}}/{{min}}). Begründung wird permanent im Audit-Log gespeichert.",
+      "cancel": "Abbrechen",
+      "confirm": "Override bestätigen"
+    },
+    "stopBang": {
+      "title": "STOP-BANG (Schlafapnoe-Screening)",
+      "snoring": "Lautes Schnarchen (durch Wand hörbar)",
+      "apnea": "Beobachtete Atemaussetzer",
+      "tiredness": "Tagesmüdigkeit / Einschlafen tagsüber",
+      "neckCm": "Halsumfang (cm)",
+      "autoNotice": "BMI, Alter, Geschlecht und Hypertonie werden automatisch aus dem Patientendatensatz übernommen."
+    },
+    "panel": {
+      "clinicalScores": "Klinische Scores",
+      "recommendations": "Empfehlungen",
+      "vteProphylaxis": "VTE-Prophylaxe",
+      "ponvProphylaxis": "PONV-Prophylaxe",
+      "monitoring": "Monitoring"
+    },
+    "save": {
+      "blockedTooltip": "Risiko-Check rot — Override erforderlich oder stationär planen"
+    }
   }
 }

@@ -30,7 +30,7 @@ import {
 import { ChevronDown, Copy, Link2, Printer, RotateCcw, Trash2 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/dateUtils";
 import type { TissueSample, TissueSampleStatusHistory } from "@shared/schema";
-import { TISSUE_SAMPLE_TYPES } from "@shared/tissueSampleTypes";
+import { TISSUE_SAMPLE_TYPES, tissueSampleStatusLabel } from "@shared/tissueSampleTypes";
 import { printTissueSampleLabel } from "@/lib/tissueSampleLabelPdf";
 import { UpdateStatusDialog } from "./UpdateStatusDialog";
 import { EditExtractionSurgeryDialog } from "./EditExtractionSurgeryDialog";
@@ -105,7 +105,7 @@ export function TissueSampleCard({ sample, onClickSurgery }: Props) {
           {sample.code}
         </button>
         <Copy className="h-3 w-3 text-muted-foreground" aria-hidden />
-        <Badge>{sample.status}</Badge>
+        <Badge>{tissueSampleStatusLabel(sample.status, i18n.language)}</Badge>
         <span className="ml-auto text-xs text-muted-foreground">
           {formatDate(sample.statusDate)}
         </span>
@@ -230,8 +230,8 @@ export function TissueSampleCard({ sample, onClickSurgery }: Props) {
                 <div>
                   {formatDateTime(h.changedAt)} —{" "}
                   {h.fromStatus
-                    ? `${h.fromStatus} → ${h.toStatus}`
-                    : h.toStatus}
+                    ? `${tissueSampleStatusLabel(h.fromStatus, i18n.language)} → ${tissueSampleStatusLabel(h.toStatus, i18n.language)}`
+                    : tissueSampleStatusLabel(h.toStatus, i18n.language)}
                 </div>
                 {h.note && <div className="italic">{h.note}</div>}
               </div>

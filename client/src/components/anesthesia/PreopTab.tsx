@@ -23,7 +23,6 @@ import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSett
 import { useTranslation } from "react-i18next";
 import { formatTime } from "@/lib/dateUtils";
 import type { PreOpAssessment } from "@shared/schema";
-import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useMemo } from "react";
 import { StopBangSection } from "@/components/surgery/StopBangSection";
 import { AmbulantFullAssessmentPanel } from "@/components/anesthesia/AmbulantFullAssessmentPanel";
@@ -111,16 +110,15 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
   const [doctorSignatureModalOpen, setDoctorSignatureModalOpen] = useState(false);
   const [patientSignatureModalOpen, setPatientSignatureModalOpen] = useState(false);
   const [ambulantOverrideOpen, setAmbulantOverrideOpen] = useState(false);
-  const activeHospital = useActiveHospital();
-  const ambulantEligibilityEnabled = activeHospital?.addonAmbulantEligibility === true;
 
+  // Ambulant assessment runs for every pre-op — no per-hospital opt-in.
   const { data: surgery } = useQuery<any>({
     queryKey: [`/api/anesthesia/surgeries/${surgeryId}`],
-    enabled: ambulantEligibilityEnabled && !!surgeryId,
+    enabled: !!surgeryId,
   });
   const { data: patient } = useQuery<any>({
     queryKey: [`/api/patients/${surgery?.patientId}`],
-    enabled: ambulantEligibilityEnabled && !!surgery?.patientId,
+    enabled: !!surgery?.patientId,
   });
 
   const { data: assessment, isLoading } = useQuery<PreOpAssessment>({
@@ -448,7 +446,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
   const watchedWeight = form.watch("weight") ?? "";
 
   const ambulantScoring = useMemo(() => {
-    if (!ambulantEligibilityEnabled || !patient || !surgery) return null;
+    if (!patient || !surgery) return null;
     const ageYears = patient?.birthday
       ? Math.floor((Date.now() - new Date(patient.birthday).getTime()) / (365.25 * 24 * 3600 * 1000))
       : null;
@@ -516,7 +514,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
     const recommendations = deriveRecommendations(caprini, apfel, stopBang, eligibility);
     return { caprini, stopBang, rcri, apfel, eligibility, recommendations };
   }, [
-    ambulantEligibilityEnabled, patient, surgery,
+    patient, surgery,
     osasSnoringLoud, osasObservedApnea, osasDaytimeTiredness, neckCircumferenceCm,
     watchedHeight, watchedWeight,
   ]);

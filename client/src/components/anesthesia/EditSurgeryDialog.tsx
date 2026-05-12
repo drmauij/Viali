@@ -236,9 +236,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     }
   }, [surgery]);
 
-  // Ambulant eligibility (gated by hospital addon)
-  const ambulantEligibilityEnabled = activeHospital?.addonAmbulantEligibility === true;
-
+  // Ambulant eligibility runs for every surgery — no per-hospital opt-in.
   const patientAgeYears = useMemo<number | null>(() => {
     if (!patient?.birthday) return null;
     const ms = Date.now() - new Date(patient.birthday).getTime();
@@ -269,7 +267,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   }), [patientAgeYears, patientBmi, patientSex, duration, surgeryRiskClass, stayType]);
 
   const ambulantBlocked =
-    ambulantEligibilityEnabled &&
     ambulantEligibility.decision === 'red' &&
     stayType === 'ambulant' &&
     !ambulantOverrideReason;
@@ -311,11 +308,9 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       assistantIds,
     };
 
-    if (ambulantEligibilityEnabled) {
-      body.surgeryRiskClass = surgeryRiskClass || null;
-      body.ambulantQuickCheck = ambulantEligibility;
-      body.ambulantOverrideReason = ambulantOverrideReason;
-    }
+    body.surgeryRiskClass = surgeryRiskClass || null;
+    body.ambulantQuickCheck = surgeryRiskClass ? ambulantEligibility : null;
+    body.ambulantOverrideReason = ambulantOverrideReason;
 
     return { body };
   }
@@ -696,7 +691,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 onAssistantIdsChange={setAssistantIds}
                 disabled={!canWrite}
                 testIdPrefix="edit-"
-                ambulantEligibilityEnabled={ambulantEligibilityEnabled}
+                ambulantEligibilityEnabled
                 surgeryRiskClass={surgeryRiskClass}
                 onSurgeryRiskClassChange={setSurgeryRiskClass}
                 patientAgeYears={patientAgeYears}
@@ -959,7 +954,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     <Button
                       onClick={handleUpdate}
                       disabled={isSaving || archiveMutation.isPending || ambulantBlocked}
-                      title={ambulantBlocked ? 'Risiko-Check rot — Override erforderlich oder stationär planen' : undefined}
+                      title={ambulantBlocked ? t('ambulantEligibility.save.blockedTooltip', 'Risk check red — override required or plan as overnight') : undefined}
                       data-testid="button-update-surgery"
                       className="w-full sm:w-auto"
                     >

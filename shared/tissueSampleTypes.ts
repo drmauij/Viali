@@ -193,3 +193,23 @@ export function isValidTissueSampleStatus(type: string, status: string): boolean
   if (!config) return false;
   return config.statuses.includes(status);
 }
+
+// Status values are stored as German strings in the DB (enum-like). For
+// display we keep the German verbatim and look up an English translation
+// here; falls back to the original string for any status not yet mapped.
+const TISSUE_SAMPLE_STATUS_LABELS_EN: Record<string, string> = {
+  "Probe entnommen": "Sample taken",
+  "Versendet": "Sent",
+  "Eingelagert": "Stored",
+  "Angefordert zur Reimplantation": "Requested for reimplantation",
+  "Reimplantiert": "Reimplanted",
+  "Vernichtet": "Destroyed",
+  "Befund eingegangen": "Results received",
+  "Verarbeitet": "Processed",
+  "Befund verfügbar": "Results available",
+};
+
+export function tissueSampleStatusLabel(status: string, locale: string): string {
+  if (locale.startsWith("de")) return status;
+  return TISSUE_SAMPLE_STATUS_LABELS_EN[status] ?? status;
+}
