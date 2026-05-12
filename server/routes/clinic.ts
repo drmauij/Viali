@@ -1,5 +1,6 @@
 import { Router } from "express";
 import type { Response } from "express";
+import * as Sentry from "@sentry/node";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
 import {
@@ -3368,6 +3369,14 @@ router.patch('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentica
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
     logger.error("Error updating appointment:", error);
+    Sentry.captureException(error, {
+      tags: { route: "PATCH /api/clinic/:hospitalId/appointments/:appointmentId" },
+      extra: {
+        hospitalId: req.params.hospitalId,
+        appointmentId: req.params.appointmentId,
+        bodyKeys: Object.keys(req.body ?? {}),
+      },
+    });
     res.status(500).json({ message: "Failed to update appointment" });
   }
 });

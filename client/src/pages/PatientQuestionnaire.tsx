@@ -1840,6 +1840,14 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
     onSuccess: () => setIsSubmitted(true),
     onError: (error: Error) => {
       setSubmitError(true);
+      // 410 = the patient already submitted this questionnaire. The duplicate
+      // submission is caught by the server guard and surfaced in the UI; it's
+      // expected behavior, not a bug, so don't flood Sentry with it.
+      const isAlreadySubmitted = / 410 /.test(error.message);
+      // Mobile Safari kills in-flight fetches when the app is backgrounded;
+      // the resulting "Load failed" is a network condition, not a code defect.
+      const isMobileFetchKilled = /Load failed/i.test(error.message);
+      if (isAlreadySubmitted || isMobileFetchKilled) return;
       Sentry.captureException(error, {
         tags: { component: 'questionnaire-submit' },
         extra: { token: activeToken },

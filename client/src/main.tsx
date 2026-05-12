@@ -47,6 +47,10 @@ const EXPECTED_FETCH_NOISE: Array<{
   { method: "PATCH", statuses: [400], pattern: /^\/api\/items\/[^/]+\/reduce-unit$/ },
   // PDF export probes sticker docs that may not be persisted yet — caller handles 404 gracefully
   { method: "GET", statuses: [404], pattern: /^\/api\/anesthesia\/records\/[^/]+\/sticker-doc\/[^/]+\/download-url$/ },
+  // Tissue-samples create — 422 MISSING_SAMPLE_CODE_PREFIX is a guard that
+  // requires the admin to configure a sample-code prefix first; the dialog
+  // surfaces the actionable error via toast, no need to alert Sentry.
+  { method: "POST", statuses: [422], pattern: /^\/api\/patients\/[^/]+\/tissue-samples$/ },
 ];
 
 function isExpectedFetchNoise(method: string, url: string, status: number): boolean {
@@ -85,6 +89,11 @@ if (import.meta.env.VITE_SENTRY_DSN) {
       /Loading chunk .* failed/,
       /Importing a module script failed/,
       /'text\/html' is not a valid JavaScript MIME type/,
+      // Mobile Safari emits a bare "TypeError: Load failed" whenever a fetch
+      // is killed mid-flight (lock screen, tab backgrounded, network drop).
+      // Not actionable — the user will retry when the app foregrounds.
+      /^Load failed$/,
+      /TypeError: Load failed/,
     ],
   });
 
