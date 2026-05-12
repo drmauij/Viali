@@ -56,6 +56,16 @@ import { DischargeBriefCompactWizard } from "@/components/dischargeBriefs/Discha
 import { DischargeBriefEditor } from "@/components/dischargeBriefs/DischargeBriefEditor";
 import { DischargeMedicationsTab } from "@/components/anesthesia/DischargeMedicationsTab";
 import { AmbulantEligibilityBadge } from "@/components/anesthesia/AmbulantEligibilityBadge";
+import { AmbulantFullAssessmentPanel } from "@/components/anesthesia/AmbulantFullAssessmentPanel";
+import { AmbulantOverrideModal } from "@/components/anesthesia/AmbulantOverrideModal";
+import { StopBangSection } from "@/components/surgery/StopBangSection";
+import { calculateCaprini } from "@shared/scoring/caprini";
+import { calculateStopBang } from "@shared/scoring/stopBang";
+import { calculateRcri } from "@shared/scoring/rcri";
+import { calculateApfel } from "@shared/scoring/apfel";
+import { calculateFull } from "@shared/scoring/ambulantEligibility";
+import { deriveRecommendations } from "@shared/scoring/recommendations";
+import type { FullAssessmentInputs, SurgeryRiskClass } from "@shared/scoring/types";
 import { QuestionnaireTab } from "@/components/questionnaire/QuestionnaireTab";
 import { EpisodesTab } from "@/components/episodes/EpisodesTab";
 import { usePatientState, type StaffDocument } from "./patientDetail/usePatientState";
@@ -150,6 +160,9 @@ export default function PatientDetail() {
   } = usePatientState();
 
   const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
+
+  // --- Ambulant eligibility (modal open state — fields live on assessmentData) ---
+  const [ambulantOverrideOpen, setAmbulantOverrideOpen] = useState(false);
 
   // --- Appointments tab state ---
   const [appointmentDetailOpen, setAppointmentDetailOpen] = useState(false);
@@ -529,6 +542,82 @@ export default function PatientDetail() {
     return previewImageSiblings.findIndex(img => img.url === previewDocument.url);
   }, [previewDocument, previewImageSiblings]);
 
+  // Ambulant eligibility — composite (Caprini/STOP-BANG/RCRI/Apfel) computed
+  // live from the assessmentData + selected surgery + patient context.
+  const ambulantScoring = useMemo(() => {
+    const surgery = surgeries?.find(s => s.id === selectedCaseId);
+    if (!patient || !surgery) return null;
+
+    const ageYears = patient.birthday
+      ? Math.floor((Date.now() - new Date(patient.birthday).getTime()) / (365.25 * 24 * 3600 * 1000))
+      : null;
+    const patientWeight = (patient as any).weight as string | undefined;
+    const w = assessmentData.weight ? Number(assessmentData.weight) : patientWeight ? Number(patientWeight) : null;
+    const h = assessmentData.height ? Number(assessmentData.height) : null;
+    let bmi: number | null = null;
+    if (w && h) {
+      const meters = h > 3 ? h / 100 : h;
+      bmi = w / (meters * meters);
+    }
+    const rawSex = (patient.sex || '').toString().toUpperCase();
+    const sex: 'male' | 'female' | null = rawSex === 'M' ? 'male' : rawSex === 'F' ? 'female' : null;
+    const plannedMinutes = surgery.plannedDate && surgery.actualEndTime
+      ? Math.round((new Date(surgery.actualEndTime).getTime() - new Date(surgery.plannedDate).getTime()) / 60000)
+      : null;
+
+    const heart = assessmentData.heartIllnesses;
+    const coag = assessmentData.coagulationIllnesses;
+    const neuro = assessmentData.neuroIllnesses;
+    const metab = assessmentData.metabolicIllnesses;
+    const infect = assessmentData.infectiousIllnesses;
+
+    const inputs: FullAssessmentInputs = {
+      ageYears,
+      bmi,
+      sex,
+      plannedMinutes,
+      surgeryRiskClass: ((surgery as any).surgeryRiskClass ?? null) as SurgeryRiskClass | null,
+      stayType: ((surgery as any).stayType ?? null) as 'ambulant' | 'overnight' | null,
+      knownOsasUntreated: false,
+      vteHistory: Boolean(coag?.vteHistory),
+      activeCancer: Boolean(infect?.activeCancer),
+      hasLegSwelling: false,
+      hasVaricoseVeins: false,
+      isPregnantOrPostpartum: false,
+      onOcOrHrt: false,
+      expectedBedrestOver72h: false,
+      familyThrombophilia: Boolean(coag?.familyThrombophilia),
+      strokeWithin30Days: Boolean(neuro?.recentStroke),
+      hipOrLegFracture: false,
+      spinalCordInjury: Boolean(neuro?.spinalCordInjury),
+      snoringLoud: assessmentData.osasSnoringLoud,
+      daytimeTiredness: assessmentData.osasDaytimeTiredness,
+      observedApnea: assessmentData.osasObservedApnea,
+      hasHypertension: Boolean(heart?.hypertension),
+      neckCircumferenceCm: assessmentData.neckCircumferenceCm,
+      hasCAD: Boolean(heart?.cad),
+      hasCHF: Boolean(heart?.chf),
+      hasCerebrovascularDisease: Boolean(neuro?.stroke),
+      isInsulinDependentDiabetic: Boolean(metab?.diabetesInsulin),
+      creatinineMgDl: null,
+      isNonSmoker: !Boolean(assessmentData.noxen?.nicotine),
+      hasPostopNauseaHistory: Boolean(assessmentData.ponvTransfusionIssues?.ponvHistory),
+      postopOpioidsPlanned: false,
+      expectedBloodLossMl: null,
+      hasCaregiver24h: Boolean(assessmentData.outpatientCaregiverFirstName),
+      distanceToClinicMinutes: null,
+      patientCanUnderstandDischarge: true,
+    };
+
+    const caprini = calculateCaprini(inputs);
+    const stopBang = calculateStopBang(inputs);
+    const rcri = calculateRcri(inputs);
+    const apfel = calculateApfel(inputs);
+    const eligibility = calculateFull(inputs, { caprini, stopBang, rcri, apfel });
+    const recommendations = deriveRecommendations(caprini, apfel, stopBang, eligibility);
+    return { caprini, stopBang, rcri, apfel, eligibility, recommendations };
+  }, [patient, surgeries, selectedCaseId, assessmentData]);
+
   const navigatePreviewImage = useCallback((direction: 'prev' | 'next') => {
     if (previewImageIndex < 0 || previewImageSiblings.length <= 1) return;
     const newIndex = direction === 'next'
@@ -879,6 +968,13 @@ export default function PatientDetail() {
         assessmentDate: existingAssessment.assessmentDate || formatDateForInput(new Date()),
         doctorName: existingAssessment.doctorName || currentUserName,
         doctorSignature: existingAssessment.doctorSignature || "",
+        osasSnoringLoud: Boolean((existingAssessment as any).osasSnoringLoud),
+        osasObservedApnea: Boolean((existingAssessment as any).osasObservedApnea),
+        osasDaytimeTiredness: Boolean((existingAssessment as any).osasDaytimeTiredness),
+        neckCircumferenceCm: (existingAssessment as any).neckCircumferenceCm != null
+          ? Number((existingAssessment as any).neckCircumferenceCm)
+          : null,
+        ambulantOverrideReason: (existingAssessment as any).ambulantFullAssessment?.override?.reason ?? null,
       });
 
       setConsentData({
@@ -4147,9 +4243,38 @@ export default function PatientDetail() {
                 </CardContent>
               </Card>
 
-              <Accordion 
-                type="multiple" 
-                value={openSections} 
+              {/* Ambulant Eligibility — composite Caprini/STOP-BANG/RCRI/Apfel
+                  plus the STOP-BANG inputs not covered by existing anamnesis. */}
+              {ambulantScoring && (
+                <div className="space-y-4">
+                  <AmbulantFullAssessmentPanel
+                    eligibility={ambulantScoring.eligibility}
+                    scores={ambulantScoring}
+                    recommendations={ambulantScoring.recommendations}
+                    hasOverride={Boolean(assessmentData.ambulantOverrideReason)}
+                    onRequestOverride={() => setAmbulantOverrideOpen(true)}
+                  />
+                  <StopBangSection
+                    values={{
+                      osasSnoringLoud: assessmentData.osasSnoringLoud,
+                      osasObservedApnea: assessmentData.osasObservedApnea,
+                      osasDaytimeTiredness: assessmentData.osasDaytimeTiredness,
+                      neckCircumferenceCm: assessmentData.neckCircumferenceCm,
+                    }}
+                    onChange={(patch) => setAssessmentData(prev => ({ ...prev, ...patch }))}
+                  />
+                  <AmbulantOverrideModal
+                    open={ambulantOverrideOpen}
+                    onOpenChange={setAmbulantOverrideOpen}
+                    eligibility={ambulantScoring.eligibility}
+                    onSubmit={async (reason) => setAssessmentData(prev => ({ ...prev, ambulantOverrideReason: reason }))}
+                  />
+                </div>
+              )}
+
+              <Accordion
+                type="multiple"
+                value={openSections}
                 onValueChange={setOpenSections}
                 className="space-y-4"
               >

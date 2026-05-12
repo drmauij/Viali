@@ -217,6 +217,15 @@ export type AssessmentData = {
   assessmentDate: string;
   doctorName: string;
   doctorSignature: string;
+
+  // Ambulant eligibility — STOP-BANG inputs (the four fields not in
+  // existing anamnesis). BMI/age/sex/hypertension are derived elsewhere.
+  osasSnoringLoud: boolean;
+  osasObservedApnea: boolean;
+  osasDaytimeTiredness: boolean;
+  neckCircumferenceCm: number | null;
+  // Override reason (≥30 chars). Server stamps by/at from the session.
+  ambulantOverrideReason: string | null;
 };
 
 // Type for callback slots
@@ -504,6 +513,13 @@ export function usePatientState() {
     assessmentDate: formatDateForInput(new Date()),
     doctorName: "",
     doctorSignature: "",
+
+    // Ambulant eligibility — STOP-BANG inputs + override
+    osasSnoringLoud: false,
+    osasObservedApnea: false,
+    osasDaytimeTiredness: false,
+    neckCircumferenceCm: null,
+    ambulantOverrideReason: null,
   }));
 
   // --- Accordion sections ---
