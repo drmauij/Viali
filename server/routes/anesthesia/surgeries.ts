@@ -18,6 +18,108 @@ import { z } from "zod";
 import { requireWriteAccess, requireStrictHospitalAccess, requireSurgeryPlanAccess, userHasPermission } from "../../utils";
 import logger from "../../logger";
 import { computeAdmissionISO } from "@shared/admissionTime";
+import {
+  computeQuickCheckSnapshot,
+  deriveQuickCheckInputsFromBody,
+} from "../../scoring/computeAmbulantQuickCheck";
+import { createAuditLog } from "../../storage/anesthesia";
+import { AMBULANT_THRESHOLDS } from "@shared/scoring/thresholds";
+
+/**
+ * Validate, recompute, and (optionally) audit ambulant eligibility for a
+ * surgery write. Mutates `body` in-place to ensure server-computed snapshot
+ * and override metadata win over anything the client sent.
+ *
+ * Returns `null` when the addon is off (nothing to do) or when validation
+ * passed. Returns a `{status, payload}` object when the request must be
+ * rejected — caller forwards as the HTTP response.
+ */
+async function applyAmbulantValidation(
+  req: any,
+  body: any,
+  existingSurgery: any | null,
+): Promise<{ status: number; payload: any } | null> {
+  const hospitalId = body.hospitalId ?? existingSurgery?.hospitalId;
+  if (!hospitalId) return null;
+  const hospital = await storage.getHospital(hospitalId);
+  if (!hospital?.addonAmbulantEligibility) return null;
+
+  const riskClass = body.surgeryRiskClass ?? existingSurgery?.surgeryRiskClass;
+  if (!riskClass) {
+    return {
+      status: 400,
+      payload: {
+        error: "surgery_risk_class_required",
+        message: "surgery_risk_class is required when ambulant eligibility addon is on",
+      },
+    };
+  }
+
+  const patient = body.patientId
+    ? await storage.getPatient(body.patientId)
+    : existingSurgery?.patientId
+      ? await storage.getPatient(existingSurgery.patientId)
+      : null;
+
+  const inputs = deriveQuickCheckInputsFromBody(body, patient, existingSurgery);
+  const snapshot = computeQuickCheckSnapshot(inputs, req.user.id);
+
+  const overrideReason: string | null =
+    typeof body.ambulantOverrideReason === "string"
+      ? body.ambulantOverrideReason.trim()
+      : null;
+
+  if (
+    snapshot.decision === "red" &&
+    inputs.stayType === "ambulant" &&
+    !overrideReason
+  ) {
+    return {
+      status: 400,
+      payload: {
+        error: "ambulant_eligibility_blocked",
+        decision: snapshot.decision,
+        reasons: snapshot.reasons,
+      },
+    };
+  }
+
+  if (overrideReason && overrideReason.length < AMBULANT_THRESHOLDS.OVERRIDE_REASON_MIN_CHARS) {
+    return {
+      status: 400,
+      payload: {
+        error: "override_reason_too_short",
+        minChars: AMBULANT_THRESHOLDS.OVERRIDE_REASON_MIN_CHARS,
+      },
+    };
+  }
+
+  body.surgeryRiskClass = riskClass;
+  body.ambulantQuickCheck = snapshot;
+  if (overrideReason) {
+    body.ambulantOverrideReason = overrideReason;
+    body.ambulantOverrideBy = req.user.id;
+    body.ambulantOverrideAt = new Date();
+  } else {
+    body.ambulantOverrideReason = null;
+    body.ambulantOverrideBy = null;
+    body.ambulantOverrideAt = null;
+  }
+
+  // Caller writes the audit row after the insert/update so we have a real
+  // recordId for both POST and PATCH paths.
+  (body as any).__ambulantAuditPayload = overrideReason
+    ? {
+        action: "amend" as const,
+        recordType: "ambulant_eligibility",
+        userId: req.user.id,
+        reason: overrideReason,
+        newValue: { decision: snapshot.decision, inputs, snapshot },
+      }
+    : null;
+
+  return null;
+}
 
 const router = Router();
 
@@ -308,11 +410,20 @@ router.post('/api/anesthesia/surgeries', isAuthenticated, requireSurgeryPlanAcce
   try {
     logger.info("Received surgery creation request:", JSON.stringify(req.body, null, 2));
 
+    const ambulantReject = await applyAmbulantValidation(req, req.body, null);
+    if (ambulantReject) return res.status(ambulantReject.status).json(ambulantReject.payload);
+    const auditPayload = (req.body as any).__ambulantAuditPayload;
+    delete (req.body as any).__ambulantAuditPayload;
+
     const validatedData = insertSurgerySchema.parse(req.body);
 
     logger.info("Validated surgery data:", JSON.stringify(validatedData, null, 2));
 
     const newSurgery = await storage.createSurgery(validatedData);
+
+    if (auditPayload) {
+      await createAuditLog({ ...auditPayload, recordId: newSurgery.id });
+    }
 
     const { assistantIds } = req.body;
     if (Array.isArray(assistantIds) && assistantIds.length > 0) {
@@ -371,6 +482,11 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
       updateData.actualStartTime = new Date(updateData.actualStartTime);
     }
 
+    const ambulantReject = await applyAmbulantValidation(req, updateData, surgery);
+    if (ambulantReject) return res.status(ambulantReject.status).json(ambulantReject.payload);
+    const ambulantAudit = (updateData as any).__ambulantAuditPayload;
+    delete (updateData as any).__ambulantAuditPayload;
+
     // Patient location is mutually exclusive: a patient is either in the
     // clinic waiting room OR assigned to a PACU bed, never both.
     if (Object.prototype.hasOwnProperty.call(req.body, 'pacuBedId') && req.body.pacuBedId) {
@@ -390,6 +506,10 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
     }
 
     const updatedSurgery = await storage.updateSurgery(id, updateData);
+
+    if (ambulantAudit) {
+      await createAuditLog({ ...ambulantAudit, recordId: updatedSurgery.id });
+    }
 
     if (Array.isArray(req.body.assistantIds)) {
       await storage.setSurgeryAssistants(id, req.body.assistantIds);

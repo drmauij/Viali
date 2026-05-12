@@ -55,6 +55,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { DischargeBriefCompactWizard } from "@/components/dischargeBriefs/DischargeBriefCompactWizard";
 import { DischargeBriefEditor } from "@/components/dischargeBriefs/DischargeBriefEditor";
 import { DischargeMedicationsTab } from "@/components/anesthesia/DischargeMedicationsTab";
+import { AmbulantEligibilityBadge } from "@/components/anesthesia/AmbulantEligibilityBadge";
 import { QuestionnaireTab } from "@/components/questionnaire/QuestionnaireTab";
 import { EpisodesTab } from "@/components/episodes/EpisodesTab";
 import { usePatientState, type StaffDocument } from "./patientDetail/usePatientState";
@@ -3118,6 +3119,13 @@ export default function PatientDetail() {
                       )}>
                         {surgery.stayType === 'overnight' ? t('anesthesia.stayTypeOvernight', 'Overnight') : t('anesthesia.stayTypeAmbulant', 'Outpatient')}
                       </Badge>
+                    )}
+                    {(surgery as any).ambulantQuickCheck?.decision && (
+                      <AmbulantEligibilityBadge
+                        eligibility={(surgery as any).ambulantQuickCheck}
+                        hasOverride={Boolean((surgery as any).ambulantOverrideReason)}
+                        variant="pill"
+                      />
                     )}
                   </div>
                   <div className="flex items-center gap-2">

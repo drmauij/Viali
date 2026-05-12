@@ -33,6 +33,8 @@ interface Hospital {
   canChat?: boolean;
   canPlanOps?: boolean;
   canManageControlled?: boolean;
+  // Hospital addon flags surfaced to the client
+  addonAmbulantEligibility?: boolean;
 }
 
 function subscribe(callback: () => void) {

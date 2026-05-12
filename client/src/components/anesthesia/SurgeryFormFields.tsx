@@ -18,6 +18,15 @@ import { useTranslation } from "react-i18next";
 import { TimeInput } from "@/components/ui/time-input";
 import { DateInput } from "@/components/ui/date-input";
 import { PatientPositionFields } from "@/components/surgery/PatientPositionFields";
+import { calculateQuick } from "@shared/scoring/ambulantEligibility";
+import { AmbulantEligibilityBadge } from "@/components/anesthesia/AmbulantEligibilityBadge";
+import type { SurgeryRiskClass } from "@shared/scoring/types";
+
+export type AmbulantPatientFlags = {
+  knownOsasUntreated: boolean;
+  vteHistory: boolean;
+  activeCancer: boolean;
+};
 
 export interface SurgeryFormFieldsProps {
   // Values
@@ -70,6 +79,18 @@ export interface SurgeryFormFieldsProps {
   isRoomBlock?: boolean;
   disabled?: boolean;
   testIdPrefix?: string;
+
+  // Ambulant eligibility (rendered only when ambulantEligibilityEnabled === true)
+  ambulantEligibilityEnabled?: boolean;
+  surgeryRiskClass?: SurgeryRiskClass | '';
+  onSurgeryRiskClassChange?: (v: SurgeryRiskClass | '') => void;
+  patientAgeYears?: number | null;
+  patientBmi?: number | null;
+  patientSex?: 'male' | 'female' | null;
+  patientFlags?: AmbulantPatientFlags;
+  hasAmbulantOverride?: boolean;
+  onRequestAmbulantOverride?: () => void;
+  onSwitchToOvernight?: () => void;
 }
 
 export function SurgeryFormFields({
@@ -87,6 +108,16 @@ export function SurgeryFormFields({
   surgeryRooms, surgeons, hospitalId,
   isSlotReservation = false, isRoomBlock = false,
   disabled = false, testIdPrefix = "",
+  ambulantEligibilityEnabled = false,
+  surgeryRiskClass = '',
+  onSurgeryRiskClassChange,
+  patientAgeYears = null,
+  patientBmi = null,
+  patientSex = null,
+  patientFlags = { knownOsasUntreated: false, vteHistory: false, activeCancer: false },
+  hasAmbulantOverride = false,
+  onRequestAmbulantOverride,
+  onSwitchToOvernight,
 }: SurgeryFormFieldsProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -315,6 +346,50 @@ export function SurgeryFormFields({
             minutes: admissionOffsetMinutes,
           })}
         </p>
+      )}
+
+      {ambulantEligibilityEnabled && !isSlotReservation && !isRoomBlock && (
+        <div className="space-y-3 rounded-md border border-dashed p-3">
+          <div className="space-y-1.5">
+            <Label htmlFor={tid('select-risk-class')}>
+              Eingriffstyp-Klassifikation *
+            </Label>
+            <Select
+              value={surgeryRiskClass || undefined}
+              onValueChange={(v) => onSurgeryRiskClassChange?.(v as SurgeryRiskClass)}
+              disabled={disabled}
+            >
+              <SelectTrigger data-testid={tid('select-risk-class')}>
+                <SelectValue placeholder="Bitte wählen…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="minor">Klein (z.B. kleine Lipo, einfache Naht)</SelectItem>
+                <SelectItem value="standard">Standard (z.B. Augmentation, kleine BSA)</SelectItem>
+                <SelectItem value="large">Gross (z.B. Mastopexie, mittl. Abdominoplastik)</SelectItem>
+                <SelectItem value="critical">Kritisch (z.B. Body-Lift, grosse Abdominoplastik, &gt;5L Lipo)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {surgeryRiskClass && (
+            <AmbulantEligibilityBadge
+              eligibility={calculateQuick({
+                ageYears: patientAgeYears,
+                bmi: patientBmi,
+                sex: patientSex,
+                plannedMinutes: duration || null,
+                surgeryRiskClass: (surgeryRiskClass || null) as SurgeryRiskClass | null,
+                stayType: (stayType as 'ambulant' | 'overnight') || null,
+                knownOsasUntreated: patientFlags.knownOsasUntreated,
+                vteHistory: patientFlags.vteHistory,
+                activeCancer: patientFlags.activeCancer,
+              })}
+              hasOverride={hasAmbulantOverride}
+              onSwitchToOvernight={stayType === 'ambulant' ? onSwitchToOvernight : undefined}
+              onRequestOverride={onRequestAmbulantOverride}
+            />
+          )}
+        </div>
       )}
 
       {!isSlotReservation && (

@@ -24,6 +24,9 @@ import { formatDate, formatDateTime } from "@/lib/dateUtils";
 import { SurgeonChecklistTab } from "./SurgeonChecklistTab";
 import type { SurgeryContext } from "@shared/checklistPlaceholders";
 import { SurgeryFormFields } from "./SurgeryFormFields";
+import { AmbulantOverrideModal } from "./AmbulantOverrideModal";
+import { calculateQuick } from "@shared/scoring/ambulantEligibility";
+import type { SurgeryRiskClass } from "@shared/scoring/types";
 
 interface EditSurgeryDialogProps {
   surgeryId: string | null;
@@ -68,6 +71,10 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [leftArmPosition, setLeftArmPosition] = useState<"" | "ausgelagert" | "angelagert">("");
   const [rightArmPosition, setRightArmPosition] = useState<"" | "ausgelagert" | "angelagert">("");
   const [selectedChopCode, setSelectedChopCode] = useState("");
+  // Ambulant eligibility (Sprint 1)
+  const [surgeryRiskClass, setSurgeryRiskClass] = useState<SurgeryRiskClass | "">("");
+  const [ambulantOverrideReason, setAmbulantOverrideReason] = useState<string | null>(null);
+  const [ambulantOverrideOpen, setAmbulantOverrideOpen] = useState(false);
 
   // Patient assignment state (for slot reservations)
   const [selectedPatientId, setSelectedPatientId] = useState<string>("");
@@ -224,8 +231,52 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       setRightArmPosition(surgery.rightArmPosition || "");
       setSelectedPatientId(surgery.patientId || "");
       setAssistantIds((surgery.assistants ?? []).map((a: any) => a.userId));
+      setSurgeryRiskClass((surgery.surgeryRiskClass as SurgeryRiskClass) || "");
+      setAmbulantOverrideReason(surgery.ambulantOverrideReason ?? null);
     }
   }, [surgery]);
+
+  // Ambulant eligibility (gated by hospital addon)
+  const ambulantEligibilityEnabled = activeHospital?.addonAmbulantEligibility === true;
+
+  const patientAgeYears = useMemo<number | null>(() => {
+    if (!patient?.dateOfBirth) return null;
+    const ms = Date.now() - new Date(patient.dateOfBirth).getTime();
+    return Math.floor(ms / (365.25 * 24 * 3600 * 1000));
+  }, [patient?.dateOfBirth]);
+
+  const patientBmi = useMemo<number | null>(() => {
+    const w = Number(patient?.weight);
+    const h = Number(patient?.height);
+    if (!w || !h) return null;
+    const meters = h > 3 ? h / 100 : h;
+    return w / (meters * meters);
+  }, [patient?.weight, patient?.height]);
+
+  const patientSex = useMemo<'male' | 'female' | null>(() => {
+    const s = (patient?.sex || patient?.gender || '').toLowerCase();
+    if (s.startsWith('m') || s === 'male') return 'male';
+    if (s.startsWith('f') || s === 'female' || s.startsWith('w')) return 'female';
+    return null;
+  }, [patient?.sex, patient?.gender]);
+
+  const ambulantEligibility = useMemo(() => calculateQuick({
+    ageYears: patientAgeYears,
+    bmi: patientBmi,
+    sex: patientSex,
+    plannedMinutes: duration || null,
+    surgeryRiskClass: (surgeryRiskClass || null) as SurgeryRiskClass | null,
+    stayType: (stayType as 'ambulant' | 'overnight') || null,
+    knownOsasUntreated: false,
+    vteHistory: false,
+    activeCancer: false,
+  }), [patientAgeYears, patientBmi, patientSex, duration, surgeryRiskClass, stayType]);
+
+  const ambulantBlocked =
+    ambulantEligibilityEnabled &&
+    ambulantEligibility.decision === 'red' &&
+    stayType === 'ambulant' &&
+    !ambulantOverrideReason;
 
   // Build the PATCH payload. admissionTime is derived server-side from
   // plannedDate − hospital.defaultAdmissionOffsetMinutes, so we never send it.
@@ -263,6 +314,13 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       rightArmPosition: rightArmPosition || null,
       assistantIds,
     };
+
+    if (ambulantEligibilityEnabled) {
+      body.surgeryRiskClass = surgeryRiskClass || null;
+      body.ambulantQuickCheck = ambulantEligibility;
+      body.ambulantOverrideReason = ambulantOverrideReason;
+    }
+
     return { body };
   }
 
@@ -642,6 +700,22 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 onAssistantIdsChange={setAssistantIds}
                 disabled={!canWrite}
                 testIdPrefix="edit-"
+                ambulantEligibilityEnabled={ambulantEligibilityEnabled}
+                surgeryRiskClass={surgeryRiskClass}
+                onSurgeryRiskClassChange={setSurgeryRiskClass}
+                patientAgeYears={patientAgeYears}
+                patientBmi={patientBmi}
+                patientSex={patientSex}
+                hasAmbulantOverride={Boolean(ambulantOverrideReason)}
+                onRequestAmbulantOverride={() => setAmbulantOverrideOpen(true)}
+                onSwitchToOvernight={() => setStayType('overnight')}
+              />
+
+              <AmbulantOverrideModal
+                open={ambulantOverrideOpen}
+                onOpenChange={setAmbulantOverrideOpen}
+                eligibility={ambulantEligibility}
+                onSubmit={async (reason) => setAmbulantOverrideReason(reason)}
               />
 
               </TabsContent>
@@ -888,7 +962,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     </Button>
                     <Button
                       onClick={handleUpdate}
-                      disabled={isSaving || archiveMutation.isPending}
+                      disabled={isSaving || archiveMutation.isPending || ambulantBlocked}
+                      title={ambulantBlocked ? 'Risiko-Check rot — Override erforderlich oder stationär planen' : undefined}
                       data-testid="button-update-surgery"
                       className="w-full sm:w-auto"
                     >
