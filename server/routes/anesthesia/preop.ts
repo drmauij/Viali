@@ -17,7 +17,8 @@ import { calculateFull } from "@shared/scoring/ambulantEligibility";
 import { deriveRecommendations } from "@shared/scoring/recommendations";
 import { AMBULANT_THRESHOLDS } from "@shared/scoring/thresholds";
 import type { FullAssessmentInputs, SurgeryRiskClass } from "@shared/scoring/types";
-import { createAuditLog } from "../../storage/anesthesia";
+import { findConcept } from "@shared/scoring/findConcept";
+import { createAuditLog, getHospitalAnesthesiaSettings } from "../../storage/anesthesia";
 
 /**
  * Recompute the full ambulant assessment server-side and write it into the
@@ -60,11 +61,29 @@ async function applyAmbulantFullAssessment(
     ? Math.round((new Date(surgery.actualEndTime).getTime() - new Date(surgery.plannedDate).getTime()) / 60000)
     : null;
 
-  const heart = body.heartIllnesses ?? {};
-  const coag = body.coagulationIllnesses ?? {};
-  const neuro = body.neuroIllnesses ?? {};
-  const metab = body.metabolicIllnesses ?? {};
-  const infect = body.infectiousIllnesses ?? {};
+  const heart = (body.heartIllnesses ?? {}) as Record<string, boolean>;
+  const coag = (body.coagulationIllnesses ?? {}) as Record<string, boolean>;
+  const neuro = (body.neuroIllnesses ?? {}) as Record<string, boolean>;
+  const metab = (body.metabolicIllnesses ?? {}) as Record<string, boolean>;
+  const infect = (body.infectiousIllnesses ?? {}) as Record<string, boolean>;
+  const pulm = (body.lungIllnesses ?? {}) as Record<string, boolean>;
+  const woman = (body.womanIllnesses ?? {}) as Record<string, boolean>;
+  const ponv = (body.ponvTransfusionIssues ?? {}) as Record<string, boolean>;
+  const noxen = (body.noxen ?? {}) as Record<string, boolean>;
+
+  // Load the hospital's confirmed concept tags on illness items.
+  const settings = surgery.hospitalId
+    ? await getHospitalAnesthesiaSettings(surgery.hospitalId)
+    : undefined;
+  const lists = (settings?.illnessLists ?? {}) as Record<string, Array<{ id: string; scoringConcept?: string }>>;
+  const cardioList = lists.cardiovascular ?? [];
+  const coagList = lists.coagulation ?? [];
+  const neuroList = lists.neurological ?? [];
+  const metabList = lists.metabolic ?? [];
+  const infectList = lists.infectious ?? [];
+  const pulmList = lists.pulmonary ?? [];
+  const womanList = lists.woman ?? [];
+  const ponvList = lists.ponvTransfusion ?? [];
 
   const inputs: FullAssessmentInputs = {
     ageYears,
@@ -73,30 +92,30 @@ async function applyAmbulantFullAssessment(
     plannedMinutes,
     surgeryRiskClass: (surgery.surgeryRiskClass ?? null) as SurgeryRiskClass | null,
     stayType: (surgery.stayType ?? null) as "ambulant" | "overnight" | null,
-    knownOsasUntreated: Boolean(body.knownOsasUntreated),
-    vteHistory: Boolean(coag.vteHistory),
-    activeCancer: Boolean(infect.activeCancer),
-    hasLegSwelling: Boolean(body.hasLegSwelling),
-    hasVaricoseVeins: Boolean(body.hasVaricoseVeins),
-    isPregnantOrPostpartum: Boolean(body.isPregnantOrPostpartum),
-    onOcOrHrt: Boolean(body.onOcOrHrt),
+    knownOsasUntreated: findConcept(pulm, pulmList, "KNOWN_UNTREATED_OSAS") || Boolean(body.knownOsasUntreated),
+    vteHistory: findConcept(coag, coagList, "VTE_HISTORY"),
+    activeCancer: findConcept(infect, infectList, "ACTIVE_CANCER"),
+    hasLegSwelling: findConcept(coag, coagList, "LEG_SWELLING") || Boolean(body.hasLegSwelling),
+    hasVaricoseVeins: findConcept(coag, coagList, "VARICOSE_VEINS") || Boolean(body.hasVaricoseVeins),
+    isPregnantOrPostpartum: findConcept(woman, womanList, "PREGNANCY_OR_POSTPARTUM") || Boolean(body.isPregnantOrPostpartum),
+    onOcOrHrt: findConcept(woman, womanList, "OC_OR_HRT") || Boolean(body.onOcOrHrt),
     expectedBedrestOver72h: Boolean(body.expectedBedrestOver72h),
-    familyThrombophilia: Boolean(coag.familyThrombophilia),
-    strokeWithin30Days: Boolean(neuro.recentStroke),
+    familyThrombophilia: findConcept(coag, coagList, "FAMILY_THROMBOPHILIA"),
+    strokeWithin30Days: findConcept(neuro, neuroList, "RECENT_STROKE_30D"),
     hipOrLegFracture: Boolean(body.hipOrLegFracture),
-    spinalCordInjury: Boolean(neuro.spinalCordInjury),
+    spinalCordInjury: findConcept(neuro, neuroList, "SPINAL_CORD_INJURY"),
     snoringLoud: Boolean(body.osasSnoringLoud),
     daytimeTiredness: Boolean(body.osasDaytimeTiredness),
     observedApnea: Boolean(body.osasObservedApnea),
-    hasHypertension: Boolean(heart.hypertension),
+    hasHypertension: findConcept(heart, cardioList, "HYPERTENSION"),
     neckCircumferenceCm: body.neckCircumferenceCm != null ? Number(body.neckCircumferenceCm) : null,
-    hasCAD: Boolean(heart.cad),
-    hasCHF: Boolean(heart.chf),
-    hasCerebrovascularDisease: Boolean(neuro.stroke),
-    isInsulinDependentDiabetic: Boolean(metab.diabetesInsulin),
+    hasCAD: findConcept(heart, cardioList, "CAD"),
+    hasCHF: findConcept(heart, cardioList, "CHF"),
+    hasCerebrovascularDisease: findConcept(neuro, neuroList, "STROKE_HISTORY"),
+    isInsulinDependentDiabetic: findConcept(metab, metabList, "INSULIN_DIABETES"),
     creatinineMgDl: body.creatinineMgDl != null ? Number(body.creatinineMgDl) : null,
-    isNonSmoker: !Boolean(body.noxen?.nicotine),
-    hasPostopNauseaHistory: Boolean(body.hasPostopNauseaHistory),
+    isNonSmoker: !(noxen.nicotine === true || noxen.smoking === true),
+    hasPostopNauseaHistory: findConcept(ponv, ponvList, "PONV_HISTORY") || Boolean(body.hasPostopNauseaHistory),
     postopOpioidsPlanned: Boolean(body.postopOpioidsPlanned),
     expectedBloodLossMl: body.expectedBloodLossMl != null ? Number(body.expectedBloodLossMl) : null,
     hasCaregiver24h: Boolean(body.outpatientCaregiverFirstName) || Boolean(body.hasCaregiver24h),

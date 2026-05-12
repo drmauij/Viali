@@ -848,6 +848,10 @@ export type IllnessListItem = {
   patientHelpText?: string; // Explanation/tooltip for patients
   patientHelpTextTranslations?: LangMap;
   patientHelpTextOverrides?: OverrideMap;
+
+  // Admin-confirmed link to a clinical scoring concept used by Caprini/STOP-BANG/RCRI/Apfel.
+  // Only confirmed values are honored by scoring; heuristic/AI suggestions live in UI state.
+  scoringConcept?: string;
 };
 
 // Minimal localized list item for medication lists and checklist items

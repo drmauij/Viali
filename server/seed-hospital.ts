@@ -294,15 +294,15 @@ export async function seedHospitalData(
       ],
       illnessLists: {
         cardiovascular: [
-          { id: "htn", label: "Hypertension (HTN)" },
-          { id: "chd", label: "Coronary Heart Disease (CHD)" },
+          { id: "htn", label: "Hypertension (HTN)", scoringConcept: "HYPERTENSION" },
+          { id: "chd", label: "Coronary Heart Disease (CHD)", scoringConcept: "CAD" },
           { id: "heartValve", label: "Heart Valve Disease" },
           { id: "arrhythmia", label: "Arrhythmia" },
-          { id: "heartFailure", label: "Heart Failure" },
+          { id: "heartFailure", label: "Heart Failure", scoringConcept: "CHF" },
         ],
         pulmonary: [
           { id: "asthma", label: "Asthma" },
-          { id: "copd", label: "COPD" },
+          { id: "copd", label: "COPD", scoringConcept: "COPD" },
           { id: "sleepApnea", label: "Sleep Apnea" },
           { id: "pneumoniaHistory", label: "Pneumonia History" },
         ],
@@ -312,15 +312,18 @@ export async function seedHospitalData(
           { id: "liverDisease", label: "Liver Disease" },
         ],
         kidney: [
-          { id: "ckd", label: "Chronic Kidney Disease (CKD)" },
-          { id: "dialysis", label: "Dialysis" },
+          { id: "ckd", label: "Chronic Kidney Disease (CKD)", scoringConcept: "CKD_OR_DIALYSIS" },
+          { id: "dialysis", label: "Dialysis", scoringConcept: "CKD_OR_DIALYSIS" },
         ],
         metabolic: [
           { id: "diabetes", label: "Diabetes" },
+          { id: "diabetesInsulin", label: "Diabetes (insulin-dependent)", scoringConcept: "INSULIN_DIABETES" },
           { id: "thyroidDisorder", label: "Thyroid Disorder" },
         ],
         neurological: [
-          { id: "stroke", label: "Stroke History" },
+          { id: "stroke", label: "Stroke History", scoringConcept: "STROKE_HISTORY" },
+          { id: "recentStroke", label: "Recent Stroke (≤30 days)", scoringConcept: "RECENT_STROKE_30D" },
+          { id: "spinalCordInjury", label: "Spinal Cord Injury", scoringConcept: "SPINAL_CORD_INJURY" },
           { id: "epilepsy", label: "Epilepsy" },
           { id: "parkinsons", label: "Parkinson's Disease" },
           { id: "dementia", label: "Dementia" },
@@ -336,9 +339,12 @@ export async function seedHospitalData(
           { id: "spineDisorders", label: "Spine Disorders" },
         ],
         coagulation: [
-          { id: "vte", label: "Venous Thromboembolism (VTE)" },
-          { id: "dvt", label: "Deep Vein Thrombosis (DVT)" },
-          { id: "pulmonaryEmbolism", label: "Pulmonary Embolism" },
+          { id: "vte", label: "Venous Thromboembolism (VTE)", scoringConcept: "VTE_HISTORY" },
+          { id: "dvt", label: "Deep Vein Thrombosis (DVT)", scoringConcept: "VTE_HISTORY" },
+          { id: "pulmonaryEmbolism", label: "Pulmonary Embolism", scoringConcept: "VTE_HISTORY" },
+          { id: "familyThrombophilia", label: "Family Thrombophilia", scoringConcept: "FAMILY_THROMBOPHILIA" },
+          { id: "varicoseVeins", label: "Varicose Veins", scoringConcept: "VARICOSE_VEINS" },
+          { id: "legSwelling", label: "Leg Swelling / Edema", scoringConcept: "LEG_SWELLING" },
           { id: "hemophilia", label: "Hemophilia" },
           { id: "vonWillebrand", label: "Von Willebrand Disease" },
           { id: "thrombocytopenia", label: "Thrombocytopenia" },
@@ -347,6 +353,7 @@ export async function seedHospitalData(
           { id: "bleedingDisorder", label: "Bleeding Disorder" },
         ],
         infectious: [
+          { id: "activeCancer", label: "Active Cancer / Malignancy", scoringConcept: "ACTIVE_CANCER" },
           { id: "hivAids", label: "HIV/AIDS" },
           { id: "hepatitisB", label: "Hepatitis B" },
           { id: "hepatitisC", label: "Hepatitis C" },
@@ -364,7 +371,9 @@ export async function seedHospitalData(
           { id: "drugs", label: "Illicit Drugs" },
         ],
         woman: [
-          { id: "pregnancy", label: "Pregnancy" },
+          { id: "pregnancy", label: "Pregnancy", scoringConcept: "PREGNANCY_OR_POSTPARTUM" },
+          { id: "postpartum", label: "Postpartum (≤6 weeks)", scoringConcept: "PREGNANCY_OR_POSTPARTUM" },
+          { id: "ocHrt", label: "Oral Contraceptives / HRT", scoringConcept: "OC_OR_HRT" },
           { id: "breastfeeding", label: "Breastfeeding" },
           { id: "menopause", label: "Menopause" },
           { id: "gynSurgery", label: "Gynecological Surgery" },
@@ -397,8 +406,8 @@ export async function seedHospitalData(
           { id: "braces", label: "Braces/Orthodontics" },
         ],
         ponvTransfusion: [
-          { id: "motionSickness", label: "Motion Sickness" },
-          { id: "ponvHistory", label: "Previous PONV (Post-op Nausea/Vomiting)" },
+          { id: "motionSickness", label: "Motion Sickness", scoringConcept: "PONV_HISTORY" },
+          { id: "ponvHistory", label: "Previous PONV (Post-op Nausea/Vomiting)", scoringConcept: "PONV_HISTORY" },
           { id: "transfusionReactions", label: "Transfusion Reactions" },
           { id: "bloodProductAllergy", label: "Blood Product Allergy" },
           { id: "refusesBloodProducts", label: "Refuses Blood Products" },
@@ -436,7 +445,7 @@ export async function seedHospitalData(
     });
   } else {
     // Settings exist - merge any missing illness list categories
-    const defaultIllnessLists: Record<string, Array<{ id: string; label: string }>> = {
+    const defaultIllnessLists: Record<string, Array<{ id: string; label: string; scoringConcept?: string }>> = {
       anesthesiaHistory: [
         { id: "previousAnesthesiaProblems", label: "Previous Anesthesia Problems" },
         { id: "regionalAnesthesiaComplications", label: "Regional Anesthesia Complications" },
@@ -445,7 +454,7 @@ export async function seedHospitalData(
         { id: "anesthesiaProblemsFamily", label: "Family History: Anesthesia Problems" },
         { id: "difficultIntubationHistory", label: "Difficult Intubation History" },
         { id: "prolongedRecovery", label: "Prolonged Recovery from Anesthesia" },
-        { id: "postOpNauseaVomiting", label: "Post-operative Nausea/Vomiting" },
+        { id: "postOpNauseaVomiting", label: "Post-operative Nausea/Vomiting", scoringConcept: "PONV_HISTORY" },
       ],
       dental: [
         { id: "looseTeeth", label: "Loose Teeth" },
@@ -458,8 +467,8 @@ export async function seedHospitalData(
         { id: "braces", label: "Braces/Orthodontics" },
       ],
       ponvTransfusion: [
-        { id: "motionSickness", label: "Motion Sickness" },
-        { id: "ponvHistory", label: "Previous PONV (Post-op Nausea/Vomiting)" },
+        { id: "motionSickness", label: "Motion Sickness", scoringConcept: "PONV_HISTORY" },
+        { id: "ponvHistory", label: "Previous PONV (Post-op Nausea/Vomiting)", scoringConcept: "PONV_HISTORY" },
         { id: "transfusionReactions", label: "Transfusion Reactions" },
         { id: "bloodProductAllergy", label: "Blood Product Allergy" },
         { id: "refusesBloodProducts", label: "Refuses Blood Products" },

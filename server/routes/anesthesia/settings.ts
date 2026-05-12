@@ -542,7 +542,7 @@ router.patch('/api/anesthesia/settings/:hospitalId', isAuthenticated, requireWri
     });
 
     const settings = await storage.upsertHospitalAnesthesiaSettings(validatedData);
-    
+
     res.json(settings);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -550,6 +550,42 @@ router.patch('/api/anesthesia/settings/:hospitalId', isAuthenticated, requireWri
     }
     logger.error("Error updating anesthesia settings:", error);
     res.status(500).json({ message: "Failed to update anesthesia settings" });
+  }
+});
+
+// AI-assisted concept suggestions for illness-list items the heuristic mapper
+// could not classify. Returns proposals only — the admin still must confirm.
+const suggestConceptsBodySchema = z.object({
+  items: z.array(z.object({
+    id: z.string().min(1),
+    label: z.string().min(1),
+    labelTranslations: z.record(z.string()).nullable().optional(),
+  })).min(1).max(100),
+});
+
+router.post('/api/anesthesia/settings/:hospitalId/suggest-concepts', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hasAdminRole = userHospitals.some(h => h.id === hospitalId && (h.role === 'admin' || h.role === 'group_admin'));
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const { items: itemsToSuggest } = suggestConceptsBodySchema.parse(req.body);
+
+    const { suggestConceptsBatch } = await import("../../services/illnessConceptAI");
+    const suggestions = await suggestConceptsBatch(itemsToSuggest);
+
+    res.json({ suggestions });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    logger.error("Error suggesting illness concepts:", error);
+    res.status(500).json({ message: "Failed to suggest concepts" });
   }
 });
 

@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, X, ChevronUp, ChevronDown, Pencil, Trash2, Languages, LayoutGrid, Syringe, Pill, HeartPulse, ClipboardCheck, MoreVertical } from "lucide-react";
+import { Loader2, Plus, X, ChevronUp, ChevronDown, Pencil, Trash2, Languages, LayoutGrid, Syringe, Pill, HeartPulse, ClipboardCheck, MoreVertical, Sparkles } from "lucide-react";
 import { arrayMove } from "@dnd-kit/sortable";
 import {
   DropdownMenu,
@@ -38,6 +38,9 @@ import type { Lang } from "@shared/i18n";
 import type { IllnessListItem } from "@shared/schema";
 import { collectItemsForTab, buildTranslateRequest, applyTranslationsToSettings, ALL_LANGS, type TabKey } from "@/lib/translateBulk";
 import { TranslationsEditor } from "@/components/anesthesia/TranslationsEditor";
+import { IllnessConceptCell } from "@/components/anesthesia/IllnessConceptCell";
+import { suggestConcept as suggestConceptHeuristic } from "@shared/scoring/suggestConcept";
+import type { ScoringConcept } from "@shared/scoring/concepts";
 
 function TabBulkTranslateButton({
   tab,
@@ -346,6 +349,43 @@ export default function AnesthesiaSettings() {
     },
   });
 
+  // AI suggestions keyed by itemId. Lives only in this tab's session state — never
+  // persisted. Admin must confirm before they reach `scoringConcept`.
+  const [aiSuggestions, setAiSuggestions] = useState<Record<string, ScoringConcept>>({});
+
+  const aiSuggestMutation = useMutation({
+    mutationFn: async (items: Array<{ id: string; label: string; labelTranslations?: any }>) => {
+      const res = await apiRequest(
+        'POST',
+        `/api/anesthesia/settings/${activeHospital?.id}/suggest-concepts`,
+        { items },
+      );
+      return res as unknown as { suggestions: Array<{ itemId: string; suggestedConcept: ScoringConcept | null }> };
+    },
+    onSuccess: (data) => {
+      const next: Record<string, ScoringConcept> = { ...aiSuggestions };
+      let count = 0;
+      for (const s of data.suggestions) {
+        if (s.suggestedConcept) {
+          next[s.itemId] = s.suggestedConcept;
+          count++;
+        }
+      }
+      setAiSuggestions(next);
+      toast({
+        title: t('common.done', 'Done'),
+        description: t('anesthesia.settings.aiSuggestionsAdded', { count, defaultValue: `Added ${count} AI suggestion(s)` }),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: 'destructive',
+        title: t('common.error'),
+        description: error.message || 'AI suggestion failed',
+      });
+    },
+  });
+
   // Helper functions for managing settings lists
   const addAllergy = () => {
     if (!newItemInput.trim() || !anesthesiaSettings) return;
@@ -456,6 +496,40 @@ export default function AnesthesiaSettings() {
         [category]: ((currentLists as any)[category] || []).filter((i: any) => i.id !== illnessId),
       },
     });
+  };
+
+  // Set / clear the scoringConcept on a single illness item. Null clears it.
+  const setIllnessConcept = (category: string, illnessId: string, concept: ScoringConcept | null) => {
+    if (!anesthesiaSettings) return;
+    const currentLists = anesthesiaSettings.illnessLists || {};
+    const next = ((currentLists as any)[category] || []).map((i: any) => {
+      if (i.id !== illnessId) return i;
+      const copy = { ...i };
+      if (concept) copy.scoringConcept = concept;
+      else delete copy.scoringConcept;
+      return copy;
+    });
+    updateSettingsMutation.mutate({
+      illnessLists: { ...currentLists, [category]: next },
+    });
+  };
+
+  // Bulk-set scoringConcept across one or more categories in a single mutation.
+  const bulkSetConcepts = (updates: Array<{ category: string; itemId: string; concept: ScoringConcept }>) => {
+    if (!anesthesiaSettings || updates.length === 0) return;
+    const currentLists: Record<string, any[]> = { ...(anesthesiaSettings.illnessLists as any || {}) };
+    const grouped = new Map<string, Map<string, ScoringConcept>>();
+    for (const u of updates) {
+      if (!grouped.has(u.category)) grouped.set(u.category, new Map());
+      grouped.get(u.category)!.set(u.itemId, u.concept);
+    }
+    for (const [cat, picks] of grouped) {
+      const arr = currentLists[cat] || [];
+      currentLists[cat] = arr.map((i: any) =>
+        picks.has(i.id) ? { ...i, scoringConcept: picks.get(i.id) } : i,
+      );
+    }
+    updateSettingsMutation.mutate({ illnessLists: currentLists });
   };
 
   const editIllness = (category: string, oldId: string, newLabel: string, patientMetadata?: { patientVisible?: boolean; patientLabel?: string; patientHelpText?: string }) => {
@@ -1152,6 +1226,76 @@ export default function AnesthesiaSettings() {
 
           <TabBulkTranslateButton tab="illness" isTranslating={isTranslating} onTranslate={translateTab} />
 
+          {/* Scoring-concept banner: counts unconfirmed suggestions + unmapped items
+              across all illness categories and offers one-click bulk-confirm + AI suggest. */}
+          {(() => {
+            const lists = (anesthesiaSettings?.illnessLists ?? {}) as Record<string, any[]>;
+            const allCats = ['anesthesiaHistory','dental','ponvTransfusion','cardiovascular','pulmonary','gastrointestinal','kidney','metabolic','neurological','psychiatric','skeletal','coagulation','infectious','woman','noxen','children'];
+            const pendingConfirm: Array<{ category: string; itemId: string; concept: ScoringConcept }> = [];
+            const unmappedNoSuggestion: Array<{ id: string; label: string; labelTranslations?: any }> = [];
+            for (const cat of allCats) {
+              for (const item of (lists[cat] || [])) {
+                if (item.scoringConcept) continue;
+                const ai = aiSuggestions[item.id];
+                const heur = suggestConceptHeuristic(item);
+                const sug = (ai ?? heur) as ScoringConcept | null;
+                if (sug) {
+                  pendingConfirm.push({ category: cat, itemId: item.id, concept: sug });
+                } else {
+                  unmappedNoSuggestion.push({ id: item.id, label: item.label, labelTranslations: item.labelTranslations });
+                }
+              }
+            }
+            if (pendingConfirm.length === 0 && unmappedNoSuggestion.length === 0) return null;
+            return (
+              <div className="rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50/60 dark:bg-amber-950/30 px-4 py-3 flex flex-wrap items-center gap-3">
+                <Sparkles className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+                <span className="text-sm">
+                  {pendingConfirm.length > 0 && (
+                    <>
+                      <strong>{pendingConfirm.length}</strong> {t('anesthesia.settings.conceptSuggestionsPending', { defaultValue: 'concept suggestion(s) pending confirmation' })}
+                      {unmappedNoSuggestion.length > 0 && ' · '}
+                    </>
+                  )}
+                  {unmappedNoSuggestion.length > 0 && (
+                    <>
+                      <strong>{unmappedNoSuggestion.length}</strong> {t('anesthesia.settings.conceptItemsUnmapped', { defaultValue: 'item(s) without a concept' })}
+                    </>
+                  )}
+                </span>
+                <div className="ml-auto flex gap-2">
+                  {pendingConfirm.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => bulkSetConcepts(pendingConfirm)}
+                      disabled={updateSettingsMutation.isPending}
+                      data-testid="button-confirm-all-concepts"
+                    >
+                      {t('anesthesia.settings.confirmAllSuggestions', { defaultValue: 'Confirm all suggestions' })}
+                    </Button>
+                  )}
+                  {unmappedNoSuggestion.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => aiSuggestMutation.mutate(unmappedNoSuggestion)}
+                      disabled={aiSuggestMutation.isPending}
+                      data-testid="button-ai-suggest-concepts"
+                    >
+                      {aiSuggestMutation.isPending ? (
+                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      ) : (
+                        <Sparkles className="h-3 w-3 mr-1" />
+                      )}
+                      {t('anesthesia.settings.aiSuggestConcepts', { defaultValue: 'Get AI suggestions' })}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="grid grid-cols-1 gap-6">
             {[
               { key: 'anesthesiaHistory', label: t('anesthesia.settings.anesthesiaHistory') },
@@ -1198,7 +1342,20 @@ export default function AnesthesiaSettings() {
                         className="flex items-center justify-between p-2 rounded hover:bg-muted/50"
                         data-testid={`illness-item-${key}-${illness.id}`}
                       >
-                        <span className="text-sm">{illness.label}</span>
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <span className="text-sm truncate">{illness.label}</span>
+                          <IllnessConceptCell
+                            confirmedConcept={illness.scoringConcept ?? null}
+                            suggestion={
+                              illness.scoringConcept
+                                ? null
+                                : ((aiSuggestions[illness.id] ?? suggestConceptHeuristic(illness)) as ScoringConcept | null)
+                            }
+                            suggestionFromAi={Boolean(aiSuggestions[illness.id])}
+                            onConfirm={(c) => setIllnessConcept(key, illness.id, c)}
+                            disabled={updateSettingsMutation.isPending}
+                          />
+                        </div>
                         <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"

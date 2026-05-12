@@ -64,6 +64,7 @@ import { calculateStopBang } from "@shared/scoring/stopBang";
 import { calculateRcri } from "@shared/scoring/rcri";
 import { calculateApfel } from "@shared/scoring/apfel";
 import { calculateFull } from "@shared/scoring/ambulantEligibility";
+import { findConcept } from "@shared/scoring/findConcept";
 import { deriveRecommendations } from "@shared/scoring/recommendations";
 import type { FullAssessmentInputs, SurgeryRiskClass } from "@shared/scoring/types";
 import { QuestionnaireTab } from "@/components/questionnaire/QuestionnaireTab";
@@ -565,11 +566,26 @@ export default function PatientDetail() {
       ? Math.round((new Date(surgery.actualEndTime).getTime() - new Date(surgery.plannedDate).getTime()) / 60000)
       : null;
 
-    const heart = assessmentData.heartIllnesses;
-    const coag = assessmentData.coagulationIllnesses;
-    const neuro = assessmentData.neuroIllnesses;
-    const metab = assessmentData.metabolicIllnesses;
-    const infect = assessmentData.infectiousIllnesses;
+    const heart = assessmentData.heartIllnesses as Record<string, boolean> | undefined;
+    const coag = assessmentData.coagulationIllnesses as Record<string, boolean> | undefined;
+    const neuro = assessmentData.neuroIllnesses as Record<string, boolean> | undefined;
+    const metab = assessmentData.metabolicIllnesses as Record<string, boolean> | undefined;
+    const infect = assessmentData.infectiousIllnesses as Record<string, boolean> | undefined;
+    const pulm = assessmentData.lungIllnesses as Record<string, boolean> | undefined;
+    const kidney = assessmentData.kidneyIllnesses as Record<string, boolean> | undefined;
+    const woman = (assessmentData as any).womanIllnesses as Record<string, boolean> | undefined;
+    const noxen = assessmentData.noxen as Record<string, boolean> | undefined;
+    const ponv = assessmentData.ponvTransfusionIssues as Record<string, boolean> | undefined;
+
+    const lists = anesthesiaSettings?.illnessLists ?? {};
+    const cardioList = lists.cardiovascular ?? [];
+    const coagList = lists.coagulation ?? [];
+    const neuroList = lists.neurological ?? [];
+    const metabList = lists.metabolic ?? [];
+    const infectList = lists.infectious ?? [];
+    const pulmList = lists.pulmonary ?? [];
+    const kidneyList = lists.kidney ?? [];
+    const womanList = lists.woman ?? [];
 
     const inputs: FullAssessmentInputs = {
       ageYears,
@@ -578,36 +594,38 @@ export default function PatientDetail() {
       plannedMinutes,
       surgeryRiskClass: ((surgery as any).surgeryRiskClass ?? null) as SurgeryRiskClass | null,
       stayType: ((surgery as any).stayType ?? null) as 'ambulant' | 'overnight' | null,
-      knownOsasUntreated: false,
-      vteHistory: Boolean(coag?.vteHistory),
-      activeCancer: Boolean(infect?.activeCancer),
-      hasLegSwelling: false,
-      hasVaricoseVeins: false,
-      isPregnantOrPostpartum: false,
-      onOcOrHrt: false,
+      knownOsasUntreated: findConcept(pulm, pulmList, 'KNOWN_UNTREATED_OSAS'),
+      vteHistory: findConcept(coag, coagList, 'VTE_HISTORY'),
+      activeCancer: findConcept(infect, infectList, 'ACTIVE_CANCER'),
+      hasLegSwelling: findConcept(coag, coagList, 'LEG_SWELLING'),
+      hasVaricoseVeins: findConcept(coag, coagList, 'VARICOSE_VEINS'),
+      isPregnantOrPostpartum: findConcept(woman, womanList, 'PREGNANCY_OR_POSTPARTUM'),
+      onOcOrHrt: findConcept(woman, womanList, 'OC_OR_HRT'),
       expectedBedrestOver72h: false,
-      familyThrombophilia: Boolean(coag?.familyThrombophilia),
-      strokeWithin30Days: Boolean(neuro?.recentStroke),
+      familyThrombophilia: findConcept(coag, coagList, 'FAMILY_THROMBOPHILIA'),
+      strokeWithin30Days: findConcept(neuro, neuroList, 'RECENT_STROKE_30D'),
       hipOrLegFracture: false,
-      spinalCordInjury: Boolean(neuro?.spinalCordInjury),
+      spinalCordInjury: findConcept(neuro, neuroList, 'SPINAL_CORD_INJURY'),
       snoringLoud: assessmentData.osasSnoringLoud,
       daytimeTiredness: assessmentData.osasDaytimeTiredness,
       observedApnea: assessmentData.osasObservedApnea,
-      hasHypertension: Boolean(heart?.hypertension),
+      hasHypertension: findConcept(heart, cardioList, 'HYPERTENSION'),
       neckCircumferenceCm: assessmentData.neckCircumferenceCm,
-      hasCAD: Boolean(heart?.cad),
-      hasCHF: Boolean(heart?.chf),
-      hasCerebrovascularDisease: Boolean(neuro?.stroke),
-      isInsulinDependentDiabetic: Boolean(metab?.diabetesInsulin),
+      hasCAD: findConcept(heart, cardioList, 'CAD'),
+      hasCHF: findConcept(heart, cardioList, 'CHF'),
+      hasCerebrovascularDisease: findConcept(neuro, neuroList, 'STROKE_HISTORY'),
+      isInsulinDependentDiabetic: findConcept(metab, metabList, 'INSULIN_DIABETES'),
       creatinineMgDl: null,
-      isNonSmoker: !Boolean(assessmentData.noxen?.nicotine),
-      hasPostopNauseaHistory: Boolean(assessmentData.ponvTransfusionIssues?.ponvHistory),
+      isNonSmoker: !(noxen?.nicotine === true || noxen?.smoking === true),
+      hasPostopNauseaHistory: findConcept(ponv, lists.ponvTransfusion ?? [], 'PONV_HISTORY'),
       postopOpioidsPlanned: false,
       expectedBloodLossMl: null,
       hasCaregiver24h: Boolean(assessmentData.outpatientCaregiverFirstName),
       distanceToClinicMinutes: null,
       patientCanUnderstandDischarge: true,
     };
+    // Silence unused-warning for kidney list (reserved for future CKD scoring via concept)
+    void kidneyList;
 
     const caprini = calculateCaprini(inputs);
     const stopBang = calculateStopBang(inputs);
@@ -616,7 +634,7 @@ export default function PatientDetail() {
     const eligibility = calculateFull(inputs, { caprini, stopBang, rcri, apfel });
     const recommendations = deriveRecommendations(caprini, apfel, stopBang, eligibility);
     return { caprini, stopBang, rcri, apfel, eligibility, recommendations };
-  }, [patient, surgeries, selectedCaseId, assessmentData]);
+  }, [patient, surgeries, selectedCaseId, assessmentData, anesthesiaSettings?.illnessLists]);
 
   const navigatePreviewImage = useCallback((direction: 'prev' | 'next') => {
     if (previewImageIndex < 0 || previewImageSiblings.length <= 1) return;
