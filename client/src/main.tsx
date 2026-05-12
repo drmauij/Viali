@@ -51,6 +51,10 @@ const EXPECTED_FETCH_NOISE: Array<{
   // requires the admin to configure a sample-code prefix first; the dialog
   // surfaces the actionable error via toast, no need to alert Sentry.
   { method: "POST", statuses: [422], pattern: /^\/api\/patients\/[^/]+\/tissue-samples$/ },
+  // External-surgery-request schedule — 400 "Request already scheduled" is the
+  // server preventing duplicate scheduling (user clicked twice or used a stale
+  // view). Server is doing the right thing.
+  { method: "POST", statuses: [400], pattern: /^\/api\/external-surgery-requests\/[^/]+\/schedule$/ },
 ];
 
 function isExpectedFetchNoise(method: string, url: string, status: number): boolean {
@@ -94,6 +98,11 @@ if (import.meta.env.VITE_SENTRY_DSN) {
       // Not actionable — the user will retry when the app foregrounds.
       /^Load failed$/,
       /TypeError: Load failed/,
+      // react-big-calendar bug (<=1.19.4): handleSelectAllDaySlot crashes when
+      // the user clicks/drags the all-day row in Week view and the slot array
+      // is empty (`a[a.length-1].getDate()` on undefined). Already on latest
+      // version; no upstream fix. Our onSelectSlot never gets called.
+      /Cannot read properties of undefined \(reading 'getDate'\)/,
     ],
   });
 
