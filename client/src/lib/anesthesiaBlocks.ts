@@ -37,6 +37,7 @@ export const REGIONAL_BLOCK_GROUPS: RegionalBlockGroup[] = [
       { id: "supraclavicular", i18nKey: "supraclavicular", fallbackLabel: "Supraclavicular Block", preOp: true },
       { id: "infraclavicular", i18nKey: "infraclavicular", fallbackLabel: "Infraclavicular Block", preOp: true },
       { id: "axillary", i18nKey: "axillary", fallbackLabel: "Axillary Block", preOp: true },
+      { id: "ivra-upper", i18nKey: "ivraUpper", fallbackLabel: "IVRA (Intravenous Regional Anesthesia)", preOp: true },
       { id: "radial", i18nKey: "radial", fallbackLabel: "Radial Nerve Block", preOp: false },
       { id: "median", i18nKey: "median", fallbackLabel: "Median Nerve Block", preOp: false },
       { id: "ulnar", i18nKey: "ulnar", fallbackLabel: "Ulnar Nerve Block", preOp: false },
@@ -55,6 +56,7 @@ export const REGIONAL_BLOCK_GROUPS: RegionalBlockGroup[] = [
       { id: "fascia-iliaca", i18nKey: "fasciaIliaca", fallbackLabel: "Fascia Iliaca Block", preOp: true },
       { id: "popliteal", i18nKey: "popliteal", fallbackLabel: "Popliteal Block", preOp: true },
       { id: "ankle-block", i18nKey: "ankleBlock", fallbackLabel: "Ankle Block", preOp: true },
+      { id: "ivra-lower", i18nKey: "ivraLower", fallbackLabel: "IVRA (Intravenous Regional Anesthesia)", preOp: true },
     ],
   },
   {
