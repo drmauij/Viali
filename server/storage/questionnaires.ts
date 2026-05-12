@@ -441,6 +441,69 @@ export async function deletePatientDocument(id: string): Promise<void> {
     .where(eq(patientDocuments.id, id));
 }
 
+// On share, records actor + timestamp. On unshare, clears the visibility
+// flag but PRESERVES portal_shared_at + portal_shared_by as an audit trail.
+// Intentional departure from setNoteAttachmentPortalVisibility /
+// unshareDischargeBrief which null both fields on unshare.
+export async function setPatientDocumentPortalVisibility(
+  docId: string,
+  userId: string | null,
+  visible: boolean,
+): Promise<PatientDocument | undefined> {
+  const update: Partial<typeof patientDocuments.$inferInsert> = visible
+    ? {
+        portalVisible: true,
+        portalSharedAt: new Date(),
+        portalSharedBy: userId,
+      }
+    : {
+        portalVisible: false,
+      };
+
+  const [updated] = await db
+    .update(patientDocuments)
+    .set(update)
+    .where(eq(patientDocuments.id, docId))
+    .returning();
+  return updated;
+}
+
+// Returns staff-shared patient documents for a single patient, newest
+// portal_shared_at first. Parallel to getPortalVisiblePhotosForPatient.
+export async function getPortalVisiblePatientDocumentsForPatient(
+  patientId: string,
+): Promise<PatientDocument[]> {
+  return await db
+    .select()
+    .from(patientDocuments)
+    .where(
+      and(
+        eq(patientDocuments.patientId, patientId),
+        eq(patientDocuments.portalVisible, true),
+      ),
+    )
+    .orderBy(desc(patientDocuments.portalSharedAt));
+}
+
+// Defence-in-depth check for the portal download endpoint. Returns the
+// doc only when it is currently shared AND belongs to the given patient.
+export async function getPortalVisiblePatientDocumentForPatient(
+  docId: string,
+  patientId: string,
+): Promise<PatientDocument | undefined> {
+  const [row] = await db
+    .select()
+    .from(patientDocuments)
+    .where(
+      and(
+        eq(patientDocuments.id, docId),
+        eq(patientDocuments.patientId, patientId),
+        eq(patientDocuments.portalVisible, true),
+      ),
+    );
+  return row;
+}
+
 // ========== PATIENT MESSAGE OPERATIONS ==========
 
 export async function getPatientMessages(patientId: string, hospitalId: string): Promise<PatientMessage[]> {

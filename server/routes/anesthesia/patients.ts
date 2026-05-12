@@ -7,6 +7,7 @@ import {
   patientNotes,
   patientHospitals,
   hospitals as hospitalsTable,
+  patientQuestionnaireLinks,
 } from "@shared/schema";
 import { z } from "zod";
 import { asc, eq } from "drizzle-orm";
@@ -862,6 +863,232 @@ router.delete('/api/patients/:id/documents/:docId', isAuthenticated, requireWrit
   } catch (error) {
     logger.error("Error deleting patient document:", error);
     res.status(500).json({ message: "Failed to delete patient document" });
+  }
+});
+
+// ========== PATIENT DOCUMENT PORTAL SHARE ROUTES ==========
+
+// Eligibility rule for sharing a patient_document with the patient portal.
+// MIME must be image/* or application/pdf, AND source must be staff-originated.
+// Used to gate the share + notify endpoints.
+function isDocumentShareable(doc: {
+  mimeType?: string | null;
+  source?: string | null;
+}): { ok: true } | { ok: false; reason: "mime" | "source" } {
+  const mime = doc.mimeType ?? "";
+  const mimeOk = mime.startsWith("image/") || mime === "application/pdf";
+  if (!mimeOk) return { ok: false, reason: "mime" };
+
+  const source = doc.source ?? "";
+  const sourceOk = source === "staff_upload" || source === "import";
+  if (!sourceOk) return { ok: false, reason: "source" };
+
+  return { ok: true };
+}
+
+// Share a patient document with the patient portal.
+router.post('/api/patients/:id/documents/:docId/share', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id, docId } = req.params;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(id);
+    if (!patient) return res.status(404).json({ message: "Patient not found" });
+
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
+    if (!hasAccess) return res.status(403).json({ message: "Access denied" });
+
+    const doc = await storage.getPatientDocument(docId);
+    if (!doc || doc.patientId !== id) {
+      return res.status(404).json({ message: "Document not found" });
+    }
+
+    const eligibility = isDocumentShareable(doc);
+    if (!eligibility.ok) {
+      return res.status(400).json({
+        code: "DOC_NOT_SHAREABLE",
+        reason: eligibility.reason,
+        message:
+          eligibility.reason === "mime"
+            ? "Only images and PDFs can be shared with the patient portal"
+            : "Patient-originated documents cannot be re-shared",
+      });
+    }
+
+    const updated = await storage.setPatientDocumentPortalVisibility(docId, userId, true);
+
+    await createAuditLog({
+      recordType: "patient_document",
+      recordId: docId,
+      action: "update",
+      userId,
+      oldValue: { portalVisible: false },
+      newValue: { portalVisible: true },
+    });
+
+    res.json(updated);
+  } catch (error: any) {
+    logger.error("Error sharing patient document:", error);
+    res.status(500).json({ message: "Failed to share document" });
+  }
+});
+
+// Unshare a patient document from the patient portal. Always permitted on
+// any currently-shared row (defensive revocation). Preserves audit trail.
+router.post('/api/patients/:id/documents/:docId/unshare', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id, docId } = req.params;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(id);
+    if (!patient) return res.status(404).json({ message: "Patient not found" });
+
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
+    if (!hasAccess) return res.status(403).json({ message: "Access denied" });
+
+    const doc = await storage.getPatientDocument(docId);
+    if (!doc || doc.patientId !== id) {
+      return res.status(404).json({ message: "Document not found" });
+    }
+
+    const updated = await storage.setPatientDocumentPortalVisibility(docId, userId, false);
+
+    await createAuditLog({
+      recordType: "patient_document",
+      recordId: docId,
+      action: "update",
+      userId,
+      oldValue: { portalVisible: true },
+      newValue: { portalVisible: false },
+    });
+
+    res.json(updated);
+  } catch (error: any) {
+    logger.error("Error unsharing patient document:", error);
+    res.status(500).json({ message: "Failed to unshare document" });
+  }
+});
+
+// Notify the patient that a shared document is available on the portal.
+// Mirrors server/routes/dischargeBriefs.ts:606-730. Templates duplicated
+// inline rather than extracted — DRY pass deferred to avoid touching the
+// brief path during this feature.
+// TODO(DRY): hoist subjects/bodies/smsMessages into a shared helper.
+router.post('/api/patients/:id/documents/:docId/notify-patient', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id, docId } = req.params;
+    const userId = req.user.id;
+    const { method } = req.body;
+
+    if (!method || !["email", "sms"].includes(method)) {
+      return res.status(400).json({ message: "method must be 'email' or 'sms'" });
+    }
+
+    const patient = await storage.getPatient(id);
+    if (!patient) return res.status(404).json({ message: "Patient not found" });
+
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
+    if (!hasAccess) return res.status(403).json({ message: "Access denied" });
+
+    const doc = await storage.getPatientDocument(docId);
+    if (!doc || doc.patientId !== id) {
+      return res.status(404).json({ message: "Document not found" });
+    }
+
+    if (!doc.portalVisible) {
+      return res.status(400).json({
+        code: "DOC_NOT_SHARED",
+        message: "Document must be shared to the portal before notifying",
+      });
+    }
+
+    const [link] = await db
+      .select()
+      .from(patientQuestionnaireLinks)
+      .where(eq(patientQuestionnaireLinks.patientId, id))
+      .orderBy(patientQuestionnaireLinks.createdAt)
+      .limit(1);
+
+    if (!link) {
+      return res.status(400).json({ message: "Patient has no portal link" });
+    }
+
+    const portalUrl = `${process.env.APP_URL || "https://use.viali.app"}/patient-portal/${link.token}`;
+
+    const [hospital] = await db
+      .select()
+      .from(hospitalsTable)
+      .where(eq(hospitalsTable.id, patient.hospitalId));
+    const hospitalName = hospital?.name || "Viali";
+    const language = hospital?.defaultLanguage || "de";
+
+    if (method === "email") {
+      const email = patient.email;
+      if (!email) {
+        return res.status(400).json({ message: "Patient has no email address" });
+      }
+
+      const resendApiKey = process.env.RESEND_API_KEY;
+      if (!resendApiKey) {
+        return res.status(500).json({ message: "Email service not configured" });
+      }
+
+      const { Resend } = await import("resend");
+      const resend = new Resend(resendApiKey);
+      const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@viali.ch";
+
+      const subjects: Record<string, string> = {
+        de: `Neues Dokument verfügbar — ${hospitalName}`,
+        en: `New document available — ${hospitalName}`,
+        fr: `Nouveau document disponible — ${hospitalName}`,
+        it: `Nuovo documento disponibile — ${hospitalName}`,
+      };
+
+      const bodies: Record<string, string> = {
+        de: `<p>Guten Tag</p><p>Ein neues Dokument wurde für Sie im Patientenportal bereitgestellt.</p><p><a href="${portalUrl}">Zum Patientenportal</a></p><p>Freundliche Grüsse<br/>${hospitalName}</p>`,
+        en: `<p>Hello</p><p>A new document has been made available for you on the patient portal.</p><p><a href="${portalUrl}">Go to Patient Portal</a></p><p>Best regards<br/>${hospitalName}</p>`,
+        fr: `<p>Bonjour</p><p>Un nouveau document a été mis à votre disposition sur le portail patient.</p><p><a href="${portalUrl}">Accéder au portail patient</a></p><p>Cordialement<br/>${hospitalName}</p>`,
+        it: `<p>Buongiorno</p><p>Un nuovo documento è stato messo a disposizione nel portale pazienti.</p><p><a href="${portalUrl}">Vai al portale pazienti</a></p><p>Cordiali saluti<br/>${hospitalName}</p>`,
+      };
+
+      await resend.emails.send({
+        from: fromEmail,
+        to: email,
+        subject: subjects[language] || subjects.de,
+        html: bodies[language] || bodies.de,
+      });
+    } else {
+      const phone = patient.phone;
+      if (!phone) {
+        return res.status(400).json({ message: "Patient has no phone number" });
+      }
+
+      const smsMessages: Record<string, string> = {
+        de: `${hospitalName}: Ein neues Dokument ist für Sie im Patientenportal verfügbar. ${portalUrl}`,
+        en: `${hospitalName}: A new document is available on your patient portal. ${portalUrl}`,
+        fr: `${hospitalName}: Un nouveau document est disponible sur votre portail patient. ${portalUrl}`,
+        it: `${hospitalName}: Un nuovo documento è disponibile nel portale pazienti. ${portalUrl}`,
+      };
+
+      const result = await sendSms(phone, smsMessages[language] || smsMessages.de, patient.hospitalId);
+      if (!result.success) {
+        return res.status(500).json({ message: "Failed to send SMS: " + result.error });
+      }
+    }
+
+    await createAuditLog({
+      recordType: "patient_document",
+      recordId: docId,
+      action: "update",
+      userId,
+      oldValue: null,
+      newValue: { notificationType: method },
+    });
+
+    res.json({ success: true });
+  } catch (error: any) {
+    logger.error("Error notifying patient about shared document:", error);
+    res.status(500).json({ message: "Failed to notify patient" });
   }
 });
 
