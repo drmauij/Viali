@@ -1,6 +1,7 @@
 import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
 import { resolveText } from "@shared/contractTemplates/resolveText";
 import type { Block, ContractData } from "@shared/contractTemplates/types";
+import { formatDate } from "@/lib/dateUtils";
 
 const styles = StyleSheet.create({
   page:    { padding: 48, fontSize: 10, lineHeight: 1.4, fontFamily: "Helvetica" },
@@ -12,6 +13,7 @@ const styles = StyleSheet.create({
   sigBox:  { marginTop: 32, width: 240, height: 56, borderBottomWidth: 1, borderBottomColor: "black", flexDirection: "row", alignItems: "flex-end" },
   sigLbl:  { fontSize: 9, color: "#555" },
   sigImg:  { maxHeight: 50 },
+  sigDate: { fontSize: 8, color: "#555", marginTop: 2 },
 });
 
 interface Props {
@@ -19,19 +21,47 @@ interface Props {
   data: ContractData;
   workerSignaturePng: string | null;
   managerSignaturePng: string | null;
+  workerSignedAt?: string | Date | null;
+  managerSignedAt?: string | Date | null;
 }
 
-export function ContractDocumentPdf({ blocks, data, workerSignaturePng, managerSignaturePng }: Props) {
+export function ContractDocumentPdf({
+  blocks,
+  data,
+  workerSignaturePng,
+  managerSignaturePng,
+  workerSignedAt = null,
+  managerSignedAt = null,
+}: Props) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {blocks.map((b) => <PdfBlock key={b.id} block={b} data={data} workerSignaturePng={workerSignaturePng} managerSignaturePng={managerSignaturePng} />)}
+        {blocks.map((b) => (
+          <PdfBlock
+            key={b.id}
+            block={b}
+            data={data}
+            workerSignaturePng={workerSignaturePng}
+            managerSignaturePng={managerSignaturePng}
+            workerSignedAt={workerSignedAt}
+            managerSignedAt={managerSignedAt}
+          />
+        ))}
       </Page>
     </Document>
   );
 }
 
-function PdfBlock({ block, data, workerSignaturePng, managerSignaturePng }: { block: Block; data: ContractData; workerSignaturePng: string | null; managerSignaturePng: string | null; }) {
+interface PdfBlockProps {
+  block: Block;
+  data: ContractData;
+  workerSignaturePng: string | null;
+  managerSignaturePng: string | null;
+  workerSignedAt: string | Date | null;
+  managerSignedAt: string | Date | null;
+}
+
+function PdfBlock({ block, data, workerSignaturePng, managerSignaturePng, workerSignedAt, managerSignedAt }: PdfBlockProps) {
   switch (block.type) {
     case "heading": {
       const s = block.level === 1 ? styles.h1 : block.level === 2 ? styles.h2 : styles.h3;
@@ -51,15 +81,30 @@ function PdfBlock({ block, data, workerSignaturePng, managerSignaturePng }: { bl
       return (
         <View>
           {block.title && <Text style={styles.h2}>{resolveText(block.title, data as Record<string, unknown>)}</Text>}
-          {block.children.map((c) => <PdfBlock key={c.id} block={c} data={data} workerSignaturePng={workerSignaturePng} managerSignaturePng={managerSignaturePng} />)}
+          {block.children.map((c) => (
+            <PdfBlock
+              key={c.id}
+              block={c}
+              data={data}
+              workerSignaturePng={workerSignaturePng}
+              managerSignaturePng={managerSignaturePng}
+              workerSignedAt={workerSignedAt}
+              managerSignedAt={managerSignedAt}
+            />
+          ))}
         </View>
       );
     case "signature": {
-      const src = block.party === "worker" ? workerSignaturePng : managerSignaturePng;
+      const isWorker = block.party === "worker";
+      const src = isWorker ? workerSignaturePng : managerSignaturePng;
+      const signedAt = isWorker ? workerSignedAt : managerSignedAt;
       return (
         <View>
           <Text style={styles.sigLbl}>{block.label}</Text>
           <View style={styles.sigBox}>{src && <Image src={src} style={styles.sigImg} />}</View>
+          {signedAt && (
+            <Text style={styles.sigDate}>{formatDate(signedAt)}</Text>
+          )}
         </View>
       );
     }

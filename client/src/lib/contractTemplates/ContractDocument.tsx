@@ -1,23 +1,52 @@
 import * as React from "react";
 import { resolveText } from "@shared/contractTemplates/resolveText";
 import type { Block, ContractData } from "@shared/contractTemplates/types";
+import { formatDate } from "@/lib/dateUtils";
 
 interface Props {
   blocks: Block[];
   data: ContractData;
   workerSignaturePng: string | null;  // data: URL or null
   managerSignaturePng: string | null;
+  workerSignedAt?: string | Date | null;
+  managerSignedAt?: string | Date | null;
 }
 
-export function ContractDocument({ blocks, data, workerSignaturePng, managerSignaturePng }: Props) {
+export function ContractDocument({
+  blocks,
+  data,
+  workerSignaturePng,
+  managerSignaturePng,
+  workerSignedAt = null,
+  managerSignedAt = null,
+}: Props) {
   return (
     <div className="contract-document mx-auto max-w-3xl space-y-4 p-8 text-sm leading-relaxed bg-white text-black">
-      {blocks.map((b) => <RenderedBlock key={b.id} block={b} data={data} workerSignaturePng={workerSignaturePng} managerSignaturePng={managerSignaturePng} />)}
+      {blocks.map((b) => (
+        <RenderedBlock
+          key={b.id}
+          block={b}
+          data={data}
+          workerSignaturePng={workerSignaturePng}
+          managerSignaturePng={managerSignaturePng}
+          workerSignedAt={workerSignedAt}
+          managerSignedAt={managerSignedAt}
+        />
+      ))}
     </div>
   );
 }
 
-function RenderedBlock({ block, data, workerSignaturePng, managerSignaturePng }: { block: Block; data: ContractData; workerSignaturePng: string | null; managerSignaturePng: string | null; }) {
+interface RenderedBlockProps {
+  block: Block;
+  data: ContractData;
+  workerSignaturePng: string | null;
+  managerSignaturePng: string | null;
+  workerSignedAt: string | Date | null;
+  managerSignedAt: string | Date | null;
+}
+
+function RenderedBlock({ block, data, workerSignaturePng, managerSignaturePng, workerSignedAt, managerSignedAt }: RenderedBlockProps) {
   switch (block.type) {
     case "heading": {
       const Tag = (`h${block.level}`) as "h1" | "h2" | "h3";
@@ -34,17 +63,34 @@ function RenderedBlock({ block, data, workerSignaturePng, managerSignaturePng }:
       return (
         <section className="space-y-2">
           {block.title && <h2 className="text-base font-semibold mt-4">{resolveText(block.title, data as Record<string, unknown>)}</h2>}
-          {block.children.map((c) => <RenderedBlock key={c.id} block={c} data={data} workerSignaturePng={workerSignaturePng} managerSignaturePng={managerSignaturePng} />)}
+          {block.children.map((c) => (
+            <RenderedBlock
+              key={c.id}
+              block={c}
+              data={data}
+              workerSignaturePng={workerSignaturePng}
+              managerSignaturePng={managerSignaturePng}
+              workerSignedAt={workerSignedAt}
+              managerSignedAt={managerSignedAt}
+            />
+          ))}
         </section>
       );
     case "signature": {
-      const sigSrc = block.party === "worker" ? workerSignaturePng : managerSignaturePng;
+      const isWorker = block.party === "worker";
+      const sigSrc = isWorker ? workerSignaturePng : managerSignaturePng;
+      const signedAt = isWorker ? workerSignedAt : managerSignedAt;
       return (
         <div className="mt-8 inline-block">
           <div className="text-xs text-gray-600">{block.label}</div>
           <div className="border-b border-black mt-12 w-64 h-12 flex items-end" data-testid={sigSrc ? `sig-${block.party}` : `sig-placeholder-${block.party}`}>
             {sigSrc && <img src={sigSrc} alt={`${block.party} signature`} className="max-h-12" />}
           </div>
+          {signedAt && (
+            <div className="text-xs text-gray-600 mt-1" data-testid={`sig-date-${block.party}`}>
+              {formatDate(signedAt)}
+            </div>
+          )}
         </div>
       );
     }

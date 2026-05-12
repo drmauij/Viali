@@ -216,6 +216,8 @@ const signContractMutation = useMutation({
         data={data}
         workerSignaturePng={contract.workerSignature ?? null}
         managerSignaturePng={contract.managerSignature ?? null}
+        workerSignedAt={contract.workerSignedAt ?? null}
+        managerSignedAt={contract.managerSignedAt ?? null}
       />
     ).toBlob();
     const url = URL.createObjectURL(blob);
@@ -244,6 +246,8 @@ const signContractMutation = useMutation({
         data={data}
         workerSignaturePng={contract.workerSignature ?? null}
         managerSignaturePng={contract.managerSignature ?? null}
+        workerSignedAt={contract.workerSignedAt ?? null}
+        managerSignedAt={contract.managerSignedAt ?? null}
       />
     ).toBlob();
     const arrayBuffer = await blob.arrayBuffer();
@@ -607,6 +611,8 @@ const signContractMutation = useMutation({
                   data={(selectedContract.data ?? {}) as Record<string, unknown>}
                   workerSignaturePng={selectedContract.workerSignature ?? null}
                   managerSignaturePng={selectedContract.managerSignature ?? null}
+                  workerSignedAt={selectedContract.workerSignedAt ?? null}
+                  managerSignedAt={selectedContract.managerSignedAt ?? null}
                 />
               ) : (
                 <p className="text-sm text-gray-500 italic py-4 text-center">
@@ -659,6 +665,8 @@ const signContractMutation = useMutation({
                   data={(selectedContract.data ?? {}) as Record<string, unknown>}
                   workerSignaturePng={selectedContract.workerSignature ?? null}
                   managerSignaturePng={selectedContract.managerSignature ?? null}
+                  workerSignedAt={selectedContract.workerSignedAt ?? null}
+                  managerSignedAt={selectedContract.managerSignedAt ?? null}
                 />
               ) : (
                 <p className="text-sm text-gray-500 italic py-4 text-center">
