@@ -4261,34 +4261,12 @@ export default function PatientDetail() {
                 </CardContent>
               </Card>
 
-              {/* Ambulant Eligibility — composite Caprini/STOP-BANG/RCRI/Apfel
-                  plus the STOP-BANG inputs not covered by existing anamnesis. */}
-              {ambulantScoring && (
-                <div className="space-y-4">
-                  <AmbulantFullAssessmentPanel
-                    eligibility={ambulantScoring.eligibility}
-                    scores={ambulantScoring}
-                    recommendations={ambulantScoring.recommendations}
-                    hasOverride={Boolean(assessmentData.ambulantOverrideReason)}
-                    onRequestOverride={() => setAmbulantOverrideOpen(true)}
-                  />
-                  <StopBangSection
-                    values={{
-                      osasSnoringLoud: assessmentData.osasSnoringLoud,
-                      osasObservedApnea: assessmentData.osasObservedApnea,
-                      osasDaytimeTiredness: assessmentData.osasDaytimeTiredness,
-                      neckCircumferenceCm: assessmentData.neckCircumferenceCm,
-                    }}
-                    onChange={(patch) => setAssessmentData(prev => ({ ...prev, ...patch }))}
-                  />
-                  <AmbulantOverrideModal
-                    open={ambulantOverrideOpen}
-                    onOpenChange={setAmbulantOverrideOpen}
-                    eligibility={ambulantScoring.eligibility}
-                    onSubmit={async (reason) => setAssessmentData(prev => ({ ...prev, ambulantOverrideReason: reason }))}
-                  />
-                </div>
-              )}
+              {/* On lg+, the ambulant eligibility panel + STOP-BANG inputs move to a
+                  sticky right rail so the score stays visible as the nurse fills in
+                  the anamnesis accordion. Below lg they fall back to inline above
+                  the accordion. */}
+              <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-6">
+                <div className="space-y-4 min-w-0">
 
               <Accordion
                 type="multiple"
@@ -5766,8 +5744,38 @@ export default function PatientDetail() {
 
                 </CardContent>
               </Card>
+                </div>
+
+                {/* Sticky right rail — ambulant eligibility + STOP-BANG inputs. */}
+                {ambulantScoring && (
+                  <aside className="space-y-4 mt-4 lg:mt-0 lg:sticky lg:top-4 lg:self-start min-w-0">
+                    <AmbulantFullAssessmentPanel
+                      eligibility={ambulantScoring.eligibility}
+                      scores={ambulantScoring}
+                      recommendations={ambulantScoring.recommendations}
+                      hasOverride={Boolean(assessmentData.ambulantOverrideReason)}
+                      onRequestOverride={() => setAmbulantOverrideOpen(true)}
+                    />
+                    <StopBangSection
+                      values={{
+                        osasSnoringLoud: assessmentData.osasSnoringLoud,
+                        osasObservedApnea: assessmentData.osasObservedApnea,
+                        osasDaytimeTiredness: assessmentData.osasDaytimeTiredness,
+                        neckCircumferenceCm: assessmentData.neckCircumferenceCm,
+                      }}
+                      onChange={(patch) => setAssessmentData(prev => ({ ...prev, ...patch }))}
+                    />
+                    <AmbulantOverrideModal
+                      open={ambulantOverrideOpen}
+                      onOpenChange={setAmbulantOverrideOpen}
+                      eligibility={ambulantScoring.eligibility}
+                      onSubmit={async (reason) => setAssessmentData(prev => ({ ...prev, ambulantOverrideReason: reason }))}
+                    />
+                  </aside>
+                )}
+              </div>
             </TabsContent>
-            
+
             <TabsContent value="consent" className="flex-1 overflow-y-auto px-6 pb-6 space-y-6 mt-0">
               <Card>
                 <CardHeader>
