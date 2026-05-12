@@ -85,7 +85,7 @@ export function AmbulantFullAssessmentPanel({
         <ScoreRow label="Apfel" result={scores.apfel} suffix={`${scores.apfel.ponvPercent}% PONV`} pointsLabel={pointsLabel} />
       </div>
 
-      <div className="rounded-md bg-slate-50 p-3 text-sm space-y-1">
+      <div className="rounded-md bg-slate-50 dark:bg-slate-900/60 p-3 text-sm space-y-1">
         <div className="font-semibold">
           {t('ambulantEligibility.panel.recommendations', 'Recommendations')}
         </div>

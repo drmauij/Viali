@@ -40,10 +40,14 @@ export function AmbulantOverrideModal({ open, onOpenChange, eligibility, onSubmi
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="rounded-md bg-red-50 p-3 text-sm">
+          <div className="rounded-md bg-red-50 dark:bg-red-950/40 text-red-900 dark:text-red-100 p-3 text-sm">
             <strong>{t('ambulantEligibility.modal.riskFactorsLabel', 'Risk factors:')}</strong>
             <ul className="mt-1 list-disc pl-5">
-              {eligibility.hardExclusions.map((r) => <li key={r}>{r}</li>)}
+              {((eligibility.hardExclusionCodes ?? []).length > 0
+                ? eligibility.hardExclusionCodes!.map((r, i) =>
+                    t(`ambulantEligibility.reasons.${r.code}`, eligibility.hardExclusions[i] ?? r.code, r.params))
+                : eligibility.hardExclusions
+              ).map((r) => <li key={r}>{r}</li>)}
             </ul>
           </div>
 

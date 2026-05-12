@@ -3,29 +3,89 @@ import type {
   QuickCheckInputs,
   FullAssessmentInputs,
   EligibilityResult,
+  EligibilityReason,
   CapriniResult,
   StopBangResult,
   RcriResult,
   ApfelResult,
 } from './types';
 
-function decide(hard: string[], yellow: string[]): EligibilityResult['decision'] {
+function decide(hard: EligibilityReason[], yellow: EligibilityReason[]): EligibilityResult['decision'] {
   if (hard.length > 0) return 'red';
   if (yellow.length > 0) return 'yellow';
   return 'green';
 }
 
+// German-locale renderer kept here so reasons[] stays populated for audit trail.
+function renderDe(r: EligibilityReason): string {
+  const p = r.params;
+  switch (r.code) {
+    case 'durationExceedsLimit':
+      return `Geplante OP-Dauer ${p.hours}h überschreitet Limit ${p.limit}h`;
+    case 'bmiHardLimit':
+      return `BMI ${p.bmi} ≥ ${p.limit}`;
+    case 'bmiWithCritical':
+      return `BMI ${p.bmi} mit kritischem Eingriffstyp`;
+    case 'ageWithComorbidities':
+      return `Alter > ${p.age} mit relevanten Komorbiditäten`;
+    case 'knownOsasUntreated':
+      return 'Bekannte OSAS ohne CPAP';
+    case 'bmiWithDuration':
+      return `BMI ${p.bmi} kombiniert mit OP-Dauer > 3h`;
+    case 'ageWithLargeWound':
+      return `Alter ≥ ${p.age} mit grosser Wundfläche`;
+    case 'procedureType':
+      return `Eingriffstyp: ${p.class}`;
+    case 'vteHistory':
+      return 'VTE-Anamnese — Caprini-Bewertung empfohlen';
+    case 'capriniRed':
+      return `Caprini ${p.score} (≥ ${p.threshold})`;
+    case 'capriniYellow':
+      return `Caprini ${p.score}`;
+    case 'stopBangRed':
+      return `STOP-BANG ${p.score} (≥ ${p.threshold})`;
+    case 'stopBangYellow':
+      return `STOP-BANG ${p.score}`;
+    case 'rcriRed':
+      return `RCRI ${p.score} (≥ ${p.threshold})`;
+    case 'rcriYellow':
+      return `RCRI ${p.score}`;
+    case 'bloodLossRed':
+      return `Geschätzter Blutverlust > ${p.ml} ml`;
+    case 'noCaregiver':
+      return 'Keine 24h-Betreuung verfügbar';
+    case 'distanceTooFar':
+      return `Anfahrt > ${p.minutes} Min zur Klinik`;
+    case 'cannotUnderstandDischarge':
+      return 'Patient kann Entlassungsanweisungen nicht verstehen';
+  }
+}
+
+function build(hard: EligibilityReason[], yellow: EligibilityReason[]): EligibilityResult {
+  return {
+    decision: decide(hard, yellow),
+    reasons: [...hard, ...yellow].map(renderDe),
+    hardExclusions: hard.map(renderDe),
+    yellowFactors: yellow.map(renderDe),
+    reasonCodes: [...hard, ...yellow],
+    hardExclusionCodes: hard,
+    yellowFactorCodes: yellow,
+  };
+}
+
 export function calculateQuick(i: QuickCheckInputs): EligibilityResult {
-  const hard: string[] = [];
-  const yellow: string[] = [];
+  const hard: EligibilityReason[] = [];
+  const yellow: EligibilityReason[] = [];
 
   if (i.plannedMinutes !== null && i.plannedMinutes > T.MAX_OP_MINUTES) {
-    const hrs = (i.plannedMinutes / 60).toFixed(1);
-    hard.push(`Geplante OP-Dauer ${hrs}h überschreitet Limit ${T.MAX_OP_MINUTES / 60}h`);
+    hard.push({
+      code: 'durationExceedsLimit',
+      params: { hours: (i.plannedMinutes / 60).toFixed(1), limit: T.MAX_OP_MINUTES / 60 },
+    });
   }
 
   if (i.bmi !== null && i.bmi >= T.BMI_HARD_LIMIT) {
-    hard.push(`BMI ${i.bmi.toFixed(1)} ≥ ${T.BMI_HARD_LIMIT}`);
+    hard.push({ code: 'bmiHardLimit', params: { bmi: i.bmi.toFixed(1), limit: T.BMI_HARD_LIMIT } });
   }
 
   if (
@@ -34,17 +94,19 @@ export function calculateQuick(i: QuickCheckInputs): EligibilityResult {
     i.surgeryRiskClass &&
     (T.CRITICAL_SURGERY_CLASSES as readonly string[]).includes(i.surgeryRiskClass)
   ) {
-    hard.push(`BMI ${i.bmi.toFixed(1)} mit kritischem Eingriffstyp`);
+    hard.push({ code: 'bmiWithCritical', params: { bmi: i.bmi.toFixed(1) } });
   }
 
-  if (i.ageYears !== null && i.ageYears > T.AGE_HARD_LIMIT_WITH_COMORBIDITIES) {
-    if (i.activeCancer || i.vteHistory) {
-      hard.push(`Alter > ${T.AGE_HARD_LIMIT_WITH_COMORBIDITIES} mit relevanten Komorbiditäten`);
-    }
+  if (
+    i.ageYears !== null &&
+    i.ageYears > T.AGE_HARD_LIMIT_WITH_COMORBIDITIES &&
+    (i.activeCancer || i.vteHistory)
+  ) {
+    hard.push({ code: 'ageWithComorbidities', params: { age: T.AGE_HARD_LIMIT_WITH_COMORBIDITIES } });
   }
 
   if (i.knownOsasUntreated) {
-    hard.push('Bekannte OSAS ohne CPAP');
+    hard.push({ code: 'knownOsasUntreated', params: {} });
   }
 
   if (
@@ -54,7 +116,7 @@ export function calculateQuick(i: QuickCheckInputs): EligibilityResult {
     i.plannedMinutes !== null &&
     i.plannedMinutes > T.YELLOW_BMI_WITH_DURATION.minutes
   ) {
-    yellow.push(`BMI ${i.bmi.toFixed(1)} kombiniert mit OP-Dauer > 3h`);
+    yellow.push({ code: 'bmiWithDuration', params: { bmi: i.bmi.toFixed(1) } });
   }
 
   if (
@@ -63,7 +125,7 @@ export function calculateQuick(i: QuickCheckInputs): EligibilityResult {
     i.surgeryRiskClass &&
     (T.LARGE_OR_CRITICAL_CLASSES as readonly string[]).includes(i.surgeryRiskClass)
   ) {
-    yellow.push(`Alter ≥ ${T.AGE_YELLOW_WITH_LARGE_WOUND} mit grosser Wundfläche`);
+    yellow.push({ code: 'ageWithLargeWound', params: { age: T.AGE_YELLOW_WITH_LARGE_WOUND } });
   }
 
   if (
@@ -71,18 +133,12 @@ export function calculateQuick(i: QuickCheckInputs): EligibilityResult {
     i.surgeryRiskClass &&
     (T.LARGE_OR_CRITICAL_CLASSES as readonly string[]).includes(i.surgeryRiskClass)
   ) {
-    yellow.push(`Eingriffstyp: ${i.surgeryRiskClass}`);
+    yellow.push({ code: 'procedureType', params: { class: i.surgeryRiskClass } });
   }
 
-  if (i.vteHistory) yellow.push('VTE-Anamnese — Caprini-Bewertung empfohlen');
+  if (i.vteHistory) yellow.push({ code: 'vteHistory', params: {} });
 
-  const decision = decide(hard, yellow);
-  return {
-    decision,
-    reasons: [...hard, ...yellow],
-    hardExclusions: hard,
-    yellowFactors: yellow,
-  };
+  return build(hard, yellow);
 }
 
 export function calculateFull(
@@ -95,50 +151,41 @@ export function calculateFull(
   }
 ): EligibilityResult {
   const quick = calculateQuick(i);
-  const hard = [...quick.hardExclusions];
-  const yellow = [...quick.yellowFactors];
+  const hard: EligibilityReason[] = [...quick.hardExclusionCodes];
+  const yellow: EligibilityReason[] = [...quick.yellowFactorCodes];
 
   if (scores.caprini.score >= T.CAPRINI_RED) {
-    hard.push(`Caprini ${scores.caprini.score} (≥ ${T.CAPRINI_RED})`);
+    hard.push({ code: 'capriniRed', params: { score: scores.caprini.score, threshold: T.CAPRINI_RED } });
   } else if (scores.caprini.score >= T.CAPRINI_YELLOW) {
-    yellow.push(`Caprini ${scores.caprini.score}`);
+    yellow.push({ code: 'capriniYellow', params: { score: scores.caprini.score } });
   }
 
   if (scores.stopBang.score >= T.STOPBANG_RED) {
-    hard.push(`STOP-BANG ${scores.stopBang.score} (≥ ${T.STOPBANG_RED})`);
+    hard.push({ code: 'stopBangRed', params: { score: scores.stopBang.score, threshold: T.STOPBANG_RED } });
   } else if (scores.stopBang.score >= T.STOPBANG_YELLOW) {
-    yellow.push(`STOP-BANG ${scores.stopBang.score}`);
+    yellow.push({ code: 'stopBangYellow', params: { score: scores.stopBang.score } });
   }
 
   if (scores.rcri.score >= T.RCRI_RED) {
-    hard.push(`RCRI ${scores.rcri.score} (≥ ${T.RCRI_RED})`);
+    hard.push({ code: 'rcriRed', params: { score: scores.rcri.score, threshold: T.RCRI_RED } });
   } else if (scores.rcri.score >= T.RCRI_YELLOW) {
-    yellow.push(`RCRI ${scores.rcri.score}`);
+    yellow.push({ code: 'rcriYellow', params: { score: scores.rcri.score } });
   }
 
-  if (
-    i.expectedBloodLossMl !== null &&
-    i.expectedBloodLossMl > T.EXPECTED_BLOOD_LOSS_RED_ML
-  ) {
-    hard.push(`Geschätzter Blutverlust > ${T.EXPECTED_BLOOD_LOSS_RED_ML} ml`);
+  if (i.expectedBloodLossMl !== null && i.expectedBloodLossMl > T.EXPECTED_BLOOD_LOSS_RED_ML) {
+    hard.push({ code: 'bloodLossRed', params: { ml: T.EXPECTED_BLOOD_LOSS_RED_ML } });
   }
 
-  if (!i.hasCaregiver24h) hard.push('Keine 24h-Betreuung verfügbar');
+  if (!i.hasCaregiver24h) hard.push({ code: 'noCaregiver', params: {} });
   if (
     i.distanceToClinicMinutes !== null &&
     i.distanceToClinicMinutes > T.MAX_DISTANCE_TO_CLINIC_MINUTES
   ) {
-    hard.push(`Anfahrt > ${T.MAX_DISTANCE_TO_CLINIC_MINUTES} Min zur Klinik`);
+    hard.push({ code: 'distanceTooFar', params: { minutes: T.MAX_DISTANCE_TO_CLINIC_MINUTES } });
   }
   if (!i.patientCanUnderstandDischarge) {
-    hard.push('Patient kann Entlassungsanweisungen nicht verstehen');
+    hard.push({ code: 'cannotUnderstandDischarge', params: {} });
   }
 
-  const decision = decide(hard, yellow);
-  return {
-    decision,
-    reasons: [...hard, ...yellow],
-    hardExclusions: hard,
-    yellowFactors: yellow,
-  };
+  return build(hard, yellow);
 }

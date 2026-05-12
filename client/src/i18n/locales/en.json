@@ -8760,6 +8760,27 @@
     },
     "save": {
       "blockedTooltip": "Risk check red — override required or plan as overnight"
+    },
+    "reasons": {
+      "durationExceedsLimit": "Planned surgery duration {{hours}}h exceeds {{limit}}h limit",
+      "bmiHardLimit": "BMI {{bmi}} ≥ {{limit}}",
+      "bmiWithCritical": "BMI {{bmi}} with critical procedure type",
+      "ageWithComorbidities": "Age > {{age}} with relevant comorbidities",
+      "knownOsasUntreated": "Known OSA without CPAP",
+      "bmiWithDuration": "BMI {{bmi}} combined with surgery duration > 3h",
+      "ageWithLargeWound": "Age ≥ {{age}} with large wound area",
+      "procedureType": "Procedure type: {{class}}",
+      "vteHistory": "VTE history — Caprini assessment recommended",
+      "capriniRed": "Caprini {{score}} (≥ {{threshold}})",
+      "capriniYellow": "Caprini {{score}}",
+      "stopBangRed": "STOP-BANG {{score}} (≥ {{threshold}})",
+      "stopBangYellow": "STOP-BANG {{score}}",
+      "rcriRed": "RCRI {{score}} (≥ {{threshold}})",
+      "rcriYellow": "RCRI {{score}}",
+      "bloodLossRed": "Estimated blood loss > {{ml}} ml",
+      "noCaregiver": "No 24h caregiver available",
+      "distanceTooFar": "Travel > {{minutes}} min to the clinic",
+      "cannotUnderstandDischarge": "Patient cannot understand discharge instructions"
     }
   }
 }

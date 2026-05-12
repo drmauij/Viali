@@ -1372,10 +1372,10 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
               <div
                 className={`flex items-center gap-0.5 leading-tight mt-0.5 px-1 py-0.5 rounded w-fit max-w-full ${
                   event.ambulantQuickCheck.decision === 'red'
-                    ? 'bg-red-200/80 text-red-900'
+                    ? 'bg-red-200/80 dark:bg-red-900/60 text-red-900 dark:text-red-100'
                     : event.ambulantQuickCheck.decision === 'yellow'
-                      ? 'bg-amber-200/80 text-amber-900'
-                      : 'bg-green-200/80 text-green-900'
+                      ? 'bg-amber-200/80 dark:bg-amber-900/60 text-amber-900 dark:text-amber-100'
+                      : 'bg-green-200/80 dark:bg-green-900/60 text-green-900 dark:text-green-100'
                 }`}
                 data-testid={`ambulant-pill-${event.surgeryId}`}
                 title={

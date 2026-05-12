@@ -31,11 +31,45 @@ export interface ApfelResult extends ScoreResult {
 
 export type EligibilityDecision = 'green' | 'yellow' | 'red';
 
+/** Stable codes for every reason the orchestrator can emit. UI looks these up
+ *  via i18n; strings (`reasons` etc.) remain available in German for legal
+ *  reproducibility on persisted snapshots. */
+export type ReasonCode =
+  | 'durationExceedsLimit'
+  | 'bmiHardLimit'
+  | 'bmiWithCritical'
+  | 'ageWithComorbidities'
+  | 'knownOsasUntreated'
+  | 'bmiWithDuration'
+  | 'ageWithLargeWound'
+  | 'procedureType'
+  | 'vteHistory'
+  | 'capriniRed'
+  | 'capriniYellow'
+  | 'stopBangRed'
+  | 'stopBangYellow'
+  | 'rcriRed'
+  | 'rcriYellow'
+  | 'bloodLossRed'
+  | 'noCaregiver'
+  | 'distanceTooFar'
+  | 'cannotUnderstandDischarge';
+
+export interface EligibilityReason {
+  code: ReasonCode;
+  params: Record<string, string | number>;
+}
+
 export interface EligibilityResult {
   decision: EligibilityDecision;
+  /** German strings, kept for audit-trail backward compatibility */
   reasons: string[];
   hardExclusions: string[];
   yellowFactors: string[];
+  /** Structured for UI translation. Same order as reasons. */
+  reasonCodes: EligibilityReason[];
+  hardExclusionCodes: EligibilityReason[];
+  yellowFactorCodes: EligibilityReason[];
 }
 
 export interface QuickCheckInputs {

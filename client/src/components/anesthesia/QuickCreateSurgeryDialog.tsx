@@ -16,6 +16,10 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { formatDate } from "@/lib/dateUtils";
 import { SurgeryFormFields } from "./SurgeryFormFields";
+import { AmbulantOverrideModal } from "./AmbulantOverrideModal";
+import { calculateQuick } from "@shared/scoring/ambulantEligibility";
+import type { SurgeryRiskClass } from "@shared/scoring/types";
+import { useMemo } from "react";
 
 interface QuickCreateSurgeryDialogProps {
   open: boolean;
@@ -87,6 +91,9 @@ export default function QuickCreateSurgeryDialog({
   const [antibioseProphylaxe, setAntibioseProphylaxe] = useState(false);
   const [patientPosition, setPatientPosition] = useState<"" | "supine" | "trendelenburg" | "reverse_trendelenburg" | "lithotomy" | "lateral_decubitus" | "prone" | "jackknife" | "sitting" | "kidney" | "lloyd_davies">("");
   const [leftArmPosition, setLeftArmPosition] = useState<"" | "ausgelagert" | "angelagert">("");
+  const [surgeryRiskClass, setSurgeryRiskClass] = useState<SurgeryRiskClass | "">("");
+  const [ambulantOverrideReason, setAmbulantOverrideReason] = useState<string | null>(null);
+  const [ambulantOverrideOpen, setAmbulantOverrideOpen] = useState(false);
   const [rightArmPosition, setRightArmPosition] = useState<"" | "ausgelagert" | "angelagert">("");
 
   // New patient form state
@@ -268,6 +275,9 @@ export default function QuickCreateSurgeryDialog({
     setNewPatientGender("m");
     setNewPatientPhone("");
     setBirthdayInput("");
+    setSurgeryRiskClass("");
+    setAmbulantOverrideReason(null);
+    setAmbulantOverrideOpen(false);
   };
 
   const handleCreatePatient = () => {
@@ -340,6 +350,7 @@ export default function QuickCreateSurgeryDialog({
       notes: notes.trim() || undefined,
       diagnosis: diagnosis.trim() || undefined,
       coverageType: coverageType.trim() || undefined,
+      stayType: stayType || undefined,
       implantDetails: implantDetails.trim() || undefined,
       noPreOpRequired: noPreOpRequired,
       surgerySide: surgerySide || undefined,
@@ -349,10 +360,45 @@ export default function QuickCreateSurgeryDialog({
       rightArmPosition: rightArmPosition || undefined,
       assistantIds,
       status: "planned",
+      surgeryRiskClass: surgeryRiskClass || null,
+      ambulantQuickCheck: surgeryRiskClass ? ambulantEligibility : null,
+      ambulantOverrideReason,
     });
   };
 
   const selectedPatient = patients.find(p => p.id === selectedPatientId);
+
+  // Ambulant eligibility — same shape as in EditSurgeryDialog
+  const patientAgeYears = useMemo<number | null>(() => {
+    if (!selectedPatient?.birthday) return null;
+    const ms = Date.now() - new Date(selectedPatient.birthday).getTime();
+    return Math.floor(ms / (365.25 * 24 * 3600 * 1000));
+  }, [selectedPatient?.birthday]);
+
+  const patientSex = useMemo<'male' | 'female' | null>(() => {
+    const s = (selectedPatient?.sex || '').toString().toUpperCase();
+    if (s === 'M') return 'male';
+    if (s === 'F') return 'female';
+    return null;
+  }, [selectedPatient?.sex]);
+
+  const ambulantEligibility = useMemo(() => calculateQuick({
+    ageYears: patientAgeYears,
+    bmi: null,
+    sex: patientSex,
+    plannedMinutes: duration || null,
+    surgeryRiskClass: (surgeryRiskClass || null) as SurgeryRiskClass | null,
+    stayType: (stayType as 'ambulant' | 'overnight') || null,
+    knownOsasUntreated: false,
+    vteHistory: false,
+    activeCancer: false,
+  }), [patientAgeYears, patientSex, duration, surgeryRiskClass, stayType]);
+
+  const ambulantBlocked =
+    !isSlotReservation && !isRoomBlock &&
+    ambulantEligibility.decision === 'red' &&
+    stayType === 'ambulant' &&
+    !ambulantOverrideReason;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -616,6 +662,21 @@ export default function QuickCreateSurgeryDialog({
             isRoomBlock={isRoomBlock}
             assistantIds={assistantIds}
             onAssistantIdsChange={setAssistantIds}
+            ambulantEligibilityEnabled
+            surgeryRiskClass={surgeryRiskClass}
+            onSurgeryRiskClassChange={setSurgeryRiskClass}
+            patientAgeYears={patientAgeYears}
+            patientSex={patientSex}
+            hasAmbulantOverride={Boolean(ambulantOverrideReason)}
+            onRequestAmbulantOverride={() => setAmbulantOverrideOpen(true)}
+            onSwitchToOvernight={() => setStayType('overnight')}
+          />
+
+          <AmbulantOverrideModal
+            open={ambulantOverrideOpen}
+            onOpenChange={setAmbulantOverrideOpen}
+            eligibility={ambulantEligibility}
+            onSubmit={async (reason) => setAmbulantOverrideReason(reason)}
           />
         </div>
 
@@ -632,7 +693,8 @@ export default function QuickCreateSurgeryDialog({
           </Button>
           <Button
             onClick={handleCreateSurgery}
-            disabled={createSurgeryMutation.isPending || !surgeryRoomId || (!isSlotReservation && (!selectedPatientId || !plannedSurgery.trim()))}
+            disabled={createSurgeryMutation.isPending || !surgeryRoomId || (!isSlotReservation && (!selectedPatientId || !plannedSurgery.trim())) || ambulantBlocked}
+            title={ambulantBlocked ? t('ambulantEligibility.save.blockedTooltip', 'Risk check red — override required or plan as overnight') : undefined}
             data-testid="button-schedule-surgery"
           >
             {createSurgeryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

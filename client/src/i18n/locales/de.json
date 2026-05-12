@@ -8777,6 +8777,27 @@
     },
     "save": {
       "blockedTooltip": "Risiko-Check rot — Override erforderlich oder stationär planen"
+    },
+    "reasons": {
+      "durationExceedsLimit": "Geplante OP-Dauer {{hours}}h überschreitet Limit {{limit}}h",
+      "bmiHardLimit": "BMI {{bmi}} ≥ {{limit}}",
+      "bmiWithCritical": "BMI {{bmi}} mit kritischem Eingriffstyp",
+      "ageWithComorbidities": "Alter > {{age}} mit relevanten Komorbiditäten",
+      "knownOsasUntreated": "Bekannte OSAS ohne CPAP",
+      "bmiWithDuration": "BMI {{bmi}} kombiniert mit OP-Dauer > 3h",
+      "ageWithLargeWound": "Alter ≥ {{age}} mit grosser Wundfläche",
+      "procedureType": "Eingriffstyp: {{class}}",
+      "vteHistory": "VTE-Anamnese — Caprini-Bewertung empfohlen",
+      "capriniRed": "Caprini {{score}} (≥ {{threshold}})",
+      "capriniYellow": "Caprini {{score}}",
+      "stopBangRed": "STOP-BANG {{score}} (≥ {{threshold}})",
+      "stopBangYellow": "STOP-BANG {{score}}",
+      "rcriRed": "RCRI {{score}} (≥ {{threshold}})",
+      "rcriYellow": "RCRI {{score}}",
+      "bloodLossRed": "Geschätzter Blutverlust > {{ml}} ml",
+      "noCaregiver": "Keine 24h-Betreuung verfügbar",
+      "distanceTooFar": "Anfahrt > {{minutes}} Min zur Klinik",
+      "cannotUnderstandDischarge": "Patient kann Entlassungsanweisungen nicht verstehen"
     }
   }
 }
