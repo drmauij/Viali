@@ -5643,6 +5643,10 @@ export const externalSurgeryRequests = pgTable("external_surgery_requests", {
   diagnosis: text("diagnosis"),
   coverageType: varchar("coverage_type"), // Kostenträger: Selbstzahler, Krankenkasse, etc.
   stayType: varchar("stay_type", { enum: ["ambulant", "overnight"] }), // Ambulant or with overnight stay
+  // Ambulant eligibility (computed at submission so admin queue can render
+  // the pill without re-running the engine on every list render).
+  surgeryRiskClass: varchar("surgery_risk_class", { enum: ["minor", "standard", "large", "critical"] }),
+  ambulantQuickCheck: jsonb("ambulant_quick_check"),
   wishedDate: date("wished_date").notNull(),
   wishedTimeFrom: integer("wished_time_from"), // Minutes since midnight, e.g. 480 = 08:00
   wishedTimeTo: integer("wished_time_to"), // Minutes since midnight, e.g. 840 = 14:00

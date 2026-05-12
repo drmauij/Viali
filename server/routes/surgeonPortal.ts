@@ -22,6 +22,8 @@ import {
 import { revokePortalSessionBySessionToken } from "../storage/portalOtp";
 import { sendSurgeonActionRequestNotification } from "../resend";
 import { isDateInClosure } from "../storage/clinicClosures";
+import { calculateQuick } from "@shared/scoring/ambulantEligibility";
+import type { SurgeryRiskClass } from "@shared/scoring/types";
 import {
   getAnesthesiaRecord,
   getSurgeryStaff,
@@ -410,9 +412,37 @@ router.post(
         });
       }
 
+      // Compute ambulant eligibility snapshot at submission time so the
+      // clinic-side admin queue can render the 🔴/🟡/🟢 pill without
+      // re-running the engine on every list render. Portal does not get
+      // an override path — a red request lands in the queue as-is, the
+      // clinic reviewer decides at conversion time.
+      const data = parsed.data as any;
+      const riskClass = data.surgeryRiskClass as SurgeryRiskClass | undefined;
+      let ambulantQuickCheck: ReturnType<typeof calculateQuick> | null = null;
+      if (riskClass) {
+        const ageYears = data.patientBirthday
+          ? Math.floor(
+              (Date.now() - new Date(data.patientBirthday).getTime()) /
+                (365.25 * 24 * 3600 * 1000),
+            )
+          : null;
+        ambulantQuickCheck = calculateQuick({
+          ageYears,
+          bmi: null,
+          sex: null,
+          plannedMinutes: data.surgeryDurationMinutes ?? null,
+          surgeryRiskClass: riskClass,
+          stayType: (data.stayType ?? null) as "ambulant" | "overnight" | null,
+          knownOsasUntreated: false,
+          vteHistory: false,
+          activeCancer: false,
+        });
+      }
+
       const [created] = await db
         .insert(externalSurgeryRequests)
-        .values(parsed.data as any)
+        .values({ ...data, ambulantQuickCheck } as any)
         .returning();
 
       return res.status(201).json(created);
