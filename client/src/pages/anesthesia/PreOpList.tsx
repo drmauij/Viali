@@ -16,6 +16,8 @@ import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
+import { AmbulantEligibilityBadge } from "@/components/anesthesia/AmbulantEligibilityBadge";
+import type { EligibilityResult } from "@shared/scoring/types";
 
 function getPreOpSummary(assessment: any, surgery: any, t: (key: string) => string): string | null {
   if (!assessment) return null;
@@ -579,6 +581,27 @@ export default function PreOpList() {
                           <span>{formatDate(surgery.plannedDate)}</span>
                         </div>
                       )}
+                      {/* Ambulant eligibility pill — prefer pre-med-time full
+                          assessment if the anesthesiologist has computed it,
+                          otherwise fall back to booking-time snapshot. */}
+                      {(() => {
+                        const fullDecision = item.assessment?.ambulantFullAssessment as EligibilityResult | undefined;
+                        const quickDecision = (surgery as any).ambulantQuickCheck as EligibilityResult | undefined;
+                        const eligibility = fullDecision?.decision ? fullDecision : quickDecision;
+                        if (!eligibility?.decision) return null;
+                        const hasOverride =
+                          Boolean((item.assessment?.ambulantFullAssessment as any)?.override?.reason) ||
+                          Boolean((surgery as any).ambulantOverrideReason);
+                        return (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <AmbulantEligibilityBadge
+                              eligibility={eligibility}
+                              hasOverride={hasOverride}
+                              variant="pill"
+                            />
+                          </div>
+                        );
+                      })()}
                       {/* Pre-Op Assessment Summary */}
                       {getPreOpSummary(item.assessment, surgery, t) && (
                         <div 

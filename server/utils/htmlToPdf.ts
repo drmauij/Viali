@@ -23,6 +23,14 @@ interface DischargeBriefPdfOptions {
   signedAt?: Date | null;
   dateFormat?: string | null;
   language?: string;
+  /** When the surgery had an outpatient-eligibility 🔴 + override at booking
+   *  or pre-med time, the audit footer notes that the patient was discharged
+   *  ambulant despite the gate. Required for licensing / QM audits. */
+  ambulantOverride?: {
+    reason: string;
+    by?: string | null;
+    at?: Date | string | null;
+  } | null;
 }
 
 /** Format a date string per hospital dateFormat setting (european dd.MM.yyyy or american MM/dd/yyyy). */
@@ -718,6 +726,51 @@ export async function renderDischargeBriefPdf(
   const root = parseHtml(opts.content || "");
   for (const child of root.childNodes) {
     renderNode(pdf, child, MARGIN, maxTextWidth, state);
+  }
+
+  // Outpatient eligibility override (audit-trail footer). Renders only when
+  // the surgery had a 🔴 + override at booking or pre-med time — the line is
+  // legally required to be in the discharge record so QM audits can trace
+  // the override decision back to the clinician + reason + timestamp.
+  if (opts.ambulantOverride?.reason) {
+    state.y += 8;
+    checkNewPage(pdf, 30, state);
+    pdf.setDrawColor(180, 180, 180);
+    pdf.line(MARGIN, state.y, pageWidth - MARGIN, state.y);
+    state.y += 6;
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "bold");
+    const headerLabel =
+      lang === 'de'
+        ? 'Ambulant-Eignungsprüfung: Override aktiv'
+        : 'Outpatient eligibility: override active';
+    pdf.text(headerLabel, MARGIN, state.y);
+    state.y += 5;
+
+    pdf.setFont("helvetica", "italic");
+    const reasonLines = pdf.splitTextToSize(opts.ambulantOverride.reason, maxTextWidth);
+    for (const line of reasonLines) {
+      checkNewPage(pdf, 6, state);
+      pdf.text(line, MARGIN, state.y);
+      state.y += 5;
+    }
+
+    if (opts.ambulantOverride.by || opts.ambulantOverride.at) {
+      const meta: string[] = [];
+      if (opts.ambulantOverride.by) {
+        meta.push((lang === 'de' ? 'durch ' : 'by ') + opts.ambulantOverride.by);
+      }
+      if (opts.ambulantOverride.at) {
+        const at = typeof opts.ambulantOverride.at === 'string'
+          ? opts.ambulantOverride.at
+          : new Date(opts.ambulantOverride.at).toISOString();
+        meta.push((lang === 'de' ? 'am ' : 'on ') + formatDateByHospital(at, opts.dateFormat));
+      }
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.text(meta.join(' · '), MARGIN, state.y);
+      state.y += 5;
+    }
   }
 
   // Signature section

@@ -757,6 +757,28 @@ router.post(
 
       const hospital = await storage.getHospital(brief.hospitalId);
 
+      // Outpatient-eligibility override (if any) — surgery row is the source
+      // of truth; the override info embeds in the discharge brief footer for
+      // licensing/QM auditability.
+      let ambulantOverride: { reason: string; by?: string | null; at?: Date | string | null } | null = null;
+      if (brief.surgeryId) {
+        const surgery = await storage.getSurgery(brief.surgeryId);
+        const reason = (surgery as any)?.ambulantOverrideReason as string | null | undefined;
+        if (reason) {
+          const overrideBy = (surgery as any).ambulantOverrideBy as string | null | undefined;
+          let byName: string | null = null;
+          if (overrideBy) {
+            const u = await storage.getUser(overrideBy);
+            byName = u ? `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email || overrideBy : overrideBy;
+          }
+          ambulantOverride = {
+            reason,
+            by: byName,
+            at: (surgery as any).ambulantOverrideAt ?? null,
+          };
+        }
+      }
+
       // Dynamic import to avoid loading jsPDF at module level
       const { renderDischargeBriefPdf } = await import("../utils/htmlToPdf");
       const pdfBuffer = await renderDischargeBriefPdf({
@@ -778,6 +800,7 @@ router.post(
         signedAt: brief.signedAt || undefined,
         dateFormat: hospital?.dateFormat || null,
         language: (hospital?.defaultLanguage as string) || 'de',
+        ambulantOverride,
       });
 
       // Upload to S3
