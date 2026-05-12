@@ -7,6 +7,7 @@ import { useAddScorePoint, useUpdateScorePoint, useDeleteScorePoint } from "@/ho
 import type { AldreteScore, PARSAPScore } from "@/hooks/useEventState";
 import { CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useToast } from "@/hooks/use-toast";
 
 interface EditingScore {
   id: string;
@@ -80,6 +81,7 @@ export function ScoresDialog({
   readOnly = false,
 }: ScoresDialogProps) {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'aldrete' | 'parsap'>('aldrete');
   const [aldreteScore, setAldreteScore] = useState<AldreteScore>(DEFAULT_ALDRETE);
   const [parsapScore, setParsapScore] = useState<PARSAPScore>(DEFAULT_PARSAP);
@@ -123,6 +125,14 @@ export function ScoresDialog({
       ),
     };
 
+    const onError = (err: any) => {
+      toast({
+        title: t('common.error', 'Error'),
+        description: err?.message ?? String(err),
+        variant: 'destructive',
+      });
+    };
+
     if (editingScore) {
       updateScorePoint.mutate(
         {
@@ -135,6 +145,7 @@ export function ScoresDialog({
             onScoreUpdated?.();
             handleClose();
           },
+          onError,
         }
       );
     } else if (pendingScore) {
@@ -148,6 +159,7 @@ export function ScoresDialog({
             onScoreCreated?.();
             handleClose();
           },
+          onError,
         }
       );
     }

@@ -3623,26 +3623,34 @@ export const deleteAldretePointSchema = z.object({
 });
 
 // Generic Score schemas (Aldrete and PARSAP)
+// PARSAP shape was a stale 6-field draft (pulse/activity/respiration/
+// saturations/airwayPatency/pupil) that diverged from the actual 5-field
+// PARSAP scoring (vitals, ambulation, nausea/vomiting, pain, surgical
+// bleeding) implemented in the client. The mismatch silently rejected every
+// PARSAP submit with a 400 → optimistic rollback → "nothing happens".
+const parsapScoreSchema = z.object({
+  vitals: z.number().min(0).max(2),
+  ambulation: z.number().min(0).max(2),
+  nauseaVomiting: z.number().min(0).max(2),
+  pain: z.number().min(0).max(2),
+  surgicalBleeding: z.number().min(0).max(2),
+});
+
+const aldreteScoreSchema = z.object({
+  activity: z.number().min(0).max(2),
+  respiration: z.number().min(0).max(2),
+  circulation: z.number().min(0).max(2),
+  consciousness: z.number().min(0).max(2),
+  oxygenSaturation: z.number().min(0).max(2),
+});
+
 export const addScorePointSchema = z.object({
   anesthesiaRecordId: z.string(),
   timestamp: z.string(),
   scoreType: z.enum(['aldrete', 'parsap']),
   totalScore: z.number().min(0).max(12),
-  aldreteScore: z.object({
-    activity: z.number().min(0).max(2),
-    respiration: z.number().min(0).max(2),
-    circulation: z.number().min(0).max(2),
-    consciousness: z.number().min(0).max(2),
-    oxygenSaturation: z.number().min(0).max(2),
-  }).optional(),
-  parsapScore: z.object({
-    pulse: z.number().min(0).max(2),
-    activity: z.number().min(0).max(2),
-    respiration: z.number().min(0).max(2),
-    saturations: z.number().min(0).max(2),
-    airwayPatency: z.number().min(0).max(2),
-    pupil: z.number().min(0).max(2),
-  }).optional(),
+  aldreteScore: aldreteScoreSchema.optional(),
+  parsapScore: parsapScoreSchema.optional(),
 });
 
 export const updateScorePointSchema = z.object({
@@ -3650,21 +3658,8 @@ export const updateScorePointSchema = z.object({
   timestamp: z.string().optional(),
   scoreType: z.enum(['aldrete', 'parsap']).optional(),
   totalScore: z.number().min(0).max(12).optional(),
-  aldreteScore: z.object({
-    activity: z.number().min(0).max(2),
-    respiration: z.number().min(0).max(2),
-    circulation: z.number().min(0).max(2),
-    consciousness: z.number().min(0).max(2),
-    oxygenSaturation: z.number().min(0).max(2),
-  }).optional(),
-  parsapScore: z.object({
-    pulse: z.number().min(0).max(2),
-    activity: z.number().min(0).max(2),
-    respiration: z.number().min(0).max(2),
-    saturations: z.number().min(0).max(2),
-    airwayPatency: z.number().min(0).max(2),
-    pupil: z.number().min(0).max(2),
-  }).optional(),
+  aldreteScore: aldreteScoreSchema.optional(),
+  parsapScore: parsapScoreSchema.optional(),
 });
 
 export const deleteScorePointSchema = z.object({

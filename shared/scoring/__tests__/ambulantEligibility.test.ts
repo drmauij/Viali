@@ -48,9 +48,23 @@ describe('calculateQuick', () => {
     expect(calculateQuick({ ...cleanQuick, knownOsasUntreated: true }).decision).toBe('red');
   });
 
-  it('red when stayType is overnight should still report red factors (informational)', () => {
+  it('green when stayType is overnight — gate is ambulant-only', () => {
+    // 4h+ duration would be red for ambulant; overnight has bed+staffing so
+    // the ambulant-eligibility gate is moot.
     const r = calculateQuick({ ...cleanQuick, plannedMinutes: 260, stayType: 'overnight' });
-    expect(r.decision).toBe('red');
+    expect(r.decision).toBe('green');
+    expect(r.hardExclusions).toEqual([]);
+  });
+
+  it('green when stayType is overnight even with multiple ambulant red factors', () => {
+    const r = calculateQuick({
+      ...cleanQuick,
+      stayType: 'overnight',
+      plannedMinutes: 300,
+      bmi: 38,
+      knownOsasUntreated: true,
+    });
+    expect(r.decision).toBe('green');
   });
 });
 

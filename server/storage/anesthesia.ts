@@ -2439,7 +2439,7 @@ export async function addScorePoint(
   scoreType: 'aldrete' | 'parsap',
   totalScore: number,
   aldreteScore?: { activity: number; respiration: number; circulation: number; consciousness: number; oxygenSaturation: number },
-  parsapScore?: { pulse: number; activity: number; respiration: number; saturations: number; airwayPatency: number; pupil: number }
+  parsapScore?: { vitals: number; ambulation: number; nauseaVomiting: number; pain: number; surgicalBleeding: number }
 ): Promise<ClinicalSnapshot> {
   const snapshot = await getClinicalSnapshot(anesthesiaRecordId);
   
@@ -2477,7 +2477,7 @@ export async function addScorePoint(
 
 export async function updateScorePoint(
   pointId: string,
-  updates: { timestamp?: string; scoreType?: 'aldrete' | 'parsap'; totalScore?: number; aldreteScore?: { activity: number; respiration: number; circulation: number; consciousness: number; oxygenSaturation: number }; parsapScore?: { pulse: number; activity: number; respiration: number; saturations: number; airwayPatency: number; pupil: number } }
+  updates: { timestamp?: string; scoreType?: 'aldrete' | 'parsap'; totalScore?: number; aldreteScore?: { activity: number; respiration: number; circulation: number; consciousness: number; oxygenSaturation: number }; parsapScore?: { vitals: number; ambulation: number; nauseaVomiting: number; pain: number; surgicalBleeding: number } }
 ): Promise<ClinicalSnapshot | null> {
   const allSnapshots = await db.select().from(clinicalSnapshots);
   

@@ -558,8 +558,8 @@ export interface IStorage {
   deleteAldretePoint(pointId: string): Promise<ClinicalSnapshot | null>;
   
   // Generic Score operations (Aldrete and PARSAP)
-  addScorePoint(anesthesiaRecordId: string, timestamp: string, scoreType: 'aldrete' | 'parsap', totalScore: number, aldreteScore?: { activity: number; respiration: number; circulation: number; consciousness: number; oxygenSaturation: number }, parsapScore?: { pulse: number; activity: number; respiration: number; saturations: number; airwayPatency: number; pupil: number }): Promise<ClinicalSnapshot>;
-  updateScorePoint(pointId: string, updates: { timestamp?: string; scoreType?: 'aldrete' | 'parsap'; totalScore?: number; aldreteScore?: { activity: number; respiration: number; circulation: number; consciousness: number; oxygenSaturation: number }; parsapScore?: { pulse: number; activity: number; respiration: number; saturations: number; airwayPatency: number; pupil: number } }): Promise<ClinicalSnapshot | null>;
+  addScorePoint(anesthesiaRecordId: string, timestamp: string, scoreType: 'aldrete' | 'parsap', totalScore: number, aldreteScore?: { activity: number; respiration: number; circulation: number; consciousness: number; oxygenSaturation: number }, parsapScore?: { vitals: number; ambulation: number; nauseaVomiting: number; pain: number; surgicalBleeding: number }): Promise<ClinicalSnapshot>;
+  updateScorePoint(pointId: string, updates: { timestamp?: string; scoreType?: 'aldrete' | 'parsap'; totalScore?: number; aldreteScore?: { activity: number; respiration: number; circulation: number; consciousness: number; oxygenSaturation: number }; parsapScore?: { vitals: number; ambulation: number; nauseaVomiting: number; pain: number; surgicalBleeding: number } }): Promise<ClinicalSnapshot | null>;
   deleteScorePoint(pointId: string): Promise<ClinicalSnapshot | null>;
   
   // Ventilation Mode operations

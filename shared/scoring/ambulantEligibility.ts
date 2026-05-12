@@ -74,21 +74,28 @@ function build(hard: EligibilityReason[], yellow: EligibilityReason[]): Eligibil
 }
 
 export function calculateQuick(i: QuickCheckInputs): EligibilityResult {
+  // Ambulant eligibility is by definition irrelevant for overnight stays —
+  // the bed + staffing is already there. Short-circuit to green with no
+  // reasons so the badge stays informational/green for any overnight booking.
+  if (i.stayType === 'overnight') return build([], []);
+
   const hard: EligibilityReason[] = [];
   const yellow: EligibilityReason[] = [];
+  const isAmbulantContext = true; // retained for readability inside guards below
 
-  if (i.plannedMinutes !== null && i.plannedMinutes > T.MAX_OP_MINUTES) {
+  if (isAmbulantContext && i.plannedMinutes !== null && i.plannedMinutes > T.MAX_OP_MINUTES) {
     hard.push({
       code: 'durationExceedsLimit',
       params: { hours: (i.plannedMinutes / 60).toFixed(1), limit: T.MAX_OP_MINUTES / 60 },
     });
   }
 
-  if (i.bmi !== null && i.bmi >= T.BMI_HARD_LIMIT) {
+  if (isAmbulantContext && i.bmi !== null && i.bmi >= T.BMI_HARD_LIMIT) {
     hard.push({ code: 'bmiHardLimit', params: { bmi: i.bmi.toFixed(1), limit: T.BMI_HARD_LIMIT } });
   }
 
   if (
+    isAmbulantContext &&
     i.bmi !== null &&
     i.bmi >= T.YELLOW_BMI_WITH_DURATION.bmi &&
     i.surgeryRiskClass &&
@@ -98,6 +105,7 @@ export function calculateQuick(i: QuickCheckInputs): EligibilityResult {
   }
 
   if (
+    isAmbulantContext &&
     i.ageYears !== null &&
     i.ageYears > T.AGE_HARD_LIMIT_WITH_COMORBIDITIES &&
     (i.activeCancer || i.vteHistory)
@@ -105,7 +113,7 @@ export function calculateQuick(i: QuickCheckInputs): EligibilityResult {
     hard.push({ code: 'ageWithComorbidities', params: { age: T.AGE_HARD_LIMIT_WITH_COMORBIDITIES } });
   }
 
-  if (i.knownOsasUntreated) {
+  if (isAmbulantContext && i.knownOsasUntreated) {
     hard.push({ code: 'knownOsasUntreated', params: {} });
   }
 
@@ -150,6 +158,10 @@ export function calculateFull(
     apfel: ApfelResult;
   }
 ): EligibilityResult {
+  // Same short-circuit as calculateQuick — overnight stays don't need the
+  // ambulant-eligibility gate, even with elevated Caprini/RCRI/etc scores.
+  if (i.stayType === 'overnight') return build([], []);
+
   const quick = calculateQuick(i);
   const hard: EligibilityReason[] = [...quick.hardExclusionCodes];
   const yellow: EligibilityReason[] = [...quick.yellowFactorCodes];
