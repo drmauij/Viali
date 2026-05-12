@@ -8761,6 +8761,19 @@
     "save": {
       "blockedTooltip": "Risk check red — override required or plan as overnight"
     },
+    "recommendationsValues": {
+      "vteExtended": "LMWH extended 7–30 days",
+      "vtePerioperative": "LMWH perioperative",
+      "vteMechanicalLmwh": "Mechanical prophylaxis + LMWH until mobilization",
+      "vteMechanical": "Mechanical prophylaxis",
+      "ponvTriple": "Dexamethasone + Ondansetron + TIVA",
+      "ponvDual": "Dexamethasone + Ondansetron",
+      "ponvSingle": "Dexamethasone",
+      "ponvNone": "No prophylaxis required",
+      "monitoringRed": "Extended; consider overnight stay or postop transfer to an external clinic",
+      "monitoringYellow": "Standard + extended PACU monitoring",
+      "monitoringGreen": "Standard"
+    },
     "reasons": {
       "durationExceedsLimit": "Planned surgery duration {{hours}}h exceeds {{limit}}h limit",
       "bmiHardLimit": "BMI {{bmi}} ≥ {{limit}}",

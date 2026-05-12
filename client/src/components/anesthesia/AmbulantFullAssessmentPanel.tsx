@@ -89,9 +89,18 @@ export function AmbulantFullAssessmentPanel({
         <div className="font-semibold">
           {t('ambulantEligibility.panel.recommendations', 'Recommendations')}
         </div>
-        <div>• {t('ambulantEligibility.panel.vteProphylaxis', 'VTE prophylaxis')}: {recommendations.vteProphylaxis}</div>
-        <div>• {t('ambulantEligibility.panel.ponvProphylaxis', 'PONV prophylaxis')}: {recommendations.ponvProphylaxis}</div>
-        <div>• {t('ambulantEligibility.panel.monitoring', 'Monitoring')}: {recommendations.monitoring}</div>
+        <div>
+          • {t('ambulantEligibility.panel.vteProphylaxis', 'VTE prophylaxis')}:{' '}
+          {t(`ambulantEligibility.recommendationsValues.${recommendations.vteProphylaxisCode}`, recommendations.vteProphylaxis)}
+        </div>
+        <div>
+          • {t('ambulantEligibility.panel.ponvProphylaxis', 'PONV prophylaxis')}:{' '}
+          {t(`ambulantEligibility.recommendationsValues.${recommendations.ponvProphylaxisCode}`, recommendations.ponvProphylaxis)}
+        </div>
+        <div>
+          • {t('ambulantEligibility.panel.monitoring', 'Monitoring')}:{' '}
+          {t(`ambulantEligibility.recommendationsValues.${recommendations.monitoringCode}`, recommendations.monitoring)}
+        </div>
       </div>
     </div>
   );
