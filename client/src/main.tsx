@@ -92,6 +92,7 @@ if (import.meta.env.VITE_SENTRY_DSN) {
       /Failed to fetch dynamically imported module/,
       /Loading chunk .* failed/,
       /Importing a module script failed/,
+      /Unable to preload CSS/,
       /'text\/html' is not a valid JavaScript MIME type/,
       // Mobile Safari emits a bare "TypeError: Load failed" whenever a fetch
       // is killed mid-flight (lock screen, tab backgrounded, network drop).
@@ -174,6 +175,7 @@ const CHUNK_ERROR_PATTERNS = [
   /Failed to fetch dynamically imported module/i,
   /Loading chunk .* failed/i,
   /Importing a module script failed/i,
+  /Unable to preload CSS/i,
   /'text\/html' is not a valid JavaScript MIME type/i,
 ];
 const RELOAD_FLAG = "viali_chunk_reload_once";
