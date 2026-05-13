@@ -13,27 +13,6 @@ interface SignaturePadProps {
   title?: string;
 }
 
-// Resizes the canvas's backing store to match its CSS size × dpr and re-applies
-// any existing strokes. signature_pad handles the coordinate math internally
-// once the canvas is sized — we just have to keep the size in sync with what
-// CSS says the canvas should be.
-function resizeCanvas(canvas: HTMLCanvasElement, pad: SignaturePadLib) {
-  const ratio = Math.max(window.devicePixelRatio || 1, 1);
-  const rect = canvas.getBoundingClientRect();
-  if (rect.width === 0 || rect.height === 0) return;
-  // signature_pad's recommended resize: snapshot strokes, resize backing
-  // store, restore. fromData() replays the vectors at the new resolution
-  // so no quality is lost.
-  const data = pad.toData();
-  canvas.width = rect.width * ratio;
-  canvas.height = rect.height * ratio;
-  canvas.getContext("2d")?.scale(ratio, ratio);
-  pad.clear();
-  if (data && data.length > 0) {
-    pad.fromData(data);
-  }
-}
-
 export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Signature" }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const padRef = useRef<SignaturePadLib | null>(null);
@@ -44,33 +23,51 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const pad = new SignaturePadLib(canvas, {
-      backgroundColor: "rgb(255, 255, 255)",
-      penColor: "rgb(0, 0, 0)",
-      minWidth: 1,
-      maxWidth: 2.5,
-    });
-    padRef.current = pad;
+    setHasSignature(false);
 
-    pad.addEventListener("endStroke", () => {
-      setHasSignature(!pad.isEmpty());
-    });
+    // Wait one frame past the dialog's open animation so canvas.offsetWidth
+    // reflects the final layout — initializing before then would size the
+    // bitmap to 0 and signature_pad would never receive a valid drawing
+    // surface.
+    let cancelled = false;
+    const init = () => {
+      if (cancelled) return;
+      if (!canvas.offsetWidth || !canvas.offsetHeight) {
+        // Layout not ready yet; retry on the next frame.
+        requestAnimationFrame(init);
+        return;
+      }
 
-    // Initial sizing — and again on resize. Dialog open animations end up
-    // firing a window resize event indirectly via the layout reflow that
-    // follows; we also schedule a one-off settle to be safe.
-    resizeCanvas(canvas, pad);
-    const settleTimer = window.setTimeout(() => resizeCanvas(canvas, pad), 220);
+      const ratio = Math.max(window.devicePixelRatio || 1, 1);
+      canvas.width = canvas.offsetWidth * ratio;
+      canvas.height = canvas.offsetHeight * ratio;
+      canvas.getContext("2d")?.scale(ratio, ratio);
 
-    const observer = new ResizeObserver(() => {
-      resizeCanvas(canvas, pad);
-    });
-    observer.observe(canvas);
+      const pad = new SignaturePadLib(canvas, {
+        backgroundColor: "rgb(255, 255, 255)",
+        penColor: "rgb(0, 0, 0)",
+        minWidth: 1,
+        maxWidth: 2.5,
+      });
+      // Constructor calls clear() which paints the background; do it again
+      // after the scale() above so the bg fills the full DPR-sized bitmap.
+      pad.clear();
+
+      pad.addEventListener("endStroke", () => {
+        setHasSignature(!pad.isEmpty());
+      });
+
+      padRef.current = pad;
+    };
+
+    // Tailwind's open animation is ~200 ms; give it room and let init's own
+    // rAF loop pick up the final dimensions when layout settles.
+    const timer = window.setTimeout(init, 240);
 
     return () => {
-      observer.disconnect();
-      window.clearTimeout(settleTimer);
-      pad.off();
+      cancelled = true;
+      window.clearTimeout(timer);
+      padRef.current?.off();
       padRef.current = null;
     };
   }, [isOpen]);
@@ -108,10 +105,8 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
 
           <div className="space-y-4">
             <div>
-              {/* Border on the wrapper so the canvas itself has no border —
-                  signature_pad needs the canvas's bounding rect to coincide
-                  exactly with its bitmap area for coordinates to land under
-                  the finger. */}
+              {/* Border on the wrapper so the canvas's bounding rect coincides
+                  exactly with its bitmap display area. */}
               <div className="border-2 border-dashed border-border rounded-lg overflow-hidden bg-white">
                 <canvas
                   ref={canvasRef}
