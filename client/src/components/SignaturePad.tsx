@@ -64,66 +64,20 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
     }
   }, [isOpen, setupCanvas]);
 
-  const getCoordinates = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const getCoordinatesFromPoint = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
-
-    // Get the canvas bounding rect - this gives us the position and size in CSS pixels
     const rect = canvas.getBoundingClientRect();
-    
-    // Get client coordinates (relative to viewport)
-    let clientX: number, clientY: number;
-    
-    if ('touches' in e && e.touches.length > 0) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else if ('changedTouches' in e && e.changedTouches.length > 0) {
-      clientX = e.changedTouches[0].clientX;
-      clientY = e.changedTouches[0].clientY;
-    } else if ('clientX' in e) {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    } else {
-      return { x: 0, y: 0 };
-    }
-    
-    // Convert to coordinates relative to the canvas element in CSS pixels
-    // This works because ctx.scale(ratio, ratio) was applied, so we draw in CSS pixel space
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    
-    return { x, y };
+    return { x: clientX - rect.left, y: clientY - rect.top };
   }, []);
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault(); // Prevent scrolling
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    setIsDrawing(true);
-    setHasSignature(true);
-
-    const { x, y } = getCoordinates(e);
-
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    lastPointRef.current = { x, y };
-  };
-
-  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
-    e.preventDefault(); // Prevent scrolling while drawing
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const { x, y } = getCoordinates(e);
+  // Internal helper: add one (clientX, clientY) sample to the current stroke,
+  // smoothing through the midpoint with the previous sample. Shared by both
+  // the initial pointer down and every coalesced sample during pointer move,
+  // so a single mid-frame draw call can absorb several queued samples without
+  // dropping any.
+  const drawPoint = (ctx: CanvasRenderingContext2D, clientX: number, clientY: number) => {
+    const { x, y } = getCoordinatesFromPoint(clientX, clientY);
     const last = lastPointRef.current;
     if (!last) {
       ctx.beginPath();
@@ -131,11 +85,6 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
       lastPointRef.current = { x, y };
       return;
     }
-
-    // Quadratic curve through the midpoint of (last, current). Standard
-    // freehand smoothing technique (see signature_pad.js) — each pointer
-    // sample becomes a control point, and we draw to the midpoint, then
-    // open a fresh subpath from that midpoint for the next segment.
     const midX = (last.x + x) / 2;
     const midY = (last.y + y) / 2;
     ctx.quadraticCurveTo(last.x, last.y, midX, midY);
@@ -145,7 +94,53 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
     lastPointRef.current = { x, y };
   };
 
-  const stopDrawing = () => {
+  const startDrawing = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Capture the pointer so we keep receiving move/up even if the user's
+    // hand wanders past the canvas edge — strokes won't get cut off.
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch {
+      /* some browsers may refuse if already captured — safe to ignore */
+    }
+
+    setIsDrawing(true);
+    setHasSignature(true);
+    lastPointRef.current = null;
+    drawPoint(ctx, e.clientX, e.clientY);
+  };
+
+  const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Pointer events can deliver multiple samples per frame on high-rate
+    // devices. getCoalescedEvents() exposes them so we draw the full trail
+    // instead of just the latest position — gives strokes their snap on
+    // fast strokes (Apple Pencil, Surface Pen, fast finger swipes).
+    const coalesced =
+      typeof e.nativeEvent.getCoalescedEvents === "function"
+        ? e.nativeEvent.getCoalescedEvents()
+        : [];
+    if (coalesced.length > 0) {
+      for (const sample of coalesced) {
+        drawPoint(ctx, sample.clientX, sample.clientY);
+      }
+    } else {
+      drawPoint(ctx, e.clientX, e.clientY);
+    }
+  };
+
+  const stopDrawing = (e?: React.PointerEvent<HTMLCanvasElement>) => {
     if (isDrawing) {
       const canvas = canvasRef.current;
       const last = lastPointRef.current;
@@ -155,6 +150,13 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
           // Close out the final segment so the stroke reaches the last sample.
           ctx.lineTo(last.x, last.y);
           ctx.stroke();
+        }
+        if (e) {
+          try {
+            canvas.releasePointerCapture(e.pointerId);
+          } catch {
+            /* no-op if already released */
+          }
         }
       }
     }
@@ -221,14 +223,10 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
                 ref={canvasRef}
                 className="w-full h-56 sm:h-48 border-2 border-dashed border-border rounded-lg bg-white cursor-crosshair touch-none"
                 style={{ touchAction: 'none' }}
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={stopDrawing}
-                onMouseLeave={stopDrawing}
-                onTouchStart={startDrawing}
-                onTouchMove={draw}
-                onTouchEnd={stopDrawing}
-                onTouchCancel={stopDrawing}
+                onPointerDown={startDrawing}
+                onPointerMove={draw}
+                onPointerUp={stopDrawing}
+                onPointerCancel={stopDrawing}
                 data-testid="signature-canvas"
               />
               <p className="text-sm text-muted-foreground mt-2 text-center">
