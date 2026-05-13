@@ -1,5 +1,6 @@
-import { useRef, useEffect, useState, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
+import { useRef, useEffect, useState } from "react";
+import SignaturePadLib from "signature_pad";
+import { Dialog, DialogHeader, DialogTitle, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,229 +13,79 @@ interface SignaturePadProps {
   title?: string;
 }
 
+// Resizes the canvas's backing store to match its CSS size × dpr and re-applies
+// any existing strokes. signature_pad handles the coordinate math internally
+// once the canvas is sized — we just have to keep the size in sync with what
+// CSS says the canvas should be.
+function resizeCanvas(canvas: HTMLCanvasElement, pad: SignaturePadLib) {
+  const ratio = Math.max(window.devicePixelRatio || 1, 1);
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return;
+  // signature_pad's recommended resize: snapshot strokes, resize backing
+  // store, restore. fromData() replays the vectors at the new resolution
+  // so no quality is lost.
+  const data = pad.toData();
+  canvas.width = rect.width * ratio;
+  canvas.height = rect.height * ratio;
+  canvas.getContext("2d")?.scale(ratio, ratio);
+  pad.clear();
+  if (data && data.length > 0) {
+    pad.fromData(data);
+  }
+}
+
 export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Signature" }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const padRef = useRef<SignaturePadLib | null>(null);
   const [hasSignature, setHasSignature] = useState(false);
-  const ratioRef = useRef<number>(1);
-  // Track the last drawn point so each new pointer sample can be joined with
-  // a quadratic curve through the midpoint — produces fluid strokes instead
-  // of the jagged polyline `lineTo` per mousemove would yield.
-  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
-  const lastSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
-
-  const setupCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Reset any prior transform — the dialog open animation triggers ResizeObserver
-    // before settling, so setupCanvas runs multiple times and each ctx.scale call
-    // would otherwise stack on top of the previous one, shifting coordinates.
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-
-    // Get the device pixel ratio for high-DPI screens
-    const ratio = Math.max(window.devicePixelRatio || 1, 1);
-    ratioRef.current = ratio;
-
-    // Use offsetWidth/offsetHeight (un-transformed layout box) instead of
-    // getBoundingClientRect (which returns the visually transformed rect during
-    // the dialog's zoom-in-95 open animation). Sizing the canvas from the
-    // transformed rect would leave its internal bitmap ~5% smaller than its
-    // final CSS display — the browser then upscales it, shifting strokes
-    // sideways from the finger by ~0.5 cm.
-    const displayWidth = canvas.offsetWidth;
-    const displayHeight = canvas.offsetHeight;
-    if (displayWidth === 0 || displayHeight === 0) return;
-
-    // Set the canvas internal size to match display size * pixel ratio
-    canvas.width = displayWidth * ratio;
-    canvas.height = displayHeight * ratio;
-    // Pin CSS size explicitly so the canvas's display size stays decoupled
-    // from any Tailwind responsive class changes that could mismatch the
-    // internal dimensions we just baked in.
-    canvas.style.width = `${displayWidth}px`;
-    canvas.style.height = `${displayHeight}px`;
-    lastSizeRef.current = { w: displayWidth, h: displayHeight };
-
-    // Scale the context so drawing operations use CSS pixels
-    ctx.scale(ratio, ratio);
-
-    // Fill canvas with white background for print-ready signatures
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, displayWidth, displayHeight);
-
-    // Use black stroke for signature (print-ready format)
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Initial setup — this often runs mid-dialog-animation so dimensions may
-    // not be final yet. The ResizeObserver below catches any post-animation
-    // size change. We also schedule a one-off rAF re-init after the open
-    // animation should be done (Tailwind's animate-in is ~200ms) as a belt
-    // for the rare case where the observer doesn't fire because the layout
-    // box stays constant while only the transform animates.
-    setupCanvas();
-    const settleTimer = window.setTimeout(() => {
-      setupCanvas();
-    }, 220);
+    const pad = new SignaturePadLib(canvas, {
+      backgroundColor: "rgb(255, 255, 255)",
+      penColor: "rgb(0, 0, 0)",
+      minWidth: 1,
+      maxWidth: 2.5,
+    });
+    padRef.current = pad;
+
+    pad.addEventListener("endStroke", () => {
+      setHasSignature(!pad.isEmpty());
+    });
+
+    // Initial sizing — and again on resize. Dialog open animations end up
+    // firing a window resize event indirectly via the layout reflow that
+    // follows; we also schedule a one-off settle to be safe.
+    resizeCanvas(canvas, pad);
+    const settleTimer = window.setTimeout(() => resizeCanvas(canvas, pad), 220);
 
     const observer = new ResizeObserver(() => {
-      setupCanvas();
+      resizeCanvas(canvas, pad);
     });
     observer.observe(canvas);
+
     return () => {
       observer.disconnect();
       window.clearTimeout(settleTimer);
+      pad.off();
+      padRef.current = null;
     };
-  }, [isOpen, setupCanvas]);
-
-  const getCoordinates = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-
-    // rect.width is the visually transformed bounding box (during dialog
-    // open animation this is ~0.95 × the layout box). offsetWidth is the
-    // un-transformed layout box, which is what ctx.scale was set up against.
-    // Divide by the live transform scale so coordinates always land at the
-    // finger, even if drawing starts mid-animation.
-    const rect = canvas.getBoundingClientRect();
-    const layoutW = canvas.offsetWidth || rect.width;
-    const layoutH = canvas.offsetHeight || rect.height;
-    const scaleX = layoutW > 0 ? rect.width / layoutW : 1;
-    const scaleY = layoutH > 0 ? rect.height / layoutH : 1;
-
-    let clientX: number, clientY: number;
-
-    if ('touches' in e && e.touches.length > 0) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else if ('changedTouches' in e && e.changedTouches.length > 0) {
-      clientX = e.changedTouches[0].clientX;
-      clientY = e.changedTouches[0].clientY;
-    } else if ('clientX' in e) {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    } else {
-      return { x: 0, y: 0 };
-    }
-
-    const x = (clientX - rect.left) / (scaleX || 1);
-    const y = (clientY - rect.top) / (scaleY || 1);
-
-    return { x, y };
-  }, []);
-
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault(); // Prevent scrolling
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    setIsDrawing(true);
-    setHasSignature(true);
-
-    const { x, y } = getCoordinates(e);
-
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    lastPointRef.current = { x, y };
-  };
-
-  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
-    e.preventDefault(); // Prevent scrolling while drawing
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const { x, y } = getCoordinates(e);
-    const last = lastPointRef.current;
-    if (!last) {
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      lastPointRef.current = { x, y };
-      return;
-    }
-
-    // Quadratic curve through the midpoint of (last, current): standard
-    // technique for smoothing freehand strokes — see signature_pad.js. Each
-    // sample becomes a control point and we draw to the midpoint, then start
-    // a fresh subpath from that midpoint for the next segment.
-    const midX = (last.x + x) / 2;
-    const midY = (last.y + y) / 2;
-    ctx.quadraticCurveTo(last.x, last.y, midX, midY);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(midX, midY);
-    lastPointRef.current = { x, y };
-  };
-
-  const stopDrawing = () => {
-    if (isDrawing) {
-      const canvas = canvasRef.current;
-      const last = lastPointRef.current;
-      if (canvas && last) {
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          // Close out the final segment so the stroke reaches the last sample.
-          ctx.lineTo(last.x, last.y);
-          ctx.stroke();
-        }
-      }
-    }
-    setIsDrawing(false);
-    lastPointRef.current = null;
-  };
+  }, [isOpen]);
 
   const clearSignature = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Get the display size
-    const rect = canvas.getBoundingClientRect();
-    
-    // Clear and reset
-    ctx.clearRect(0, 0, rect.width, rect.height);
-    
-    // Fill with white background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, rect.width, rect.height);
-    
-    // Reset stroke style
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    
+    padRef.current?.clear();
     setHasSignature(false);
   };
 
   const saveSignature = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const dataUrl = canvas.toDataURL("image/png");
-    onSave(dataUrl);
-    clearSignature();
+    const pad = padRef.current;
+    if (!pad || pad.isEmpty()) return;
+    onSave(pad.toDataURL("image/png"));
+    pad.clear();
+    setHasSignature(false);
     onClose();
   };
 
@@ -243,7 +94,7 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
       <DialogPortal>
         {/* Custom overlay with higher z-index to appear above modal-overlay (z-100) */}
         <DialogOverlay className="z-[150]" />
-        
+
         {/* Custom content with higher z-index */}
         <DialogPrimitive.Content
           className={cn(
@@ -257,23 +108,15 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
 
           <div className="space-y-4">
             <div>
-              {/* Border on the wrapper, not the canvas — keeps the canvas's
-                  bounding rect identical to its bitmap display area so
-                  finger/mouse coordinates map directly without a border-offset
-                  fudge. */}
+              {/* Border on the wrapper so the canvas itself has no border —
+                  signature_pad needs the canvas's bounding rect to coincide
+                  exactly with its bitmap area for coordinates to land under
+                  the finger. */}
               <div className="border-2 border-dashed border-border rounded-lg overflow-hidden bg-white">
                 <canvas
                   ref={canvasRef}
                   className="block w-full h-56 sm:h-48 bg-white cursor-crosshair touch-none"
-                  style={{ touchAction: 'none' }}
-                  onMouseDown={startDrawing}
-                  onMouseMove={draw}
-                  onMouseUp={stopDrawing}
-                  onMouseLeave={stopDrawing}
-                  onTouchStart={startDrawing}
-                  onTouchMove={draw}
-                  onTouchEnd={stopDrawing}
-                  onTouchCancel={stopDrawing}
+                  style={{ touchAction: "none" }}
                   data-testid="signature-canvas"
                 />
               </div>
