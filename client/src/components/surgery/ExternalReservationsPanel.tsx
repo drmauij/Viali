@@ -28,6 +28,8 @@ import {
   AlertTriangle,
   User,
   MapPin,
+  History,
+  Inbox,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -576,6 +578,10 @@ export function ExternalReservationsPanel({
   const [selectedRequest, setSelectedRequest] = useState<ExternalSurgeryRequest | null>(null);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<PanelTab>('surgery-requests');
+  // Archive view: read-only list of non-pending requests so the clinic can
+  // audit historical conversions (and spot anything that landed without a
+  // notification email, until that gap is fully closed).
+  const [archiveView, setArchiveView] = useState(false);
   const [refuseDialogOpen, setRefuseDialogOpen] = useState(false);
   const [refusingRequestId, setRefusingRequestId] = useState<string | null>(null);
   const [refuseNote, setRefuseNote] = useState('');
@@ -590,6 +596,17 @@ export function ExternalReservationsPanel({
   const { data: requests = [], isLoading, refetch } = useQuery<ExternalSurgeryRequest[]>({
     queryKey: [`/api/hospitals/${hospitalId}/external-surgery-requests?status=pending`],
     enabled: !!hospitalId && (mode === 'inline' || open),
+  });
+
+  // --- Archive (non-pending requests for audit) ---
+  const {
+    data: archiveRequests = [],
+    isLoading: isLoadingArchive,
+  } = useQuery<ExternalSurgeryRequest[]>({
+    queryKey: [`/api/hospitals/${hospitalId}/external-surgery-requests`],
+    enabled: archiveView && !!hospitalId && (mode === 'inline' || open),
+    select: (rows) =>
+      rows.filter((r) => r.status !== 'pending').slice(0, 100),
   });
 
   // --- Surgeon action requests (new) ---
@@ -1007,6 +1024,79 @@ export function ExternalReservationsPanel({
     </Dialog>
   );
 
+  const archiveStatusBadge = (status: string) => {
+    if (status === 'scheduled') {
+      return (
+        <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
+          {isGerman ? 'Geplant' : 'Scheduled'}
+        </Badge>
+      );
+    }
+    if (status === 'declined') {
+      return (
+        <Badge className="bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border-red-200 dark:border-red-800">
+          {isGerman ? 'Abgelehnt' : 'Declined'}
+        </Badge>
+      );
+    }
+    return <Badge variant="outline">{status}</Badge>;
+  };
+
+  const archiveList = (
+    <div className={mode === 'inline' ? "space-y-2" : "mt-6 space-y-2"}>
+      {isLoadingArchive ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : archiveRequests.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <History className="h-12 w-12 mx-auto mb-3 opacity-50" />
+          <p className="text-sm">
+            {isGerman ? 'Keine archivierten Anfragen' : 'No archived requests'}
+          </p>
+        </div>
+      ) : (
+        archiveRequests.map((request) => (
+          <Card key={request.id} className="shadow-sm">
+            <CardContent className="py-3 space-y-1.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm truncate">
+                    {request.isReservationOnly
+                      ? (isGerman ? 'Slot-Reservierung' : 'Slot reservation')
+                      : `${request.patientLastName ?? ''}, ${request.patientFirstName ?? ''}`}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {request.surgeryName || '—'}
+                  </p>
+                </div>
+                {archiveStatusBadge(request.status)}
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <User className="h-3 w-3" />
+                  Dr. {request.surgeonLastName ?? ''}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  {formatWishedDate(request.wishedDate)}
+                </span>
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {isGerman ? 'Eingereicht' : 'Submitted'}: {formatDateTime(request.createdAt)}
+              </div>
+              {request.status === 'declined' && (request as any).declineReason && (
+                <div className="text-[11px] text-red-700 dark:text-red-300 mt-1">
+                  {isGerman ? 'Grund' : 'Reason'}: {(request as any).declineReason}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+
   const cardList = (
     <div className={mode === 'inline' ? "space-y-3" : "mt-6 space-y-4"}>
       {mode === 'inline' && selectedRequestId && (
@@ -1221,17 +1311,35 @@ export function ExternalReservationsPanel({
         <div className="px-4 py-3 border-b flex items-center gap-2 shrink-0">
           <Calendar className="h-5 w-5" />
           <span className="font-semibold text-sm">
-            {t('surgery.externalRequests.externalSurgeryRequests')}
+            {archiveView
+              ? (isGerman ? 'Anfragen-Archiv' : 'Requests archive')
+              : t('surgery.externalRequests.externalSurgeryRequests')}
           </span>
-          {(requests.length + actionRequests.length) > 0 && (
-            <Badge variant="destructive" className="ml-auto">
+          {!archiveView && (requests.length + actionRequests.length) > 0 && (
+            <Badge variant="destructive" className="ml-2">
               {requests.length + actionRequests.length}
             </Badge>
           )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="ml-auto h-7 w-7"
+            onClick={() => setArchiveView((v) => !v)}
+            title={archiveView
+              ? (isGerman ? 'Zurück zu offenen Anfragen' : 'Back to open requests')
+              : (isGerman ? 'Archiv anzeigen' : 'Show archive')}
+            aria-label={archiveView ? 'open-requests' : 'archive'}
+          >
+            {archiveView ? <Inbox className="h-4 w-4" /> : <History className="h-4 w-4" />}
+          </Button>
         </div>
-        {tabBar}
+        {!archiveView && tabBar}
         <div className="flex-1 overflow-y-auto px-4 py-2">
-          {activeTab === 'surgery-requests' ? cardList : surgeonActionCardList}
+          {archiveView
+            ? archiveList
+            : activeTab === 'surgery-requests'
+              ? cardList
+              : surgeonActionCardList}
         </div>
         {refuseDialog}
         {declineDialog}
@@ -1254,16 +1362,34 @@ export function ExternalReservationsPanel({
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              {t('surgery.externalRequests.externalSurgeryRequests')}
-              {(requests.length + actionRequests.length) > 0 && (
+              {archiveView
+                ? (isGerman ? 'Anfragen-Archiv' : 'Requests archive')
+                : t('surgery.externalRequests.externalSurgeryRequests')}
+              {!archiveView && (requests.length + actionRequests.length) > 0 && (
                 <Badge variant="destructive" className="ml-2">
                   {requests.length + actionRequests.length}
                 </Badge>
               )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="ml-auto h-7 w-7"
+                onClick={() => setArchiveView((v) => !v)}
+                title={archiveView
+                  ? (isGerman ? 'Zurück zu offenen Anfragen' : 'Back to open requests')
+                  : (isGerman ? 'Archiv anzeigen' : 'Show archive')}
+                aria-label={archiveView ? 'open-requests' : 'archive'}
+              >
+                {archiveView ? <Inbox className="h-4 w-4" /> : <History className="h-4 w-4" />}
+              </Button>
             </SheetTitle>
           </SheetHeader>
-          {tabBar}
-          {activeTab === 'surgery-requests' ? cardList : surgeonActionCardList}
+          {!archiveView && tabBar}
+          {archiveView
+            ? archiveList
+            : activeTab === 'surgery-requests'
+              ? cardList
+              : surgeonActionCardList}
         </SheetContent>
       </Sheet>
 
