@@ -9,6 +9,7 @@ import { Resend } from "resend";
 import { sendSms, isSmsConfiguredForHospital } from "../../sms";
 import { nanoid } from "nanoid";
 import logger from "../../logger";
+import * as Sentry from "@sentry/node";
 import { calculateCaprini } from "@shared/scoring/caprini";
 import { calculateStopBang } from "@shared/scoring/stopBang";
 import { calculateRcri } from "@shared/scoring/rcri";
@@ -304,7 +305,48 @@ router.post('/api/anesthesia/preop', isAuthenticated, requireStrictHospitalAcces
       }
     }
 
-    const newAssessment = await storage.createPreOpAssessment(validatedData);
+    let newAssessment;
+    try {
+      newAssessment = await storage.createPreOpAssessment(validatedData);
+    } catch (insertError) {
+      // Recover from the unique-constraint race: a preop_assessments row for
+      // this surgery already exists (concurrent tab, second save after the
+      // first response was lost, or a side-effect create such as
+      // send-consent-invitation). Merge into the existing row instead of
+      // 500-ing — same semantic as a PATCH from edit mode.
+      const pgCode = (insertError as any)?.code ?? (insertError as any)?.cause?.code;
+      const constraint =
+        (insertError as any)?.constraint ?? (insertError as any)?.cause?.constraint;
+      if (pgCode !== "23505" || constraint !== "preop_assessments_surgery_id_unique") {
+        throw insertError;
+      }
+      const existing = await storage.getPreOpAssessment(validatedData.surgeryId);
+      if (!existing) {
+        throw insertError;
+      }
+      const patch: any = { ...validatedData };
+      if (existing.consentRemoteSignedAt) {
+        if (!patch.surgicalApproval || patch.surgicalApproval === "") {
+          delete patch.surgicalApproval;
+        }
+        if (patch.standBy === true) {
+          delete patch.standBy;
+          delete patch.standByReason;
+          delete patch.standByReasonNote;
+        }
+        delete patch.consentRemoteSignedAt;
+        if (!patch.patientSignature && existing.patientSignature) {
+          delete patch.patientSignature;
+        }
+        if (patch.status === "draft" && existing.status === "completed") {
+          delete patch.status;
+        }
+      }
+      newAssessment = await storage.updatePreOpAssessment(existing.id, patch);
+      logger.info(
+        `[preop] POST raced an existing row for surgery ${validatedData.surgeryId}; merged into assessment ${existing.id}.`,
+      );
+    }
 
     if (ambulantAudit) {
       await createAuditLog({ ...ambulantAudit, recordId: newAssessment.id });
@@ -316,6 +358,10 @@ router.post('/api/anesthesia/preop', isAuthenticated, requireStrictHospitalAcces
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
     logger.error("Error creating pre-op assessment:", error);
+    Sentry.captureException(error, {
+      tags: { type: "preop_create_failed" },
+      extra: { surgeryId: req.body?.surgeryId, userId: req.user?.id },
+    });
     res.status(500).json({ message: "Failed to create pre-op assessment" });
   }
 });
