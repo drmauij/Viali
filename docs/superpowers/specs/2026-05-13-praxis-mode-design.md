@@ -154,7 +154,24 @@ Captured at the moment of referral. Frozen — not updated automatically. The pr
 
 ### Acceptance flow on the clinic side
 
-The clinic admin sees the new request in their existing external-requests inbox. The row displays a "From praxis" badge and `source_hospital_id`. On accept: a clinic-side `patients` row is created from the snapshot, and `referral_status` on the source praxis-side surgery is updated to `confirmed_external` via a server-side cross-tenant call. The praxis surgeon's calendar entry updates in place.
+The clinic admin sees the new request in their existing external-requests inbox. The row displays a "From praxis" badge and `source_hospital_id`. On accept:
+
+1. A clinic-side `patients` row is created from the snapshot.
+2. A clinic-side `patientQuestionnaireLinks` row + pre-populated `patientQuestionnaireResponses` row are created from `patient_snapshot.intake`, tagged with `imported_from_praxis=true` + per-field source map. **The patient is NOT asked to refill these fields.**
+3. `referral_status` on the source praxis-side surgery is updated to `confirmed_external` via a server-side cross-tenant call.
+
+The praxis surgeon's calendar entry updates in place.
+
+### Questionnaire dedup — the patient experience
+
+The whole point of carrying a structured `patient_snapshot` across tenants is so the patient is not asked the same questions twice. Concretely:
+
+- **Imported fields** (demographics, allergies, medications, conditions, etc.) land in the clinic's `patientQuestionnaireResponses` row pre-filled and editable.
+- **Patient-facing `/book` link** renders these fields with a "✓ from praxis" indicator beside each section that came from the praxis snapshot, and a top-of-page banner: "Your referring surgeon already shared some of your information. Please review and complete any missing fields."
+- **Fields the clinic collects but the praxis didn't** stay blank for the patient to fill — typically surgery-specific intake (last meal time, anesthesia history specific to this op).
+- **Audit**: each imported field is traceable to the praxis referral via `imported_field_sources` JSONB on the response row.
+
+Schema impact: add three nullable columns to `patientQuestionnaireResponses` — `imported_from_praxis BOOLEAN`, `imported_from_praxis_at TIMESTAMP`, `imported_field_sources JSONB`. No data migration; legacy rows have these all null.
 
 ## Schema changes
 
@@ -181,6 +198,11 @@ ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS reschedule_history JSONB DEFAULT 
 ALTER TABLE external_surgery_requests ADD COLUMN IF NOT EXISTS source_hospital_id VARCHAR;
 ALTER TABLE external_surgery_requests ADD COLUMN IF NOT EXISTS source_surgery_id VARCHAR;
 ALTER TABLE external_surgery_requests ADD COLUMN IF NOT EXISTS patient_snapshot JSONB;
+
+-- 4b. patient_questionnaire_responses: praxis-import provenance
+ALTER TABLE patient_questionnaire_responses ADD COLUMN IF NOT EXISTS imported_from_praxis BOOLEAN DEFAULT false;
+ALTER TABLE patient_questionnaire_responses ADD COLUMN IF NOT EXISTS imported_from_praxis_at TIMESTAMP;
+ALTER TABLE patient_questionnaire_responses ADD COLUMN IF NOT EXISTS imported_field_sources JSONB;
 
 -- 5. clinic_pairings: which praxis can refer to which clinic
 CREATE TABLE IF NOT EXISTS clinic_pairings (
