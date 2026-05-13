@@ -39,21 +39,32 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
     ratioRef.current = ratio;
 
-    // Get the display size from CSS
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
+    // Use offsetWidth/offsetHeight (un-transformed layout box) instead of
+    // getBoundingClientRect (which returns the visually transformed rect during
+    // the dialog's zoom-in-95 open animation). Sizing the canvas from the
+    // transformed rect would leave its internal bitmap ~5% smaller than its
+    // final CSS display — the browser then upscales it, shifting strokes
+    // sideways from the finger by ~0.5 cm.
+    const displayWidth = canvas.offsetWidth;
+    const displayHeight = canvas.offsetHeight;
+    if (displayWidth === 0 || displayHeight === 0) return;
 
     // Set the canvas internal size to match display size * pixel ratio
-    canvas.width = rect.width * ratio;
-    canvas.height = rect.height * ratio;
-    lastSizeRef.current = { w: rect.width, h: rect.height };
+    canvas.width = displayWidth * ratio;
+    canvas.height = displayHeight * ratio;
+    // Pin CSS size explicitly so the canvas's display size stays decoupled
+    // from any Tailwind responsive class changes that could mismatch the
+    // internal dimensions we just baked in.
+    canvas.style.width = `${displayWidth}px`;
+    canvas.style.height = `${displayHeight}px`;
+    lastSizeRef.current = { w: displayWidth, h: displayHeight };
 
     // Scale the context so drawing operations use CSS pixels
     ctx.scale(ratio, ratio);
 
     // Fill canvas with white background for print-ready signatures
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, rect.width, rect.height);
+    ctx.fillRect(0, 0, displayWidth, displayHeight);
 
     // Use black stroke for signature (print-ready format)
     ctx.strokeStyle = '#000000';
@@ -83,12 +94,19 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
 
-    // Get the canvas bounding rect - this gives us the position and size in CSS pixels
+    // rect.width is the visually transformed bounding box (during dialog
+    // open animation this is ~0.95 × the layout box). offsetWidth is the
+    // un-transformed layout box, which is what ctx.scale was set up against.
+    // Divide by the live transform scale so coordinates always land at the
+    // finger, even if drawing starts mid-animation.
     const rect = canvas.getBoundingClientRect();
-    
-    // Get client coordinates (relative to viewport)
+    const layoutW = canvas.offsetWidth || rect.width;
+    const layoutH = canvas.offsetHeight || rect.height;
+    const scaleX = layoutW > 0 ? rect.width / layoutW : 1;
+    const scaleY = layoutH > 0 ? rect.height / layoutH : 1;
+
     let clientX: number, clientY: number;
-    
+
     if ('touches' in e && e.touches.length > 0) {
       clientX = e.touches[0].clientX;
       clientY = e.touches[0].clientY;
@@ -101,12 +119,10 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
     } else {
       return { x: 0, y: 0 };
     }
-    
-    // Convert to coordinates relative to the canvas element in CSS pixels
-    // This works because ctx.scale(ratio, ratio) was applied, so we draw in CSS pixel space
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    
+
+    const x = (clientX - rect.left) / (scaleX || 1);
+    const y = (clientY - rect.top) / (scaleY || 1);
+
     return { x, y };
   }, []);
 
