@@ -838,7 +838,7 @@ export interface IStorage {
   getPendingTimeOffCount(hospitalId: string): Promise<number>;
 
   // Public booking helpers
-  findOrCreatePatientForBooking(hospitalId: string, data: { firstName: string; surname: string; email: string; phone?: string }): Promise<Patient>;
+  findOrCreatePatientForBooking(hospitalId: string, data: { firstName: string; surname: string; email: string; phone?: string; street?: string; postalCode?: string; city?: string }): Promise<Patient>;
 
   // ========== CLINIC APPOINTMENT SCHEDULING ==========
 

@@ -749,6 +749,9 @@ router.get('/api/public/booking/:bookingToken/prefill', async (req, res) => {
         surname: patients.surname,
         email: patients.email,
         phone: patients.phone,
+        street: patients.street,
+        postalCode: patients.postalCode,
+        city: patients.city,
         hospitalId: patients.hospitalId,
       })
       .from(flowExecutions)
@@ -767,6 +770,9 @@ router.get('/api/public/booking/:bookingToken/prefill', async (req, res) => {
       surname: row.surname ?? null,
       email: row.email ?? null,
       phone: row.phone ?? null,
+      street: row.street ?? null,
+      postalCode: row.postalCode ?? null,
+      city: row.city ?? null,
     });
   } catch (error) {
     logger.error('[booking] prefill error:', error);
@@ -866,6 +872,11 @@ const bookingSchema = z.object({
   li_fat_id: z.string().max(500).nullish(),
   twclid: z.string().max(500).nullish(),
   noShowFeeAcknowledged: z.boolean().optional(),
+  // Required when the hospital has a non-empty noShowFeeMessage (validated
+  // post-parse below) so an invoice can be sent in case of a no-show.
+  street: z.string().max(255).nullish(),
+  postalCode: z.string().max(50).nullish(),
+  city: z.string().max(120).nullish(),
   serviceId: z.string().nullish(),
   // A/B execution token — Phase 3 flow attribution
   fe: z.string().max(2000).nullish(),
@@ -913,11 +924,27 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
       });
     }
 
-    if (
-      (hospital.noShowFeeMessage?.trim().length ?? 0) > 0 &&
-      parsed.data.noShowFeeAcknowledged !== true
-    ) {
+    const noShowFeeActive = (hospital.noShowFeeMessage?.trim().length ?? 0) > 0;
+    if (noShowFeeActive && parsed.data.noShowFeeAcknowledged !== true) {
       return sendPublicApiError(res, "NOSHOW_FEE_ACK_REQUIRED");
+    }
+
+    // When the no-show fee notice is active we also need an invoiceable
+    // address — that's the whole point of acknowledging the fee.
+    if (noShowFeeActive) {
+      const missing: Array<{ path: string; message: string }> = [];
+      if (!parsed.data.street?.trim()) {
+        missing.push({ path: "street", message: "Required when no-show fee notice is active" });
+      }
+      if (!parsed.data.postalCode?.trim()) {
+        missing.push({ path: "postalCode", message: "Required when no-show fee notice is active" });
+      }
+      if (!parsed.data.city?.trim()) {
+        missing.push({ path: "city", message: "Required when no-show fee notice is active" });
+      }
+      if (missing.length > 0) {
+        return sendPublicApiError(res, "INVALID_BOOKING_DATA", { fieldErrors: missing });
+      }
     }
 
     // Require referral source when hospital has referral enabled and no auto-capture data
@@ -980,6 +1007,9 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
       surname,
       email,
       phone,
+      street: parsed.data.street?.trim() || undefined,
+      postalCode: parsed.data.postalCode?.trim() || undefined,
+      city: parsed.data.city?.trim() || undefined,
     });
 
     // Create appointment with DB-level race protection via unique partial index

@@ -107,7 +107,15 @@ function minutesToTime(minutes: number): string {
 
 export async function findOrCreatePatientForBooking(
   hospitalId: string,
-  data: { firstName: string; surname: string; email: string; phone?: string }
+  data: {
+    firstName: string;
+    surname: string;
+    email: string;
+    phone?: string;
+    street?: string;
+    postalCode?: string;
+    city?: string;
+  }
 ): Promise<Patient> {
   // Try to find existing patient by email + hospital
   const [existing] = await db
@@ -120,7 +128,25 @@ export async function findOrCreatePatientForBooking(
     ))
     .limit(1);
 
-  if (existing) return existing;
+  if (existing) {
+    // Backfill missing address fields from this booking — clinics enable the
+    // no-show fee notice precisely to collect an invoiceable address, so we
+    // don't want to silently drop it just because the patient exists. We
+    // never overwrite an address the patient already has on file.
+    const addressUpdates: Partial<Patient> = {};
+    if (data.street && !existing.street) addressUpdates.street = data.street;
+    if (data.postalCode && !existing.postalCode) addressUpdates.postalCode = data.postalCode;
+    if (data.city && !existing.city) addressUpdates.city = data.city;
+    if (Object.keys(addressUpdates).length > 0) {
+      const [updated] = await db
+        .update(patients)
+        .set(addressUpdates)
+        .where(eq(patients.id, existing.id))
+        .returning();
+      return updated ?? existing;
+    }
+    return existing;
+  }
 
   // Generate patient number
   const countResult = await db
@@ -137,6 +163,9 @@ export async function findOrCreatePatientForBooking(
       surname: data.surname,
       email: data.email,
       phone: data.phone || null,
+      street: data.street || null,
+      postalCode: data.postalCode || null,
+      city: data.city || null,
       patientNumber: `P-${String(patientCount + 1).padStart(5, '0')}`,
       birthday: '1900-01-01',
       sex: 'O' as const,

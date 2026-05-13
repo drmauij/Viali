@@ -188,9 +188,15 @@ is a safe default) to make the booking retriable:
 ### No-show fee acknowledgement
 
 If \`GET /api/public/booking/:token\` returns a non-null \`noShowFeeMessage\`,
-agents **must** surface that message to the user before booking and then
-include \`noShowFeeAcknowledged: true\` in the \`POST /book\` body. Omitting
-it returns \`400 NOSHOW_FEE_ACK_REQUIRED\`.
+agents **must**:
+
+1. Surface that message to the user before booking and include
+   \`noShowFeeAcknowledged: true\` in the \`POST /book\` body. Omitting it
+   returns \`400 NOSHOW_FEE_ACK_REQUIRED\`.
+2. Collect an invoiceable address and include \`street\`, \`postalCode\`,
+   and \`city\` in the same body — the clinic needs them to bill a no-show.
+   Missing any of the three returns \`400 INVALID_BOOKING_DATA\` with
+   field errors on \`street\`, \`postalCode\`, or \`city\`.
 
 ### Cancelling an appointment
 

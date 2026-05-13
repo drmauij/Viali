@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { ReferralSourcePicker } from "@/components/ReferralSourcePicker";
 import { resolveReferralFromParams } from "@shared/referralMapping";
 import { de } from "date-fns/locale";
@@ -233,6 +234,12 @@ export default function BookAppointment() {
   const [surname, setSurname] = useState(prefillSurname || "");
   const [email, setEmail] = useState(prefillEmail || "");
   const [phone, setPhone] = useState(prefillPhone || "");
+  // Address (street/postalCode/city) is collected only when the hospital has a
+  // no-show fee notice configured — needed to send an invoice if the patient
+  // does not show up.
+  const [address, setAddress] = useState<{ street: string; postalCode: string; city: string }>(
+    { street: "", postalCode: "", city: "" },
+  );
 
   // Resolve `fe` (per-execution token) to the patient's identity server-side
   // — keeps PII out of the URL. Only fills empty fields so it doesn't fight
@@ -248,12 +255,20 @@ export default function BookAppointment() {
           surname: string | null;
           email: string | null;
           phone: string | null;
+          street: string | null;
+          postalCode: string | null;
+          city: string | null;
         };
         if (cancelled) return;
         if (data.firstName) setFirstName((cur) => cur || data.firstName!);
         if (data.surname) setSurname((cur) => cur || data.surname!);
         if (data.email) setEmail((cur) => cur || data.email!);
         if (data.phone) setPhone((cur) => cur || data.phone!);
+        setAddress((cur) => ({
+          street: cur.street || data.street || "",
+          postalCode: cur.postalCode || data.postalCode || "",
+          city: cur.city || data.city || "",
+        }));
       })
       .catch(() => { /* silent — prefill is non-essential */ });
     return () => { cancelled = true; };
@@ -795,6 +810,9 @@ export default function BookAppointment() {
           li_fat_id,
           twclid,
           noShowFeeAcknowledged: noShowFeeAcknowledged || undefined,
+          street: address.street.trim() || undefined,
+          postalCode: address.postalCode.trim() || undefined,
+          city: address.city.trim() || undefined,
           serviceId: serviceInfo?.id || undefined,
           promoCode: promoData?.valid ? promoData.code : undefined,
           fe: feToken || undefined,
@@ -837,10 +855,18 @@ export default function BookAppointment() {
     } finally {
       setSubmitting(false);
     }
-  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, feToken, refParam, campaignId, adsetId, adId, gclid, gbraid, wbraid, fbclid, ttclid, msclkid, igshid, li_fat_id, twclid, noShowFeeAcknowledged, data]);
+  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, feToken, refParam, campaignId, adsetId, adId, gclid, gbraid, wbraid, fbclid, ttclid, msclkid, igshid, li_fat_id, twclid, noShowFeeAcknowledged, address, data]);
+
+  // When the clinic has a no-show fee notice, an invoiceable address is
+  // mandatory so we can bill a no-show.
+  const addressRequired = !!data?.hospital?.noShowFeeMessage;
+  const addressComplete =
+    !addressRequired ||
+    (!!address.street.trim() && !!address.postalCode.trim() && !!address.city.trim());
 
   const handleDetailsContinue = () => {
     if (!firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || (!selectedTreatment && !notes.trim())) return;
+    if (!addressComplete) return;
     if (showReferralStep) {
       setStep('referral');
     } else {
@@ -912,6 +938,7 @@ export default function BookAppointment() {
     const missing: string[] = [];
     if (!privacyAccepted) missing.push('privacy');
     if (data?.hospital?.noShowFeeMessage && !noShowFeeAcknowledged) missing.push('noShowFee');
+    if (addressRequired && !addressComplete) missing.push('address');
     if (missing.length === 0) return;
     const t = setTimeout(() => {
       Sentry.captureMessage(`book_submit_blocked_${missing.join('_')}`, {
@@ -924,7 +951,7 @@ export default function BookAppointment() {
       });
     }, 8000);
     return () => clearTimeout(t);
-  }, [step, firstName, surname, email, phone, selectedTreatment, notes, privacyAccepted, noShowFeeAcknowledged, data, token]);
+  }, [step, firstName, surname, email, phone, selectedTreatment, notes, privacyAccepted, noShowFeeAcknowledged, addressRequired, addressComplete, data, token]);
 
   // ─── Render helpers ───────────────────────────────────────────
 
@@ -1456,6 +1483,30 @@ export default function BookAppointment() {
                   />
                 </div>
 
+                {data?.hospital?.noShowFeeMessage && (
+                  <div>
+                    <Label className={cn(
+                      "text-xs font-medium mb-1.5 block",
+                      isDark ? "text-white/60" : "text-gray-500"
+                    )}>
+                      Rechnungsadresse *
+                    </Label>
+                    <AddressAutocomplete
+                      values={address}
+                      onChange={setAddress}
+                      placeholderStreet="Strasse, Nr."
+                      placeholderPostalCode="PLZ"
+                      placeholderCity="Ort"
+                      inputClassName={cn(
+                        "rounded-xl h-11",
+                        isDark
+                          ? "bg-white/5 border-white/15 text-white placeholder:text-white/30"
+                          : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
+                      )}
+                    />
+                  </div>
+                )}
+
                 <div>
                   <Label htmlFor="notes" className={cn(
                     "text-xs font-medium mb-1.5 block",
@@ -1521,7 +1572,7 @@ export default function BookAppointment() {
 
                 <Button
                   onClick={handleDetailsContinue}
-                  disabled={submitting || !firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || (!selectedTreatment && !notes.trim()) || !privacyAccepted || (!!data?.hospital?.noShowFeeMessage && !noShowFeeAcknowledged)}
+                  disabled={submitting || !firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || (!selectedTreatment && !notes.trim()) || !privacyAccepted || (!!data?.hospital?.noShowFeeMessage && !noShowFeeAcknowledged) || !addressComplete}
                   data-book-cta
                   className={cn(
                     "w-full h-12 rounded-xl text-sm font-semibold transition-all duration-200",

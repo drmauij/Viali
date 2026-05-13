@@ -16,6 +16,10 @@ interface AddressAutocompleteProps {
   disabled?: boolean;
   className?: string;
   showLabels?: boolean;
+  inputClassName?: string;
+  placeholderStreet?: string;
+  placeholderPostalCode?: string;
+  placeholderCity?: string;
 }
 
 interface Suggestion {
@@ -41,6 +45,10 @@ export default function AddressAutocomplete({
   disabled = false,
   className = '',
   showLabels = false,
+  inputClassName,
+  placeholderStreet,
+  placeholderPostalCode,
+  placeholderCity,
 }: AddressAutocompleteProps) {
   const { t } = useTranslation();
   const accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string;
@@ -181,30 +189,33 @@ export default function AddressAutocomplete({
       <div className={`space-y-2 ${className}`}>
         {showLabels && <Label>{t('clinic.invoices.street', 'Street, Nr.')}</Label>}
         <Input
-          placeholder={t('clinic.invoices.street', 'Street, Nr.')}
+          placeholder={placeholderStreet ?? t('clinic.invoices.street', 'Street, Nr.')}
           value={values.street}
           onChange={(e) => onChange({ ...values, street: e.target.value })}
           disabled={disabled}
+          className={inputClassName}
           data-testid="input-address-street"
         />
         <div className="grid grid-cols-3 gap-2">
           <div>
             {showLabels && <Label>{t('clinic.invoices.postalCode', 'PLZ')}</Label>}
             <Input
-              placeholder={t('clinic.invoices.postalCode', 'PLZ')}
+              placeholder={placeholderPostalCode ?? t('clinic.invoices.postalCode', 'PLZ')}
               value={values.postalCode}
               onChange={handlePostalCodeChange}
               disabled={disabled}
+              className={inputClassName}
               data-testid="input-address-postal-code"
             />
           </div>
           <div className="col-span-2">
             {showLabels && <Label>{t('clinic.invoices.city', 'City')}</Label>}
             <Input
-              placeholder={t('clinic.invoices.city', 'City')}
+              placeholder={placeholderCity ?? t('clinic.invoices.city', 'City')}
               value={values.city}
               onChange={handleCityChange}
               disabled={disabled}
+              className={inputClassName}
               data-testid="input-address-city"
             />
           </div>
@@ -221,12 +232,12 @@ export default function AddressAutocomplete({
           <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             ref={inputRef}
-            placeholder={t('clinic.invoices.street', 'Street, Nr.')}
+            placeholder={placeholderStreet ?? t('clinic.invoices.street', 'Street, Nr.')}
             value={inputValue}
             onChange={handleInputChange}
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
             disabled={disabled}
-            className="pl-9 pr-9"
+            className={`pl-9 pr-9 ${inputClassName ?? ''}`}
             data-testid="input-address-street"
           />
           {inputValue && (
@@ -272,20 +283,22 @@ export default function AddressAutocomplete({
         <div>
           {showLabels && <Label>{t('clinic.invoices.postalCode', 'PLZ')}</Label>}
           <Input
-            placeholder={t('clinic.invoices.postalCode', 'PLZ')}
+            placeholder={placeholderPostalCode ?? t('clinic.invoices.postalCode', 'PLZ')}
             value={values.postalCode}
             onChange={handlePostalCodeChange}
             disabled={disabled}
+            className={inputClassName}
             data-testid="input-address-postal-code"
           />
         </div>
         <div className="col-span-2">
           {showLabels && <Label>{t('clinic.invoices.city', 'City')}</Label>}
           <Input
-            placeholder={t('clinic.invoices.city', 'City')}
+            placeholder={placeholderCity ?? t('clinic.invoices.city', 'City')}
             value={values.city}
             onChange={handleCityChange}
             disabled={disabled}
+            className={inputClassName}
             data-testid="input-address-city"
           />
         </div>

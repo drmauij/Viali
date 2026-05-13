@@ -98,6 +98,24 @@ export const OPENAPI_SPEC = {
             description:
               "Required to be `true` when the hospital has a non-empty noShowFeeMessage (see GET /api/public/booking/{token}).",
           },
+          street: {
+            type: "string",
+            maxLength: 255,
+            description:
+              "Patient street address. Required when the hospital has a non-empty noShowFeeMessage so the clinic can invoice a no-show.",
+          },
+          postalCode: {
+            type: "string",
+            maxLength: 50,
+            description:
+              "Patient postal code. Required when the hospital has a non-empty noShowFeeMessage.",
+          },
+          city: {
+            type: "string",
+            maxLength: 120,
+            description:
+              "Patient city. Required when the hospital has a non-empty noShowFeeMessage.",
+          },
         },
       },
     },
