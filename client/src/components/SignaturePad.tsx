@@ -17,6 +17,10 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const ratioRef = useRef<number>(1);
+  // Last drawn point — used by `draw` to interpolate a quadratic curve
+  // through the midpoint between consecutive pointer samples, producing
+  // a fluid stroke instead of jagged per-sample `lineTo` segments.
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
 
   const setupCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -106,6 +110,7 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
 
     ctx.beginPath();
     ctx.moveTo(x, y);
+    lastPointRef.current = { x, y };
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -119,13 +124,42 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
     if (!ctx) return;
 
     const { x, y } = getCoordinates(e);
+    const last = lastPointRef.current;
+    if (!last) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      lastPointRef.current = { x, y };
+      return;
+    }
 
-    ctx.lineTo(x, y);
+    // Quadratic curve through the midpoint of (last, current). Standard
+    // freehand smoothing technique (see signature_pad.js) — each pointer
+    // sample becomes a control point, and we draw to the midpoint, then
+    // open a fresh subpath from that midpoint for the next segment.
+    const midX = (last.x + x) / 2;
+    const midY = (last.y + y) / 2;
+    ctx.quadraticCurveTo(last.x, last.y, midX, midY);
     ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(midX, midY);
+    lastPointRef.current = { x, y };
   };
 
   const stopDrawing = () => {
+    if (isDrawing) {
+      const canvas = canvasRef.current;
+      const last = lastPointRef.current;
+      if (canvas && last) {
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          // Close out the final segment so the stroke reaches the last sample.
+          ctx.lineTo(last.x, last.y);
+          ctx.stroke();
+        }
+      }
+    }
     setIsDrawing(false);
+    lastPointRef.current = null;
   };
 
   const clearSignature = () => {
