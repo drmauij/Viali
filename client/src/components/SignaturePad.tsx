@@ -79,15 +79,24 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
     if (!canvas) return;
 
     // Initial setup — this often runs mid-dialog-animation so dimensions may
-    // not be final yet. The ResizeObserver below catches the post-animation
-    // size and re-initializes the canvas at the correct dimensions.
+    // not be final yet. The ResizeObserver below catches any post-animation
+    // size change. We also schedule a one-off rAF re-init after the open
+    // animation should be done (Tailwind's animate-in is ~200ms) as a belt
+    // for the rare case where the observer doesn't fire because the layout
+    // box stays constant while only the transform animates.
     setupCanvas();
+    const settleTimer = window.setTimeout(() => {
+      setupCanvas();
+    }, 220);
 
     const observer = new ResizeObserver(() => {
       setupCanvas();
     });
     observer.observe(canvas);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(settleTimer);
+    };
   }, [isOpen, setupCanvas]);
 
   const getCoordinates = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -248,20 +257,26 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
 
           <div className="space-y-4">
             <div>
-              <canvas
-                ref={canvasRef}
-                className="w-full h-56 sm:h-48 border-2 border-dashed border-border rounded-lg bg-white cursor-crosshair touch-none"
-                style={{ touchAction: 'none' }}
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={stopDrawing}
-                onMouseLeave={stopDrawing}
-                onTouchStart={startDrawing}
-                onTouchMove={draw}
-                onTouchEnd={stopDrawing}
-                onTouchCancel={stopDrawing}
-                data-testid="signature-canvas"
-              />
+              {/* Border on the wrapper, not the canvas — keeps the canvas's
+                  bounding rect identical to its bitmap display area so
+                  finger/mouse coordinates map directly without a border-offset
+                  fudge. */}
+              <div className="border-2 border-dashed border-border rounded-lg overflow-hidden bg-white">
+                <canvas
+                  ref={canvasRef}
+                  className="block w-full h-56 sm:h-48 bg-white cursor-crosshair touch-none"
+                  style={{ touchAction: 'none' }}
+                  onMouseDown={startDrawing}
+                  onMouseMove={draw}
+                  onMouseUp={stopDrawing}
+                  onMouseLeave={stopDrawing}
+                  onTouchStart={startDrawing}
+                  onTouchMove={draw}
+                  onTouchEnd={stopDrawing}
+                  onTouchCancel={stopDrawing}
+                  data-testid="signature-canvas"
+                />
+              </div>
               <p className="text-sm text-muted-foreground mt-2 text-center">
                 Draw your signature above
               </p>
