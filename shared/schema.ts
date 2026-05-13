@@ -1197,6 +1197,8 @@ export const surgeries = pgTable("surgeries", {
   ambulantOverrideReason: text("ambulant_override_reason"),
   ambulantOverrideBy: varchar("ambulant_override_by").references(() => users.id),
   ambulantOverrideAt: timestamp("ambulant_override_at"),
+  riskGrade: text("risk_grade"),
+  perioperativeRisk: jsonb("perioperative_risk"),
 
   // Business/Billing
   price: decimal("price", { precision: 10, scale: 2 }), // Surgery price
@@ -4621,6 +4623,7 @@ export const patientQuestionnaireResponses = pgTable("patient_questionnaire_resp
   lastSavedAt: timestamp("last_saved_at"),
   submittedAt: timestamp("submitted_at"),
   createdAt: timestamp("created_at").defaultNow(),
+  functionallyDependent: boolean("functionally_dependent"),
 }, (table) => [
   foreignKey({
     columns: [table.linkId],
