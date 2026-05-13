@@ -20,7 +20,10 @@ import {
   getHospitalByExternalSurgeryToken,
 } from "../storage/surgeonPortal";
 import { revokePortalSessionBySessionToken } from "../storage/portalOtp";
-import { sendSurgeonActionRequestNotification } from "../resend";
+import {
+  sendSurgeonActionRequestNotification,
+  sendExternalSurgeryRequestNotification,
+} from "../resend";
 import { isDateInClosure } from "../storage/clinicClosures";
 import { calculateQuick } from "@shared/scoring/ambulantEligibility";
 import type { SurgeryRiskClass } from "@shared/scoring/types";
@@ -444,6 +447,51 @@ router.post(
         .insert(externalSurgeryRequests)
         .values({ ...data, ambulantQuickCheck } as any)
         .returning();
+
+      // Fire-and-forget clinic notification. The legacy public POST sent this
+      // email; when the route moved to surgeon-portal in commit 1d86897a, the
+      // notification call was dropped. Sends to the hospital's configured
+      // notification address only — if none is set the row still lands but no
+      // email goes out (matching the action-requests handler's behavior).
+      (async () => {
+        try {
+          const notifyEmail = hospital.externalSurgeryNotificationEmail;
+          if (!notifyEmail) return;
+          const lang = (hospital.defaultLanguage as "de" | "en") || "de";
+          const patientName = [created.patientLastName, created.patientFirstName]
+            .filter(Boolean)
+            .join(", ") || "—";
+          const surgeryName = created.surgeryName || "—";
+          const surgeonName = [targetSurgeon.firstName, targetSurgeon.lastName]
+            .filter(Boolean)
+            .join(" ") || targetSurgeon.email || "—";
+          const wishedDate = created.wishedDate
+            ? new Date(created.wishedDate).toLocaleDateString(
+                lang === "de" ? "de-CH" : "en-GB",
+              )
+            : "—";
+          const baseUrl = process.env.PRODUCTION_URL || "";
+          const deepLinkUrl = `${baseUrl}/anesthesia/op`;
+          await sendExternalSurgeryRequestNotification(
+            notifyEmail,
+            hospital.name,
+            hospital.name,
+            patientName,
+            surgeryName,
+            surgeonName,
+            wishedDate,
+            deepLinkUrl,
+            lang,
+            (created as any).wishedTimeFrom ?? null,
+            (created as any).wishedTimeTo ?? null,
+          );
+        } catch (err) {
+          logger.error(
+            "[SurgeonPortal] Error sending new-request clinic notification:",
+            err,
+          );
+        }
+      })();
 
       return res.status(201).json(created);
     } catch (error) {
