@@ -8720,10 +8720,10 @@
     "riskClassLabel": "Surgery risk class *",
     "riskClassPlaceholder": "Please select…",
     "riskClass": {
-      "minor": "Minor (e.g. small lipo, simple suture)",
-      "standard": "Standard (e.g. augmentation, small BSA)",
-      "large": "Large (e.g. mastopexy, mid abdominoplasty)",
-      "critical": "Critical (e.g. body lift, large abdominoplasty, >5L lipo)"
+      "minor": "Minor (e.g. skin lesion excision, simple suture, port placement)",
+      "standard": "Standard (e.g. hernia repair, arthroscopy, varicose veins)",
+      "large": "Large (e.g. joint replacement, mastopexy, large hernia)",
+      "critical": "Critical (e.g. major spine, open laparotomy, >4 h procedures)"
     },
     "decision": {
       "green": "Outpatient eligible",

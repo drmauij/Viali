@@ -8737,10 +8737,10 @@
     "riskClassLabel": "Eingriffstyp-Klassifikation *",
     "riskClassPlaceholder": "Bitte wählen…",
     "riskClass": {
-      "minor": "Klein (z.B. kleine Lipo, einfache Naht)",
-      "standard": "Standard (z.B. Augmentation, kleine BSA)",
-      "large": "Gross (z.B. Mastopexie, mittl. Abdominoplastik)",
-      "critical": "Kritisch (z.B. Body-Lift, grosse Abdominoplastik, >5L Lipo)"
+      "minor": "Klein (z.B. Hautläsion-Exzision, einfache Naht, Port-Anlage)",
+      "standard": "Standard (z.B. Hernienreparatur, Arthroskopie, Varizen)",
+      "large": "Gross (z.B. Gelenkersatz, Mastopexie, grosse Hernie)",
+      "critical": "Kritisch (z.B. grosse Wirbelsäule, Laparotomie, >4 h Eingriffe)"
     },
     "decision": {
       "green": "Ambulant geeignet",

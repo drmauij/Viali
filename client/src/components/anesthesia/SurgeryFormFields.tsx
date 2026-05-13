@@ -363,10 +363,10 @@ export function SurgeryFormFields({
                 <SelectValue placeholder={t('ambulantEligibility.riskClassPlaceholder', 'Please select…')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="minor">{t('ambulantEligibility.riskClass.minor', 'Minor (e.g. small lipo, simple suture)')}</SelectItem>
-                <SelectItem value="standard">{t('ambulantEligibility.riskClass.standard', 'Standard (e.g. augmentation, small BSA)')}</SelectItem>
-                <SelectItem value="large">{t('ambulantEligibility.riskClass.large', 'Large (e.g. mastopexy, mid abdominoplasty)')}</SelectItem>
-                <SelectItem value="critical">{t('ambulantEligibility.riskClass.critical', 'Critical (e.g. body lift, large abdominoplasty, >5L lipo)')}</SelectItem>
+                <SelectItem value="minor">{t('ambulantEligibility.riskClass.minor', 'Minor (e.g. skin lesion excision, simple suture, port placement)')}</SelectItem>
+                <SelectItem value="standard">{t('ambulantEligibility.riskClass.standard', 'Standard (e.g. hernia repair, arthroscopy, varicose veins)')}</SelectItem>
+                <SelectItem value="large">{t('ambulantEligibility.riskClass.large', 'Large (e.g. joint replacement, mastopexy, large hernia)')}</SelectItem>
+                <SelectItem value="critical">{t('ambulantEligibility.riskClass.critical', 'Critical (e.g. major spine, open laparotomy, >4 h procedures)')}</SelectItem>
               </SelectContent>
             </Select>
           </div>

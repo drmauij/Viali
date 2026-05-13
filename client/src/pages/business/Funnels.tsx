@@ -5,7 +5,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DateInput } from "@/components/ui/date-input";
 import { useEffect, useMemo, useState } from "react";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
-import MarketingAiInsights from "./MarketingAiInsights";
 import { Redirect } from "wouter";
 import {
   PieChart as PieChartIcon,
@@ -75,12 +74,6 @@ export default function Funnels() {
       </div>
 
       <div className="space-y-4">
-          <MarketingAiInsights
-            scope={scope}
-            startDate={referralFrom}
-            endDate={referralTo}
-          />
-
           {/* Date range filter */}
           <Card>
             <CardContent className="pt-6">

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -259,19 +259,26 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
   });
 
   const eventsBaseUrl = funnelsUrl("referral-events", scope, { limit: PAGE_SIZE });
-  const { isLoading: referralEventsLoading } = useQuery<ReferralEvent[]>({
+  const { data: referralEventsData, isLoading: referralEventsLoading } = useQuery<ReferralEvent[]>({
     queryKey: [eventsBaseUrl],
     enabled: !!eventsBaseUrl,
     queryFn: async () => {
       if (!eventsBaseUrl) throw new Error("scope not addressable");
       const res = await fetch(eventsBaseUrl, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch referral events");
-      const data: ReferralEvent[] = await res.json();
-      setReferralEvents(data);
-      setReferralEventsHasMore(data.length === PAGE_SIZE);
-      return data;
+      return (await res.json()) as ReferralEvent[];
     },
   });
+
+  // Seed local state from query data on mount and whenever the query result
+  // changes. The Tabs primitive unmounts inactive panels, so when the user
+  // switches tabs and back, the cached data is here but the local state has
+  // been reset to []; without this sync the table renders empty until reload.
+  useEffect(() => {
+    if (!referralEventsData) return;
+    setReferralEvents(referralEventsData);
+    setReferralEventsHasMore(referralEventsData.length === PAGE_SIZE);
+  }, [referralEventsData]);
 
   const loadMoreReferralEvents = useCallback(async () => {
     if (referralEventsLoadingMore || !referralEventsHasMore) return;
