@@ -54,6 +54,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import SignaturePad from "@/components/SignaturePad";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -1822,6 +1823,7 @@ export default function Op() {
                   onChecklistChange={signInState.setChecklist}
                   onNotesChange={signInState.setNotes}
                   onSignatureChange={signInState.setSignature}
+                  onShowSignaturePad={() => signInState.setShowSignaturePad(true)}
                 />
 
                 <WHOChecklistCard
@@ -1837,6 +1839,7 @@ export default function Op() {
                   onChecklistChange={timeOutState.setChecklist}
                   onNotesChange={timeOutState.setNotes}
                   onSignatureChange={timeOutState.setSignature}
+                  onShowSignaturePad={() => timeOutState.setShowSignaturePad(true)}
                 />
 
                 <WHOChecklistCard
@@ -1852,6 +1855,7 @@ export default function Op() {
                   onChecklistChange={signOutState.setChecklist}
                   onNotesChange={signOutState.setNotes}
                   onSignatureChange={signOutState.setSignature}
+                  onShowSignaturePad={() => signOutState.setShowSignaturePad(true)}
                 />
               </div>
             </TabsContent>
@@ -2434,6 +2438,34 @@ export default function Op() {
       />
     )}
 
+    {/* WHO Checklist SignaturePad modals — same component used by pre-op. */}
+    <SignaturePad
+      isOpen={signInState.showSignaturePad}
+      onClose={() => signInState.setShowSignaturePad(false)}
+      onSave={(signature) => {
+        signInState.setSignature(signature);
+        signInState.setShowSignaturePad(false);
+      }}
+      title="Sign In Signature"
+    />
+    <SignaturePad
+      isOpen={timeOutState.showSignaturePad}
+      onClose={() => timeOutState.setShowSignaturePad(false)}
+      onSave={(signature) => {
+        timeOutState.setSignature(signature);
+        timeOutState.setShowSignaturePad(false);
+      }}
+      title="Time Out Signature"
+    />
+    <SignaturePad
+      isOpen={signOutState.showSignaturePad}
+      onClose={() => signOutState.setShowSignaturePad(false)}
+      onSave={(signature) => {
+        signOutState.setSignature(signature);
+        signOutState.setShowSignaturePad(false);
+      }}
+      title="Sign Out Signature"
+    />
     </>
   );
 }

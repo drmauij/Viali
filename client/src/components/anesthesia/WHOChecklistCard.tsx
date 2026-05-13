@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { X, LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { formatDateTime } from "@/lib/dateUtils";
-import { SignatureCanvas } from "@/components/ui/signature-canvas";
 
 export interface ChecklistItem {
   id: string;
@@ -27,6 +26,7 @@ export interface WHOChecklistCardProps {
   onChecklistChange: (checklist: Record<string, boolean>) => void;
   onNotesChange: (notes: string) => void;
   onSignatureChange: (signature: string) => void;
+  onShowSignaturePad: () => void;
 }
 
 export function WHOChecklistCard({
@@ -42,6 +42,7 @@ export function WHOChecklistCard({
   onChecklistChange,
   onNotesChange,
   onSignatureChange,
+  onShowSignaturePad,
 }: WHOChecklistCardProps) {
   const { t } = useTranslation();
 
@@ -139,10 +140,15 @@ export function WHOChecklistCard({
                     </Button>
                   </div>
                 ) : (
-                  <SignatureCanvas
-                    value=""
-                    onChange={onSignatureChange}
-                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={onShowSignaturePad}
+                    data-testid={`button-add-${checklistType}-signature`}
+                  >
+                    {t('anesthesia.op.addSignature')}
+                  </Button>
                 )}
               </div>
             </div>
