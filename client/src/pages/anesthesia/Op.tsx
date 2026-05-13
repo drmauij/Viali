@@ -1818,13 +1818,14 @@ export default function Op() {
                   checklist={signInState.checklist}
                   notes={signInState.notes}
                   signature={signInState.signature}
+                  signedAt={signInState.signedAt}
                   saveStatus={signInState.saveStatus}
                   onChecklistChange={signInState.setChecklist}
                   onNotesChange={signInState.setNotes}
                   onSignatureChange={signInState.setSignature}
                   onShowSignaturePad={() => signInState.setShowSignaturePad(true)}
                 />
-                
+
                 <WHOChecklistCard
                   title={t('anesthesia.op.timeOut')}
                   icon={Clock}
@@ -1833,13 +1834,14 @@ export default function Op() {
                   checklist={timeOutState.checklist}
                   notes={timeOutState.notes}
                   signature={timeOutState.signature}
+                  signedAt={timeOutState.signedAt}
                   saveStatus={timeOutState.saveStatus}
                   onChecklistChange={timeOutState.setChecklist}
                   onNotesChange={timeOutState.setNotes}
                   onSignatureChange={timeOutState.setSignature}
                   onShowSignaturePad={() => timeOutState.setShowSignaturePad(true)}
                 />
-                
+
                 <WHOChecklistCard
                   title={t('anesthesia.op.signOut')}
                   icon={FileCheck}
@@ -1848,6 +1850,7 @@ export default function Op() {
                   checklist={signOutState.checklist}
                   notes={signOutState.notes}
                   signature={signOutState.signature}
+                  signedAt={signOutState.signedAt}
                   saveStatus={signOutState.saveStatus}
                   onChecklistChange={signOutState.setChecklist}
                   onNotesChange={signOutState.setNotes}

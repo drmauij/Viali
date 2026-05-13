@@ -17,32 +17,44 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const ratioRef = useRef<number>(1);
+  // Track the last drawn point so each new pointer sample can be joined with
+  // a quadratic curve through the midpoint — produces fluid strokes instead
+  // of the jagged polyline `lineTo` per mousemove would yield.
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const lastSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
 
   const setupCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    
+
+    // Reset any prior transform — the dialog open animation triggers ResizeObserver
+    // before settling, so setupCanvas runs multiple times and each ctx.scale call
+    // would otherwise stack on top of the previous one, shifting coordinates.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
     // Get the device pixel ratio for high-DPI screens
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
     ratioRef.current = ratio;
-    
+
     // Get the display size from CSS
     const rect = canvas.getBoundingClientRect();
-    
+    if (rect.width === 0 || rect.height === 0) return;
+
     // Set the canvas internal size to match display size * pixel ratio
     canvas.width = rect.width * ratio;
     canvas.height = rect.height * ratio;
-    
+    lastSizeRef.current = { w: rect.width, h: rect.height };
+
     // Scale the context so drawing operations use CSS pixels
     ctx.scale(ratio, ratio);
-    
+
     // Fill canvas with white background for print-ready signatures
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, rect.width, rect.height);
-    
+
     // Use black stroke for signature (print-ready format)
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 2;
@@ -51,13 +63,20 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
-      // Small delay to ensure the dialog is fully rendered and sized
-      const timer = setTimeout(() => {
-        setupCanvas();
-      }, 50);
-      return () => clearTimeout(timer);
-    }
+    if (!isOpen) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Initial setup — this often runs mid-dialog-animation so dimensions may
+    // not be final yet. The ResizeObserver below catches the post-animation
+    // size and re-initializes the canvas at the correct dimensions.
+    setupCanvas();
+
+    const observer = new ResizeObserver(() => {
+      setupCanvas();
+    });
+    observer.observe(canvas);
+    return () => observer.disconnect();
   }, [isOpen, setupCanvas]);
 
   const getCoordinates = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -106,6 +125,7 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
 
     ctx.beginPath();
     ctx.moveTo(x, y);
+    lastPointRef.current = { x, y };
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -119,13 +139,42 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
     if (!ctx) return;
 
     const { x, y } = getCoordinates(e);
+    const last = lastPointRef.current;
+    if (!last) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      lastPointRef.current = { x, y };
+      return;
+    }
 
-    ctx.lineTo(x, y);
+    // Quadratic curve through the midpoint of (last, current): standard
+    // technique for smoothing freehand strokes — see signature_pad.js. Each
+    // sample becomes a control point and we draw to the midpoint, then start
+    // a fresh subpath from that midpoint for the next segment.
+    const midX = (last.x + x) / 2;
+    const midY = (last.y + y) / 2;
+    ctx.quadraticCurveTo(last.x, last.y, midX, midY);
     ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(midX, midY);
+    lastPointRef.current = { x, y };
   };
 
   const stopDrawing = () => {
+    if (isDrawing) {
+      const canvas = canvasRef.current;
+      const last = lastPointRef.current;
+      if (canvas && last) {
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          // Close out the final segment so the stroke reaches the last sample.
+          ctx.lineTo(last.x, last.y);
+          ctx.stroke();
+        }
+      }
+    }
     setIsDrawing(false);
+    lastPointRef.current = null;
   };
 
   const clearSignature = () => {

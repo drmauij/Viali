@@ -9,6 +9,7 @@ interface ChecklistData {
   checklist?: Record<string, boolean>;
   notes?: string;
   signature?: string;
+  completedAt?: number;
 }
 
 interface UseChecklistStateProps {
@@ -23,6 +24,7 @@ interface ChecklistState {
   checklist: Record<string, boolean>;
   notes: string;
   signature: string;
+  signedAt: number | undefined;
   showSignaturePad: boolean;
   saveStatus: 'idle' | 'pending' | 'saving' | 'saved' | 'error';
   setChecklist: (checklist: Record<string, boolean>) => void;
@@ -41,6 +43,7 @@ export function useChecklistState({
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [notes, setNotes] = useState("");
   const [signature, setSignature] = useState("");
+  const [signedAt, setSignedAt] = useState<number | undefined>(undefined);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const prevAnesthesiaRecordIdRef = useRef<string | undefined>();
 
@@ -66,6 +69,9 @@ export function useChecklistState({
       }
       if (initialData.signature) {
         setSignature(initialData.signature);
+      }
+      if (initialData.completedAt) {
+        setSignedAt(initialData.completedAt);
       }
     }
   }, [initialData]);
@@ -104,6 +110,10 @@ export function useChecklistState({
   const handleSignatureChange = (newSignature: string) => {
     const hadNoSignature = !signature;
     setSignature(newSignature);
+    // Optimistic timestamp: server persists completedAt = Date.now() on save
+    // (server/routes/anesthesia/records.ts) and the next refetch overwrites
+    // this with the canonical value.
+    setSignedAt(newSignature ? Date.now() : undefined);
     // Save everything together when signature is added or cleared
     if (anesthesiaRecordId) {
       saveMutation.mutate({
@@ -127,6 +137,7 @@ export function useChecklistState({
     checklist,
     notes,
     signature,
+    signedAt,
     showSignaturePad,
     saveStatus: saveMutation.status,
     setChecklist: handleChecklistChange,

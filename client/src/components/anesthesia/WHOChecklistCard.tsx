@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { X, LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { formatDateTime } from "@/lib/dateUtils";
 
 export interface ChecklistItem {
   id: string;
@@ -20,6 +21,7 @@ export interface WHOChecklistCardProps {
   checklist: Record<string, boolean>;
   notes: string;
   signature: string;
+  signedAt?: number | null;
   saveStatus: 'idle' | 'pending' | 'saving' | 'saved' | 'error';
   onChecklistChange: (checklist: Record<string, boolean>) => void;
   onNotesChange: (notes: string) => void;
@@ -35,6 +37,7 @@ export function WHOChecklistCard({
   checklist,
   notes,
   signature,
+  signedAt,
   saveStatus,
   onChecklistChange,
   onNotesChange,
@@ -119,6 +122,12 @@ export function WHOChecklistCard({
                 {signature ? (
                   <div className="relative border rounded-md p-2">
                     <img src={signature} alt="Signature" className="max-h-24" />
+                    {signedAt && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {t('anesthesia.op.signedAt', 'Signed at')}{' '}
+                        {formatDateTime(new Date(signedAt))}
+                      </p>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"
