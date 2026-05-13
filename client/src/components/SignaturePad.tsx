@@ -1,6 +1,5 @@
-import { useRef, useEffect, useState } from "react";
-import SignaturePadLib from "signature_pad";
-import { Dialog, DialogHeader, DialogTitle, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
+import { useRef, useEffect, useState, useCallback } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,74 +14,153 @@ interface SignaturePadProps {
 
 export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Signature" }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const padRef = useRef<SignaturePadLib | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
+  const ratioRef = useRef<number>(1);
+
+  const setupCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    
+    // Get the device pixel ratio for high-DPI screens
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    ratioRef.current = ratio;
+    
+    // Get the display size from CSS
+    const rect = canvas.getBoundingClientRect();
+    
+    // Set the canvas internal size to match display size * pixel ratio
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
+    
+    // Scale the context so drawing operations use CSS pixels
+    ctx.scale(ratio, ratio);
+    
+    // Fill canvas with white background for print-ready signatures
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    
+    // Use black stroke for signature (print-ready format)
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+  }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (isOpen) {
+      // Small delay to ensure the dialog is fully rendered and sized
+      const timer = setTimeout(() => {
+        setupCanvas();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, setupCanvas]);
+
+  const getCoordinates = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+
+    // Get the canvas bounding rect - this gives us the position and size in CSS pixels
+    const rect = canvas.getBoundingClientRect();
+    
+    // Get client coordinates (relative to viewport)
+    let clientX: number, clientY: number;
+    
+    if ('touches' in e && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if ('changedTouches' in e && e.changedTouches.length > 0) {
+      clientX = e.changedTouches[0].clientX;
+      clientY = e.changedTouches[0].clientY;
+    } else if ('clientX' in e) {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    } else {
+      return { x: 0, y: 0 };
+    }
+    
+    // Convert to coordinates relative to the canvas element in CSS pixels
+    // This works because ctx.scale(ratio, ratio) was applied, so we draw in CSS pixel space
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    
+    return { x, y };
+  }, []);
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault(); // Prevent scrolling
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    setHasSignature(false);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-    // Wait one frame past the dialog's open animation so canvas.offsetWidth
-    // reflects the final layout — initializing before then would size the
-    // bitmap to 0 and signature_pad would never receive a valid drawing
-    // surface.
-    let cancelled = false;
-    const init = () => {
-      if (cancelled) return;
-      if (!canvas.offsetWidth || !canvas.offsetHeight) {
-        // Layout not ready yet; retry on the next frame.
-        requestAnimationFrame(init);
-        return;
-      }
+    setIsDrawing(true);
+    setHasSignature(true);
 
-      const ratio = Math.max(window.devicePixelRatio || 1, 1);
-      canvas.width = canvas.offsetWidth * ratio;
-      canvas.height = canvas.offsetHeight * ratio;
-      canvas.getContext("2d")?.scale(ratio, ratio);
+    const { x, y } = getCoordinates(e);
 
-      const pad = new SignaturePadLib(canvas, {
-        backgroundColor: "rgb(255, 255, 255)",
-        penColor: "rgb(0, 0, 0)",
-        minWidth: 1,
-        maxWidth: 2.5,
-      });
-      // Constructor calls clear() which paints the background; do it again
-      // after the scale() above so the bg fills the full DPR-sized bitmap.
-      pad.clear();
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
 
-      pad.addEventListener("endStroke", () => {
-        setHasSignature(!pad.isEmpty());
-      });
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    e.preventDefault(); // Prevent scrolling while drawing
 
-      padRef.current = pad;
-    };
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    // Tailwind's open animation is ~200 ms; give it room and let init's own
-    // rAF loop pick up the final dimensions when layout settles.
-    const timer = window.setTimeout(init, 240);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-      padRef.current?.off();
-      padRef.current = null;
-    };
-  }, [isOpen]);
+    const { x, y } = getCoordinates(e);
+
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+  };
 
   const clearSignature = () => {
-    padRef.current?.clear();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Get the display size
+    const rect = canvas.getBoundingClientRect();
+    
+    // Clear and reset
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    
+    // Fill with white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    
+    // Reset stroke style
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    
     setHasSignature(false);
   };
 
   const saveSignature = () => {
-    const pad = padRef.current;
-    if (!pad || pad.isEmpty()) return;
-    onSave(pad.toDataURL("image/png"));
-    pad.clear();
-    setHasSignature(false);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const dataUrl = canvas.toDataURL("image/png");
+    onSave(dataUrl);
+    clearSignature();
     onClose();
   };
 
@@ -91,7 +169,7 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
       <DialogPortal>
         {/* Custom overlay with higher z-index to appear above modal-overlay (z-100) */}
         <DialogOverlay className="z-[150]" />
-
+        
         {/* Custom content with higher z-index */}
         <DialogPrimitive.Content
           className={cn(
@@ -105,16 +183,20 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
 
           <div className="space-y-4">
             <div>
-              {/* Border on the wrapper so the canvas's bounding rect coincides
-                  exactly with its bitmap display area. */}
-              <div className="border-2 border-dashed border-border rounded-lg overflow-hidden bg-white">
-                <canvas
-                  ref={canvasRef}
-                  className="block w-full h-56 sm:h-48 bg-white cursor-crosshair touch-none"
-                  style={{ touchAction: "none" }}
-                  data-testid="signature-canvas"
-                />
-              </div>
+              <canvas
+                ref={canvasRef}
+                className="w-full h-56 sm:h-48 border-2 border-dashed border-border rounded-lg bg-white cursor-crosshair touch-none"
+                style={{ touchAction: 'none' }}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+                onTouchCancel={stopDrawing}
+                data-testid="signature-canvas"
+              />
               <p className="text-sm text-muted-foreground mt-2 text-center">
                 Draw your signature above
               </p>

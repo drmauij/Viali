@@ -25,12 +25,10 @@ interface ChecklistState {
   notes: string;
   signature: string;
   signedAt: number | undefined;
-  showSignaturePad: boolean;
   saveStatus: 'idle' | 'pending' | 'saving' | 'saved' | 'error';
   setChecklist: (checklist: Record<string, boolean>) => void;
   setNotes: (notes: string) => void;
   setSignature: (signature: string) => void;
-  setShowSignaturePad: (show: boolean) => void;
 }
 
 export function useChecklistState({
@@ -44,7 +42,6 @@ export function useChecklistState({
   const [notes, setNotes] = useState("");
   const [signature, setSignature] = useState("");
   const [signedAt, setSignedAt] = useState<number | undefined>(undefined);
-  const [showSignaturePad, setShowSignaturePad] = useState(false);
   const prevAnesthesiaRecordIdRef = useRef<string | undefined>();
 
   // Convert checklistType from camelCase to kebab-case: signIn -> sign-in, timeOut -> time-out, signOut -> sign-out
@@ -138,11 +135,9 @@ export function useChecklistState({
     notes,
     signature,
     signedAt,
-    showSignaturePad,
     saveStatus: saveMutation.status,
     setChecklist: handleChecklistChange,
     setNotes: handleNotesChange,
     setSignature: handleSignatureChange,
-    setShowSignaturePad,
   };
 }
