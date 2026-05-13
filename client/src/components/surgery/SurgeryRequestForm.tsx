@@ -413,6 +413,7 @@ export function SurgeryRequestForm({
         if (!values.surgeryName) return false;
         if (!values.coverageType) return false;
         if (!values.stayType) return false;
+        if (ambulantEligibilityEnabled && !values.surgeryRiskClass) return false;
         if (values.coverageType === "Krankenkasse" && !values.diagnosis) return false;
       }
       return true;
@@ -447,7 +448,7 @@ export function SurgeryRequestForm({
     const documents = true; // optional
 
     return { surgeon, surgery, patient, documents };
-  }, [values, selectedSurgeonId, showSurgeonPicker, showSurgeonDetailsBlock]);
+  }, [values, selectedSurgeonId, showSurgeonPicker, showSurgeonDetailsBlock, ambulantEligibilityEnabled]);
 
   const canSubmit = sectionValidity.surgeon && sectionValidity.surgery && sectionValidity.patient;
 
@@ -469,6 +470,7 @@ export function SurgeryRequestForm({
     | "surgeryName"
     | "coverageType"
     | "stayType"
+    | "surgeryRiskClass"
     | "diagnosis"
     | "patientFirstName"
     | "patientLastName"
@@ -492,6 +494,10 @@ export function SurgeryRequestForm({
       surgeryName: reservation ? true : !!values.surgeryName,
       coverageType: reservation ? true : !!values.coverageType,
       stayType: reservation ? true : !!values.stayType,
+      surgeryRiskClass:
+        reservation || !ambulantEligibilityEnabled
+          ? true
+          : !!values.surgeryRiskClass,
       diagnosis:
         reservation || values.coverageType !== "Krankenkasse"
           ? true
@@ -504,7 +510,7 @@ export function SurgeryRequestForm({
       patientPostalCode: reservation ? true : !!values.patientPostalCode,
       patientCity: reservation ? true : !!values.patientCity,
     };
-  }, [values, selectedSurgeonId, showSurgeonPicker]);
+  }, [values, selectedSurgeonId, showSurgeonPicker, ambulantEligibilityEnabled]);
 
   const showError = (k: FieldKey) => touched.has(k) && !fieldValid[k];
 
@@ -515,6 +521,7 @@ export function SurgeryRequestForm({
     surgeryName: "surgeryName",
     coverageType: "coverageType",
     stayType: "stayType",
+    surgeryRiskClass: "__i18next__",
     diagnosis: "diagnosis",
     patientFirstName: "firstName",
     patientLastName: "lastName",
@@ -525,6 +532,11 @@ export function SurgeryRequestForm({
     patientCity: "city",
   };
 
+  const fieldLabel = (k: FieldKey): string =>
+    k === "surgeryRiskClass"
+      ? ti18n("ambulantEligibility.riskClassLabel", "Surgery risk class").replace(/\s*\*\s*$/, "")
+      : t(FIELD_LABEL_KEY[k]);
+
   const FIELDS_BY_SECTION: Record<SectionKey, FieldKey[]> = {
     surgeon: ["selectedSurgeonId"],
     surgery: [
@@ -533,6 +545,7 @@ export function SurgeryRequestForm({
       "surgeryName",
       "coverageType",
       "stayType",
+      ...(ambulantEligibilityEnabled ? (["surgeryRiskClass"] as FieldKey[]) : []),
       "diagnosis",
     ],
     patient: [
@@ -575,7 +588,7 @@ export function SurgeryRequestForm({
       section === "all"
         ? visibleSections.flatMap((s) => FIELDS_BY_SECTION[s])
         : FIELDS_BY_SECTION[section];
-    return keys.filter((k) => !fieldValid[k]).map((k) => t(FIELD_LABEL_KEY[k]));
+    return keys.filter((k) => !fieldValid[k]).map((k) => fieldLabel(k));
   };
 
   const touchAllInSection = (section: SectionKey) => {
@@ -1172,9 +1185,18 @@ export function SurgeryRequestForm({
                       <Label htmlFor="surgeryRiskClass">{ti18n('ambulantEligibility.riskClassLabel', 'Surgery risk class *')}</Label>
                       <Select
                         value={values.surgeryRiskClass || undefined}
-                        onValueChange={(v) => update("surgeryRiskClass", v as SurgeryRiskClass)}
+                        onValueChange={(v) => {
+                          update("surgeryRiskClass", v as SurgeryRiskClass);
+                          markTouched("surgeryRiskClass");
+                        }}
                       >
-                        <SelectTrigger id="surgeryRiskClass" data-testid="select-risk-class">
+                        <SelectTrigger
+                          id="surgeryRiskClass"
+                          data-testid="select-risk-class"
+                          onBlur={() => markTouched("surgeryRiskClass")}
+                          aria-invalid={showError("surgeryRiskClass") || undefined}
+                          className={showError("surgeryRiskClass") ? "border-destructive" : undefined}
+                        >
                           <SelectValue placeholder={ti18n('ambulantEligibility.riskClassPlaceholder', 'Please select…')} />
                         </SelectTrigger>
                         <SelectContent>
@@ -1184,6 +1206,7 @@ export function SurgeryRequestForm({
                           <SelectItem value="critical">{ti18n('ambulantEligibility.riskClass.critical', 'Critical (e.g. major spine, open laparotomy, >4 h procedures)')}</SelectItem>
                         </SelectContent>
                       </Select>
+                      {showError("surgeryRiskClass") && <FieldError t={t} />}
                       {values.surgeryRiskClass && (
                         <AmbulantEligibilityBadge
                           eligibility={calculateQuick({
