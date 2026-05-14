@@ -268,3 +268,29 @@ describe("age modifier × surgery class attenuation", () => {
     }
   });
 });
+
+import { isPreliminary } from "../perioperativeRisk";
+
+describe("isPreliminary helper", () => {
+  it("returns false when inputSource is 'assessment'", () => {
+    expect(isPreliminary({ inputSource: "assessment", partial: false } as any)).toBe(false);
+  });
+
+  it("returns true when inputSource is 'questionnaire'", () => {
+    expect(isPreliminary({ inputSource: "questionnaire", partial: true } as any)).toBe(true);
+  });
+
+  it("returns true when inputSource is 'default'", () => {
+    expect(isPreliminary({ inputSource: "default", partial: true } as any)).toBe(true);
+  });
+
+  it("backwards-compat: falls back to partial when inputSource is missing", () => {
+    expect(isPreliminary({ partial: true } as any)).toBe(true);
+    expect(isPreliminary({ partial: false } as any)).toBe(false);
+  });
+
+  it("returns false for null/undefined", () => {
+    expect(isPreliminary(null)).toBe(false);
+    expect(isPreliminary(undefined)).toBe(false);
+  });
+});

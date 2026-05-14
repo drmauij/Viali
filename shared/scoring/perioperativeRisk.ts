@@ -189,3 +189,16 @@ function driverLabel(key: DomainKey, d: DomainResult): string {
   if (key === "frailty")   return `mFI-5 = ${d.score ?? "?"}`;
   return `Surgery (${d.source.replace("surgeryRiskClass:", "")})`;
 }
+
+/**
+ * Returns true when the snapshot was computed without an anesthesia pre-op
+ * assessment. Backwards-compat: pre-backfill snapshots may lack `inputSource`;
+ * they fall back to the legacy `partial` flag.
+ */
+export function isPreliminary(
+  snapshot: PerioperativeRiskResult | null | undefined,
+): boolean {
+  if (!snapshot) return false;
+  if (snapshot.inputSource) return snapshot.inputSource !== "assessment";
+  return snapshot.partial === true;
+}
