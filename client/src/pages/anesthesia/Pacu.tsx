@@ -167,7 +167,7 @@ function PacuPatientCard({
             )}
             {riskPopoverOpen && patient.perioperativeRisk && (
               <div className="absolute z-50 top-full mt-2 left-0" onClick={(e) => e.stopPropagation()}>
-                <RiskBreakdownPopover risk={patient.perioperativeRisk} ambulant={ambulantForChip} />
+                <RiskBreakdownPopover risk={patient.perioperativeRisk} ambulant={ambulantForChip} onClose={() => setRiskPopoverOpen(false)} />
               </div>
             )}
           </div>

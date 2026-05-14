@@ -405,6 +405,7 @@ export default function SurgerySummaryDialog({
                                 yellowFactors: (surgery as any).ambulantQuickCheck.yellowFactors ?? [],
                               } as AmbulantSummary
                             : null}
+                          onClose={() => setRiskPopoverOpen(false)}
                         />
                       </div>
                     )}

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { PerioperativeRiskResult, DomainKey } from "@shared/scoring/perioperativeRisk";
 
 const DOMAIN_LABEL: Record<DomainKey, string> = {
@@ -14,11 +15,37 @@ export interface AmbulantSummary {
 export interface RiskBreakdownPopoverProps {
   risk: PerioperativeRiskResult;
   ambulant: AmbulantSummary | null;
+  /** Called when the user clicks outside the popover or presses Escape. */
+  onClose?: () => void;
 }
 
-export function RiskBreakdownPopover({ risk, ambulant }: RiskBreakdownPopoverProps) {
+export function RiskBreakdownPopover({ risk, ambulant, onClose }: RiskBreakdownPopoverProps) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!onClose) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const node = ref.current;
+      if (!node) return;
+      const target = e.target as Node | null;
+      if (target && !node.contains(target)) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    // Defer to next tick so the click that opened the popover doesn't
+    // immediately close it via this listener.
+    const id = setTimeout(() => {
+      document.addEventListener("mousedown", onMouseDown, true);
+      document.addEventListener("keydown", onKey);
+    }, 0);
+    return () => {
+      clearTimeout(id);
+      document.removeEventListener("mousedown", onMouseDown, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
   return (
-    <div className="w-80 bg-slate-900 text-slate-100 rounded-lg border border-slate-700 p-3 shadow-xl">
+    <div ref={ref} className="w-80 bg-slate-900 text-slate-100 rounded-lg border border-slate-700 p-3 shadow-xl">
       <div className="text-xs font-semibold text-slate-400 mb-2">DOMAINS</div>
       <div className="space-y-1.5 mb-3">
         {(Object.keys(risk.domains) as DomainKey[]).map((k) => (

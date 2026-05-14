@@ -3961,7 +3961,7 @@ export default function PatientDetail() {
                 </p>
                 {riskPopoverOpenAt === "preop" && riskForChip && (
                   <div className="absolute z-50 top-full mt-2 left-0">
-                    <RiskBreakdownPopover risk={riskForChip} ambulant={ambulantForChip} />
+                    <RiskBreakdownPopover risk={riskForChip} ambulant={ambulantForChip} onClose={() => setRiskPopoverOpenAt(null)} />
                   </div>
                 )}
                 <div className="flex items-center gap-2 mt-1 flex-wrap">

@@ -33,7 +33,7 @@ export function PerioperativeRiskHeader({ patientName, meta, surgeryStayType, ri
       )}
       {open && risk && (
         <div className="absolute z-10 top-full mt-2 left-0">
-          <RiskBreakdownPopover risk={risk} ambulant={ambulant} />
+          <RiskBreakdownPopover risk={risk} ambulant={ambulant} onClose={() => setOpen(false)} />
         </div>
       )}
     </div>

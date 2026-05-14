@@ -221,6 +221,7 @@ export function PatientInfoHeader({
                           yellowFactors: (surgery as any).ambulantQuickCheck.yellowFactors ?? [],
                         } as AmbulantSummary
                       : null}
+                    onClose={() => setRiskPopoverOpen(false)}
                   />
                 </div>
               )}
