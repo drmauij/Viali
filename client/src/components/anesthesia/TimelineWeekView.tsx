@@ -113,6 +113,11 @@ export default function TimelineWeekView({
   const [surgeryDrag, setSurgeryDrag] = useState<SurgeryDragInfo | null>(null);
   const surgeryDragRef = useRef<SurgeryDragInfo | null>(null);
   const dayColumnRefs = useRef<Array<HTMLDivElement | null>>([]);
+  // After a drag that actually moved, the React `click` event still fires on
+  // the tile (mouseup → click is the browser's normal sequence). This flag is
+  // checked in onClick to swallow the click that would otherwise open the
+  // surgery dialog right after the user finishes a drop.
+  const suppressNextClickRef = useRef(false);
   
   // No locale setup needed — date-fns uses explicit locale params where needed
   
@@ -682,8 +687,13 @@ export default function TimelineWeekView({
       const drag = surgeryDragRef.current;
       surgeryDragRef.current = null;
       setSurgeryDrag(null);
-      if (!drag || !drag.moved || !onEventDrop) return;
-      onEventDrop(drag.surgeryId, drag.previewStart, drag.previewEnd, drag.originalRoomId);
+      if (!drag) return;
+      if (drag.moved) {
+        suppressNextClickRef.current = true;
+        if (onEventDrop) {
+          onEventDrop(drag.surgeryId, drag.previewStart, drag.previewEnd, drag.originalRoomId);
+        }
+      }
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
@@ -870,21 +880,37 @@ export default function TimelineWeekView({
                         isBeingDragged && "opacity-70 ring-2 ring-primary z-20",
                       )}
                       style={{ top: displayTop, height: displayHeight, left, right, width, ...getRoomBlockStyle(surgery) }}
+                      onMouseMove={isDraggable && !surgeryDrag ? (e) => {
+                        // Indicate the resize zone with cursor change so the user can
+                        // discover the edge-grab affordance.
+                        const tile = e.currentTarget as HTMLDivElement;
+                        const rect = tile.getBoundingClientRect();
+                        const localY = e.clientY - rect.top;
+                        const EDGE = 8;
+                        if (localY < EDGE || localY > rect.height - EDGE) {
+                          tile.style.cursor = 'ns-resize';
+                        } else {
+                          tile.style.cursor = 'move';
+                        }
+                      } : undefined}
                       onMouseDown={isDraggable ? (e) => {
-                        // Skip if the user clicked the right mouse button.
                         if (e.button !== 0) return;
                         const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
                         const localY = e.clientY - rect.top;
-                        const EDGE = 6;
+                        const EDGE = 8;
                         const mode: SurgeryDragMode =
                           localY < EDGE ? 'resize-top' :
                           localY > rect.height - EDGE ? 'resize-bottom' :
                           'move';
                         beginSurgeryDrag(e, surgery, mode, dayIdx);
                       } : undefined}
-                      onClick={(e) => {
-                        // Suppress click immediately after a drag that actually moved.
-                        if (surgeryDragRef.current?.moved) return;
+                      onClick={() => {
+                        // Swallow the click that fires immediately after a drop —
+                        // browser sequences mouseup → click on the same element.
+                        if (suppressNextClickRef.current) {
+                          suppressNextClickRef.current = false;
+                          return;
+                        }
                         onEventClick?.(surgery.id, surgery.patientId);
                       }}
                       title={
