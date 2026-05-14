@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { db } from "../server/db";
 import { surgeries } from "@shared/schema";
 import { and, eq, gte, ne } from "drizzle-orm";
