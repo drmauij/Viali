@@ -490,6 +490,13 @@ export function QuestionnaireTab({
         d.noDrugUse,
         hasCheckedRecord(d.drugUse) || !!d.drugUseDetails
       ),
+      capacity: (() => {
+        const both = d.metAbove4 !== null && d.metAbove4 !== undefined
+          && d.functionallyDependent !== null && d.functionallyDependent !== undefined;
+        if (!both) return "noData" as SectionStatus;
+        const hasFindings = d.metAbove4 === false || d.functionallyDependent === true;
+        return hasFindings ? ("findings" as SectionStatus) : ("clear" as SectionStatus);
+      })(),
       womensHealth:
         patientSex === "F"
           ? computeStatus(
@@ -766,6 +773,48 @@ export function QuestionnaireTab({
               </CardContent>
             </Card>
           </div>
+        </AccordionSection>
+
+        {/* Physical Capacity & Frailty */}
+        <AccordionSection
+          value="capacity"
+          title={t("questionnaireTab.capacity", "Physical Capacity & Frailty")}
+          status={sectionStatuses.capacity}
+        >
+          <Card>
+            <CardContent className="pt-4 space-y-3">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                  {t("questionnaireTab.metAbove4", "Physical capacity ≥ 4 MET")}
+                </p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {t("questionnaireTab.metAbove4Hint", "Can climb a flight of stairs / moderate activity without stopping")}
+                </p>
+                {editedData.metAbove4 === true ? (
+                  <span className="text-sm text-green-700 dark:text-green-300">{t("common.yes", "Yes")}</span>
+                ) : editedData.metAbove4 === false ? (
+                  <span className="text-sm text-amber-700 dark:text-amber-300">{t("common.no", "No")}</span>
+                ) : (
+                  <span className="text-sm text-muted-foreground italic">{t("questionnaireTab.notAnswered", "Not answered")}</span>
+                )}
+              </div>
+              <div className="pt-2 border-t">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                  {t("questionnaireTab.functionallyDependent", "Independent in daily activities")}
+                </p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {t("questionnaireTab.functionallyDependentHint", "Washing, dressing, walking, eating, going to the bathroom")}
+                </p>
+                {editedData.functionallyDependent === false ? (
+                  <span className="text-sm text-green-700 dark:text-green-300">{t("common.yes", "Yes")}</span>
+                ) : editedData.functionallyDependent === true ? (
+                  <span className="text-sm text-amber-700 dark:text-amber-300">{t("questionnaireTab.needsHelp", "No, needs help")}</span>
+                ) : (
+                  <span className="text-sm text-muted-foreground italic">{t("questionnaireTab.notAnswered", "Not answered")}</span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </AccordionSection>
 
         {/* Medical Conditions — full width */}

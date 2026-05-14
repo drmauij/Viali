@@ -7159,6 +7159,22 @@ export default function PatientDetail() {
                   </div>
                 )}
 
+                {typeof (selectedQuestionnaireResponse.response as any).metAbove4 === 'boolean' && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.metAbove4Label', 'Physical capacity ≥ 4 MET')}:</span>{' '}
+                    {(selectedQuestionnaireResponse.response as any).metAbove4 ? t('common.yes', 'Yes') : t('common.no', 'No')}
+                  </div>
+                )}
+
+                {typeof (selectedQuestionnaireResponse.response as any).functionallyDependent === 'boolean' && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.functionalIndependenceLabel', 'Independent in daily activities')}:</span>{' '}
+                    {(selectedQuestionnaireResponse.response as any).functionallyDependent
+                      ? t('anesthesia.patientDetail.needsHelp', 'No, needs help')
+                      : t('common.yes', 'Yes')}
+                  </div>
+                )}
+
                 {selectedQuestionnaireResponse.response.allergies && selectedQuestionnaireResponse.response.allergies.length > 0 && (
                   <div className="text-sm">
                     <span className="font-medium">{t('anesthesia.patientDetail.allergies')}:</span>{' '}
