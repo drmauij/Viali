@@ -116,32 +116,44 @@ async function applyAmbulantValidation(
   return null;
 }
 
+const RISK_RELEVANT_FIELDS = ["patientId", "hospitalId", "surgeryRiskClass", "plannedDate", "actualEndTime"] as const;
+
 async function applyPerioperativeRiskRecalc(
   body: any,
   existingSurgery: any | null,
 ): Promise<void> {
-  const riskClass = body.surgeryRiskClass ?? existingSurgery?.surgeryRiskClass;
-  if (!riskClass) return;
-  const patientId = body.patientId ?? existingSurgery?.patientId;
-  const hospitalId = body.hospitalId ?? existingSurgery?.hospitalId;
-  if (!patientId || !hospitalId) return;
+  // PATCH on cosmetic fields (room moves, status flips, PACU bed) shouldn't trigger
+  // 4 DB reads + a JSONB rewrite. Recompute only when an input that actually feeds
+  // the score is present in the request, or when we're creating a fresh row.
+  if (existingSurgery && !RISK_RELEVANT_FIELDS.some((f) => f in body)) return;
 
-  const patient = await storage.getPatient(patientId);
-  if (!patient) return;
+  try {
+    const riskClass = body.surgeryRiskClass ?? existingSurgery?.surgeryRiskClass;
+    if (!riskClass) return;
+    const patientId = body.patientId ?? existingSurgery?.patientId;
+    const hospitalId = body.hospitalId ?? existingSurgery?.hospitalId;
+    if (!patientId || !hospitalId) return;
 
-  const mergedSurgery = { ...(existingSurgery ?? {}), ...body, hospitalId, patientId };
+    const patient = await storage.getPatient(patientId);
+    if (!patient) return;
 
-  const assessment = existingSurgery?.id
-    ? await storage.getSurgeryPreOpAssessment(existingSurgery.id).catch(() => null)
-    : null;
-  const questionnaire = await storage.getLatestQuestionnaireResponseForPatient(patientId).catch(() => null);
+    const mergedSurgery = { ...(existingSurgery ?? {}), ...body, hospitalId, patientId };
 
-  const settings = await getHospitalAnesthesiaSettings(hospitalId);
-  const illnessLists = (settings?.illnessLists ?? {}) as Record<string, Array<{ id: string; scoringConcept?: string | null }>>;
+    const assessment = existingSurgery?.id
+      ? await storage.getSurgeryPreOpAssessment(existingSurgery.id).catch(() => null)
+      : null;
+    const questionnaire = await storage.getLatestQuestionnaireResponseForPatient(patientId).catch(() => null);
 
-  const snapshot = computeRiskSnapshot(patient, mergedSurgery, assessment ?? null, questionnaire ?? null, illnessLists);
-  body.perioperativeRisk = snapshot;
-  body.riskGrade = snapshot.grade;
+    const settings = await getHospitalAnesthesiaSettings(hospitalId);
+    const illnessLists = (settings?.illnessLists ?? {}) as Record<string, Array<{ id: string; scoringConcept?: string | null }>>;
+
+    const snapshot = computeRiskSnapshot(patient, mergedSurgery, assessment ?? null, questionnaire ?? null, illnessLists);
+    body.perioperativeRisk = snapshot;
+    body.riskGrade = snapshot.grade;
+  } catch (err) {
+    // Risk grade is a derived UX signal — failure to recompute must never block a surgery write.
+    logger.error("applyPerioperativeRiskRecalc failed:", err);
+  }
 }
 
 const router = Router();

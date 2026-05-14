@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, ne, desc, asc, isNull, inArray, gt, or } from "drizzle-orm";
+import { eq, and, ne, desc, asc, isNull, isNotNull, inArray, gt, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { ensurePatientHospitalLink } from "../utils/patientHospitalLink";
 import {
@@ -255,11 +255,16 @@ export async function getLatestQuestionnaireResponseForPatient(
       patientQuestionnaireLinks,
       eq(patientQuestionnaireResponses.linkId, patientQuestionnaireLinks.id),
     )
-    .where(eq(patientQuestionnaireLinks.patientId, patientId))
-    .orderBy(
-      desc(patientQuestionnaireResponses.submittedAt),
-      desc(patientQuestionnaireResponses.lastSavedAt),
+    .where(
+      and(
+        eq(patientQuestionnaireLinks.patientId, patientId),
+        // Drafts (NULL submittedAt) must not mask a real submission. Postgres
+        // ORDER BY DESC defaults to NULLS FIRST, so an in-progress draft would
+        // outrank an older submitted response without this filter.
+        isNotNull(patientQuestionnaireResponses.submittedAt),
+      ),
     )
+    .orderBy(desc(patientQuestionnaireResponses.submittedAt))
     .limit(1);
   return rows[0]?.response;
 }
