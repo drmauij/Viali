@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useScopeToggle } from "@/hooks/useScopeToggle";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -27,6 +27,8 @@ import { useModule } from "@/contexts/ModuleContext";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 import PatientDuplicatesDialog from "@/components/patients/PatientDuplicatesDialog";
 import PatientMergeDialog from "@/components/patients/PatientMergeDialog";
+import { RiskChip } from "@/components/anesthesia/RiskChip";
+import { RiskBreakdownPopover, type AmbulantSummary } from "@/components/anesthesia/RiskBreakdownPopover";
 
 export default function Patients() {
   const { t } = useTranslation();
@@ -72,6 +74,7 @@ export default function Patients() {
   const canPlanOps = isAdmin || activeHospital?.canPlanOps === true;
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [mergePatients, setMergePatients] = useState<{ p1: string; p2: string } | null>(null);
+  const [riskPopoverPatientId, setRiskPopoverPatientId] = useState<string | null>(null);
 
   // Pre-fill patient creation form from URL params (used by card reader bridge)
   useEffect(() => {
@@ -210,6 +213,45 @@ export default function Patients() {
     queryKey: [patientsUrl],
     enabled: !!activeHospital?.id,
   });
+
+  // Fetch this hospital's surgeries so each patient row can show a risk chip.
+  // `riskGrade` + `perioperativeRisk` arrive automatically on each enriched surgery.
+  const surgeriesUrl = activeHospital?.id
+    ? `/api/anesthesia/surgeries?hospitalId=${activeHospital.id}`
+    : "";
+  const { data: hospitalSurgeries = [] } = useQuery<any[]>({
+    queryKey: [surgeriesUrl],
+    enabled: !!activeHospital?.id,
+  });
+
+  // Pick the most relevant surgery per patient: next upcoming non-cancelled
+  // surgery (plannedDate >= now, status !== 'cancelled') ordered by plannedDate ASC;
+  // otherwise the most recent past surgery.
+  const riskByPatient = useMemo(() => {
+    const now = Date.now();
+    const map = new Map<string, any>();
+    for (const s of hospitalSurgeries) {
+      if (!s?.patientId || !s?.plannedDate) continue;
+      const plannedTs = new Date(s.plannedDate).getTime();
+      if (Number.isNaN(plannedTs)) continue;
+      const isUpcoming = plannedTs >= now && s.status !== "cancelled";
+      const existing = map.get(s.patientId);
+      if (!existing) {
+        map.set(s.patientId, s);
+        continue;
+      }
+      const existingTs = new Date(existing.plannedDate).getTime();
+      const existingUpcoming = existingTs >= now && existing.status !== "cancelled";
+      if (isUpcoming && !existingUpcoming) {
+        map.set(s.patientId, s);
+      } else if (isUpcoming && existingUpcoming) {
+        if (plannedTs < existingTs) map.set(s.patientId, s); // soonest upcoming wins
+      } else if (!isUpcoming && !existingUpcoming) {
+        if (plannedTs > existingTs) map.set(s.patientId, s); // most recent past wins
+      }
+    }
+    return map;
+  }, [hospitalSurgeries]);
 
   // Create patient mutation
   const vekaLookupMutation = useMutation({
@@ -715,47 +757,79 @@ export default function Patients() {
       ) : (
         <>
           <div className="space-y-4">
-            {filteredPatients.map((patient) => (
-              <Card 
-                key={patient.id}
-                className="p-4 cursor-pointer hover:bg-accent/50 transition-colors"
-                data-testid={`patient-item-${patient.id}`}
-                onClick={() => setLocation(`${moduleBasePath}/patients/${patient.id}`)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {patient.sex === "M" ? (
-                      <UserCircle className="h-5 w-5 text-blue-500" />
-                    ) : patient.sex === "F" ? (
-                      <UserRound className="h-5 w-5 text-pink-500" />
-                    ) : (
-                      <UserCircle className="h-5 w-5 text-gray-500" />
-                    )}
-                    <div className="font-semibold text-foreground">
-                      {patient.surname}, {patient.firstName}
+            {filteredPatients.map((patient) => {
+              const surgery = riskByPatient.get(patient.id);
+              const hasRisk = surgery && (surgery as any).riskGrade && (surgery as any).perioperativeRisk;
+              const isPopoverOpen = riskPopoverPatientId === patient.id;
+              return (
+                <Card
+                  key={patient.id}
+                  className="p-4 cursor-pointer hover:bg-accent/50 transition-colors"
+                  data-testid={`patient-item-${patient.id}`}
+                  onClick={() => setLocation(`${moduleBasePath}/patients/${patient.id}`)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 relative">
+                      {patient.sex === "M" ? (
+                        <UserCircle className="h-5 w-5 text-blue-500" />
+                      ) : patient.sex === "F" ? (
+                        <UserRound className="h-5 w-5 text-pink-500" />
+                      ) : (
+                        <UserCircle className="h-5 w-5 text-gray-500" />
+                      )}
+                      <div className="font-semibold text-foreground">
+                        {patient.surname}, {patient.firstName}
+                      </div>
+                      {hasRisk && (
+                        <span onClick={(e) => e.stopPropagation()}>
+                          <RiskChip
+                            grade={(surgery as any).perioperativeRisk.grade}
+                            worstDomain={(surgery as any).perioperativeRisk.worstDomain}
+                            size="sm"
+                            onClick={() => setRiskPopoverPatientId(isPopoverOpen ? null : patient.id)}
+                          />
+                        </span>
+                      )}
+                      {hasRisk && isPopoverOpen && (
+                        <div
+                          className="absolute z-50 top-full mt-2 left-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <RiskBreakdownPopover
+                            risk={(surgery as any).perioperativeRisk}
+                            ambulant={(surgery as any).ambulantQuickCheck
+                              ? {
+                                  decision: (surgery as any).ambulantQuickCheck.decision,
+                                  hardExclusions: (surgery as any).ambulantQuickCheck.hardExclusions ?? [],
+                                  yellowFactors: (surgery as any).ambulantQuickCheck.yellowFactors ?? [],
+                                } as AmbulantSummary
+                              : null}
+                          />
+                        </div>
+                      )}
                     </div>
+                    {canWrite && addons.questionnaire && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPatientForForm(patient);
+                          setSendFormDialogOpen(true);
+                        }}
+                        title={t('common.patientCommunication', 'Patient Communication')}
+                        data-testid={`button-send-form-${patient.id}`}
+                      >
+                        <Send className="h-4 w-4 text-primary" />
+                      </Button>
+                    )}
                   </div>
-                  {canWrite && addons.questionnaire && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedPatientForForm(patient);
-                        setSendFormDialogOpen(true);
-                      }}
-                      title={t('common.patientCommunication', 'Patient Communication')}
-                      data-testid={`button-send-form-${patient.id}`}
-                    >
-                      <Send className="h-4 w-4 text-primary" />
-                    </Button>
-                  )}
-                </div>
-                <div className="text-sm text-muted-foreground mt-1 ml-7">
-                  {isBirthdayUnknown(patient.birthday) ? <span className="text-amber-500 font-medium">Birthday not provided</span> : formatDate(patient.birthday)} • {patient.patientNumber}
-                </div>
-              </Card>
-            ))}
+                  <div className="text-sm text-muted-foreground mt-1 ml-7">
+                    {isBirthdayUnknown(patient.birthday) ? <span className="text-amber-500 font-medium">Birthday not provided</span> : formatDate(patient.birthday)} • {patient.patientNumber}
+                  </div>
+                </Card>
+              );
+            })}
           </div>
 
           {filteredPatients.length === 0 && (

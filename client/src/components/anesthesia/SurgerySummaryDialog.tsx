@@ -27,6 +27,8 @@ import { useToast } from "@/hooks/use-toast";
 import type { Module } from "@/contexts/ModuleContext";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
 import { SendSurgeonSummaryDialog } from "@/components/anesthesia/SendSurgeonSummaryDialog";
+import { RiskChip } from "@/components/anesthesia/RiskChip";
+import { RiskBreakdownPopover, type AmbulantSummary } from "@/components/anesthesia/RiskBreakdownPopover";
 import { formatDate, formatTime, formatDateTime } from "@/lib/dateUtils";
 import { generateWristbandPdf } from "@/lib/wristbandPdf";
 
@@ -69,6 +71,7 @@ export default function SurgerySummaryDialog({
   const [locationMode, setLocationMode] = useState<'waiting' | 'pacu'>('waiting');
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [extRequestExpanded, setExtRequestExpanded] = useState(false);
+  const [riskPopoverOpen, setRiskPopoverOpen] = useState(false);
 
   // Reset phone reveal state when dialog opens
   useEffect(() => {
@@ -378,9 +381,33 @@ export default function SurgerySummaryDialog({
             <div className="bg-muted/50 p-4 rounded-lg space-y-3">
               <div className="flex items-start justify-between gap-4">
                 <div className="grid grid-cols-2 gap-3 flex-1">
-                  <div>
+                  <div className="relative">
                     <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.name')}</div>
-                    <div className="font-medium">{patientName}</div>
+                    <div className="font-medium flex items-center gap-2 flex-wrap">
+                      <span>{patientName}</span>
+                      {(surgery as any).riskGrade && (surgery as any).perioperativeRisk && (
+                        <RiskChip
+                          grade={(surgery as any).perioperativeRisk.grade}
+                          worstDomain={(surgery as any).perioperativeRisk.worstDomain}
+                          size="sm"
+                          onClick={() => setRiskPopoverOpen((v) => !v)}
+                        />
+                      )}
+                    </div>
+                    {riskPopoverOpen && (surgery as any).perioperativeRisk && (
+                      <div className="absolute z-50 top-full mt-2 left-0">
+                        <RiskBreakdownPopover
+                          risk={(surgery as any).perioperativeRisk}
+                          ambulant={(surgery as any).ambulantQuickCheck
+                            ? {
+                                decision: (surgery as any).ambulantQuickCheck.decision,
+                                hardExclusions: (surgery as any).ambulantQuickCheck.hardExclusions ?? [],
+                                yellowFactors: (surgery as any).ambulantQuickCheck.yellowFactors ?? [],
+                              } as AmbulantSummary
+                            : null}
+                        />
+                      </div>
+                    )}
                   </div>
                   <div>
                     <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.birthday')}</div>

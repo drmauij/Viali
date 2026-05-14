@@ -9,6 +9,8 @@ import { formatDate, isBirthdayUnknown } from "@/lib/dateUtils";
 import { useTranslation } from "react-i18next";
 import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 import { AmbulantEligibilityBadge } from "./AmbulantEligibilityBadge";
+import { RiskChip } from "./RiskChip";
+import { RiskBreakdownPopover, type AmbulantSummary } from "./RiskBreakdownPopover";
 import type { EligibilityResult } from "@shared/scoring/types";
 
 type ConnectionState = 'connected' | 'connecting' | 'disconnected' | 'stale';
@@ -59,6 +61,7 @@ export function PatientInfoHeader({
   const { t, i18n } = useTranslation();
   const isGerman = i18n.language === 'de';
   const [showProcedureDialog, setShowProcedureDialog] = useState(false);
+  const [riskPopoverOpen, setRiskPopoverOpen] = useState(false);
 
   const getConnectionIcon = () => {
     switch (connectionState) {
@@ -193,10 +196,34 @@ export function PatientInfoHeader({
           {/* Patient Name & Icon */}
           <div className="flex items-center gap-3">
             <UserCircle className="h-8 w-8 text-blue-500" />
-            <div>
-              <h2 className="font-bold text-base md:text-lg">
-                {patient ? `${patient.firstName || ''} ${patient.surname || ''}`.trim() || t('anesthesia.op.patientFallback') : t('anesthesia.op.loadingData')}
-              </h2>
+            <div className="relative">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-bold text-base md:text-lg">
+                  {patient ? `${patient.firstName || ''} ${patient.surname || ''}`.trim() || t('anesthesia.op.patientFallback') : t('anesthesia.op.loadingData')}
+                </h2>
+                {(surgery as any)?.riskGrade && (surgery as any)?.perioperativeRisk && (
+                  <RiskChip
+                    grade={(surgery as any).perioperativeRisk.grade}
+                    worstDomain={(surgery as any).perioperativeRisk.worstDomain}
+                    size="sm"
+                    onClick={() => setRiskPopoverOpen((v) => !v)}
+                  />
+                )}
+              </div>
+              {riskPopoverOpen && (surgery as any)?.perioperativeRisk && (
+                <div className="absolute z-50 top-full mt-2 left-0">
+                  <RiskBreakdownPopover
+                    risk={(surgery as any).perioperativeRisk}
+                    ambulant={(surgery as any)?.ambulantQuickCheck
+                      ? {
+                          decision: (surgery as any).ambulantQuickCheck.decision,
+                          hardExclusions: (surgery as any).ambulantQuickCheck.hardExclusions ?? [],
+                          yellowFactors: (surgery as any).ambulantQuickCheck.yellowFactors ?? [],
+                        } as AmbulantSummary
+                      : null}
+                  />
+                </div>
+              )}
               <div className="flex items-center gap-3 md:gap-4 flex-wrap">
                 {patient?.birthday && (
                   <p className="text-xs md:text-sm text-muted-foreground">

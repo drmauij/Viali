@@ -164,7 +164,7 @@ export default function PatientDetail() {
   } = usePatientState();
 
   const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
-  const [riskPopoverOpenAt, setRiskPopoverOpenAt] = useState<"sticky" | "card" | null>(null);
+  const [riskPopoverOpenAt, setRiskPopoverOpenAt] = useState<"sticky" | "card" | "preop" | null>(null);
 
   // --- Ambulant eligibility (modal open state — fields live on assessmentData) ---
   const [ambulantOverrideOpen, setAmbulantOverrideOpen] = useState(false);
@@ -3957,14 +3957,29 @@ export default function PatientDetail() {
               ) : (
                 <UserRound className="h-8 w-8 text-pink-500" data-testid="icon-preop-sex-female" />
               )}
-              <div className="text-left flex-1">
-                <p className="font-semibold text-base text-left" data-testid="text-preop-patient-name">{patient.surname}, {patient.firstName}</p>
+              <div className="text-left flex-1 relative">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-base text-left" data-testid="text-preop-patient-name">{patient.surname}, {patient.firstName}</p>
+                  {riskForChip && (
+                    <RiskChip
+                      grade={riskForChip.grade}
+                      worstDomain={riskForChip.worstDomain}
+                      size="sm"
+                      onClick={() => setRiskPopoverOpenAt(riskPopoverOpenAt === "preop" ? null : "preop")}
+                    />
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground text-left" data-testid="text-preop-patient-info">
                   {isBirthdayUnknown(patient.birthday)
                     ? <span className="text-amber-500 font-medium">{t('common.birthdayNotProvided', 'Birthday not provided')}</span>
                     : <>{formatDate(patient.birthday)} ({calculateAge(patient.birthday)} y)</>
                   } • ID: {patient.patientNumber}
                 </p>
+                {riskPopoverOpenAt === "preop" && riskForChip && (
+                  <div className="absolute z-50 top-full mt-2 left-0">
+                    <RiskBreakdownPopover risk={riskForChip} ambulant={ambulantForChip} />
+                  </div>
+                )}
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   {patient.phone && (
                     <a href={`tel:${patient.phone}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1" data-testid="text-preop-patient-phone">
