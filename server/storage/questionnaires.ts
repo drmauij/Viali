@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, ne, desc, asc, isNull, inArray, gt, or } from "drizzle-orm";
+import { eq, and, ne, desc, asc, isNull, isNotNull, inArray, gt, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { ensurePatientHospitalLink } from "../utils/patientHospitalLink";
 import {
@@ -243,6 +243,30 @@ export async function getQuestionnaireResponseByLinkId(linkId: string): Promise<
     .from(patientQuestionnaireResponses)
     .where(eq(patientQuestionnaireResponses.linkId, linkId));
   return response;
+}
+
+export async function getLatestQuestionnaireResponseForPatient(
+  patientId: string,
+): Promise<PatientQuestionnaireResponse | undefined> {
+  const rows = await db
+    .select({ response: patientQuestionnaireResponses })
+    .from(patientQuestionnaireResponses)
+    .innerJoin(
+      patientQuestionnaireLinks,
+      eq(patientQuestionnaireResponses.linkId, patientQuestionnaireLinks.id),
+    )
+    .where(
+      and(
+        eq(patientQuestionnaireLinks.patientId, patientId),
+        // Drafts (NULL submittedAt) must not mask a real submission. Postgres
+        // ORDER BY DESC defaults to NULLS FIRST, so an in-progress draft would
+        // outrank an older submitted response without this filter.
+        isNotNull(patientQuestionnaireResponses.submittedAt),
+      ),
+    )
+    .orderBy(desc(patientQuestionnaireResponses.submittedAt))
+    .limit(1);
+  return rows[0]?.response;
 }
 
 export async function updateQuestionnaireResponse(id: string, updates: Partial<PatientQuestionnaireResponse>): Promise<PatientQuestionnaireResponse> {

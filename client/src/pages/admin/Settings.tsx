@@ -1020,6 +1020,21 @@ export default function SettingsPage() {
                     {t("common.save")}
                   </Button>
                 </div>
+
+                <div className="mt-6 pt-4 border-t border-border">
+                  <h4 className="text-sm font-medium mb-2">
+                    {t("admin.clinicalScoring", "Clinical Scoring")}
+                  </h4>
+                  <a
+                    href="/risk-methodology"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-500 hover:underline"
+                    data-testid="link-risk-methodology"
+                  >
+                    {t("admin.riskMethodologyLink", "Methodology — Perioperative Risk Grade ↗")}
+                  </a>
+                </div>
               </div>
             </TabsContent>
 

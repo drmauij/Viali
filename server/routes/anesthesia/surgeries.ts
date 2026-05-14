@@ -22,7 +22,11 @@ import {
   computeQuickCheckSnapshot,
   deriveQuickCheckInputsFromBody,
 } from "../../scoring/computeAmbulantQuickCheck";
-import { createAuditLog } from "../../storage/anesthesia";
+import {
+  computeRiskSnapshot,
+  recomputeRiskForSurgery,
+} from "../../scoring/computePerioperativeRisk";
+import { createAuditLog, getHospitalAnesthesiaSettings } from "../../storage/anesthesia";
 import { AMBULANT_THRESHOLDS } from "@shared/scoring/thresholds";
 
 /**
@@ -110,6 +114,46 @@ async function applyAmbulantValidation(
     : null;
 
   return null;
+}
+
+const RISK_RELEVANT_FIELDS = ["patientId", "hospitalId", "surgeryRiskClass", "plannedDate", "actualEndTime"] as const;
+
+async function applyPerioperativeRiskRecalc(
+  body: any,
+  existingSurgery: any | null,
+): Promise<void> {
+  // PATCH on cosmetic fields (room moves, status flips, PACU bed) shouldn't trigger
+  // 4 DB reads + a JSONB rewrite. Recompute only when an input that actually feeds
+  // the score is present in the request, or when we're creating a fresh row.
+  if (existingSurgery && !RISK_RELEVANT_FIELDS.some((f) => f in body)) return;
+
+  try {
+    const riskClass = body.surgeryRiskClass ?? existingSurgery?.surgeryRiskClass;
+    if (!riskClass) return;
+    const patientId = body.patientId ?? existingSurgery?.patientId;
+    const hospitalId = body.hospitalId ?? existingSurgery?.hospitalId;
+    if (!patientId || !hospitalId) return;
+
+    const patient = await storage.getPatient(patientId);
+    if (!patient) return;
+
+    const mergedSurgery = { ...(existingSurgery ?? {}), ...body, hospitalId, patientId };
+
+    const assessment = existingSurgery?.id
+      ? await storage.getSurgeryPreOpAssessment(existingSurgery.id).catch(() => null)
+      : null;
+    const questionnaire = await storage.getLatestQuestionnaireResponseForPatient(patientId).catch(() => null);
+
+    const settings = await getHospitalAnesthesiaSettings(hospitalId);
+    const illnessLists = (settings?.illnessLists ?? {}) as Record<string, Array<{ id: string; scoringConcept?: string | null }>>;
+
+    const snapshot = computeRiskSnapshot(patient, mergedSurgery, assessment ?? null, questionnaire ?? null, illnessLists);
+    body.perioperativeRisk = snapshot;
+    body.riskGrade = snapshot.grade;
+  } catch (err) {
+    // Risk grade is a derived UX signal — failure to recompute must never block a surgery write.
+    logger.error("applyPerioperativeRiskRecalc failed:", err);
+  }
 }
 
 const router = Router();
@@ -406,6 +450,8 @@ router.post('/api/anesthesia/surgeries', isAuthenticated, requireSurgeryPlanAcce
     const auditPayload = (req.body as any).__ambulantAuditPayload;
     delete (req.body as any).__ambulantAuditPayload;
 
+    await applyPerioperativeRiskRecalc(req.body, null);
+
     const validatedData = insertSurgerySchema.parse(req.body);
 
     logger.info("Validated surgery data:", JSON.stringify(validatedData, null, 2));
@@ -477,6 +523,8 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
     if (ambulantReject) return res.status(ambulantReject.status).json(ambulantReject.payload);
     const ambulantAudit = (updateData as any).__ambulantAuditPayload;
     delete (updateData as any).__ambulantAuditPayload;
+
+    await applyPerioperativeRiskRecalc(updateData, surgery);
 
     // Patient location is mutually exclusive: a patient is either in the
     // clinic waiting room OR assigned to a PACU bed, never both.
@@ -842,7 +890,11 @@ router.post('/api/surgery/preop', isAuthenticated, requireStrictHospitalAccess, 
     const validatedData = insertSurgeryPreOpAssessmentSchema.parse(req.body);
 
     const newAssessment = await storage.createSurgeryPreOpAssessment(validatedData);
-    
+
+    if (newAssessment.surgeryId) {
+      await recomputeRiskForSurgery(newAssessment.surgeryId);
+    }
+
     res.status(201).json(newAssessment);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -859,7 +911,7 @@ router.patch('/api/surgery/preop/:id', isAuthenticated, requireWriteAccess, asyn
     const userId = req.user.id;
 
     const assessment = await storage.getSurgeryPreOpAssessmentById(id);
-    
+
     if (!assessment) {
       return res.status(404).json({ message: "Surgery pre-op assessment not found" });
     }
@@ -871,13 +923,17 @@ router.patch('/api/surgery/preop/:id', isAuthenticated, requireWriteAccess, asyn
 
     const hospitals = await storage.getUserHospitals(userId);
     const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
+
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
     }
 
     const updatedAssessment = await storage.updateSurgeryPreOpAssessment(id, req.body);
-    
+
+    if (updatedAssessment.surgeryId) {
+      await recomputeRiskForSurgery(updatedAssessment.surgeryId);
+    }
+
     res.json(updatedAssessment);
   } catch (error) {
     logger.error("Error updating surgery pre-op assessment:", error);

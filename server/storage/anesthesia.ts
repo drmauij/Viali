@@ -1135,6 +1135,8 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
   admissionTime: string | null;
   ambulantQuickCheck: unknown;
   hasAmbulantOverride: boolean;
+  riskGrade: string | null;
+  perioperativeRisk: unknown;
 }>> {
   const clinicRoom = alias(surgeryRooms, "clinic_room");
 
@@ -1240,6 +1242,8 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
         admissionTime: null,
         ambulantQuickCheck: (row.surgery as any).ambulantQuickCheck ?? null,
         hasAmbulantOverride: Boolean((row.surgery as any).ambulantOverrideReason),
+        riskGrade: (row.surgery as any).riskGrade ?? null,
+        perioperativeRisk: (row.surgery as any).perioperativeRisk ?? null,
       };
     })
     .filter((item): item is NonNullable<typeof item> => item !== null);
@@ -1324,6 +1328,8 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
         admissionTime: computeAdmissionISO(row.surgery.plannedDate, offsetMinutes),
         ambulantQuickCheck: (row.surgery as any).ambulantQuickCheck ?? null,
         hasAmbulantOverride: Boolean((row.surgery as any).ambulantOverrideReason),
+        riskGrade: (row.surgery as any).riskGrade ?? null,
+        perioperativeRisk: (row.surgery as any).perioperativeRisk ?? null,
       };
     });
 

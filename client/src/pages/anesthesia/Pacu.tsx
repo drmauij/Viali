@@ -16,7 +16,10 @@ import { formatTime as formatTimeUtil } from "@/lib/dateUtils";
 import { usePacuVitals } from "@/hooks/usePacuVitals";
 import { PacuVitalsCard } from "@/components/anesthesia/PacuVitalsCard";
 import { AmbulantEligibilityBadge } from "@/components/anesthesia/AmbulantEligibilityBadge";
+import { RiskChip } from "@/components/anesthesia/RiskChip";
+import { RiskBreakdownPopover, type AmbulantSummary } from "@/components/anesthesia/RiskBreakdownPopover";
 import type { EligibilityResult } from "@shared/scoring/types";
+import type { PerioperativeRiskResult } from "@shared/scoring/perioperativeRisk";
 
 type PacuPatient = {
   anesthesiaRecordId: string;
@@ -37,6 +40,7 @@ type PacuPatient = {
   admissionTime?: string | null;
   ambulantQuickCheck?: EligibilityResult | null;
   hasAmbulantOverride?: boolean;
+  perioperativeRisk?: PerioperativeRiskResult | null;
 };
 
 interface SurgeryRoom {
@@ -66,6 +70,14 @@ function PacuPatientCard({
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
   const [open, setOpen] = useState(false);
+  const [riskPopoverOpen, setRiskPopoverOpen] = useState(false);
+  const ambulantForChip: AmbulantSummary | null = patient.ambulantQuickCheck
+    ? {
+        decision: patient.ambulantQuickCheck.decision,
+        hardExclusions: patient.ambulantQuickCheck.hardExclusions ?? [],
+        yellowFactors: patient.ambulantQuickCheck.yellowFactors ?? [],
+      }
+    : null;
 
   const { data: allRooms = [] } = useQuery<SurgeryRoom[]>({
     queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
@@ -127,7 +139,7 @@ function PacuPatientCard({
           className="flex-1 cursor-pointer min-w-0"
           onClick={onNavigate}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative">
             {patient.sex === "M" ? (
               <UserCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
             ) : patient.sex === "F" ? (
@@ -138,10 +150,25 @@ function PacuPatientCard({
             <h3 className="font-semibold text-lg truncate" data-testid={`text-patient-name-${patient.surgeryId}`}>
               {patient.patientName}
             </h3>
+            {patient.perioperativeRisk && (
+              <span onClick={(e) => e.stopPropagation()}>
+                <RiskChip
+                  grade={patient.perioperativeRisk.grade}
+                  worstDomain={patient.perioperativeRisk.worstDomain}
+                  size="sm"
+                  onClick={() => setRiskPopoverOpen((v) => !v)}
+                />
+              </span>
+            )}
             {patient.status === 'pre_op' && (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 flex-shrink-0">
                 {t('anesthesia.pacu.preOp')}
               </span>
+            )}
+            {riskPopoverOpen && patient.perioperativeRisk && (
+              <div className="absolute z-50 top-full mt-2 left-0" onClick={(e) => e.stopPropagation()}>
+                <RiskBreakdownPopover risk={patient.perioperativeRisk} ambulant={ambulantForChip} />
+              </div>
             )}
           </div>
           <p className="text-sm text-muted-foreground" data-testid={`text-dob-${patient.surgeryId}`}>
