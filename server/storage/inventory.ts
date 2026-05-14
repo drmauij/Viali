@@ -618,40 +618,26 @@ export async function createAdministrationGroup(group: InsertAdministrationGroup
 }
 
 export async function updateAdministrationGroup(id: string, updates: { name: string }): Promise<AdministrationGroup> {
-  const [oldGroup] = await db
-    .select()
-    .from(administrationGroups)
-    .where(eq(administrationGroups.id, id));
-  
+  // medication_configs.administration_group stores the group UUID (migration
+  // 0246), so renaming the display name leaves all references intact — no
+  // cascading update is needed.
   const [updatedGroup] = await db
     .update(administrationGroups)
     .set({ name: updates.name })
     .where(eq(administrationGroups.id, id))
     .returning();
-  
-  if (oldGroup && oldGroup.name !== updates.name) {
-    await db
-      .update(medicationConfigs)
-      .set({ administrationGroup: updates.name })
-      .where(eq(medicationConfigs.administrationGroup, oldGroup.name));
-  }
-  
+
   return updatedGroup;
 }
 
 export async function deleteAdministrationGroup(id: string): Promise<void> {
-  const [group] = await db
-    .select()
-    .from(administrationGroups)
-    .where(eq(administrationGroups.id, id));
-  
-  if (group) {
-    await db
-      .update(medicationConfigs)
-      .set({ administrationGroup: null })
-      .where(eq(medicationConfigs.administrationGroup, group.name));
-  }
-  
+  // Null out the FK on related medication_configs (matched by UUID, not name —
+  // see migration 0246) so deleted groups don't leave orphan references.
+  await db
+    .update(medicationConfigs)
+    .set({ administrationGroup: null })
+    .where(eq(medicationConfigs.administrationGroup, id));
+
   await db
     .delete(administrationGroups)
     .where(eq(administrationGroups.id, id));

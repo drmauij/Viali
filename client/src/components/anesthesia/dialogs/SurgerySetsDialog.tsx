@@ -126,13 +126,14 @@ export function SurgerySetsDialog({
     enabled: open && !!hospitalId,
   });
 
-  const orItemsByGroup = useMemo(() => {
+  // item.administrationGroup stores administration_groups.id (the FK UUID).
+  const orItemsByGroupId = useMemo(() => {
     const map: Record<string, any[]> = {};
     for (const item of orConfiguredItems) {
-      const groupName = item.administrationGroup;
-      if (!groupName) continue;
-      if (!map[groupName]) map[groupName] = [];
-      map[groupName].push(item);
+      const groupId = item.administrationGroup;
+      if (!groupId) continue;
+      if (!map[groupId]) map[groupId] = [];
+      map[groupId].push(item);
     }
     return map;
   }, [orConfiguredItems]);
@@ -624,7 +625,7 @@ export function SurgerySetsDialog({
                   </div>
                 ) : (
                   orGroups.map((group: any) => {
-                    const groupItems = orItemsByGroup[group.name] || [];
+                    const groupItems = orItemsByGroupId[group.id] || [];
                     if (groupItems.length === 0) return null;
                     return (
                       <div key={group.id} className="space-y-1.5">
