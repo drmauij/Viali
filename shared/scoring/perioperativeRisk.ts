@@ -18,3 +18,11 @@ export interface PerioperativeRiskResult {
   partial: boolean;
   calculatedAt: string;
 }
+
+import type { RcriResult } from "./types";
+
+export function cardiacBandFromRcri(category: RcriResult["category"]): DomainBand {
+  if (category === "high") return "high";
+  if (category === "moderate") return "med";
+  return "low";
+}
