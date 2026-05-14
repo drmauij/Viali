@@ -78,6 +78,44 @@ describe("deriveRiskInputsFromRecords", () => {
     expect(inputs.functionallyDependent).toBeNull();
   });
 
+  it("leaves metAbove4 null when neither assessment nor questionnaire reports it", () => {
+    const patient = { birthday: fortyYearsAgoIso(), sex: "F" };
+    const { inputs } = deriveRiskInputsFromRecords(patient, { surgeryRiskClass: "minor" }, null, null, ILLNESS_LISTS);
+    expect(inputs.metAbove4).toBeNull();
+  });
+
+  it("prefers assessment.functionallyDependent over questionnaire", () => {
+    const patient = { birthday: fortyYearsAgoIso(), sex: "F" };
+    const assessment = { functionallyDependent: false };
+    const questionnaire = { functionallyDependent: true };
+    const { inputs } = deriveRiskInputsFromRecords(patient, { surgeryRiskClass: "minor" }, assessment, questionnaire, ILLNESS_LISTS);
+    expect(inputs.functionallyDependent).toBe(false);
+  });
+
+  it("falls back to questionnaire.functionallyDependent when assessment lacks it", () => {
+    const patient = { birthday: fortyYearsAgoIso(), sex: "F" };
+    const assessment = { heartIllnesses: {} };
+    const questionnaire = { functionallyDependent: true };
+    const { inputs } = deriveRiskInputsFromRecords(patient, { surgeryRiskClass: "minor" }, assessment, questionnaire, ILLNESS_LISTS);
+    expect(inputs.functionallyDependent).toBe(true);
+  });
+
+  it("prefers assessment.metAbove4 over questionnaire", () => {
+    const patient = { birthday: fortyYearsAgoIso(), sex: "F" };
+    const assessment = { metAbove4: true };
+    const questionnaire = { metAbove4: false };
+    const { inputs } = deriveRiskInputsFromRecords(patient, { surgeryRiskClass: "minor" }, assessment, questionnaire, ILLNESS_LISTS);
+    expect(inputs.metAbove4).toBe(true);
+  });
+
+  it("falls back to questionnaire.metAbove4 when assessment lacks it", () => {
+    const patient = { birthday: fortyYearsAgoIso(), sex: "F" };
+    const assessment = { heartIllnesses: {} };
+    const questionnaire = { metAbove4: false };
+    const { inputs } = deriveRiskInputsFromRecords(patient, { surgeryRiskClass: "minor" }, assessment, questionnaire, ILLNESS_LISTS);
+    expect(inputs.metAbove4).toBe(false);
+  });
+
   it("resolves concept booleans through findConcept on the configured illness lists", () => {
     const patient = { birthday: fortyYearsAgoIso(), sex: "M" };
     const assessment = {

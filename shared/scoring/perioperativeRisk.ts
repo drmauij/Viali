@@ -58,6 +58,7 @@ export interface PerioperativeRiskInputs {
   plannedDurationMinutes: number;
   isCurrentSmoker: boolean;
   functionallyDependent: boolean | null;
+  metAbove4: boolean | null;
   concepts: {
     CAD: boolean; CHF: boolean; STROKE_HISTORY: boolean; INSULIN_DIABETES: boolean;
     CKD_OR_DIALYSIS: boolean; COPD: boolean; HYPERTENSION: boolean; ACTIVE_CANCER: boolean;
@@ -112,8 +113,15 @@ export function calculatePerioperativeRisk(i: PerioperativeRiskInputs): Perioper
     functionallyDependent: i.functionallyDependent,
   });
 
+  const cardiacBaseBand = cardiacBandFromRcri(rcri.category);
+  const cardiacBumped = i.metAbove4 === false && cardiacBaseBand !== "high";
+  const cardiacBand: DomainBand = cardiacBumped
+    ? (cardiacBaseBand === "low" ? "med" : "high")
+    : cardiacBaseBand;
+  const cardiacSource = `RCRI ${rcri.score} pt${cardiacBumped ? " + MET<4" : ""}`;
+
   const domains: Record<DomainKey, DomainResult> = {
-    cardiac:   { band: cardiacBandFromRcri(rcri.category), score: rcri.score, source: "RCRI" },
+    cardiac:   { band: cardiacBand, score: rcri.score, source: cardiacSource },
     vte:       { band: vteBandFromCaprini(caprini.category), score: caprini.score, source: "Caprini" },
     pulmonary: { band: pulm.band, source: pulm.source },
     frailty:   { band: mfi.band, score: mfi.score, source: mfi.source, partial: mfi.partial },
@@ -148,7 +156,7 @@ export function calculatePerioperativeRisk(i: PerioperativeRiskInputs): Perioper
     ageModifier,
     grade,
     drivers,
-    partial: Object.values(domains).some((d) => d.partial === true),
+    partial: Object.values(domains).some((d) => d.partial === true) || i.metAbove4 === null,
     calculatedAt: new Date().toISOString(),
   };
 }

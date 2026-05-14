@@ -1995,10 +1995,14 @@ export const preOpAssessments = pgTable("preop_assessments", {
   
   // CAVE notes (allergies now managed exclusively in patients table)
   cave: text("cave"),
-  
+
   // Classification
   asa: varchar("asa"),
   specialNotes: text("special_notes"),
+
+  // Functional capacity (perioperative risk inputs)
+  metAbove4: boolean("met_above_4"),
+  functionallyDependent: boolean("functionally_dependent"),
   
   // Medications (JSONB arrays for flexibility)
   anticoagulationMeds: text("anticoagulation_meds").array(),
@@ -2148,6 +2152,10 @@ export const surgeryPreOpAssessments = pgTable("surgery_preop_assessments", {
   // CAVE notes
   cave: text("cave"),
   specialNotes: text("special_notes"),
+
+  // Functional capacity (clinical risk inputs)
+  metAbove4: boolean("met_above_4"),
+  functionallyDependent: boolean("functionally_dependent"),
   
   // Allergies (from hospital's anesthesia settings allergyList)
   allergies: text("allergies").array(),
@@ -4624,6 +4632,7 @@ export const patientQuestionnaireResponses = pgTable("patient_questionnaire_resp
   submittedAt: timestamp("submitted_at"),
   createdAt: timestamp("created_at").defaultNow(),
   functionallyDependent: boolean("functionally_dependent"),
+  metAbove4: boolean("met_above_4"),
 }, (table) => [
   foreignKey({
     columns: [table.linkId],

@@ -20,6 +20,7 @@ import { AMBULANT_THRESHOLDS } from "@shared/scoring/thresholds";
 import type { FullAssessmentInputs, SurgeryRiskClass } from "@shared/scoring/types";
 import { findConcept } from "@shared/scoring/findConcept";
 import { createAuditLog, getHospitalAnesthesiaSettings } from "../../storage/anesthesia";
+import { recomputeRiskForSurgery } from "../../scoring/computePerioperativeRisk";
 
 /**
  * Recompute the full ambulant assessment server-side and write it into the
@@ -352,6 +353,10 @@ router.post('/api/anesthesia/preop', isAuthenticated, requireStrictHospitalAcces
       await createAuditLog({ ...ambulantAudit, recordId: newAssessment.id });
     }
 
+    if (newAssessment.surgeryId) {
+      await recomputeRiskForSurgery(newAssessment.surgeryId);
+    }
+
     res.status(201).json(newAssessment);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -436,6 +441,10 @@ router.patch('/api/anesthesia/preop/:id', isAuthenticated, requireStrictHospital
 
     if (ambulantAudit) {
       await createAuditLog({ ...ambulantAudit, recordId: updatedAssessment.id });
+    }
+
+    if (updatedAssessment.surgeryId) {
+      await recomputeRiskForSurgery(updatedAssessment.surgeryId);
     }
 
     res.json(updatedAssessment);

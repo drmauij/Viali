@@ -100,9 +100,16 @@ export function deriveRiskInputsFromRecords(
     surgeryRiskClass: (surgery.surgeryRiskClass ?? "minor") as SurgeryRiskClass,
     plannedDurationMinutes: plannedMinutesFromSurgery(surgery),
     isCurrentSmoker: isCurrentSmokerFromSources(assessment, questionnaire),
-    functionallyDependent: typeof questionnaire?.functionallyDependent === "boolean"
-      ? questionnaire.functionallyDependent
-      : null,
+    functionallyDependent: typeof assessment?.functionallyDependent === "boolean"
+      ? assessment.functionallyDependent
+      : typeof questionnaire?.functionallyDependent === "boolean"
+        ? questionnaire.functionallyDependent
+        : null,
+    metAbove4: typeof assessment?.metAbove4 === "boolean"
+      ? assessment.metAbove4
+      : typeof questionnaire?.metAbove4 === "boolean"
+        ? questionnaire.metAbove4
+        : null,
     concepts: {
       CAD: find(heart, cardio, "CAD"),
       CHF: find(heart, cardio, "CHF"),
@@ -165,7 +172,14 @@ export async function recomputeRiskForSurgery(surgeryId: string): Promise<void> 
     if (!patient) return;
     const settings = await getHospitalAnesthesiaSettings(surgery.hospitalId);
     const illnessLists = (settings?.illnessLists ?? {}) as IllnessLists;
-    const assessment = await storage.getSurgeryPreOpAssessment(surgeryId).catch(() => null);
+    // Both anesthesia (`preop_assessments`) and surgery (`surgery_preop_assessments`) forms
+    // share the same surgeryId; anesthesia is the comprehensive form. Merge so risk
+    // inputs prefer the more complete row when both exist.
+    const surgeryAssessment = await storage.getSurgeryPreOpAssessment(surgeryId).catch(() => null);
+    const anesthesiaAssessment = await storage.getPreOpAssessment(surgeryId).catch(() => null);
+    const assessment = anesthesiaAssessment || surgeryAssessment
+      ? { ...(surgeryAssessment ?? {}), ...(anesthesiaAssessment ?? {}) }
+      : null;
     const questionnaire = await storage.getLatestQuestionnaireResponseForPatient(surgery.patientId).catch(() => null);
     const snapshot = computeRiskSnapshot(patient, surgery, assessment ?? null, questionnaire ?? null, illnessLists);
     await db

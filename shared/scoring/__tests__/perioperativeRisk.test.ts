@@ -61,6 +61,7 @@ describe("calculatePerioperativeRisk — aggregation", () => {
     plannedDurationMinutes: 60,
     isCurrentSmoker: false,
     functionallyDependent: false,
+    metAbove4: true,
     concepts: { CAD: false, CHF: false, STROKE_HISTORY: false, INSULIN_DIABETES: false, CKD_OR_DIALYSIS: false, COPD: false, HYPERTENSION: false, ACTIVE_CANCER: false, VTE_HISTORY: false, VARICOSE_VEINS: false, LEG_SWELLING: false, FAMILY_THROMBOPHILIA: false, OC_OR_HRT: false, PREGNANCY_OR_POSTPARTUM: false, RECENT_STROKE_30D: false, SPINAL_CORD_INJURY: false, KNOWN_UNTREATED_OSAS: false, PONV_HISTORY: false },
   };
 
@@ -130,6 +131,43 @@ describe("calculatePerioperativeRisk — aggregation", () => {
 
   it("partial flag propagates from mFI-5 when functionallyDependent is null", () => {
     const r = calculatePerioperativeRisk({ ...baseInputs, functionallyDependent: null as any });
+    expect(r.partial).toBe(true);
+  });
+
+  it("MET<4 bumps cardiac low -> med", () => {
+    const r = calculatePerioperativeRisk({ ...baseInputs, metAbove4: false });
+    expect(r.domains.cardiac.band).toBe("med");
+    expect(r.domains.cardiac.source).toMatch(/MET<4/);
+  });
+
+  it("MET<4 bumps cardiac med -> high (one RCRI risk factor)", () => {
+    const r = calculatePerioperativeRisk({
+      ...baseInputs,
+      metAbove4: false,
+      concepts: { ...baseInputs.concepts, CAD: true },
+    });
+    expect(r.domains.cardiac.band).toBe("high");
+    expect(r.domains.cardiac.source).toMatch(/MET<4/);
+  });
+
+  it("MET<4 leaves cardiac high as high (no bump above high)", () => {
+    const r = calculatePerioperativeRisk({
+      ...baseInputs,
+      metAbove4: false,
+      concepts: { ...baseInputs.concepts, CAD: true, CHF: true, STROKE_HISTORY: true },
+    });
+    expect(r.domains.cardiac.band).toBe("high");
+    expect(r.domains.cardiac.source).not.toMatch(/MET<4/);
+  });
+
+  it("MET=true does not bump cardiac band", () => {
+    const r = calculatePerioperativeRisk({ ...baseInputs, metAbove4: true });
+    expect(r.domains.cardiac.band).toBe("low");
+    expect(r.domains.cardiac.source).not.toMatch(/MET<4/);
+  });
+
+  it("metAbove4 === null produces partial=true", () => {
+    const r = calculatePerioperativeRisk({ ...baseInputs, metAbove4: null });
     expect(r.partial).toBe(true);
   });
 });
