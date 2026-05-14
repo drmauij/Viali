@@ -80,6 +80,7 @@ export default function TimelineWeekView({
   selectedDate,
   closures = [],
   onEventClick,
+  onEventDrop,
   onCanvasClick,
   onSlotSelect,
   onDayClick,
@@ -89,10 +90,29 @@ export default function TimelineWeekView({
 }: TimelineWeekViewProps) {
   const { t, i18n } = useTranslation();
   
-  // Drag selection state
+  // Drag selection state (for drag-on-empty-canvas to open new-surgery dialog)
   const [dragState, setDragState] = useState<DragState | null>(null);
   const isDraggingRef = useRef(false);
   const dragStateRef = useRef<DragState | null>(null);
+
+  // Drag/resize of an EXISTING surgery tile — separate from the new-slot drag.
+  type SurgeryDragMode = 'move' | 'resize-top' | 'resize-bottom';
+  interface SurgeryDragInfo {
+    mode: SurgeryDragMode;
+    surgeryId: string;
+    originalStart: Date;
+    originalEnd: Date;
+    originalRoomId: string;
+    originalDayIdx: number;
+    startClientY: number;
+    previewStart: Date;
+    previewEnd: Date;
+    previewDayIdx: number;
+    moved: boolean;
+  }
+  const [surgeryDrag, setSurgeryDrag] = useState<SurgeryDragInfo | null>(null);
+  const surgeryDragRef = useRef<SurgeryDragInfo | null>(null);
+  const dayColumnRefs = useRef<Array<HTMLDivElement | null>>([]);
   
   // No locale setup needed — date-fns uses explicit locale params where needed
   
@@ -568,6 +588,111 @@ export default function TimelineWeekView({
     };
   }, [handleMouseUp]);
 
+  // Begin a move/resize gesture on an existing surgery tile.
+  const beginSurgeryDrag = useCallback((
+    e: React.MouseEvent<HTMLDivElement>,
+    surgery: any,
+    mode: SurgeryDragMode,
+    dayIdx: number,
+  ) => {
+    if (!onEventDrop) return;
+    if (surgery.isSuspended || surgery.status === 'cancelled') return;
+    if (surgery.plannedSurgery === '__ROOM_BLOCK__') return;
+    if (!surgery.patientId) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const start = new Date(surgery.plannedDate);
+    const end = surgery.actualEndTime
+      ? new Date(surgery.actualEndTime)
+      : new Date(start.getTime() + 60 * 60000);
+    const info: SurgeryDragInfo = {
+      mode,
+      surgeryId: surgery.id,
+      originalStart: start,
+      originalEnd: end,
+      originalRoomId: surgery.surgeryRoomId ?? surgeryRooms[0]?.id ?? '',
+      originalDayIdx: dayIdx,
+      startClientY: e.clientY,
+      previewStart: start,
+      previewEnd: end,
+      previewDayIdx: dayIdx,
+      moved: false,
+    };
+    surgeryDragRef.current = info;
+    setSurgeryDrag(info);
+  }, [onEventDrop, surgeryRooms]);
+
+  // Global listeners while a surgery drag is in flight.
+  useEffect(() => {
+    if (!surgeryDrag) return;
+    const snap = (date: Date) => {
+      const ms = date.getTime();
+      const slot = SLOT_MINUTES * 60000;
+      return new Date(Math.round(ms / slot) * slot);
+    };
+    const onMove = (ev: MouseEvent) => {
+      const drag = surgeryDragRef.current;
+      if (!drag) return;
+      const deltaY = ev.clientY - drag.startClientY;
+      const deltaSlots = Math.round(deltaY / SLOT_HEIGHT);
+      const deltaMinutes = deltaSlots * SLOT_MINUTES;
+
+      let newDayIdx = drag.originalDayIdx;
+      if (drag.mode === 'move') {
+        for (let i = 0; i < dayColumnRefs.current.length; i++) {
+          const col = dayColumnRefs.current[i];
+          if (!col) continue;
+          const r = col.getBoundingClientRect();
+          if (ev.clientX >= r.left && ev.clientX <= r.right) {
+            newDayIdx = i;
+            break;
+          }
+        }
+      }
+
+      const dayShiftMs = (newDayIdx - drag.originalDayIdx) * 86400 * 1000;
+      let newStart = drag.previewStart;
+      let newEnd = drag.previewEnd;
+
+      if (drag.mode === 'move') {
+        newStart = snap(new Date(drag.originalStart.getTime() + deltaMinutes * 60000 + dayShiftMs));
+        const duration = drag.originalEnd.getTime() - drag.originalStart.getTime();
+        newEnd = new Date(newStart.getTime() + duration);
+      } else if (drag.mode === 'resize-top') {
+        newStart = snap(new Date(drag.originalStart.getTime() + deltaMinutes * 60000));
+        if (newStart.getTime() >= drag.originalEnd.getTime() - SLOT_MINUTES * 60000) {
+          newStart = new Date(drag.originalEnd.getTime() - SLOT_MINUTES * 60000);
+        }
+      } else if (drag.mode === 'resize-bottom') {
+        newEnd = snap(new Date(drag.originalEnd.getTime() + deltaMinutes * 60000));
+        if (newEnd.getTime() <= drag.originalStart.getTime() + SLOT_MINUTES * 60000) {
+          newEnd = new Date(drag.originalStart.getTime() + SLOT_MINUTES * 60000);
+        }
+      }
+
+      const moved =
+        newStart.getTime() !== drag.originalStart.getTime() ||
+        newEnd.getTime() !== drag.originalEnd.getTime() ||
+        newDayIdx !== drag.originalDayIdx;
+      const next: SurgeryDragInfo = { ...drag, previewStart: newStart, previewEnd: newEnd, previewDayIdx: newDayIdx, moved };
+      surgeryDragRef.current = next;
+      setSurgeryDrag(next);
+    };
+    const onUp = () => {
+      const drag = surgeryDragRef.current;
+      surgeryDragRef.current = null;
+      setSurgeryDrag(null);
+      if (!drag || !drag.moved || !onEventDrop) return;
+      onEventDrop(drag.surgeryId, drag.previewStart, drag.previewEnd, drag.originalRoomId);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [surgeryDrag, onEventDrop]);
+
   const MIN_COL_WIDTH = 140;
 
   return (
@@ -626,6 +751,7 @@ export default function TimelineWeekView({
             return (
               <div
                 key={dayIdx}
+                ref={(el) => { dayColumnRefs.current[dayIdx] = el; }}
                 className={cn(
                   "flex-1 border-r relative",
                   isToday(day) && "bg-primary/5",
@@ -711,12 +837,27 @@ export default function TimelineWeekView({
 
                   const isOwnSurgeon = !!surgeonFilter && surgery.surgeonId === surgeonFilter;
                   const isOtherSurgeon = !!surgeonFilter && !isOwnSurgeon;
+                  const isDraggable = !!onEventDrop && !isRoomBlock && !isSlotReservation && !surgery.isSuspended && surgery.status !== 'cancelled';
+
+                  // Override visual position while this tile is being dragged within the same day.
+                  let displayTop = top;
+                  let displayHeight = Math.max(height - 2, 28);
+                  const isBeingDragged = surgeryDrag?.surgeryId === surgery.id;
+                  if (isBeingDragged && surgeryDrag && surgeryDrag.previewDayIdx === dayIdx) {
+                    const businessStartMin = BUSINESS_HOUR_START * 60;
+                    const startMin = surgeryDrag.previewStart.getHours() * 60 + surgeryDrag.previewStart.getMinutes();
+                    const offsetSlots = (startMin - businessStartMin) / SLOT_MINUTES;
+                    displayTop = offsetSlots * SLOT_HEIGHT;
+                    const durationMin = (surgeryDrag.previewEnd.getTime() - surgeryDrag.previewStart.getTime()) / 60000;
+                    displayHeight = Math.max((durationMin / SLOT_MINUTES) * SLOT_HEIGHT - 2, 12);
+                  }
 
                   return (
                     <div
                       key={surgery.id}
                       className={cn(
-                        "absolute px-1 py-0.5 overflow-hidden cursor-pointer transition-all hover:shadow-md hover:z-10",
+                        "absolute px-1 py-0.5 overflow-hidden transition-all hover:shadow-md hover:z-10",
+                        isDraggable ? "cursor-move" : "cursor-pointer",
                         // Room blocks and slot reservations: no left border accent (use full border from getStatusClass)
                         !isRoomBlock && !isSlotReservation && "border-l-4",
                         getHeatmapClass(surgery) ?? getStatusClass(surgery),
@@ -726,9 +867,26 @@ export default function TimelineWeekView({
                         qDot && !isRoomBlock && !isSlotReservation && !heatmapEnabled && "pr-3",
                         isOwnSurgeon && "!bg-amber-500 dark:!bg-amber-700 !border-amber-600 dark:!border-amber-800 !text-white ring-2 ring-yellow-400 ring-inset z-10",
                         isOtherSurgeon && "opacity-70 grayscale-[0.5]",
+                        isBeingDragged && "opacity-70 ring-2 ring-primary z-20",
                       )}
-                      style={{ top, height: Math.max(height - 2, 28), left, right, width, ...getRoomBlockStyle(surgery) }}
-                      onClick={() => onEventClick?.(surgery.id, surgery.patientId)}
+                      style={{ top: displayTop, height: displayHeight, left, right, width, ...getRoomBlockStyle(surgery) }}
+                      onMouseDown={isDraggable ? (e) => {
+                        // Skip if the user clicked the right mouse button.
+                        if (e.button !== 0) return;
+                        const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                        const localY = e.clientY - rect.top;
+                        const EDGE = 6;
+                        const mode: SurgeryDragMode =
+                          localY < EDGE ? 'resize-top' :
+                          localY > rect.height - EDGE ? 'resize-bottom' :
+                          'move';
+                        beginSurgeryDrag(e, surgery, mode, dayIdx);
+                      } : undefined}
+                      onClick={(e) => {
+                        // Suppress click immediately after a drag that actually moved.
+                        if (surgeryDragRef.current?.moved) return;
+                        onEventClick?.(surgery.id, surgery.patientId);
+                      }}
                       title={
                         isRoomBlock
                           ? `${startTime} - ${t('opCalendar.roomBlocked', 'BLOCKED')}\n${roomName}${surgery.notes ? `\n${surgery.notes}` : ''}`
