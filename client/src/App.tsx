@@ -103,6 +103,7 @@ const ChainFlowCreate = React.lazy(() => import("@/pages/chain/FlowCreate"));
 const ChainLocations = React.lazy(() => import("@/pages/chain/Locations"));
 const ChainTeam = React.lazy(() => import("@/pages/chain/Team"));
 const ContractTemplates = React.lazy(() => import("@/pages/business/ContractTemplates"));
+const RiskMethodology = React.lazy(() => import("@/pages/RiskMethodology"));
 
 function PageLoader() {
   return (
@@ -340,6 +341,10 @@ function Router() {
               <Route path="/anesthesia/schedule">{() => <ProtectedRoute requireAnesthesia><OpList /></ProtectedRoute>}</Route>
               <Route path="/anesthesia/clinical">{() => <ProtectedRoute requireAnesthesia><ClinicalDashboard /></ProtectedRoute>}</Route>
               <Route path="/anesthesia/questionnaires">{() => <ProtectedRoute requireAnesthesia><QuestionnaireReviews /></ProtectedRoute>}</Route>
+              {/* Clinical reference: perioperative risk-grade methodology. Available
+                  to any authenticated staff member; opens in a new tab from the risk
+                  popover and the admin Regional Preferences sub-tab. */}
+              <Route path="/risk-methodology">{() => <ProtectedRoute><RiskMethodology /></ProtectedRoute>}</Route>
               {/* Surgery Module - requires surgery unit access */}
               <Route path="/surgery">{() => <ProtectedRoute requireSurgery><OpList /></ProtectedRoute>}</Route>
               <Route path="/surgery/appointments">{() => <ProtectedRoute requireSurgery><ClinicAppointments /></ProtectedRoute>}</Route>
