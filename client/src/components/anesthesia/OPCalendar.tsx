@@ -1180,9 +1180,10 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     // risk color for normal surgeries so the grade is the dominant signal.
     // Room blocks, suspensions, cancellations, slot reservations, and
     // own/other-surgeon distinctions still win — they carry their own meaning.
+    // When the calculator ran with insufficient data (partial flag set and
+    // zero real findings), the tile renders gray instead of misleadingly green.
     if (
       heatmapEnabled &&
-      event.riskGrade &&
       !isRoomBlockEvent &&
       !isSlotReservationEvent &&
       !event.isSuspended &&
@@ -1190,7 +1191,12 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
       !isOwnSurgery &&
       !isOtherSurgery
     ) {
-      if (event.riskGrade === 'red') {
+      const risk: any = event.perioperativeRisk;
+      const hasRealData = !!event.riskGrade && !!risk && !(risk.partial && (!risk.drivers || risk.drivers.length === 0));
+      if (!hasRealData) {
+        backgroundColor = isDark ? '#52525b' : '#71717a'; // zinc-600 / zinc-500
+        borderColor = isDark ? '#3f3f46' : '#52525b';
+      } else if (event.riskGrade === 'red') {
         backgroundColor = isDark ? '#991b1b' : '#dc2626';
         borderColor = isDark ? '#7f1d1d' : '#b91c1c';
       } else if (event.riskGrade === 'orange') {
@@ -1294,16 +1300,23 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     const isSlotReservationEvt = !event.patientId;
     const isRoomBlockEvt = !!event.isRoomBlock;
     const qDot = getQuestionnaireDot(event.questionnaireStatus, preOpStatus.key);
-    // Inner accent class — kept for the `heatmap-{grade}` marker (used by the
-    // month-view dot test + a CSS hook) and a left-edge stripe that survives
-    // when the tile bg is overridden by other states (cancelled/suspended).
-    const heatmapClass = heatmapEnabled && event.riskGrade
+    // Inner accent class — the `heatmap-{grade}` marker doubles as a CSS hook
+    // and a left-edge stripe that stays visible when the tile bg is overridden
+    // by other states (cancelled / suspended / own-surgery amber). When the
+    // calculator ran with insufficient data, the stripe goes gray so it never
+    // contradicts the gray "NOT DEFINED" tile background.
+    const heatmapRisk: any = event.perioperativeRisk;
+    const heatmapHasRealData = heatmapEnabled && !!event.riskGrade && !!heatmapRisk &&
+      !(heatmapRisk.partial && (!heatmapRisk.drivers || heatmapRisk.drivers.length === 0));
+    const heatmapClass = heatmapHasRealData
       ? event.riskGrade === "red"
         ? "heatmap-red border-l-4 border-red-500"
         : event.riskGrade === "orange"
           ? "heatmap-orange border-l-4 border-orange-500"
           : "heatmap-green border-l-4 border-green-500"
-      : "";
+      : heatmapEnabled
+        ? "heatmap-gray border-l-4 border-zinc-500"
+        : "";
 
     // Build a rich native tooltip for the surgery card
     const tooltipLines: string[] = [];
@@ -1388,13 +1401,22 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
           </>
         ) : (
           <>
-            <div className={`flex items-center gap-1 min-w-0 ${qDot && !heatmapEnabled ? 'pr-4' : ''}`}>
-              <div className={`font-bold text-[10px] sm:text-xs leading-tight truncate flex-1 ${event.isCancelled ? 'line-through' : ''}`}>
-                {event.plannedSurgery}
+            {heatmapEnabled && (
+              <div className="-mt-0.5 mb-0.5">
+                <RiskChip
+                  grade={event.riskGrade ?? undefined}
+                  worstDomain={event.perioperativeRisk?.worstDomain}
+                  compact
+                  insufficient={
+                    !event.riskGrade ||
+                    !event.perioperativeRisk ||
+                    (event.perioperativeRisk.partial === true && (event.perioperativeRisk.drivers?.length ?? 0) === 0)
+                  }
+                />
               </div>
-              {heatmapEnabled && event.riskGrade && event.perioperativeRisk && (
-                <RiskChip grade={event.riskGrade} worstDomain={event.perioperativeRisk.worstDomain} compact />
-              )}
+            )}
+            <div className={`font-bold text-[10px] sm:text-xs leading-tight truncate ${event.isCancelled ? 'line-through' : ''} ${qDot && !heatmapEnabled ? 'pr-4' : ''}`}>
+              {event.plannedSurgery}
             </div>
             <div className={`text-[10px] sm:text-xs leading-tight truncate ${event.isCancelled ? 'line-through' : ''}`}>
               {event.patientName}

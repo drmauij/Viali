@@ -28,20 +28,23 @@ describe("<RiskChip />", () => {
     expect(container.querySelector(".bg-red-500\\/25")).toBeTruthy();
   });
 
-  it("in compact mode, renders the abbreviated worst-domain only (no LOW/MED/HIGH)", () => {
-    render(<RiskChip grade="orange" worstDomain="surgery" compact />);
-    expect(screen.getByText("SURG")).toBeTruthy();
-    expect(screen.queryByText(/MED · SURGERY/)).toBeNull();
+  it("in compact mode, renders the explicit grade label", () => {
+    const { rerender } = render(<RiskChip grade="green" worstDomain="cardiac" compact />);
+    expect(screen.getByText("LOW")).toBeTruthy();
+    rerender(<RiskChip grade="orange" worstDomain="cardiac" compact />);
+    expect(screen.getByText("MEDIUM")).toBeTruthy();
+    rerender(<RiskChip grade="red" worstDomain="cardiac" compact />);
+    expect(screen.getByText("HIGH")).toBeTruthy();
   });
 
-  it("in compact mode, maps each domain to a short label", () => {
-    const { rerender } = render(<RiskChip grade="red" worstDomain="cardiac" compact />);
-    expect(screen.getByText("CARD")).toBeTruthy();
-    rerender(<RiskChip grade="red" worstDomain="pulmonary" compact />);
-    expect(screen.getByText("PULM")).toBeTruthy();
-    rerender(<RiskChip grade="red" worstDomain="frailty" compact />);
-    expect(screen.getByText("FRAIL")).toBeTruthy();
-    rerender(<RiskChip grade="red" worstDomain="vte" compact />);
-    expect(screen.getByText("VTE")).toBeTruthy();
+  it("in compact mode with insufficient=true, renders NOT DEFINED", () => {
+    render(<RiskChip grade="green" worstDomain="cardiac" compact insufficient />);
+    expect(screen.getByText("NOT DEFINED")).toBeTruthy();
+    expect(screen.queryByText("LOW")).toBeNull();
+  });
+
+  it("in compact mode with no grade, renders NOT DEFINED", () => {
+    render(<RiskChip compact />);
+    expect(screen.getByText("NOT DEFINED")).toBeTruthy();
   });
 });

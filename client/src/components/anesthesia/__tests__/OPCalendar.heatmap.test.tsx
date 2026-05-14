@@ -43,17 +43,21 @@ describe("OPCalendar — heat-map wiring", () => {
   });
 
   it("overrides the event tile background with the risk color in eventStyleGetter", () => {
-    expect(SOURCE).toMatch(/heatmapEnabled\s*&&\s*event\.riskGrade\s*&&[\s\S]*?event\.riskGrade\s*===\s*'red'/);
+    expect(SOURCE).toMatch(/heatmapEnabled\s*&&[\s\S]*?event\.riskGrade\s*===\s*'red'/);
     expect(SOURCE).toMatch(/heatmapEnabled[\s\S]*?\[heatmapEnabled\]/);
   });
 
-  it("renders a compact RiskChip inline with the title when heatmap is ON", () => {
-    expect(SOURCE).toMatch(/heatmapEnabled\s+&&\s+event\.riskGrade\s+&&\s+event\.perioperativeRisk/);
-    expect(SOURCE).toMatch(/<RiskChip[\s\S]*?worstDomain=\{event\.perioperativeRisk\.worstDomain\}[\s\S]*?compact/);
+  it("renders a compact RiskChip above the title when heatmap is ON", () => {
+    expect(SOURCE).toMatch(/<RiskChip[\s\S]*?compact[\s\S]*?insufficient/);
   });
 
-  it("guards riskGrade nullability — chip render is conditional", () => {
-    expect(SOURCE).toMatch(/event\.riskGrade\s+&&\s+event\.perioperativeRisk/);
+  it("flags chip as insufficient when riskGrade is missing or partial with no drivers", () => {
+    expect(SOURCE).toMatch(/insufficient=\{[\s\S]*?!event\.riskGrade[\s\S]*?partial[\s\S]*?drivers\?\.length/);
+  });
+
+  it("renders gray bg when the calculator ran with insufficient data", () => {
+    expect(SOURCE).toMatch(/hasRealData/);
+    expect(SOURCE).toMatch(/zinc-600 \/ zinc-500/);
   });
 
   it("includes heatmapEnabled in the EventComponent useCallback dependency list", () => {
