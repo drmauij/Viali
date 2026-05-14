@@ -878,7 +878,11 @@ router.post('/api/surgery/preop', isAuthenticated, requireStrictHospitalAccess, 
     const validatedData = insertSurgeryPreOpAssessmentSchema.parse(req.body);
 
     const newAssessment = await storage.createSurgeryPreOpAssessment(validatedData);
-    
+
+    if (newAssessment.surgeryId) {
+      await recomputeRiskForSurgery(newAssessment.surgeryId);
+    }
+
     res.status(201).json(newAssessment);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -895,7 +899,7 @@ router.patch('/api/surgery/preop/:id', isAuthenticated, requireWriteAccess, asyn
     const userId = req.user.id;
 
     const assessment = await storage.getSurgeryPreOpAssessmentById(id);
-    
+
     if (!assessment) {
       return res.status(404).json({ message: "Surgery pre-op assessment not found" });
     }
@@ -907,13 +911,17 @@ router.patch('/api/surgery/preop/:id', isAuthenticated, requireWriteAccess, asyn
 
     const hospitals = await storage.getUserHospitals(userId);
     const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
+
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
     }
 
     const updatedAssessment = await storage.updateSurgeryPreOpAssessment(id, req.body);
-    
+
+    if (updatedAssessment.surgeryId) {
+      await recomputeRiskForSurgery(updatedAssessment.surgeryId);
+    }
+
     res.json(updatedAssessment);
   } catch (error) {
     logger.error("Error updating surgery pre-op assessment:", error);

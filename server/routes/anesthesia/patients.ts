@@ -19,6 +19,7 @@ import {
   userHasGroupAwareHospitalAccess,
 } from "../../utils";
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../../sms";
+import { recomputeRiskForPatientFutureSurgeries } from "../../scoring/computePerioperativeRisk";
 import {
   getPatientNotes,
   createPatientNote,
@@ -245,6 +246,8 @@ router.patch('/api/patients/:id', isAuthenticated, requireWriteAccess, async (re
       editingUserId: userId,
       editingHospitalId,
     });
+
+    await recomputeRiskForPatientFutureSurgeries(id);
 
     res.json(patient);
   } catch (error) {
