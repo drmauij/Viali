@@ -22,7 +22,11 @@ import {
   computeQuickCheckSnapshot,
   deriveQuickCheckInputsFromBody,
 } from "../../scoring/computeAmbulantQuickCheck";
-import { createAuditLog } from "../../storage/anesthesia";
+import {
+  computeRiskSnapshot,
+  recomputeRiskForSurgery,
+} from "../../scoring/computePerioperativeRisk";
+import { createAuditLog, getHospitalAnesthesiaSettings } from "../../storage/anesthesia";
 import { AMBULANT_THRESHOLDS } from "@shared/scoring/thresholds";
 
 /**
@@ -110,6 +114,34 @@ async function applyAmbulantValidation(
     : null;
 
   return null;
+}
+
+async function applyPerioperativeRiskRecalc(
+  body: any,
+  existingSurgery: any | null,
+): Promise<void> {
+  const riskClass = body.surgeryRiskClass ?? existingSurgery?.surgeryRiskClass;
+  if (!riskClass) return;
+  const patientId = body.patientId ?? existingSurgery?.patientId;
+  const hospitalId = body.hospitalId ?? existingSurgery?.hospitalId;
+  if (!patientId || !hospitalId) return;
+
+  const patient = await storage.getPatient(patientId);
+  if (!patient) return;
+
+  const mergedSurgery = { ...(existingSurgery ?? {}), ...body, hospitalId, patientId };
+
+  const assessment = existingSurgery?.id
+    ? await storage.getSurgeryPreOpAssessment(existingSurgery.id).catch(() => null)
+    : null;
+  const questionnaire = await storage.getLatestQuestionnaireResponseForPatient(patientId).catch(() => null);
+
+  const settings = await getHospitalAnesthesiaSettings(hospitalId);
+  const illnessLists = (settings?.illnessLists ?? {}) as Record<string, Array<{ id: string; scoringConcept?: string | null }>>;
+
+  const snapshot = computeRiskSnapshot(patient, mergedSurgery, assessment ?? null, questionnaire ?? null, illnessLists);
+  body.perioperativeRisk = snapshot;
+  body.riskGrade = snapshot.grade;
 }
 
 const router = Router();
@@ -406,6 +438,8 @@ router.post('/api/anesthesia/surgeries', isAuthenticated, requireSurgeryPlanAcce
     const auditPayload = (req.body as any).__ambulantAuditPayload;
     delete (req.body as any).__ambulantAuditPayload;
 
+    await applyPerioperativeRiskRecalc(req.body, null);
+
     const validatedData = insertSurgerySchema.parse(req.body);
 
     logger.info("Validated surgery data:", JSON.stringify(validatedData, null, 2));
@@ -477,6 +511,8 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
     if (ambulantReject) return res.status(ambulantReject.status).json(ambulantReject.payload);
     const ambulantAudit = (updateData as any).__ambulantAuditPayload;
     delete (updateData as any).__ambulantAuditPayload;
+
+    await applyPerioperativeRiskRecalc(updateData, surgery);
 
     // Patient location is mutually exclusive: a patient is either in the
     // clinic waiting room OR assigned to a PACU bed, never both.

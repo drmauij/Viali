@@ -148,3 +148,54 @@ export function computeRiskSnapshot(
   }
   return result;
 }
+
+export async function recomputeRiskForSurgery(surgeryId: string): Promise<void> {
+  const { db } = await import("../db");
+  const { surgeries } = await import("@shared/schema");
+  const { eq } = await import("drizzle-orm");
+  const { storage } = await import("../storage");
+  const { getHospitalAnesthesiaSettings } = await import("../storage/anesthesia");
+  const logger = (await import("../logger")).default;
+
+  try {
+    const [surgery] = await db.select().from(surgeries).where(eq(surgeries.id, surgeryId)).limit(1);
+    if (!surgery) return;
+    if (!surgery.surgeryRiskClass || !surgery.patientId) return;
+    const patient = await storage.getPatient(surgery.patientId);
+    if (!patient) return;
+    const settings = await getHospitalAnesthesiaSettings(surgery.hospitalId);
+    const illnessLists = (settings?.illnessLists ?? {}) as IllnessLists;
+    const assessment = await storage.getSurgeryPreOpAssessment(surgeryId).catch(() => null);
+    const questionnaire = await storage.getLatestQuestionnaireResponseForPatient(surgery.patientId).catch(() => null);
+    const snapshot = computeRiskSnapshot(patient, surgery, assessment ?? null, questionnaire ?? null, illnessLists);
+    await db
+      .update(surgeries)
+      .set({ riskGrade: snapshot.grade, perioperativeRisk: snapshot as any })
+      .where(eq(surgeries.id, surgeryId));
+  } catch (err) {
+    logger.error(`recomputeRiskForSurgery(${surgeryId}) failed:`, err);
+  }
+}
+
+export async function recomputeRiskForPatientFutureSurgeries(patientId: string): Promise<void> {
+  const { db } = await import("../db");
+  const { surgeries } = await import("@shared/schema");
+  const { and, eq, gte, ne } = await import("drizzle-orm");
+  const logger = (await import("../logger")).default;
+
+  try {
+    const rows = await db
+      .select()
+      .from(surgeries)
+      .where(and(
+        eq(surgeries.patientId, patientId),
+        gte(surgeries.plannedDate, new Date()),
+        ne(surgeries.status, "cancelled"),
+      ));
+    for (const surgery of rows) {
+      await recomputeRiskForSurgery(surgery.id);
+    }
+  } catch (err) {
+    logger.error(`recomputeRiskForPatientFutureSurgeries(${patientId}) failed:`, err);
+  }
+}

@@ -245,6 +245,25 @@ export async function getQuestionnaireResponseByLinkId(linkId: string): Promise<
   return response;
 }
 
+export async function getLatestQuestionnaireResponseForPatient(
+  patientId: string,
+): Promise<PatientQuestionnaireResponse | undefined> {
+  const rows = await db
+    .select({ response: patientQuestionnaireResponses })
+    .from(patientQuestionnaireResponses)
+    .innerJoin(
+      patientQuestionnaireLinks,
+      eq(patientQuestionnaireResponses.linkId, patientQuestionnaireLinks.id),
+    )
+    .where(eq(patientQuestionnaireLinks.patientId, patientId))
+    .orderBy(
+      desc(patientQuestionnaireResponses.submittedAt),
+      desc(patientQuestionnaireResponses.lastSavedAt),
+    )
+    .limit(1);
+  return rows[0]?.response;
+}
+
 export async function updateQuestionnaireResponse(id: string, updates: Partial<PatientQuestionnaireResponse>): Promise<PatientQuestionnaireResponse> {
   const [updated] = await db
     .update(patientQuestionnaireResponses)
