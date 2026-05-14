@@ -1297,6 +1297,10 @@ router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async 
     res.json({
       linkId: link.id,
       language: lang,
+      // Anonymous (open hospital-link) sessions skip server-side autosave —
+      // the client persists drafts to localStorage and only writes to the DB
+      // on Submit. Prevents orphan-draft accumulation from public traffic.
+      isAnonymous: !link.patientId,
       patientFirstName: patient?.firstName || existingResponse?.patientFirstName,
       patientSurname: patient?.surname || existingResponse?.patientLastName,
       patientBirthday: patient?.birthday || existingResponse?.patientBirthday,

@@ -1816,6 +1816,27 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
           isUploading: false,
         })));
       }
+
+      // Anonymous open-link sessions have no server-side draft; hydrate from
+      // localStorage so the visitor can resume on the same browser. Patient-
+      // bound links never look at localStorage — server is the source of truth.
+      if (!existing && (config as any).isAnonymous) {
+        const tkn = linkToken || token;
+        if (tkn) {
+          try {
+            const raw = localStorage.getItem(`qdraft:${tkn}`);
+            if (raw) {
+              const local = JSON.parse(raw);
+              setFormData(prev => ({ ...prev, ...local }));
+              if (typeof local.currentStep === 'number') {
+                setCurrentStep(Math.min(local.currentStep, STEPS.length - 1));
+              }
+            }
+          } catch {
+            /* ignore corrupt local draft */
+          }
+        }
+      }
     }
   }, [config]);
 
@@ -1836,6 +1857,13 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
       setLinkToken(data.questionnaireToken);
     },
   });
+
+  // Anonymous (open hospital-link) sessions skip server autosave and persist
+  // drafts to localStorage instead. Prevents orphan-draft accumulation in the
+  // DB from bots / abandoned visitor sessions. Patient-bound links keep
+  // server-side autosave (real user, auditable, multi-device resume).
+  const isAnonymous = !!(config as any)?.isAnonymous;
+  const localDraftKey = activeToken ? `qdraft:${activeToken}` : null;
 
   const saveMutation = useMutation({
     mutationFn: async (data: Partial<FormData>) => {
@@ -1878,12 +1906,22 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
     pendingDirtyRef.current = true;
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(() => {
+      if (isAnonymous && localDraftKey) {
+        try {
+          localStorage.setItem(localDraftKey, JSON.stringify(formData));
+          setSaveStatus("saved");
+          setTimeout(() => setSaveStatus("idle"), 2000);
+        } catch {
+          setSaveStatus("error");
+        }
+        return;
+      }
       saveMutation.mutate(formData);
     }, 1500);
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [formData, isSubmitted, activeToken, saveMutation]);
+  }, [formData, isSubmitted, activeToken, saveMutation, isAnonymous, localDraftKey]);
 
   // Reset the skip flag whenever existingResponse repopulates formData so the
   // hydration write doesn't trigger a redundant save.
@@ -1919,7 +1957,14 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
       }
       return res.json();
     },
-    onSuccess: () => setIsSubmitted(true),
+    onSuccess: () => {
+      setIsSubmitted(true);
+      // Anonymous sessions persist drafts to localStorage; clear the draft now
+      // that the data lives in the DB as a real submitted response.
+      if (localDraftKey) {
+        try { localStorage.removeItem(localDraftKey); } catch { /* ignore */ }
+      }
+    },
     onError: (error: Error) => {
       setSubmitError(true);
       // 410 = the patient already submitted this questionnaire. The duplicate
@@ -2077,12 +2122,13 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
     }));
     setCurrentStep(newStep);
 
-    saveMutation.mutate({
-      ...formData,
-      currentStep: newStep,
-      completedSteps: newCompletedSteps,
-    });
-  }, [currentStep, formData, saveMutation]);
+    const updated = { ...formData, currentStep: newStep, completedSteps: newCompletedSteps };
+    if (isAnonymous && localDraftKey) {
+      try { localStorage.setItem(localDraftKey, JSON.stringify(updated)); } catch { /* ignore */ }
+    } else {
+      saveMutation.mutate(updated);
+    }
+  }, [currentStep, formData, saveMutation, isAnonymous, localDraftKey]);
 
   const handleAutoAdvance = useCallback(() => {
     setTimeout(() => {
