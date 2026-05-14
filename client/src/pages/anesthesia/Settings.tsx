@@ -1014,7 +1014,7 @@ export default function AnesthesiaSettings() {
                         onClick={() => toggleTranslations(`allergy:${allergy.id}`)}
                         data-testid={`button-toggle-translations-allergy-${allergy.id}`}
                       >
-                        {expandedTranslations.has(`allergy:${allergy.id}`) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        <Languages className={`h-4 w-4 ${expandedTranslations.has(`allergy:${allergy.id}`) ? "text-primary" : ""}`} />
                       </Button>
                       <Button
                         variant="ghost"
@@ -1099,7 +1099,7 @@ export default function AnesthesiaSettings() {
                           onClick={() => toggleTranslations(`med:anticoagulation:${med.id}`)}
                           data-testid={`button-toggle-translations-med-anticoagulation-${med.id}`}
                         >
-                          {expandedTranslations.has(`med:anticoagulation:${med.id}`) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          <Languages className={`h-4 w-4 ${expandedTranslations.has(`med:anticoagulation:${med.id}`) ? "text-primary" : ""}`} />
                         </Button>
                         <Button
                           variant="ghost"
@@ -1174,7 +1174,7 @@ export default function AnesthesiaSettings() {
                           onClick={() => toggleTranslations(`med:general:${med.id}`)}
                           data-testid={`button-toggle-translations-med-general-${med.id}`}
                         >
-                          {expandedTranslations.has(`med:general:${med.id}`) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          <Languages className={`h-4 w-4 ${expandedTranslations.has(`med:general:${med.id}`) ? "text-primary" : ""}`} />
                         </Button>
                         <Button
                           variant="ghost"
@@ -1361,15 +1361,6 @@ export default function AnesthesiaSettings() {
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6"
-                            onClick={() => toggleTranslations(`illness:${key}:${illness.id}`)}
-                            data-testid={`button-toggle-translations-illness-${key}-${illness.id}`}
-                          >
-                            {expandedTranslations.has(`illness:${key}:${illness.id}`) ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
                             onClick={() => {
                               setEditingListItem({
                                 type: 'illness',
@@ -1389,6 +1380,15 @@ export default function AnesthesiaSettings() {
                             data-testid={`button-edit-illness-${key}-${illness.id}`}
                           >
                             <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => toggleTranslations(`illness:${key}:${illness.id}`)}
+                            data-testid={`button-toggle-translations-illness-${key}-${illness.id}`}
+                          >
+                            <Languages className={`h-3 w-3 ${expandedTranslations.has(`illness:${key}:${illness.id}`) ? "text-primary" : ""}`} />
                           </Button>
                           <Button
                             variant="ghost"

@@ -5,7 +5,7 @@
 // Suggestions are NEVER auto-applied to scoring; only `scoringConcept` field counts.
 
 import { useState } from "react";
-import { Check, Pencil, Sparkles } from "lucide-react";
+import { Check, Tags, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -61,7 +61,7 @@ export function IllnessConceptCell({
             data-testid="concept-edit-btn"
             title="Change concept"
           >
-            <Pencil className="h-3 w-3" />
+            <Tags className="h-3 w-3" />
           </Button>
         )}
       </span>
@@ -134,7 +134,7 @@ export function IllnessConceptCell({
               data-testid="concept-override-btn"
               title="Override suggestion"
             >
-              <Pencil className="h-3 w-3" />
+              <Tags className="h-3 w-3" />
             </Button>
           </>
         )}
@@ -156,7 +156,7 @@ export function IllnessConceptCell({
           data-testid="concept-set-btn"
           title="Set concept"
         >
-          <Pencil className="h-3 w-3" />
+          <Tags className="h-3 w-3" />
         </Button>
       )}
     </span>
