@@ -1405,7 +1405,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
                 {event.surgeonName}
               </div>
             )}
-            {!event.isCancelled && !event.isSuspended && (
+            {!event.isCancelled && !event.isSuspended && !heatmapEnabled && (
               event.noPreOpRequired ? (
                 <div className="flex items-center gap-0.5 leading-tight mt-0.5" data-testid={`badge-la-${event.surgeryId}`} title={t('opCalendar.localAnesthesiaTooltip')}>
                   <span className="text-[10px] sm:text-[11px] font-semibold bg-white/25 px-1 rounded">{t('opCalendar.localAnesthesia')}</span>
