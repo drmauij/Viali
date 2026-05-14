@@ -2041,23 +2041,23 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
         return !!(formData.patientFirstName && formData.patientLastName && formData.patientBirthday && formData.patientPhone && formData.height && formData.weight && formData.smsConsent);
       case 'allergies':
         return formData.noAllergies || formData.allergies.length > 0 || !!formData.allergiesNotes;
-      case 'conditions':
-        return (formData.noConditions && formData.noPreviousSurgeries && formData.noAnesthesiaProblems && formData.noDentalIssues && formData.noPonvIssues)
+      case 'conditions': {
+        const functionalAnswered = formData.metAbove4 !== null && formData.functionallyDependent !== null;
+        const conditionsAnswered = (formData.noConditions && formData.noPreviousSurgeries && formData.noAnesthesiaProblems && formData.noDentalIssues && formData.noPonvIssues)
           || Object.values(formData.conditions).some(c => c.checked)
           || !!formData.previousSurgeries
           || !!formData.previousAnesthesiaProblems
           || Object.values(formData.dentalIssues).some(v => v)
           || Object.values(formData.ponvTransfusionIssues).some(v => v);
+        return functionalAnswered && conditionsAnswered;
+      }
       case 'medications':
         return formData.noMedications || formData.medications.length > 0 || !!formData.medicationsNotes;
-      case 'lifestyle': {
-        const lifestyleAnswered = (formData.noSmokingAlcohol && formData.noDrugUse)
+      case 'lifestyle':
+        return (formData.noSmokingAlcohol && formData.noDrugUse)
           || (formData.noSmokingAlcohol && Object.values(formData.drugUse).some(v => v))
           || (formData.noDrugUse && (!!formData.smokingStatus || !!formData.alcoholStatus))
           || (!!formData.smokingStatus || !!formData.alcoholStatus || Object.values(formData.drugUse).some(v => v));
-        const functionalAnswered = formData.metAbove4 !== null && formData.functionallyDependent !== null;
-        return lifestyleAnswered && functionalAnswered;
-      }
       default:
         return true;
     }
@@ -2433,6 +2433,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
                 conditions={config.conditionsList}
                 t={t}
                 language={language}
+                attemptedNext={attemptedNext}
                 onNoneChecked={() => handleAutoAdvance()}
               />
             )}
@@ -2763,10 +2764,11 @@ function PersonalInfoStep({ formData, updateField, t, attemptedNext }: StepProps
 interface ConditionsStepProps extends StepProps {
   conditions: Array<{ id: string; label: string; patientLabel?: string; patientHelpText?: string; patientVisible?: boolean; category: string }>;
   language: string;
+  attemptedNext: boolean;
   onNoneChecked: () => void;
 }
 
-function ConditionsStep({ formData, updateField, conditions, t, language, onNoneChecked }: ConditionsStepProps) {
+function ConditionsStep({ formData, updateField, conditions, t, language, attemptedNext, onNoneChecked }: ConditionsStepProps) {
   const categoryOrder = [
     "cardiovascular", "heart", "pulmonary", "lung", "gi", "gastrointestinal", 
     "kidney", "renal", "metabolic", "neurological", "neuro", "psychiatry", "psych",
@@ -2867,6 +2869,68 @@ function ConditionsStep({ formData, updateField, conditions, t, language, onNone
 
   return (
     <div className="space-y-6">
+      <div>
+        <h3 className="font-semibold mb-3">{t("questionnaire.lifestyle.functionalCapacity.title")}</h3>
+
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm mb-1">{t("questionnaire.lifestyle.met.question")}</p>
+            <p className="text-xs text-muted-foreground mb-2">{t("questionnaire.lifestyle.met.help")}</p>
+            <RadioGroup
+              value={formData.metAbove4 === true ? "yes" : formData.metAbove4 === false ? "no" : ""}
+              onValueChange={(value) => updateField("metAbove4", value === "yes" ? true : value === "no" ? false : null)}
+            >
+              <div className={`space-y-2 ${attemptedNext && formData.metAbove4 === null ? "ring-1 ring-red-500 rounded p-2" : ""}`}>
+                <div className="flex items-center gap-3 p-2 border rounded">
+                  <RadioGroupItem value="yes" id="met-yes" data-testid="radio-met-yes" />
+                  <Label htmlFor="met-yes" className="font-normal cursor-pointer">
+                    {t("questionnaire.lifestyle.met.yes")}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-3 p-2 border rounded">
+                  <RadioGroupItem value="no" id="met-no" data-testid="radio-met-no" />
+                  <Label htmlFor="met-no" className="font-normal cursor-pointer">
+                    {t("questionnaire.lifestyle.met.no")}
+                  </Label>
+                </div>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <div>
+            <p className="text-sm mb-1">{t("questionnaire.lifestyle.independence.question")}</p>
+            <p className="text-xs text-muted-foreground mb-2">{t("questionnaire.lifestyle.independence.help")}</p>
+            <RadioGroup
+              value={formData.functionallyDependent === false ? "independent" : formData.functionallyDependent === true ? "dependent" : ""}
+              onValueChange={(value) => updateField("functionallyDependent", value === "dependent" ? true : value === "independent" ? false : null)}
+            >
+              <div className={`space-y-2 ${attemptedNext && formData.functionallyDependent === null ? "ring-1 ring-red-500 rounded p-2" : ""}`}>
+                <div className="flex items-center gap-3 p-2 border rounded">
+                  <RadioGroupItem value="independent" id="independence-yes" data-testid="radio-independence-yes" />
+                  <Label htmlFor="independence-yes" className="font-normal cursor-pointer">
+                    {t("questionnaire.lifestyle.independence.yes")}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-3 p-2 border rounded">
+                  <RadioGroupItem value="dependent" id="independence-no" data-testid="radio-independence-no" />
+                  <Label htmlFor="independence-no" className="font-normal cursor-pointer">
+                    {t("questionnaire.lifestyle.independence.no")}
+                  </Label>
+                </div>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {attemptedNext && (formData.metAbove4 === null || formData.functionallyDependent === null) && (
+            <p className="text-sm text-red-500" data-testid="error-functional-capacity-required">
+              {t("questionnaire.lifestyle.functionalCapacity.required")}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <Separator />
+
       <p className="text-sm text-gray-600 dark:text-gray-400">
         {t("questionnaire.conditions.title")}
       </p>
@@ -3512,67 +3576,6 @@ function LifestyleStep({ formData, updateField, t, attemptedNext, onNoneChecked 
         </div>
       )}
 
-      <Separator />
-
-      <div>
-        <h3 className="font-semibold mb-3">{t("questionnaire.lifestyle.functionalCapacity.title")}</h3>
-
-        <div className="space-y-4">
-          <div>
-            <p className="text-sm mb-1">{t("questionnaire.lifestyle.met.question")}</p>
-            <p className="text-xs text-muted-foreground mb-2">{t("questionnaire.lifestyle.met.help")}</p>
-            <RadioGroup
-              value={formData.metAbove4 === true ? "yes" : formData.metAbove4 === false ? "no" : ""}
-              onValueChange={(value) => updateField("metAbove4", value === "yes" ? true : value === "no" ? false : null)}
-            >
-              <div className={`space-y-2 ${attemptedNext && formData.metAbove4 === null ? "ring-1 ring-red-500 rounded p-2" : ""}`}>
-                <div className="flex items-center gap-3 p-2 border rounded">
-                  <RadioGroupItem value="yes" id="met-yes" data-testid="radio-met-yes" />
-                  <Label htmlFor="met-yes" className="font-normal cursor-pointer">
-                    {t("questionnaire.lifestyle.met.yes")}
-                  </Label>
-                </div>
-                <div className="flex items-center gap-3 p-2 border rounded">
-                  <RadioGroupItem value="no" id="met-no" data-testid="radio-met-no" />
-                  <Label htmlFor="met-no" className="font-normal cursor-pointer">
-                    {t("questionnaire.lifestyle.met.no")}
-                  </Label>
-                </div>
-              </div>
-            </RadioGroup>
-          </div>
-
-          <div>
-            <p className="text-sm mb-1">{t("questionnaire.lifestyle.independence.question")}</p>
-            <p className="text-xs text-muted-foreground mb-2">{t("questionnaire.lifestyle.independence.help")}</p>
-            <RadioGroup
-              value={formData.functionallyDependent === false ? "independent" : formData.functionallyDependent === true ? "dependent" : ""}
-              onValueChange={(value) => updateField("functionallyDependent", value === "dependent" ? true : value === "independent" ? false : null)}
-            >
-              <div className={`space-y-2 ${attemptedNext && formData.functionallyDependent === null ? "ring-1 ring-red-500 rounded p-2" : ""}`}>
-                <div className="flex items-center gap-3 p-2 border rounded">
-                  <RadioGroupItem value="independent" id="independence-yes" data-testid="radio-independence-yes" />
-                  <Label htmlFor="independence-yes" className="font-normal cursor-pointer">
-                    {t("questionnaire.lifestyle.independence.yes")}
-                  </Label>
-                </div>
-                <div className="flex items-center gap-3 p-2 border rounded">
-                  <RadioGroupItem value="dependent" id="independence-no" data-testid="radio-independence-no" />
-                  <Label htmlFor="independence-no" className="font-normal cursor-pointer">
-                    {t("questionnaire.lifestyle.independence.no")}
-                  </Label>
-                </div>
-              </div>
-            </RadioGroup>
-          </div>
-
-          {attemptedNext && (formData.metAbove4 === null || formData.functionallyDependent === null) && (
-            <p className="text-sm text-red-500" data-testid="error-functional-capacity-required">
-              {t("questionnaire.lifestyle.functionalCapacity.required")}
-            </p>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
