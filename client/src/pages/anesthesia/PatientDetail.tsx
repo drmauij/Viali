@@ -44,6 +44,9 @@ import { dataUrlToBlob } from "@/lib/dataUrlToBlob";
 import { generateWristbandPdf } from "@/lib/wristbandPdf";
 import { printPatientLabel } from "@/lib/patientLabelPdf";
 import AnesthesiaRecordButton from "@/components/anesthesia/AnesthesiaRecordButton";
+import { RiskChip } from "@/components/anesthesia/RiskChip";
+import { RiskBreakdownPopover, type AmbulantSummary } from "@/components/anesthesia/RiskBreakdownPopover";
+import type { PerioperativeRiskResult } from "@shared/scoring/perioperativeRisk";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -161,6 +164,7 @@ export default function PatientDetail() {
   } = usePatientState();
 
   const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
+  const [riskPopoverOpenAt, setRiskPopoverOpenAt] = useState<"sticky" | "card" | null>(null);
 
   // --- Ambulant eligibility (modal open state — fields live on assessmentData) ---
   const [ambulantOverrideOpen, setAmbulantOverrideOpen] = useState(false);
@@ -1991,6 +1995,16 @@ export default function PatientDetail() {
     );
   }
 
+  const selectedSurgeryForRisk = surgeries?.find(s => s.id === selectedCaseId) as any;
+  const riskForChip: PerioperativeRiskResult | null = selectedSurgeryForRisk?.perioperativeRisk ?? null;
+  const ambulantForChip: AmbulantSummary | null = selectedSurgeryForRisk?.ambulantQuickCheck
+    ? {
+        decision: selectedSurgeryForRisk.ambulantQuickCheck.decision,
+        hardExclusions: selectedSurgeryForRisk.ambulantQuickCheck.hardExclusions ?? [],
+        yellowFactors: selectedSurgeryForRisk.ambulantQuickCheck.yellowFactors ?? [],
+      }
+    : null;
+
   return (
     <div className={`container mx-auto p-4 pb-20 ${isPreOpRoute ? 'hidden' : ''}`}>
       {/* Sticky Patient Header - hidden in pre-op route mode */}
@@ -2006,14 +2020,29 @@ export default function PatientDetail() {
               ) : (
                 <UserRound className="h-5 w-5 text-pink-500" data-testid="icon-sex-female" />
               )}
-              <div>
-                <div className="font-semibold" data-testid="text-patient-name">{patient.surname}, {patient.firstName}</div>
+              <div className="relative">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="font-semibold" data-testid="text-patient-name">{patient.surname}, {patient.firstName}</div>
+                  {riskForChip && (
+                    <RiskChip
+                      grade={riskForChip.grade}
+                      worstDomain={riskForChip.worstDomain}
+                      size="sm"
+                      onClick={() => setRiskPopoverOpenAt(riskPopoverOpenAt === "sticky" ? null : "sticky")}
+                    />
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground" data-testid="text-patient-info">
                   {isBirthdayUnknown(patient.birthday)
                     ? <span className="text-amber-500 font-medium">{t('common.birthdayNotProvided', 'Birthday not provided')}</span>
                     : <>{formatDate(patient.birthday)} ({calculateAge(patient.birthday)} years)</>
                   } • Patient ID: {patient.patientNumber}
                 </p>
+                {riskPopoverOpenAt === "sticky" && riskForChip && (
+                  <div className="absolute z-50 top-full mt-2 left-0">
+                    <RiskBreakdownPopover risk={riskForChip} ambulant={ambulantForChip} />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2035,8 +2064,17 @@ export default function PatientDetail() {
                 ) : (
                   <UserRound className="h-6 w-6 text-pink-500" data-testid="icon-sex-female-card" />
                 )}
-                <div>
-                  <div data-testid="text-patient-fullname">{patient.surname}, {patient.firstName}</div>
+                <div className="relative">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div data-testid="text-patient-fullname">{patient.surname}, {patient.firstName}</div>
+                    {riskForChip && (
+                      <RiskChip
+                        grade={riskForChip.grade}
+                        worstDomain={riskForChip.worstDomain}
+                        onClick={() => setRiskPopoverOpenAt(riskPopoverOpenAt === "card" ? null : "card")}
+                      />
+                    )}
+                  </div>
                   <p className="text-sm font-normal mt-1">
                     <span className={isBirthdayUnknown(patient.birthday) ? "text-amber-500 font-medium" : "text-foreground font-medium"} data-testid="text-patient-birthday">{isBirthdayUnknown(patient.birthday) ? t('common.birthdayNotProvided', 'Birthday not provided') : `${formatDate(patient.birthday)} (${calculateAge(patient.birthday)} years)`}</span>
                     <span className="text-muted-foreground" data-testid="text-patient-number"> • Patient ID: {patient.patientNumber}</span>
@@ -2044,6 +2082,11 @@ export default function PatientDetail() {
                   <div className="mt-2">
                     <PatientPortalLinkBadge patientId={patient.id} canWrite={canWrite} />
                   </div>
+                  {riskPopoverOpenAt === "card" && riskForChip && (
+                    <div className="absolute z-50 top-full mt-2 left-0">
+                      <RiskBreakdownPopover risk={riskForChip} ambulant={ambulantForChip} />
+                    </div>
+                  )}
                 </div>
               </div>
               {canWrite && (
