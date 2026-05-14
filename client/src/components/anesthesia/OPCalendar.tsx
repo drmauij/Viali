@@ -40,6 +40,8 @@ import CalendarSearch from "@/components/shared/CalendarSearch";
 import type { CalendarSearchResult } from "@/components/shared/CalendarSearch";
 import { HeatmapToggle, useHeatmapEnabled } from "./HeatmapToggle";
 import { RiskChip } from "./RiskChip";
+import { RiskBreakdownPopover, type AmbulantSummary } from "./RiskBreakdownPopover";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import type { PerioperativeRiskResult } from "@shared/scoring/perioperativeRisk";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
@@ -1358,7 +1360,16 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     }
     const tooltipText = tooltipLines.join('\n');
 
-    return (
+    const showHoverBreakdown = heatmapHasRealData && !isRoomBlockEvt && !isSlotReservationEvt;
+    const ambulantForHover: AmbulantSummary | null = event.ambulantQuickCheck
+      ? {
+          decision: event.ambulantQuickCheck.decision,
+          hardExclusions: event.ambulantQuickCheck.hardExclusions ?? [],
+          yellowFactors: event.ambulantQuickCheck.yellowFactors ?? [],
+        }
+      : null;
+
+    const tileNode = (
       <div className={`flex flex-col h-full p-0.5 sm:p-1 overflow-hidden relative ${heatmapClass}`} data-testid={`event-${event.surgeryId}`} title={tooltipText}>
         {qDot && !isRoomBlockEvt && !isSlotReservationEvt && !heatmapEnabled && (
           <div
@@ -1462,6 +1473,18 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         )}
       </div>
     );
+
+    if (showHoverBreakdown && event.perioperativeRisk) {
+      return (
+        <HoverCard openDelay={250} closeDelay={120}>
+          <HoverCardTrigger asChild>{tileNode}</HoverCardTrigger>
+          <HoverCardContent side="right" align="start" className="p-0 w-auto border-none bg-transparent shadow-none">
+            <RiskBreakdownPopover risk={event.perioperativeRisk} ambulant={ambulantForHover} />
+          </HoverCardContent>
+        </HoverCard>
+      );
+    }
+    return tileNode;
   }, [getPreOpStatus, getQuestionnaireDot, t, heatmapEnabled]);
 
   // Custom month date cell component - show indicator dots instead of event details
