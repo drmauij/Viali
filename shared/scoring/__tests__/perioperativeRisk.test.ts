@@ -30,3 +30,13 @@ describe("cardiacBandFromRcri", () => {
     expect(cardiacBandFromRcri("high")).toBe("high");
   });
 });
+
+import { vteBandFromCaprini } from "../perioperativeRisk";
+
+describe("vteBandFromCaprini", () => {
+  it("maps 'low' to 'low'",       () => expect(vteBandFromCaprini("low")).toBe("low"));
+  it("maps 'moderate' to 'low'",  () => expect(vteBandFromCaprini("moderate")).toBe("low"));
+  it("maps 'higher' to 'med'",    () => expect(vteBandFromCaprini("higher")).toBe("med"));
+  it("maps 'high' to 'high'",     () => expect(vteBandFromCaprini("high")).toBe("high"));
+  it("maps 'veryHigh' to 'high'", () => expect(vteBandFromCaprini("veryHigh")).toBe("high"));
+});
