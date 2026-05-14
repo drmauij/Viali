@@ -1347,7 +1347,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
 
     return (
       <div className={`flex flex-col h-full p-0.5 sm:p-1 overflow-hidden relative ${heatmapClass}`} data-testid={`event-${event.surgeryId}`} title={tooltipText}>
-        {qDot && !isRoomBlockEvt && !isSlotReservationEvt && (
+        {qDot && !isRoomBlockEvt && !isSlotReservationEvt && !heatmapEnabled && (
           <div
             className={`absolute top-1 right-0.5 w-2.5 h-2.5 rounded-full ${qDot.color} ring-1 ring-white/50`}
             title={qDot.label}
@@ -1388,7 +1388,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
           </>
         ) : (
           <>
-            <div className={`flex items-center gap-1 min-w-0 ${qDot ? 'pr-4' : ''}`}>
+            <div className={`flex items-center gap-1 min-w-0 ${qDot && !heatmapEnabled ? 'pr-4' : ''}`}>
               <div className={`font-bold text-[10px] sm:text-xs leading-tight truncate flex-1 ${event.isCancelled ? 'line-through' : ''}`}>
                 {event.plannedSurgery}
               </div>
