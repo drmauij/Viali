@@ -79,7 +79,10 @@ export async function backfillRiskGrade(): Promise<BackfillStats> {
       settingsCache.set(surgery.hospitalId, illnessLists);
     }
 
-    const assessment = await storage.getSurgeryPreOpAssessment(surgery.id).catch(() => null);
+    // Anesthesia preop is the comprehensive form clinicians actually fill in
+    // (the surgery-side preop is unused in practice). Mirrors the runtime
+    // recompute path in server/scoring/computePerioperativeRisk.ts.
+    const assessment = await storage.getPreOpAssessment(surgery.id).catch(() => null);
     const questionnaire = await storage.getLatestQuestionnaireResponseForPatient(surgery.patientId).catch(() => null);
 
     const snapshot = computeRiskSnapshot(patient, surgery, assessment ?? null, questionnaire ?? null, illnessLists);

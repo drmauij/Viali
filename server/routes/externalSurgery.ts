@@ -677,6 +677,8 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       diagnosis: request.diagnosis || null,
       coverageType: request.coverageType || null,
       stayType: request.stayType || null,
+      surgeryRiskClass: request.surgeryRiskClass || null,
+      ambulantQuickCheck: request.ambulantQuickCheck || null,
     });
     
     await storage.updateExternalSurgeryRequest(id, {

@@ -8719,6 +8719,7 @@
   "ambulantEligibility": {
     "riskClassLabel": "Surgery risk class *",
     "riskClassPlaceholder": "Please select…",
+    "riskClassRequired": "Please select a surgery risk class.",
     "riskClass": {
       "minor": "Minor (e.g. skin lesion excision, simple suture, port placement)",
       "standard": "Standard (e.g. hernia repair, arthroscopy, varicose veins)",

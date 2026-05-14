@@ -8736,6 +8736,7 @@
   "ambulantEligibility": {
     "riskClassLabel": "Eingriffstyp-Klassifikation *",
     "riskClassPlaceholder": "Bitte wählen…",
+    "riskClassRequired": "Bitte Eingriffstyp-Klassifikation auswählen.",
     "riskClass": {
       "minor": "Klein (z.B. Hautläsion-Exzision, einfache Naht, Port-Anlage)",
       "standard": "Standard (z.B. Hernienreparatur, Arthroskopie, Varizen)",

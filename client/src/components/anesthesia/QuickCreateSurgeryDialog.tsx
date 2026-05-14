@@ -319,6 +319,17 @@ export default function QuickCreateSurgeryDialog({
       return;
     }
 
+    // Risk class is required for real surgeries (not slot reservations / room blocks).
+    // The label already shows "*" — this enforces it on save so we never persist NULL.
+    if (!isSlotReservation && !isRoomBlock && !surgeryRiskClass) {
+      toast({
+        title: t('anesthesia.quickSchedule.missingInformation'),
+        description: t('ambulantEligibility.riskClassRequired', 'Please select a surgery risk class.'),
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!duration || duration <= 0) {
       toast({
         title: t('anesthesia.quickSchedule.invalidDuration'),
@@ -693,7 +704,7 @@ export default function QuickCreateSurgeryDialog({
           </Button>
           <Button
             onClick={handleCreateSurgery}
-            disabled={createSurgeryMutation.isPending || !surgeryRoomId || (!isSlotReservation && (!selectedPatientId || !plannedSurgery.trim())) || ambulantBlocked}
+            disabled={createSurgeryMutation.isPending || !surgeryRoomId || (!isSlotReservation && !isRoomBlock && (!selectedPatientId || !plannedSurgery.trim() || !surgeryRiskClass)) || ambulantBlocked}
             title={ambulantBlocked ? t('ambulantEligibility.save.blockedTooltip', 'Risk check red — override required or plan as overnight') : undefined}
             data-testid="button-schedule-surgery"
           >
