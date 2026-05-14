@@ -1368,30 +1368,6 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
                 </div>
               )
             )}
-            {event.ambulantQuickCheck?.decision && !event.isCancelled && !event.isSuspended && currentView !== 'month' && (
-              <div
-                className={`flex items-center gap-0.5 leading-tight mt-0.5 px-1 py-0.5 rounded w-fit max-w-full ${
-                  event.ambulantQuickCheck.decision === 'red'
-                    ? 'bg-red-200/80 dark:bg-red-900/60 text-red-900 dark:text-red-100'
-                    : event.ambulantQuickCheck.decision === 'yellow'
-                      ? 'bg-amber-200/80 dark:bg-amber-900/60 text-amber-900 dark:text-amber-100'
-                      : 'bg-green-200/80 dark:bg-green-900/60 text-green-900 dark:text-green-100'
-                }`}
-                data-testid={`ambulant-pill-${event.surgeryId}`}
-                title={
-                  [...event.ambulantQuickCheck.hardExclusions, ...event.ambulantQuickCheck.yellowFactors].join(' · ') ||
-                  (event.ambulantQuickCheck.decision === 'green' ? t('ambulantEligibility.decision.green', 'Outpatient eligible') :
-                   event.ambulantQuickCheck.decision === 'yellow' ? t('ambulantEligibility.decision.yellow', 'Anesthesia review recommended') :
-                   t('ambulantEligibility.decision.red', 'Outpatient not recommended'))
-                }
-              >
-                <span className="text-[10px] font-semibold">
-                  {event.ambulantQuickCheck.decision === 'red' ? '🔴' :
-                   event.ambulantQuickCheck.decision === 'yellow' ? '🟡' : '🟢'}
-                </span>
-                {event.hasAmbulantOverride && <span className="text-[10px]">⚠</span>}
-              </div>
-            )}
           </>
         )}
         {event.isSuspended && (
