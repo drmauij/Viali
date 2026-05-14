@@ -70,18 +70,22 @@ export function IllnessConceptCell({
 
   // --- Editing dropdown (override existing OR set new) ---
   if (editing) {
-    const current = confirmedConcept ?? NONE_VALUE;
+    // Leave the Select's value undefined when nothing is confirmed yet so that
+    // picking "— None" is treated as a real value change by Radix (which skips
+    // onValueChange when the new value equals the current one). Without this,
+    // a user editing an unmapped row could not clear or dismiss the dropdown.
     return (
       <Select
-        value={current}
+        value={confirmedConcept ?? undefined}
         onValueChange={(v) => {
           onConfirm(v === NONE_VALUE ? null : (v as ScoringConcept));
           setEditing(false);
         }}
         open
+        onOpenChange={(open) => { if (!open) setEditing(false); }}
       >
         <SelectTrigger className="h-7 text-xs w-[220px]" data-testid="concept-select">
-          <SelectValue />
+          <SelectValue placeholder="— None" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={NONE_VALUE}>— None</SelectItem>
