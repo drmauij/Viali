@@ -14,9 +14,12 @@ const SAMPLE: PerioperativeRiskResult = {
   },
   worstDomain: "cardiac",
   ageModifier: 0,
+  ageEligible: false,
+  ageModifierSuppressed: false,
   grade: "orange",
   drivers: ["Cardiac (RCRI 2 pts, med)", "Large surgery class", "mFI-5 = 2"],
   partial: false,
+  inputSource: "assessment",
   calculatedAt: "2026-05-13T08:00:00.000Z",
 };
 

@@ -13,9 +13,12 @@ export interface PerioperativeRiskResult {
   domains: Record<DomainKey, DomainResult>;
   worstDomain: DomainKey;
   ageModifier: 0 | 1;
+  ageEligible: boolean;
+  ageModifierSuppressed: boolean;
   grade: RiskGrade;
   drivers: string[];
   partial: boolean;
+  inputSource: "assessment" | "questionnaire" | "default";
   calculatedAt: string;
 }
 
@@ -140,7 +143,14 @@ export function calculatePerioperativeRisk(i: PerioperativeRiskInputs): Perioper
   let grade: RiskGrade = topRank === 2 ? "red" : topRank === 1 ? "orange" : "green";
 
   // Age modifier — never bumps down, caps at red.
-  const ageModifier: 0 | 1 = i.age >= 75 ? 1 : 0;
+  // Suppressed for minor/standard surgeries: a low-risk procedure does not
+  // amplify age-driven baseline risk. See spec
+  // docs/superpowers/specs/2026-05-14-risk-grade-attenuation-and-preliminary-design.md.
+  const isLowRiskSurgery =
+    i.surgeryRiskClass === "minor" || i.surgeryRiskClass === "standard";
+  const ageEligible: boolean = i.age >= 75;
+  const ageModifier: 0 | 1 = ageEligible && !isLowRiskSurgery ? 1 : 0;
+  const ageModifierSuppressed: boolean = ageEligible && isLowRiskSurgery;
   if (ageModifier === 1) {
     if (grade === "green") grade = "orange";
     else if (grade === "orange") grade = "red";
@@ -158,15 +168,16 @@ export function calculatePerioperativeRisk(i: PerioperativeRiskInputs): Perioper
     domains,
     worstDomain,
     ageModifier,
+    ageEligible,
+    ageModifierSuppressed,
     grade,
     drivers,
-    // partial is set upstream by computeRiskSnapshot when the assessment is
-    // missing entirely. Optional inputs (metAbove4, functionallyDependent) being
-    // null doesn't make the computed grade unreliable — it just means a refining
-    // bump (MET<4 cardiac, mFI-5 dependence) wasn't applied. Treating those as
-    // "partial" caused green-grade tiles with empty drivers to render NOT
-    // DEFINED in the UI, which masks valid assessments.
+    // `partial` is set upstream by computeRiskSnapshot when no assessment exists.
+    // Optional input absences (metAbove4, functionallyDependent) don't make the
+    // computed grade unreliable.
     partial: Object.values(domains).some((d) => d.partial === true),
+    // Defaulted here; computeRiskSnapshot sets the real value upstream.
+    inputSource: "assessment",
     calculatedAt: new Date().toISOString(),
   };
 }

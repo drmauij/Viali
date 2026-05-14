@@ -10,8 +10,9 @@ const RISK: PerioperativeRiskResult = {
     pulmonary: { band: "low", source: "Viali pulmonary v1" }, frailty: { band: "low", source: "mFI-5", partial: false },
     surgery: { band: "low", source: "surgeryRiskClass:minor" },
   },
-  worstDomain: "cardiac", ageModifier: 0, grade: "orange",
-  drivers: ["Cardiac (RCRI 2 pts, med)"], partial: false, calculatedAt: "2026-05-13T08:00:00.000Z",
+  worstDomain: "cardiac", ageModifier: 0, ageEligible: false, ageModifierSuppressed: false,
+  grade: "orange", drivers: ["Cardiac (RCRI 2 pts, med)"], partial: false,
+  inputSource: "assessment", calculatedAt: "2026-05-13T08:00:00.000Z",
 };
 
 describe("<PerioperativeRiskHeader />", () => {
