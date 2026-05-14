@@ -188,6 +188,9 @@ const saveProgressSchema = z.object({
   outpatientCaregiverLastName: z.string().optional(),
   outpatientCaregiverPhone: z.string().optional(),
   caregiverIsEmergencyContact: z.boolean().optional(),
+  // Functional capacity (perioperative risk inputs)
+  metAbove4: z.boolean().nullable().optional(),
+  functionallyDependent: z.boolean().nullable().optional(),
   currentStep: z.number().optional(),
   completedSteps: z.array(z.string()).optional(),
 });
@@ -199,6 +202,8 @@ const submitQuestionnaireSchema = saveProgressSchema.extend({
   patientPhone: z.string().min(1, "Phone is required"),
   height: z.string().min(1, "Height is required"),
   weight: z.string().min(1, "Weight is required"),
+  metAbove4: z.boolean({ required_error: "Physical capacity answer is required" }),
+  functionallyDependent: z.boolean({ required_error: "Independence answer is required" }),
 });
 
 const createReviewSchema = z.object({
@@ -1336,6 +1341,8 @@ router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async 
         outpatientCaregiverLastName: existingResponse.outpatientCaregiverLastName,
         outpatientCaregiverPhone: existingResponse.outpatientCaregiverPhone,
         caregiverIsEmergencyContact: existingResponse.caregiverIsEmergencyContact,
+        metAbove4: existingResponse.metAbove4,
+        functionallyDependent: existingResponse.functionallyDependent,
         currentStep: existingResponse.currentStep,
         completedSteps: existingResponse.completedSteps,
       } : null,
@@ -1443,6 +1450,8 @@ router.post('/api/public/questionnaire/:token/save', questionnaireSaveLimiter, a
         outpatientCaregiverLastName: data.outpatientCaregiverLastName ?? response.outpatientCaregiverLastName,
         outpatientCaregiverPhone: data.outpatientCaregiverPhone ?? response.outpatientCaregiverPhone,
         caregiverIsEmergencyContact: data.caregiverIsEmergencyContact ?? response.caregiverIsEmergencyContact,
+        metAbove4: data.metAbove4 ?? response.metAbove4,
+        functionallyDependent: data.functionallyDependent ?? response.functionallyDependent,
         currentStep: data.currentStep ?? response.currentStep,
         completedSteps: data.completedSteps ?? response.completedSteps,
         lastSavedAt: new Date(),
@@ -1496,6 +1505,8 @@ router.post('/api/public/questionnaire/:token/save', questionnaireSaveLimiter, a
         outpatientCaregiverLastName: data.outpatientCaregiverLastName,
         outpatientCaregiverPhone: data.outpatientCaregiverPhone,
         caregiverIsEmergencyContact: data.caregiverIsEmergencyContact,
+        metAbove4: data.metAbove4,
+        functionallyDependent: data.functionallyDependent,
         currentStep: data.currentStep ?? 0,
         completedSteps: data.completedSteps,
         lastSavedAt: new Date(),
@@ -1583,6 +1594,8 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
         outpatientCaregiverLastName: data.outpatientCaregiverLastName ?? response.outpatientCaregiverLastName,
         outpatientCaregiverPhone: data.outpatientCaregiverPhone ?? response.outpatientCaregiverPhone,
         caregiverIsEmergencyContact: data.caregiverIsEmergencyContact ?? response.caregiverIsEmergencyContact,
+        metAbove4: data.metAbove4 ?? response.metAbove4,
+        functionallyDependent: data.functionallyDependent ?? response.functionallyDependent,
         userAgent: req.headers['user-agent'] || null,
         ipAddress: req.ip || null,
       });
@@ -1635,6 +1648,8 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
         outpatientCaregiverLastName: data.outpatientCaregiverLastName,
         outpatientCaregiverPhone: data.outpatientCaregiverPhone,
         caregiverIsEmergencyContact: data.caregiverIsEmergencyContact,
+        metAbove4: data.metAbove4,
+        functionallyDependent: data.functionallyDependent,
         currentStep: 0,
         userAgent: req.headers['user-agent'] || null,
         ipAddress: req.ip || null,

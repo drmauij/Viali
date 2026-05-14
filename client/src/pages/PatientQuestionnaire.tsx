@@ -184,6 +184,8 @@ interface FormData {
   drugUseDetails: string;
   noDrugUse: boolean;
   noSmokingAlcohol: boolean;
+  metAbove4: boolean | null;
+  functionallyDependent: boolean | null;
   previousSurgeries: string;
   previousAnesthesiaProblems: string;
   noPreviousSurgeries: boolean;
@@ -306,6 +308,18 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.lifestyle.drugs.mdma": "MDMA/Ecstasy",
     "questionnaire.lifestyle.drugs.other": "Other substances",
     "questionnaire.lifestyle.drugs.details": "Please provide details (when, how often)",
+    "questionnaire.lifestyle.functionalCapacity.title": "Physical capacity",
+    "questionnaire.lifestyle.met.question": "Can you climb a flight of stairs or do moderate physical activity without stopping?",
+    "questionnaire.lifestyle.met.yes": "Yes, I can manage at least one flight of stairs or equivalent activity",
+    "questionnaire.lifestyle.met.no": "No, I have to stop or cannot manage that level of activity",
+    "questionnaire.lifestyle.independence.question": "Are you fully independent in your daily activities (washing, dressing, walking, eating, going to the bathroom)?",
+    "questionnaire.lifestyle.independence.yes": "Yes, I manage these on my own",
+    "questionnaire.lifestyle.independence.no": "No, I need help with one or more of these",
+    "questionnaire.lifestyle.functionalCapacity.required": "Please answer both questions to continue",
+    "questionnaire.summary.met": "Physical capacity (stairs/moderate activity)",
+    "questionnaire.summary.independence": "Independence in daily activities",
+    "questionnaire.summary.yes": "Yes",
+    "questionnaire.summary.no": "No",
     "questionnaire.history.surgeries": "Previous Surgeries",
     "questionnaire.history.surgeriesHint": "Please list any previous surgeries with approximate dates",
     "questionnaire.history.anesthesia": "Previous Anesthesia Problems",
@@ -522,6 +536,18 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.lifestyle.drugs.mdma": "MDMA/Ecstasy",
     "questionnaire.lifestyle.drugs.other": "Andere Substanzen",
     "questionnaire.lifestyle.drugs.details": "Bitte geben Sie Details an (wann, wie oft)",
+    "questionnaire.lifestyle.functionalCapacity.title": "Körperliche Belastbarkeit",
+    "questionnaire.lifestyle.met.question": "Können Sie eine Treppe (ein Stockwerk) hochsteigen oder mässige körperliche Tätigkeit ohne Pause bewältigen?",
+    "questionnaire.lifestyle.met.yes": "Ja, ich schaffe mindestens ein Stockwerk Treppen oder eine gleichwertige Tätigkeit",
+    "questionnaire.lifestyle.met.no": "Nein, ich muss pausieren oder schaffe das nicht",
+    "questionnaire.lifestyle.independence.question": "Sind Sie im Alltag vollständig selbständig (Waschen, Anziehen, Gehen, Essen, Toilettengang)?",
+    "questionnaire.lifestyle.independence.yes": "Ja, ich erledige das alles selbständig",
+    "questionnaire.lifestyle.independence.no": "Nein, ich brauche bei mindestens einer dieser Tätigkeiten Hilfe",
+    "questionnaire.lifestyle.functionalCapacity.required": "Bitte beantworten Sie beide Fragen, um fortzufahren",
+    "questionnaire.summary.met": "Körperliche Belastbarkeit (Treppen / mässige Tätigkeit)",
+    "questionnaire.summary.independence": "Selbständigkeit im Alltag",
+    "questionnaire.summary.yes": "Ja",
+    "questionnaire.summary.no": "Nein",
     "questionnaire.history.surgeries": "Frühere Operationen",
     "questionnaire.history.surgeriesHint": "Bitte listen Sie frühere Operationen mit ungefährem Datum auf",
     "questionnaire.history.anesthesia": "Frühere Narkoseprobleme",
@@ -1609,6 +1635,8 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
     drugUseDetails: "",
     noDrugUse: false,
     noSmokingAlcohol: false,
+    metAbove4: null,
+    functionallyDependent: null,
     previousSurgeries: "",
     previousAnesthesiaProblems: "",
     noPreviousSurgeries: false,
@@ -1697,6 +1725,8 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
         drugUseDetails: (existing as any)?.drugUseDetails || "",
         noDrugUse: (existing as any)?.noDrugUse || false,
         noSmokingAlcohol: (existing as any)?.noSmokingAlcohol || false,
+        metAbove4: typeof (existing as any)?.metAbove4 === "boolean" ? (existing as any).metAbove4 : null,
+        functionallyDependent: typeof (existing as any)?.functionallyDependent === "boolean" ? (existing as any).functionallyDependent : null,
         previousSurgeries: existing?.previousSurgeries || "",
         previousAnesthesiaProblems: existing?.previousAnesthesiaProblems || "",
         noPreviousSurgeries: (existing as any)?.noPreviousSurgeries || false,
@@ -1968,11 +1998,14 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
           || Object.values(formData.ponvTransfusionIssues).some(v => v);
       case 'medications':
         return formData.noMedications || formData.medications.length > 0 || !!formData.medicationsNotes;
-      case 'lifestyle':
-        return (formData.noSmokingAlcohol && formData.noDrugUse)
+      case 'lifestyle': {
+        const lifestyleAnswered = (formData.noSmokingAlcohol && formData.noDrugUse)
           || (formData.noSmokingAlcohol && Object.values(formData.drugUse).some(v => v))
           || (formData.noDrugUse && (!!formData.smokingStatus || !!formData.alcoholStatus))
           || (!!formData.smokingStatus || !!formData.alcoholStatus || Object.values(formData.drugUse).some(v => v));
+        const functionalAnswered = formData.metAbove4 !== null && formData.functionallyDependent !== null;
+        return lifestyleAnswered && functionalAnswered;
+      }
       default:
         return true;
     }
@@ -2365,6 +2398,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
                 formData={formData}
                 updateField={updateField}
                 t={t}
+                attemptedNext={attemptedNext}
                 onNoneChecked={() => handleAutoAdvance()}
               />
             )}
@@ -3259,7 +3293,7 @@ interface LifestyleStepProps extends StepProps {
   onNoneChecked: () => void;
 }
 
-function LifestyleStep({ formData, updateField, t, onNoneChecked }: LifestyleStepProps) {
+function LifestyleStep({ formData, updateField, t, attemptedNext, onNoneChecked }: LifestyleStepProps) {
   const handleNoneSmokingAlcoholToggle = (checked: boolean) => {
     updateField("noSmokingAlcohol", checked);
     if (checked) {
@@ -3425,6 +3459,66 @@ function LifestyleStep({ formData, updateField, t, onNoneChecked }: LifestyleSte
           )}
         </div>
       )}
+
+      <Separator />
+
+      <div>
+        <h3 className="font-semibold mb-3">{t("questionnaire.lifestyle.functionalCapacity.title")}</h3>
+
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm mb-2">{t("questionnaire.lifestyle.met.question")}</p>
+            <RadioGroup
+              value={formData.metAbove4 === true ? "yes" : formData.metAbove4 === false ? "no" : ""}
+              onValueChange={(value) => updateField("metAbove4", value === "yes" ? true : value === "no" ? false : null)}
+            >
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 p-2 border rounded">
+                  <RadioGroupItem value="yes" id="met-yes" data-testid="radio-met-yes" />
+                  <Label htmlFor="met-yes" className="font-normal cursor-pointer">
+                    {t("questionnaire.lifestyle.met.yes")}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-3 p-2 border rounded">
+                  <RadioGroupItem value="no" id="met-no" data-testid="radio-met-no" />
+                  <Label htmlFor="met-no" className="font-normal cursor-pointer">
+                    {t("questionnaire.lifestyle.met.no")}
+                  </Label>
+                </div>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <div>
+            <p className="text-sm mb-2">{t("questionnaire.lifestyle.independence.question")}</p>
+            <RadioGroup
+              value={formData.functionallyDependent === false ? "independent" : formData.functionallyDependent === true ? "dependent" : ""}
+              onValueChange={(value) => updateField("functionallyDependent", value === "dependent" ? true : value === "independent" ? false : null)}
+            >
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 p-2 border rounded">
+                  <RadioGroupItem value="independent" id="independence-yes" data-testid="radio-independence-yes" />
+                  <Label htmlFor="independence-yes" className="font-normal cursor-pointer">
+                    {t("questionnaire.lifestyle.independence.yes")}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-3 p-2 border rounded">
+                  <RadioGroupItem value="dependent" id="independence-no" data-testid="radio-independence-no" />
+                  <Label htmlFor="independence-no" className="font-normal cursor-pointer">
+                    {t("questionnaire.lifestyle.independence.no")}
+                  </Label>
+                </div>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {attemptedNext && (formData.metAbove4 === null || formData.functionallyDependent === null) && (
+            <p className="text-sm text-red-500" data-testid="error-functional-capacity-required">
+              {t("questionnaire.lifestyle.functionalCapacity.required")}
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -3850,6 +3944,26 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
                 ))}
               </div>
             ) : <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>}
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500">{t("questionnaire.summary.met")}</p>
+            {formData.metAbove4 === true ? (
+              <p className="text-sm">{t("questionnaire.summary.yes")}</p>
+            ) : formData.metAbove4 === false ? (
+              <p className="text-sm">{t("questionnaire.summary.no")}</p>
+            ) : (
+              <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>
+            )}
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500">{t("questionnaire.summary.independence")}</p>
+            {formData.functionallyDependent === false ? (
+              <p className="text-sm">{t("questionnaire.summary.yes")}</p>
+            ) : formData.functionallyDependent === true ? (
+              <p className="text-sm">{t("questionnaire.summary.no")}</p>
+            ) : (
+              <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>
+            )}
           </div>
         </div>
 

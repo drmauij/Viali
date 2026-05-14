@@ -930,6 +930,8 @@ export default function PatientDetail() {
         cave: existingAssessment.cave || "",
         asa: existingAssessment.asa || "",
         specialNotes: existingAssessment.specialNotes || "",
+        metAbove4: typeof (existingAssessment as any).metAbove4 === "boolean" ? (existingAssessment as any).metAbove4 : null,
+        functionallyDependent: typeof (existingAssessment as any).functionallyDependent === "boolean" ? (existingAssessment as any).functionallyDependent : null,
         anticoagulationMeds: existingAssessment.anticoagulationMeds || [],
         anticoagulationMedsOther: existingAssessment.anticoagulationMedsOther || "",
         generalMeds: existingAssessment.generalMeds || [],
@@ -1255,10 +1257,19 @@ export default function PatientDetail() {
     // Map questionnaire fields to pre-op assessment fields
     setAssessmentData(prev => {
       const newData = { ...prev };
-      
+
       // Height and weight
       if (qResponse.height) newData.height = qResponse.height;
       if (qResponse.weight) newData.weight = qResponse.weight;
+
+      // Functional capacity (MET + daily-activity independence)
+      const qExtFc = qResponse as any;
+      if (typeof qExtFc.metAbove4 === "boolean") {
+        newData.metAbove4 = qExtFc.metAbove4;
+      }
+      if (typeof qExtFc.functionallyDependent === "boolean") {
+        newData.functionallyDependent = qExtFc.functionallyDependent;
+      }
       
       // Allergies - match IDs against the allergyList and auto-select checkboxes
       // The questionnaire stores allergy IDs that correspond to anesthesiaSettings.allergyList IDs
@@ -4435,6 +4446,49 @@ export default function PatientDetail() {
                             data-testid="textarea-special-notes"
                             style={{ fieldSizing: 'content' } as React.CSSProperties}
                           />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                          <div className="space-y-2">
+                            <Label>{t('anesthesia.patientDetail.metAbove4Label', 'Physical capacity ≥ 4 MET')}</Label>
+                            <p className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.metAbove4Hint', 'Can climb a flight of stairs / moderate activity without stopping')}</p>
+                            <Select
+                              value={assessmentData.metAbove4 === true ? "yes" : assessmentData.metAbove4 === false ? "no" : ""}
+                              onValueChange={(value) => setAssessmentData({
+                                ...assessmentData,
+                                metAbove4: value === "yes" ? true : value === "no" ? false : null,
+                              })}
+                              disabled={isPreOpReadOnly}
+                            >
+                              <SelectTrigger data-testid="select-met-above-4">
+                                <SelectValue placeholder={t('anesthesia.patientDetail.notRecorded', 'Not recorded')} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="yes">{t('common.yes', 'Yes')}</SelectItem>
+                                <SelectItem value="no">{t('common.no', 'No')}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>{t('anesthesia.patientDetail.functionalIndependenceLabel', 'Independent in daily activities')}</Label>
+                            <p className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.functionalIndependenceHint', 'Washing, dressing, walking, eating, going to the bathroom')}</p>
+                            <Select
+                              value={assessmentData.functionallyDependent === false ? "independent" : assessmentData.functionallyDependent === true ? "dependent" : ""}
+                              onValueChange={(value) => setAssessmentData({
+                                ...assessmentData,
+                                functionallyDependent: value === "dependent" ? true : value === "independent" ? false : null,
+                              })}
+                              disabled={isPreOpReadOnly}
+                            >
+                              <SelectTrigger data-testid="select-functional-independence">
+                                <SelectValue placeholder={t('anesthesia.patientDetail.notRecorded', 'Not recorded')} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="independent">{t('common.yes', 'Yes')}</SelectItem>
+                                <SelectItem value="dependent">{t('anesthesia.patientDetail.needsHelp', 'No, needs help')}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
                       </CardContent>
                     </AccordionContent>

@@ -123,6 +123,10 @@ export type AssessmentData = {
   asa: string;
   specialNotes: string;
 
+  // Functional capacity (perioperative risk inputs)
+  metAbove4: boolean | null;
+  functionallyDependent: boolean | null;
+
   // Medications
   anticoagulationMeds: string[];
   anticoagulationMedsOther: string;
@@ -418,6 +422,10 @@ export function usePatientState() {
     cave: "",
     asa: "",
     specialNotes: "",
+
+    // Functional capacity
+    metAbove4: null,
+    functionallyDependent: null,
 
     // Medications
     anticoagulationMeds: [] as string[],
