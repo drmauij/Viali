@@ -154,14 +154,15 @@ export function OrMedicationsCard({
     return map;
   }, [orMedications]);
 
-  // Group configured items (admin mode) by group name -> items
-  const configuredByGroupName = useMemo(() => {
+  // Group configured items (admin mode) by group UUID -> items.
+  // item.administrationGroup stores administration_groups.id (the FK UUID).
+  const configuredByGroupId = useMemo(() => {
     const map: Record<string, ConfiguredItem[]> = {};
     for (const item of configuredItems) {
-      const groupName = item.administrationGroup;
-      if (!groupName) continue;
-      if (!map[groupName]) map[groupName] = [];
-      map[groupName].push(item);
+      const groupId = item.administrationGroup;
+      if (!groupId) continue;
+      if (!map[groupId]) map[groupId] = [];
+      map[groupId].push(item);
     }
     return map;
   }, [configuredItems]);
@@ -251,14 +252,15 @@ export function OrMedicationsCard({
   });
 
   const removeConfigMutation = useMutation({
-    mutationFn: async ({ itemId, groupName }: { itemId: string; groupName: string }) => {
+    mutationFn: async ({ itemId, groupId }: { itemId: string; groupId: string }) => {
       // Scoped remove: only delete the config for this specific (item, group) pair.
       // With multi-config support, the same item may have configs in multiple groups
       // (e.g. Anesthesia + OR/Infiltration) — nulling administrationGroup alone would
-      // silently no-op on multi-config items.
+      // silently no-op on multi-config items. administrationGroup is the FK UUID
+      // of administration_groups.id.
       return apiRequest("PATCH", `/api/items/${itemId}/anesthesia-config`, {
         _removeFromGroup: true,
-        administrationGroup: groupName,
+        administrationGroup: groupId,
       });
     },
     onSuccess: () => {
@@ -353,7 +355,7 @@ export function OrMedicationsCard({
             groupCount={groups.length}
             editMode={editMode}
             medications={medsByGroup[group.id] || []}
-            configuredItems={configuredByGroupName[group.name] || []}
+            configuredItems={configuredByGroupId[group.id] || []}
             localQuantities={localQuantities}
             onQuantityChange={handleQuantityChange}
             onMoveGroup={moveGroup}
@@ -378,7 +380,7 @@ export function OrMedicationsCard({
               setAddMedGroupId(groupId);
               setAddMedDialogOpen(true);
             }}
-            onRemoveConfig={(itemId, groupName) => removeConfigMutation.mutate({ itemId, groupName })}
+            onRemoveConfig={(itemId, groupId) => removeConfigMutation.mutate({ itemId, groupId })}
             onDeleteMed={(itemId, groupId) => deleteMedMutation.mutate({ itemId, groupId })}
           />
         ))}
@@ -440,7 +442,7 @@ interface GroupSectionProps {
   onRenameCancel: () => void;
   onDeleteGroup: (groupId: string) => void;
   onAddMedication: (groupId: string) => void;
-  onRemoveConfig: (itemId: string, groupName: string) => void;
+  onRemoveConfig: (itemId: string, groupId: string) => void;
   onDeleteMed: (itemId: string, groupId: string) => void;
 }
 
@@ -622,7 +624,7 @@ function GroupSection({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 shrink-0"
-                  onClick={() => onRemoveConfig(item.itemId, group.name)}
+                  onClick={() => onRemoveConfig(item.itemId, group.id)}
                   title={t("anesthesia.orMedications.removeMed", "Remove medication")}
                 >
                   <X className="h-3.5 w-3.5" />
@@ -759,11 +761,11 @@ function AddMedicationDialog({ open, onOpenChange, groupId, groupName, hospitalI
   });
 
   const handleSave = () => {
-    if (!selectedItemId || !groupName) return;
+    if (!selectedItemId || !groupId) return;
     saveMutation.mutate({
       itemId: selectedItemId,
       config: {
-        administrationGroup: groupName,
+        administrationGroup: groupId,
         ampuleTotalContent: ampuleContent.trim() || undefined,
         administrationUnit: unit,
       },

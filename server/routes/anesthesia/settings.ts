@@ -118,12 +118,14 @@ router.get('/api/anesthesia/items/:hospitalId', isAuthenticated, async (req: any
       .orderBy(medicationConfigs.sortOrder, items.name);
 
     // If unitType is specified, filter items to only those whose administrationGroup
-    // belongs to administration groups of that unitType
+    // belongs to administration groups of that unitType. `administrationGroup`
+    // stores the foreign-key UUID of administration_groups.id (see migration
+    // 0246 and the OR-scoped backfill in 0257).
     if (unitType) {
       const groups = await storage.getAdministrationGroups(hospitalId, unitType);
-      const groupNames = new Set(groups.map(g => g.name));
+      const groupIds = new Set(groups.map(g => g.id));
       const filtered = anesthesiaItems.filter(item =>
-        item.administrationGroup && groupNames.has(item.administrationGroup)
+        item.administrationGroup && groupIds.has(item.administrationGroup)
       );
       return res.json(filtered);
     }
