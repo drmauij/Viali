@@ -38,6 +38,9 @@ import { cn } from "@/lib/utils";
 import { draggedRequest } from "@/components/surgery/useExternalRequestDrag";
 import CalendarSearch from "@/components/shared/CalendarSearch";
 import type { CalendarSearchResult } from "@/components/shared/CalendarSearch";
+import { HeatmapToggle, useHeatmapEnabled } from "./HeatmapToggle";
+import { RiskChip } from "./RiskChip";
+import type { PerioperativeRiskResult } from "@shared/scoring/perioperativeRisk";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
@@ -79,6 +82,8 @@ interface CalendarEvent {
   admissionTime?: string | null;
   ambulantQuickCheck?: { decision: 'green' | 'yellow' | 'red'; reasons: string[]; hardExclusions: string[]; yellowFactors: string[] } | null;
   hasAmbulantOverride?: boolean;
+  riskGrade?: 'green' | 'orange' | 'red' | null;
+  perioperativeRisk?: PerioperativeRiskResult | null;
 }
 
 type CalendarResource = {
@@ -299,6 +304,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
   // QuickCreateSurgeryDialog already requires an explicit confirm.
   const [isCalendarLocked, setIsCalendarLocked] = useState(true);
   useEffect(() => { setIsCalendarLocked(true); }, [currentView]);
+  const { enabled: heatmapEnabled, setEnabled: setHeatmapEnabled } = useHeatmapEnabled();
   const preSearchDateRef = useRef<Date | null>(null);
 
   // Drag and drop sensors
@@ -614,6 +620,8 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         admissionTime: surgery.admissionTime ?? null,
         ambulantQuickCheck: surgery.ambulantQuickCheck ?? null,
         hasAmbulantOverride: Boolean(surgery.ambulantOverrideReason),
+        riskGrade: (surgery as any).riskGrade ?? null,
+        perioperativeRisk: (surgery as any).perioperativeRisk ?? null,
       };
     });
     // surgeonFilter included so events are rebuilt with fresh isOwnSurgery/isOtherSurgery flags.
@@ -1260,6 +1268,13 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     const isSlotReservationEvt = !event.patientId;
     const isRoomBlockEvt = !!event.isRoomBlock;
     const qDot = getQuestionnaireDot(event.questionnaireStatus, preOpStatus.key);
+    const heatmapClass = heatmapEnabled && event.riskGrade
+      ? event.riskGrade === "red"
+        ? "heatmap-red bg-red-500/20 border-l-4 border-red-500"
+        : event.riskGrade === "orange"
+          ? "heatmap-orange bg-orange-500/20 border-l-4 border-orange-500"
+          : "heatmap-green bg-green-500/15 border-l-4 border-green-500"
+      : "";
 
     // Build a rich native tooltip for the surgery card
     const tooltipLines: string[] = [];
@@ -1302,7 +1317,12 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     const tooltipText = tooltipLines.join('\n');
 
     return (
-      <div className="flex flex-col h-full p-0.5 sm:p-1 overflow-hidden relative" data-testid={`event-${event.surgeryId}`} title={tooltipText}>
+      <div className={`flex flex-col h-full p-0.5 sm:p-1 overflow-hidden relative ${heatmapClass}`} data-testid={`event-${event.surgeryId}`} title={tooltipText}>
+        {heatmapEnabled && event.riskGrade && event.perioperativeRisk && !isRoomBlockEvt && !isSlotReservationEvt && (
+          <div className="absolute top-1 right-1 z-10">
+            <RiskChip grade={event.riskGrade} worstDomain={event.perioperativeRisk.worstDomain} size="sm" />
+          </div>
+        )}
         {qDot && !isRoomBlockEvt && !isSlotReservationEvt && (
           <div
             className={`absolute top-1 right-0.5 w-2.5 h-2.5 rounded-full ${qDot.color} ring-1 ring-white/50`}
@@ -1391,7 +1411,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         )}
       </div>
     );
-  }, [getPreOpStatus, getQuestionnaireDot, t]);
+  }, [getPreOpStatus, getQuestionnaireDot, t, heatmapEnabled]);
 
   // Custom month date cell component - show indicator dots instead of event details
   const MonthDateHeader = useCallback(({ date }: { date: Date }) => {
@@ -1610,6 +1630,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
             <CalendarRange className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
             <span className="hidden sm:inline">{t('opCalendar.month')}</span>
           </Button>
+          <HeatmapToggle enabled={heatmapEnabled} onChange={setHeatmapEnabled} />
           {activeHospital && currentView === "day" && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
