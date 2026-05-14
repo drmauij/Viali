@@ -4416,39 +4416,7 @@ export default function PatientDetail() {
                             data-testid="input-cave"
                           />
                         </div>
-                        <div className="space-y-2">
-                          <Label>{t('anesthesia.patientDetail.asaClassification')}</Label>
-                          <Select
-                            value={assessmentData.asa}
-                            onValueChange={(value) => setAssessmentData({...assessmentData, asa: value})}
-                            disabled={isPreOpReadOnly}
-                          >
-                            <SelectTrigger data-testid="select-asa">
-                              <SelectValue placeholder={t('anesthesia.patientDetail.selectASAClass')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="I">{t('anesthesia.patientDetail.asaI')}</SelectItem>
-                              <SelectItem value="II">{t('anesthesia.patientDetail.asaII')}</SelectItem>
-                              <SelectItem value="III">{t('anesthesia.patientDetail.asaIII')}</SelectItem>
-                              <SelectItem value="IV">{t('anesthesia.patientDetail.asaIV')}</SelectItem>
-                              <SelectItem value="V">{t('anesthesia.patientDetail.asaV')}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>{t('anesthesia.patientDetail.specialNotes')}</Label>
-                          <Textarea
-                            value={assessmentData.specialNotes}
-                            onChange={(e) => setAssessmentData({...assessmentData, specialNotes: e.target.value})}
-                            placeholder={t('anesthesia.patientDetail.specialNotesPlaceholder')}
-                            rows={3}
-                            disabled={isPreOpReadOnly}
-                            data-testid="textarea-special-notes"
-                            style={{ fieldSizing: 'content' } as React.CSSProperties}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>{t('anesthesia.patientDetail.metAbove4Label', 'Physical capacity ≥ 4 MET')}</Label>
                             <p className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.metAbove4Hint', 'Can climb a flight of stairs / moderate activity without stopping')}</p>
@@ -4490,6 +4458,38 @@ export default function PatientDetail() {
                             </Select>
                           </div>
                         </div>
+                        <div className="space-y-2">
+                          <Label>{t('anesthesia.patientDetail.asaClassification')}</Label>
+                          <Select
+                            value={assessmentData.asa}
+                            onValueChange={(value) => setAssessmentData({...assessmentData, asa: value})}
+                            disabled={isPreOpReadOnly}
+                          >
+                            <SelectTrigger data-testid="select-asa">
+                              <SelectValue placeholder={t('anesthesia.patientDetail.selectASAClass')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="I">{t('anesthesia.patientDetail.asaI')}</SelectItem>
+                              <SelectItem value="II">{t('anesthesia.patientDetail.asaII')}</SelectItem>
+                              <SelectItem value="III">{t('anesthesia.patientDetail.asaIII')}</SelectItem>
+                              <SelectItem value="IV">{t('anesthesia.patientDetail.asaIV')}</SelectItem>
+                              <SelectItem value="V">{t('anesthesia.patientDetail.asaV')}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>{t('anesthesia.patientDetail.specialNotes')}</Label>
+                          <Textarea
+                            value={assessmentData.specialNotes}
+                            onChange={(e) => setAssessmentData({...assessmentData, specialNotes: e.target.value})}
+                            placeholder={t('anesthesia.patientDetail.specialNotesPlaceholder')}
+                            rows={3}
+                            disabled={isPreOpReadOnly}
+                            data-testid="textarea-special-notes"
+                            style={{ fieldSizing: 'content' } as React.CSSProperties}
+                          />
+                        </div>
+
                       </CardContent>
                     </AccordionContent>
                   </Card>

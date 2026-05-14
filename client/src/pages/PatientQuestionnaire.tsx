@@ -310,9 +310,11 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.lifestyle.drugs.details": "Please provide details (when, how often)",
     "questionnaire.lifestyle.functionalCapacity.title": "Physical capacity",
     "questionnaire.lifestyle.met.question": "Can you climb a flight of stairs or do moderate physical activity without stopping?",
+    "questionnaire.lifestyle.met.help": "Examples of moderate activity: climbing one flight of stairs, walking briskly on level ground, carrying heavy groceries, gardening, light cycling, or playing with children.",
     "questionnaire.lifestyle.met.yes": "Yes, I can manage at least one flight of stairs or equivalent activity",
     "questionnaire.lifestyle.met.no": "No, I have to stop or cannot manage that level of activity",
     "questionnaire.lifestyle.independence.question": "Are you fully independent in your daily activities (washing, dressing, walking, eating, going to the bathroom)?",
+    "questionnaire.lifestyle.independence.help": "We're asking whether you can manage these basic everyday tasks without help from another person.",
     "questionnaire.lifestyle.independence.yes": "Yes, I manage these on my own",
     "questionnaire.lifestyle.independence.no": "No, I need help with one or more of these",
     "questionnaire.lifestyle.functionalCapacity.required": "Please answer both questions to continue",
@@ -538,9 +540,11 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.lifestyle.drugs.details": "Bitte geben Sie Details an (wann, wie oft)",
     "questionnaire.lifestyle.functionalCapacity.title": "Körperliche Belastbarkeit",
     "questionnaire.lifestyle.met.question": "Können Sie eine Treppe (ein Stockwerk) hochsteigen oder mässige körperliche Tätigkeit ohne Pause bewältigen?",
+    "questionnaire.lifestyle.met.help": "Beispiele für mässige Tätigkeit: ein Stockwerk Treppen steigen, zügig in der Ebene gehen, schwere Einkäufe tragen, Gartenarbeit, leichtes Velofahren oder mit Kindern spielen.",
     "questionnaire.lifestyle.met.yes": "Ja, ich schaffe mindestens ein Stockwerk Treppen oder eine gleichwertige Tätigkeit",
     "questionnaire.lifestyle.met.no": "Nein, ich muss pausieren oder schaffe das nicht",
     "questionnaire.lifestyle.independence.question": "Sind Sie im Alltag vollständig selbständig (Waschen, Anziehen, Gehen, Essen, Toilettengang)?",
+    "questionnaire.lifestyle.independence.help": "Gemeint ist, ob Sie diese alltäglichen Verrichtungen ohne Hilfe einer anderen Person erledigen.",
     "questionnaire.lifestyle.independence.yes": "Ja, ich erledige das alles selbständig",
     "questionnaire.lifestyle.independence.no": "Nein, ich brauche bei mindestens einer dieser Tätigkeiten Hilfe",
     "questionnaire.lifestyle.functionalCapacity.required": "Bitte beantworten Sie beide Fragen, um fortzufahren",
@@ -764,6 +768,18 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.lifestyle.drugs.mdma": "MDMA/Ecstasy",
     "questionnaire.lifestyle.drugs.other": "Altre sostanze",
     "questionnaire.lifestyle.drugs.details": "Fornire dettagli (quando, con quale frequenza)",
+    "questionnaire.lifestyle.functionalCapacity.title": "Capacità fisica",
+    "questionnaire.lifestyle.met.question": "Riesce a salire una rampa di scale o svolgere un'attività fisica moderata senza fermarsi?",
+    "questionnaire.lifestyle.met.help": "Esempi di attività moderata: salire una rampa di scale, camminare a passo svelto in piano, portare borse della spesa pesanti, fare giardinaggio, andare in bici a ritmo lento o giocare con i bambini.",
+    "questionnaire.lifestyle.met.yes": "Sì, riesco a salire almeno una rampa di scale o un'attività equivalente",
+    "questionnaire.lifestyle.met.no": "No, devo fermarmi oppure non riesco a sostenere quel livello di attività",
+    "questionnaire.lifestyle.independence.question": "È completamente autonomo nelle attività quotidiane (lavarsi, vestirsi, camminare, mangiare, andare in bagno)?",
+    "questionnaire.lifestyle.independence.help": "Le stiamo chiedendo se gestisce queste attività di base senza l'aiuto di un'altra persona.",
+    "questionnaire.lifestyle.independence.yes": "Sì, le gestisco da solo/a",
+    "questionnaire.lifestyle.independence.no": "No, ho bisogno di aiuto per almeno una di queste",
+    "questionnaire.lifestyle.functionalCapacity.required": "Risponda a entrambe le domande per continuare",
+    "questionnaire.summary.met": "Capacità fisica (scale / attività moderata)",
+    "questionnaire.summary.independence": "Autonomia nelle attività quotidiane",
     "questionnaire.history.surgeries": "Interventi chirurgici precedenti",
     "questionnaire.history.surgeriesHint": "Elenchi eventuali interventi chirurgici precedenti con date approssimative",
     "questionnaire.history.anesthesia": "Problemi precedenti con l'anestesia",
@@ -980,6 +996,18 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.lifestyle.drugs.mdma": "MDMA/Éxtasis",
     "questionnaire.lifestyle.drugs.other": "Otras sustancias",
     "questionnaire.lifestyle.drugs.details": "Proporcione detalles (cuándo, con qué frecuencia)",
+    "questionnaire.lifestyle.functionalCapacity.title": "Capacidad física",
+    "questionnaire.lifestyle.met.question": "¿Puede subir un tramo de escaleras o hacer actividad física moderada sin detenerse?",
+    "questionnaire.lifestyle.met.help": "Ejemplos de actividad moderada: subir un tramo de escaleras, caminar a paso ligero en terreno llano, cargar la compra pesada, hacer jardinería, ir en bici a ritmo suave o jugar con niños.",
+    "questionnaire.lifestyle.met.yes": "Sí, puedo subir al menos un tramo de escaleras o una actividad equivalente",
+    "questionnaire.lifestyle.met.no": "No, tengo que parar o no puedo mantener ese nivel de actividad",
+    "questionnaire.lifestyle.independence.question": "¿Es totalmente independiente en sus actividades diarias (asearse, vestirse, caminar, comer, ir al baño)?",
+    "questionnaire.lifestyle.independence.help": "Le preguntamos si realiza estas tareas básicas sin la ayuda de otra persona.",
+    "questionnaire.lifestyle.independence.yes": "Sí, las realizo por mi cuenta",
+    "questionnaire.lifestyle.independence.no": "No, necesito ayuda para al menos una de ellas",
+    "questionnaire.lifestyle.functionalCapacity.required": "Responda a ambas preguntas para continuar",
+    "questionnaire.summary.met": "Capacidad física (escaleras / actividad moderada)",
+    "questionnaire.summary.independence": "Autonomía en las actividades diarias",
     "questionnaire.history.surgeries": "Operaciones previas",
     "questionnaire.history.surgeriesHint": "Enumere sus operaciones previas con fechas aproximadas",
     "questionnaire.history.anesthesia": "Problemas previos con la anestesia",
@@ -1196,6 +1224,18 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.lifestyle.drugs.mdma": "MDMA/Ecstasy",
     "questionnaire.lifestyle.drugs.other": "Autres substances",
     "questionnaire.lifestyle.drugs.details": "Veuillez fournir des détails (quand, à quelle fréquence)",
+    "questionnaire.lifestyle.functionalCapacity.title": "Capacité physique",
+    "questionnaire.lifestyle.met.question": "Pouvez-vous monter un étage d'escaliers ou réaliser une activité physique modérée sans vous arrêter ?",
+    "questionnaire.lifestyle.met.help": "Exemples d'activité modérée : monter un étage d'escaliers, marcher d'un bon pas sur terrain plat, porter des courses lourdes, faire du jardinage, faire du vélo à allure tranquille ou jouer avec des enfants.",
+    "questionnaire.lifestyle.met.yes": "Oui, j'arrive à monter au moins un étage ou à effectuer une activité équivalente",
+    "questionnaire.lifestyle.met.no": "Non, je dois m'arrêter ou je ne peux pas tenir ce niveau d'activité",
+    "questionnaire.lifestyle.independence.question": "Êtes-vous totalement autonome dans vos activités quotidiennes (toilette, habillage, marche, repas, aller aux toilettes) ?",
+    "questionnaire.lifestyle.independence.help": "Nous vous demandons si vous gérez ces tâches de base sans l'aide d'une autre personne.",
+    "questionnaire.lifestyle.independence.yes": "Oui, je gère cela tout seul/toute seule",
+    "questionnaire.lifestyle.independence.no": "Non, j'ai besoin d'aide pour au moins l'une d'entre elles",
+    "questionnaire.lifestyle.functionalCapacity.required": "Veuillez répondre aux deux questions pour continuer",
+    "questionnaire.summary.met": "Capacité physique (escaliers / activité modérée)",
+    "questionnaire.summary.independence": "Autonomie dans les activités quotidiennes",
     "questionnaire.history.surgeries": "Opérations précédentes",
     "questionnaire.history.surgeriesHint": "Listez vos opérations précédentes avec les dates approximatives",
     "questionnaire.history.anesthesia": "Problèmes précédents avec l'anesthésie",
@@ -1412,6 +1452,18 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.lifestyle.drugs.mdma": "摇头丸/MDMA",
     "questionnaire.lifestyle.drugs.other": "其他物质",
     "questionnaire.lifestyle.drugs.details": "请提供详细信息（时间、频率等）",
+    "questionnaire.lifestyle.functionalCapacity.title": "身体活动能力",
+    "questionnaire.lifestyle.met.question": "您能否在中途不停顿的情况下爬完一段楼梯，或完成中等强度的体力活动？",
+    "questionnaire.lifestyle.met.help": "中等强度活动的示例：爬一段楼梯、在平地上快走、提较重的购物袋、做园艺、慢速骑车或与孩子玩耍。",
+    "questionnaire.lifestyle.met.yes": "可以，我能爬完一段楼梯或完成相当强度的活动",
+    "questionnaire.lifestyle.met.no": "不能，我需要中途停下或无法维持该强度",
+    "questionnaire.lifestyle.independence.question": "您在日常生活（洗澡、穿衣、行走、进食、如厕）中能否完全独立？",
+    "questionnaire.lifestyle.independence.help": "我们在询问您是否可以独立完成这些基本日常活动，不需要他人协助。",
+    "questionnaire.lifestyle.independence.yes": "可以，我能独立完成",
+    "questionnaire.lifestyle.independence.no": "不能，其中至少一项我需要他人协助",
+    "questionnaire.lifestyle.functionalCapacity.required": "请回答这两个问题以继续",
+    "questionnaire.summary.met": "身体活动能力（楼梯 / 中等强度活动）",
+    "questionnaire.summary.independence": "日常活动独立性",
     "questionnaire.history.surgeries": "既往手术史",
     "questionnaire.history.surgeriesHint": "请列出以往手术及大致时间",
     "questionnaire.history.anesthesia": "麻醉过敏史",
@@ -3467,12 +3519,13 @@ function LifestyleStep({ formData, updateField, t, attemptedNext, onNoneChecked 
 
         <div className="space-y-4">
           <div>
-            <p className="text-sm mb-2">{t("questionnaire.lifestyle.met.question")}</p>
+            <p className="text-sm mb-1">{t("questionnaire.lifestyle.met.question")}</p>
+            <p className="text-xs text-muted-foreground mb-2">{t("questionnaire.lifestyle.met.help")}</p>
             <RadioGroup
               value={formData.metAbove4 === true ? "yes" : formData.metAbove4 === false ? "no" : ""}
               onValueChange={(value) => updateField("metAbove4", value === "yes" ? true : value === "no" ? false : null)}
             >
-              <div className="space-y-2">
+              <div className={`space-y-2 ${attemptedNext && formData.metAbove4 === null ? "ring-1 ring-red-500 rounded p-2" : ""}`}>
                 <div className="flex items-center gap-3 p-2 border rounded">
                   <RadioGroupItem value="yes" id="met-yes" data-testid="radio-met-yes" />
                   <Label htmlFor="met-yes" className="font-normal cursor-pointer">
@@ -3490,12 +3543,13 @@ function LifestyleStep({ formData, updateField, t, attemptedNext, onNoneChecked 
           </div>
 
           <div>
-            <p className="text-sm mb-2">{t("questionnaire.lifestyle.independence.question")}</p>
+            <p className="text-sm mb-1">{t("questionnaire.lifestyle.independence.question")}</p>
+            <p className="text-xs text-muted-foreground mb-2">{t("questionnaire.lifestyle.independence.help")}</p>
             <RadioGroup
               value={formData.functionallyDependent === false ? "independent" : formData.functionallyDependent === true ? "dependent" : ""}
               onValueChange={(value) => updateField("functionallyDependent", value === "dependent" ? true : value === "independent" ? false : null)}
             >
-              <div className="space-y-2">
+              <div className={`space-y-2 ${attemptedNext && formData.functionallyDependent === null ? "ring-1 ring-red-500 rounded p-2" : ""}`}>
                 <div className="flex items-center gap-3 p-2 border rounded">
                   <RadioGroupItem value="independent" id="independence-yes" data-testid="radio-independence-yes" />
                   <Label htmlFor="independence-yes" className="font-normal cursor-pointer">
