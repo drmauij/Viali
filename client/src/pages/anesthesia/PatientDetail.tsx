@@ -1995,13 +1995,32 @@ export default function PatientDetail() {
     );
   }
 
-  const selectedSurgeryForRisk = surgeries?.find(s => s.id === selectedCaseId) as any;
-  const riskForChip: PerioperativeRiskResult | null = selectedSurgeryForRisk?.perioperativeRisk ?? null;
-  const ambulantForChip: AmbulantSummary | null = selectedSurgeryForRisk?.ambulantQuickCheck
+  // When the user has explicitly opened a surgery, show that one's risk. When
+  // they're just looking at the patient header without a surgery selected,
+  // fall back to the next upcoming non-cancelled surgery, then the most recent
+  // past one — so the chip is visible on first load.
+  const surgeryForRiskChip = (() => {
+    if (!surgeries || surgeries.length === 0) return null;
+    if (selectedCaseId) {
+      const explicit = surgeries.find(s => s.id === selectedCaseId);
+      if (explicit) return explicit as any;
+    }
+    const now = Date.now();
+    const upcoming = surgeries
+      .filter(s => s.status !== 'cancelled' && s.plannedDate && new Date(s.plannedDate).getTime() >= now)
+      .sort((a, b) => new Date(a.plannedDate).getTime() - new Date(b.plannedDate).getTime())[0];
+    if (upcoming) return upcoming as any;
+    const past = surgeries
+      .filter(s => s.status !== 'cancelled' && s.plannedDate)
+      .sort((a, b) => new Date(b.plannedDate).getTime() - new Date(a.plannedDate).getTime())[0];
+    return (past ?? null) as any;
+  })();
+  const riskForChip: PerioperativeRiskResult | null = surgeryForRiskChip?.perioperativeRisk ?? null;
+  const ambulantForChip: AmbulantSummary | null = surgeryForRiskChip?.ambulantQuickCheck
     ? {
-        decision: selectedSurgeryForRisk.ambulantQuickCheck.decision,
-        hardExclusions: selectedSurgeryForRisk.ambulantQuickCheck.hardExclusions ?? [],
-        yellowFactors: selectedSurgeryForRisk.ambulantQuickCheck.yellowFactors ?? [],
+        decision: surgeryForRiskChip.ambulantQuickCheck.decision,
+        hardExclusions: surgeryForRiskChip.ambulantQuickCheck.hardExclusions ?? [],
+        yellowFactors: surgeryForRiskChip.ambulantQuickCheck.yellowFactors ?? [],
       }
     : null;
 
