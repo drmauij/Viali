@@ -131,9 +131,9 @@ describe("calculatePerioperativeRisk — aggregation", () => {
     expect(r.drivers[0]).toMatch(/cardiac/i);
   });
 
-  it("partial flag propagates from mFI-5 when functionallyDependent is null", () => {
+  it("does NOT flag partial when functionallyDependent is null — only assessment-missing should mark partial upstream", () => {
     const r = calculatePerioperativeRisk({ ...baseInputs, functionallyDependent: null as any });
-    expect(r.partial).toBe(true);
+    expect(r.partial).toBe(false);
   });
 
   it("MET<4 bumps cardiac low -> med", () => {
@@ -168,8 +168,8 @@ describe("calculatePerioperativeRisk — aggregation", () => {
     expect(r.domains.cardiac.source).not.toMatch(/MET<4/);
   });
 
-  it("metAbove4 === null produces partial=true", () => {
+  it("metAbove4 === null does NOT produce partial=true — MET<4 is a refining bump, not a load-bearing input", () => {
     const r = calculatePerioperativeRisk({ ...baseInputs, metAbove4: null });
-    expect(r.partial).toBe(true);
+    expect(r.partial).toBe(false);
   });
 });

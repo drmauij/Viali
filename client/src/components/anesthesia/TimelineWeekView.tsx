@@ -13,6 +13,8 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { getDateFnsTimeFormat } from "@/lib/dateUtils";
 import { RiskChip } from "./RiskChip";
+import { RiskBreakdownPopover, type AmbulantSummary } from "./RiskBreakdownPopover";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import type { LucideIcon } from "lucide-react";
 
 export interface PreOpStatusInfo {
@@ -862,7 +864,23 @@ export default function TimelineWeekView({
                     displayHeight = Math.max((durationMin / SLOT_MINUTES) * SLOT_HEIGHT - 2, 12);
                   }
 
-                  return (
+                  const risk: any = surgery.perioperativeRisk;
+                  const showHoverBreakdown =
+                    heatmapEnabled &&
+                    !isRoomBlock &&
+                    !isSlotReservation &&
+                    !!surgery.riskGrade &&
+                    !!risk &&
+                    !(risk.partial && (!risk.drivers || risk.drivers.length === 0));
+                  const ambulantForHover: AmbulantSummary | null = surgery.ambulantQuickCheck
+                    ? {
+                        decision: surgery.ambulantQuickCheck.decision,
+                        hardExclusions: surgery.ambulantQuickCheck.hardExclusions ?? [],
+                        yellowFactors: surgery.ambulantQuickCheck.yellowFactors ?? [],
+                      }
+                    : null;
+
+                  const tileNode = (
                     <div
                       key={surgery.id}
                       className={cn(
@@ -1041,6 +1059,21 @@ export default function TimelineWeekView({
                         </div>
                       )}
                     </div>
+                  );
+
+                  if (!showHoverBreakdown) return tileNode;
+
+                  return (
+                    <HoverCard key={surgery.id} openDelay={250} closeDelay={120}>
+                      <HoverCardTrigger asChild>{tileNode}</HoverCardTrigger>
+                      <HoverCardContent
+                        side="right"
+                        align="start"
+                        className="p-0 w-auto border-none bg-transparent shadow-none"
+                      >
+                        <RiskBreakdownPopover risk={risk} ambulant={ambulantForHover} />
+                      </HoverCardContent>
+                    </HoverCard>
                   );
                 })}
               </div>

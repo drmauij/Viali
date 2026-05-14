@@ -8796,5 +8796,31 @@
       "distanceTooFar": "Travel > {{minutes}} min to the clinic",
       "cannotUnderstandDischarge": "Patient cannot understand discharge instructions"
     }
+  },
+  "riskMethodology": {
+    "title": "Perioperative Risk Grade",
+    "intro": "The risk grade is a single green / orange / red signal showing global perioperative risk. It is computed automatically from existing patient and surgery data and updates whenever comorbidities, the questionnaire, or the surgery itself changes.",
+    "aggregation": "Aggregation: the worst band across five independent domains drives the grade. If any domain is high, the grade is red; if any is med (and none high), it is orange; otherwise green. Patients aged 75 or older are bumped one band up (never down).",
+    "cardiac": {
+      "title": "Cardiac — RCRI",
+      "body": "Revised Cardiac Risk Index (Lee et al., 1999). Counts of: high-risk surgery, ischemic heart disease, congestive heart failure, cerebrovascular disease, insulin-dependent diabetes, serum creatinine > 2 mg/dL. Bands: low (0 pts) / med (1 pt) / high (≥ 2 pts)."
+    },
+    "vte": {
+      "title": "VTE — Caprini",
+      "body": "Caprini score for venous thromboembolism risk. Combines age, BMI, surgery type, malignancy, mobility, VTE history, varicose veins, hormonal therapy, and pregnancy. Bands: low (0–2 pts) / med (3–4 pts) / high (≥ 5 pts)."
+    },
+    "pulmonary": {
+      "title": "Pulmonary — Viali pulmonary v1",
+      "body": "Custom Viali approximation. Bands: high if COPD present; med if current smoker AND (age ≥ 70 OR planned duration > 180 min); otherwise low. This is not a validated published score — it is an explicit approximation using only inputs we already capture. A future iteration will replace it with full ARISCAT once SpO2, recent respiratory infection, and Hb capture are added."
+    },
+    "frailty": {
+      "title": "Frailty — mFI-5",
+      "body": "5-Factor Modified Frailty Index. Counts of: diabetes, COPD / recent pneumonia, congestive heart failure, hypertension requiring meds, and functional dependence in daily activities. Bands: low (0) / med (1–2) / high (≥ 3). If the functional-dependence question has not been answered, the score runs on the 4 remaining factors."
+    },
+    "surgery": {
+      "title": "Surgery weight",
+      "body": "Bands directly from the surgery's risk class: minor / standard → low, large → med, critical → high. Standard procedures (cataract, lap chole, hernia, lid surgery, arthroscopy, etc.) carry < 1% baseline MACE for a healthy patient and do not contribute a surgery-axis bump on their own — comorbidities still drive the cardiac, VTE, pulmonary, and frailty axes."
+    },
+    "footer": "Methodology v1 · effective 2026-05-13. Threshold or formula changes will bump the version number."
   }
 }

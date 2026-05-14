@@ -8813,5 +8813,31 @@
       "distanceTooFar": "Anfahrt > {{minutes}} Min zur Klinik",
       "cannotUnderstandDischarge": "Patient kann Entlassungsanweisungen nicht verstehen"
     }
+  },
+  "riskMethodology": {
+    "title": "Perioperatives Risiko-Grade",
+    "intro": "Das Risiko-Grade ist ein einzelnes grünes / oranges / rotes Signal, das das globale perioperative Risiko anzeigt. Es wird automatisch aus den vorhandenen Patienten- und Operationsdaten berechnet und aktualisiert sich, sobald sich Komorbiditäten, der Fragebogen oder die Operation selbst ändern.",
+    "aggregation": "Aggregation: Das schlechteste Band über fünf unabhängige Domänen treibt das Grade. Ist eine Domäne hoch, ist das Grade rot; ist eine mittel (und keine hoch), ist es orange; sonst grün. Patienten ab 75 Jahren werden um ein Band hochgestuft (nie herab).",
+    "cardiac": {
+      "title": "Kardial — RCRI",
+      "body": "Revised Cardiac Risk Index (Lee et al., 1999). Zählt: Hochrisiko-Operation, ischämische Herzkrankheit, Herzinsuffizienz, zerebrovaskuläre Erkrankung, insulinpflichtiger Diabetes, Serumkreatinin > 2 mg/dl. Bänder: niedrig (0 Pkt.) / mittel (1 Pkt.) / hoch (≥ 2 Pkt.)."
+    },
+    "vte": {
+      "title": "VTE — Caprini",
+      "body": "Caprini-Score für das Risiko venöser Thromboembolien. Kombiniert Alter, BMI, Operationstyp, Malignität, Mobilität, VTE-Anamnese, Varikose, Hormontherapie und Schwangerschaft. Bänder: niedrig (0–2 Pkt.) / mittel (3–4 Pkt.) / hoch (≥ 5 Pkt.)."
+    },
+    "pulmonary": {
+      "title": "Pulmonal — Viali pulmonary v1",
+      "body": "Viali-eigene Näherung. Bänder: hoch bei vorliegender COPD; mittel bei aktuellem Rauchen UND (Alter ≥ 70 ODER geplante Dauer > 180 Min); sonst niedrig. Dies ist kein validierter publizierter Score — es ist eine bewusste Näherung, die nur die bereits erfassten Eingaben nutzt. Eine zukünftige Version wird ihn durch das vollständige ARISCAT ersetzen, sobald SpO2, kürzlicher Atemwegsinfekt und Hb erfasst werden."
+    },
+    "frailty": {
+      "title": "Gebrechlichkeit — mFI-5",
+      "body": "5-Faktor Modifizierter Frailty-Index. Zählt: Diabetes, COPD / kürzliche Pneumonie, Herzinsuffizienz, medikamentös behandelte Hypertonie und funktionelle Abhängigkeit im Alltag. Bänder: niedrig (0) / mittel (1–2) / hoch (≥ 3). Solange die Frage zur funktionellen Abhängigkeit nicht beantwortet ist, läuft der Score auf den 4 verbleibenden Faktoren."
+    },
+    "surgery": {
+      "title": "Operationsgewicht",
+      "body": "Bänder direkt aus der Risikoklasse der Operation: gering / standard → niedrig, gross → mittel, kritisch → hoch. Standardeingriffe (Katarakt, Lap-Cholezystektomie, Hernie, Lidchirurgie, Arthroskopie usw.) tragen < 1% baseline MACE für einen gesunden Patienten und liefern allein keinen Operationsachsen-Bump — Komorbiditäten treiben weiterhin die kardiale, VTE-, pulmonale und Gebrechlichkeits-Achse."
+    },
+    "footer": "Methodik v1 · gültig ab 2026-05-13. Schwellen- oder Formeländerungen erhöhen die Versionsnummer."
   }
 }

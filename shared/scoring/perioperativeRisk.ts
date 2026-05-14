@@ -160,7 +160,13 @@ export function calculatePerioperativeRisk(i: PerioperativeRiskInputs): Perioper
     ageModifier,
     grade,
     drivers,
-    partial: Object.values(domains).some((d) => d.partial === true) || i.metAbove4 === null,
+    // partial is set upstream by computeRiskSnapshot when the assessment is
+    // missing entirely. Optional inputs (metAbove4, functionallyDependent) being
+    // null doesn't make the computed grade unreliable — it just means a refining
+    // bump (MET<4 cardiac, mFI-5 dependence) wasn't applied. Treating those as
+    // "partial" caused green-grade tiles with empty drivers to render NOT
+    // DEFINED in the UI, which masks valid assessments.
+    partial: Object.values(domains).some((d) => d.partial === true),
     calculatedAt: new Date().toISOString(),
   };
 }

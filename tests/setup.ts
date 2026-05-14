@@ -9,3 +9,7 @@ if (typeof globalThis.ResizeObserver === "undefined") {
     disconnect() {}
   } as any;
 }
+
+// Bootstrap react-i18next so components that call useTranslation() resolve to
+// real strings in tests instead of returning the raw key.
+import "../client/src/i18n/config";

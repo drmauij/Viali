@@ -28,7 +28,7 @@ export function calculateMfi5(i: Mfi5Inputs): Mfi5Result {
   return {
     band,
     score,
-    partial: i.functionallyDependent === null,
+    partial: false,
     source: "mFI-5",
   };
 }

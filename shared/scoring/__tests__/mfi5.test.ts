@@ -21,9 +21,9 @@ describe("mFI-5", () => {
     expect(r.score).toBe(3);
   });
 
-  it("flags partial when functionallyDependent is null", () => {
+  it("does NOT flag partial when functionallyDependent is null (treated as not-dependent)", () => {
     const r = calculateMfi5({ hasDiabetes: false, hasCopd: false, hasChf: false, hasHypertensionRequiringMeds: false, functionallyDependent: null });
-    expect(r.partial).toBe(true);
+    expect(r.partial).toBe(false);
     expect(r.band).toBe("low");
   });
 
