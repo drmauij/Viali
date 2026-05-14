@@ -1867,6 +1867,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
               patients={allPatients}
               selectedDate={selectedDate}
               closures={closures}
+              heatmapEnabled={heatmapEnabled}
               surgeonFilter={surgeonFilter}
               onEventClick={(surgeryId) => {
                 const surgery = surgeries.find(s => s.id === surgeryId);

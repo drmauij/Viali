@@ -12,6 +12,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { getDateFnsTimeFormat } from "@/lib/dateUtils";
+import { RiskChip } from "./RiskChip";
 import type { LucideIcon } from "lucide-react";
 
 export interface PreOpStatusInfo {
@@ -42,6 +43,7 @@ interface TimelineWeekViewProps {
   onDayClick?: (date: Date) => void;
   getPreOpStatus?: (surgeryId: string) => PreOpStatusInfo;
   surgeonFilter?: string | null;
+  heatmapEnabled?: boolean;
 }
 
 interface DragState {
@@ -83,6 +85,7 @@ export default function TimelineWeekView({
   onDayClick,
   getPreOpStatus,
   surgeonFilter,
+  heatmapEnabled = false,
 }: TimelineWeekViewProps) {
   const { t, i18n } = useTranslation();
   
@@ -286,6 +289,23 @@ export default function TimelineWeekView({
 
     // Planned - blue/primary
     return "bg-blue-200 dark:bg-blue-900 border-blue-600 text-blue-900 dark:text-blue-100";
+  };
+
+  // When the heat-map toggle is on, override the normal status color with the
+  // risk grade. Room blocks, slot reservations, suspended, and cancelled keep
+  // their existing color — those signals carry their own meaning. Insufficient
+  // calculator data renders gray, matching the day-view treatment.
+  const getHeatmapClass = (surgery: any): string | null => {
+    if (!heatmapEnabled) return null;
+    const isRoomBlock = surgery.plannedSurgery === '__ROOM_BLOCK__';
+    const isSlotReservation = !surgery.patientId && !isRoomBlock;
+    if (isRoomBlock || isSlotReservation || surgery.isSuspended || surgery.status === 'cancelled') return null;
+    const risk: any = surgery.perioperativeRisk;
+    const hasRealData = !!surgery.riskGrade && !!risk && !(risk.partial && (!risk.drivers || risk.drivers.length === 0));
+    if (!hasRealData) return "bg-zinc-500 dark:bg-zinc-700 border-zinc-600 dark:border-zinc-800 text-white";
+    if (surgery.riskGrade === 'red') return "bg-red-600 dark:bg-red-800 border-red-700 dark:border-red-900 text-white";
+    if (surgery.riskGrade === 'orange') return "bg-orange-600 dark:bg-orange-800 border-orange-700 dark:border-orange-900 text-white";
+    return "bg-green-600 dark:bg-green-800 border-green-700 dark:border-green-900 text-white";
   };
 
   // Get inline style for room block diagonal stripes (can't do this with Tailwind alone)
@@ -699,11 +719,11 @@ export default function TimelineWeekView({
                         "absolute px-1 py-0.5 overflow-hidden cursor-pointer transition-all hover:shadow-md hover:z-10",
                         // Room blocks and slot reservations: no left border accent (use full border from getStatusClass)
                         !isRoomBlock && !isSlotReservation && "border-l-4",
-                        getStatusClass(surgery),
+                        getHeatmapClass(surgery) ?? getStatusClass(surgery),
                         isTruncatedStart ? "rounded-b" : "rounded-t",
                         isTruncatedEnd ? "rounded-t" : "rounded-b",
                         !isTruncatedStart && !isTruncatedEnd && "rounded",
-                        qDot && !isRoomBlock && !isSlotReservation && "pr-3",
+                        qDot && !isRoomBlock && !isSlotReservation && !heatmapEnabled && "pr-3",
                         isOwnSurgeon && "!bg-amber-500 dark:!bg-amber-700 !border-amber-600 dark:!border-amber-800 !text-white ring-2 ring-yellow-400 ring-inset z-10",
                         isOtherSurgeon && "opacity-70 grayscale-[0.5]",
                       )}
@@ -763,12 +783,26 @@ export default function TimelineWeekView({
                         </>
                       ) : (
                         <>
-                          {qDot && (
+                          {qDot && !heatmapEnabled && (
                             <div
                               className={`absolute top-1 right-1 w-2 h-2 rounded-full ${qDot.color} ring-1 ring-white/50`}
                               title={qDot.label}
                               data-testid={`questionnaire-dot-week-${surgery.id}`}
                             />
+                          )}
+                          {heatmapEnabled && (
+                            <div className="mb-0.5">
+                              <RiskChip
+                                grade={(surgery.riskGrade ?? undefined) as any}
+                                worstDomain={(surgery.perioperativeRisk?.worstDomain) as any}
+                                compact
+                                insufficient={
+                                  !surgery.riskGrade ||
+                                  !surgery.perioperativeRisk ||
+                                  (surgery.perioperativeRisk.partial === true && (surgery.perioperativeRisk.drivers?.length ?? 0) === 0)
+                                }
+                              />
+                            </div>
                           )}
                           {isTruncatedStart && (
                             <div className="text-[8px] text-center opacity-60">▲ {t('opCalendar.weekView.earlier')}</div>
@@ -791,7 +825,7 @@ export default function TimelineWeekView({
                               {t('opCalendar.suspended', 'ABGESETZT')}
                             </div>
                           )}
-                          {getPreOpStatus && surgery.status !== 'cancelled' && !surgery.isSuspended && height > 40 && (() => {
+                          {getPreOpStatus && surgery.status !== 'cancelled' && !surgery.isSuspended && !heatmapEnabled && height > 40 && (() => {
                             const status = getPreOpStatus(surgery.id);
                             const StatusIcon = status.icon;
                             return (
@@ -801,12 +835,12 @@ export default function TimelineWeekView({
                               </div>
                             );
                           })()}
-                          {pacuBedName && surgery.status !== 'cancelled' && !surgery.isSuspended && height > 40 && (
+                          {pacuBedName && surgery.status !== 'cancelled' && !surgery.isSuspended && !heatmapEnabled && height > 40 && (
                             <div className="text-[8px] font-medium text-blue-700 dark:text-blue-300 bg-blue-100/80 dark:bg-blue-900/50 px-0.5 rounded mt-0.5 truncate" data-testid={`badge-pacu-bed-week-${surgery.id}`}>
                               {t('anesthesia.pacu.pacuBedShort', 'PACU')}: {pacuBedName}
                             </div>
                           )}
-                          {!pacuBedName && clinicRoomName && surgery.status !== 'cancelled' && !surgery.isSuspended && height > 40 && (
+                          {!pacuBedName && clinicRoomName && surgery.status !== 'cancelled' && !surgery.isSuspended && !heatmapEnabled && height > 40 && (
                             <div className="text-[8px] font-medium text-amber-800 dark:text-amber-300 bg-amber-100/80 dark:bg-amber-900/30 px-0.5 rounded mt-0.5 truncate" data-testid={`badge-clinic-room-week-${surgery.id}`}>
                               {clinicRoomName}
                             </div>
