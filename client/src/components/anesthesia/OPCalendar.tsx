@@ -1447,9 +1447,23 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
             <div className="w-2 h-2 rounded-full bg-blue-500" data-testid={`indicator-${date.toISOString()}`}></div>
           </div>
         ) : null}
+        {heatmapEnabled && hasEvents && (
+          <div className="flex justify-center gap-1 mt-1">
+            {(["green", "orange", "red"] as const).map((g) => {
+              const count = dayEvents.filter((e) => e.riskGrade === g).length;
+              if (count === 0) return null;
+              const colorClass = g === "green" ? "bg-green-500" : g === "orange" ? "bg-orange-500" : "bg-red-500";
+              return (
+                <span key={g} className={`heatmap-month-dot-${g} inline-flex items-center gap-0.5 text-[9px]`} data-testid={`heatmap-month-dot-${g}-${dateStr}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${colorClass}`} />{count}
+                </span>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
-  }, [calendarEvents, closures, t]);
+  }, [calendarEvents, closures, t, heatmapEnabled]);
 
   // Custom date cell wrapper to make entire month cell clickable
   const DateCellWrapper = useCallback(({ value, children }: { value: Date; children: React.ReactNode }) => {

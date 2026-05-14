@@ -65,3 +65,24 @@ describe("OPCalendar — heat-map wiring", () => {
     expect(SOURCE).toMatch(/perioperativeRisk\?:\s*PerioperativeRiskResult\s*\|\s*null/);
   });
 });
+
+describe("OPCalendar — month-view micro-dots", () => {
+  it("renders heatmap-month-dot classes for each grade in MonthDateHeader", () => {
+    // Class name is built via template literal: `heatmap-month-dot-${g}` where g ∈ green/orange/red.
+    expect(SOURCE).toMatch(/heatmap-month-dot-\$\{g\}/);
+    expect(SOURCE).toMatch(/\["green",\s*"orange",\s*"red"\]\s*as\s*const/);
+  });
+
+  it("counts events per grade and skips zero counts", () => {
+    expect(SOURCE).toMatch(/dayEvents\.filter\(\(e\)\s*=>\s*e\.riskGrade\s*===\s*g\)\.length/);
+    expect(SOURCE).toMatch(/if\s*\(count\s*===\s*0\)\s*return\s+null/);
+  });
+
+  it("only renders dots when heatmap is enabled", () => {
+    expect(SOURCE).toMatch(/heatmapEnabled\s*&&\s*hasEvents/);
+  });
+
+  it("includes heatmapEnabled in the MonthDateHeader useCallback dependency list", () => {
+    expect(SOURCE).toMatch(/\[calendarEvents,\s*closures,\s*t,\s*heatmapEnabled\]/);
+  });
+});
