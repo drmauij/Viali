@@ -36,8 +36,12 @@ export function vteBandFromCaprini(category: CapriniResult["category"]): DomainB
 }
 
 export function surgeryBandFromRiskClass(rc: SurgeryRiskClass): DomainBand {
+  // ACC/AHA-aligned: minor + standard surgeries (cataract, hernia, lap chole,
+  // arthroscopy, lid surgery, etc.) carry <1% baseline MACE for a healthy
+  // patient → both map to LOW. Only large/critical surgeries contribute a
+  // surgery-axis bump on their own; comorbidities still drive the other axes.
   if (rc === "critical") return "high";
-  if (rc === "standard" || rc === "large") return "med";
+  if (rc === "large") return "med";
   return "low";
 }
 

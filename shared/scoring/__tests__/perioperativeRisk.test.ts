@@ -45,7 +45,7 @@ import { surgeryBandFromRiskClass } from "../perioperativeRisk";
 
 describe("surgeryBandFromRiskClass", () => {
   it("minor → low",    () => expect(surgeryBandFromRiskClass("minor")).toBe("low"));
-  it("standard → med", () => expect(surgeryBandFromRiskClass("standard")).toBe("med"));
+  it("standard → low", () => expect(surgeryBandFromRiskClass("standard")).toBe("low"));
   it("large → med",    () => expect(surgeryBandFromRiskClass("large")).toBe("med"));
   it("critical → high",() => expect(surgeryBandFromRiskClass("critical")).toBe("high"));
 });
@@ -72,9 +72,11 @@ describe("calculatePerioperativeRisk — aggregation", () => {
   });
 
   it("any-med-no-high → orange", () => {
-    const r = calculatePerioperativeRisk({ ...baseInputs, surgeryRiskClass: "standard" });
+    const r = calculatePerioperativeRisk({ ...baseInputs, surgeryRiskClass: "large" });
     expect(r.grade).toBe("orange");
-    expect(r.worstDomain).toBe("surgery");
+    // large surgery bumps both surgery and Caprini ('higher' = med) to med; vte
+    // wins the tiebreaker (cardiac > vte > pulmonary > frailty > surgery).
+    expect(r.worstDomain).toBe("vte");
   });
 
   it("any-high → red", () => {
@@ -104,7 +106,7 @@ describe("calculatePerioperativeRisk — aggregation", () => {
   });
 
   it("age >= 75 bumps orange to red", () => {
-    const r = calculatePerioperativeRisk({ ...baseInputs, age: 80, surgeryRiskClass: "standard" });
+    const r = calculatePerioperativeRisk({ ...baseInputs, age: 80, surgeryRiskClass: "large" });
     expect(r.grade).toBe("red");
     expect(r.ageModifier).toBe(1);
   });

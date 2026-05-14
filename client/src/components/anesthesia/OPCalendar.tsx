@@ -41,6 +41,7 @@ import type { CalendarSearchResult } from "@/components/shared/CalendarSearch";
 import { HeatmapToggle, useHeatmapEnabled } from "./HeatmapToggle";
 import { RiskChip } from "./RiskChip";
 import { RiskBreakdownPopover, type AmbulantSummary } from "./RiskBreakdownPopover";
+import { SurgeryInfoCard } from "./SurgeryInfoCard";
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import type { PerioperativeRiskResult } from "@shared/scoring/perioperativeRisk";
 import "react-big-calendar/lib/css/react-big-calendar.css";
@@ -1320,47 +1321,40 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         ? "heatmap-gray border-l-4 border-zinc-500"
         : "";
 
-    // Build a rich native tooltip for the surgery card
-    const tooltipLines: string[] = [];
-    if (isRoomBlockEvt) {
-      tooltipLines.push(t('opCalendar.roomBlocked', 'BLOCKED'));
-      if (event.notes) tooltipLines.push(event.notes);
-    } else if (isSlotReservationEvt) {
-      tooltipLines.push(t('opCalendar.slotReserved', 'SLOT RESERVED'));
-      if (event.surgeonName) tooltipLines.push(`👨‍⚕️ ${event.surgeonName}`);
-      if (event.plannedSurgery && event.plannedSurgery !== t('opCalendar.slotReserved', 'SLOT RESERVED')) {
-        tooltipLines.push(event.plannedSurgery);
-      }
-      if (event.notes) tooltipLines.push(`📝 ${event.notes}`);
-    } else {
-      if (event.plannedSurgery) tooltipLines.push(`🔪 ${event.plannedSurgery}`);
-      const patientLine = [event.patientName, event.patientBirthday].filter(Boolean).join(' · ');
-      if (patientLine) tooltipLines.push(`👤 ${patientLine}`);
-      if (event.surgeonName) tooltipLines.push(`👨‍⚕️ ${event.surgeonName}`);
-      if (event.start && event.end) {
-        const fmt = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-        tooltipLines.push(`🕒 ${fmt(event.start)} – ${fmt(event.end)}`);
-      }
-      if (event.noPreOpRequired) {
-        tooltipLines.push(`💉 ${t('opCalendar.localAnesthesia', 'LA')}`);
-      } else {
-        tooltipLines.push(`📋 ${preOpStatus.label}`);
-      }
-      if (event.pacuBedName) {
-        tooltipLines.push(`🛏️ ${t('anesthesia.pacu.pacuBed', 'PACU Bed')}: ${event.pacuBedName}`);
-      } else if (event.clinicRoomName) {
-        tooltipLines.push(`🚪 ${t('anesthesia.clinic.waitingLabel', 'Waiting')}: ${event.clinicRoomName}`);
-      }
-      if (event.isSuspended) {
-        tooltipLines.push(`⛔ ${t('opCalendar.suspended', 'SUSPENDED')}${event.suspendedReason ? ` – ${event.suspendedReason}` : ''}`);
-      } else if (event.isCancelled) {
-        tooltipLines.push(`❌ ${t('opCalendar.cancelled', 'Cancelled')}`);
-      }
-      if (event.notes) tooltipLines.push(`📝 ${event.notes}`);
-    }
-    const tooltipText = tooltipLines.join('\n');
-
     const showHoverBreakdown = heatmapHasRealData && !isRoomBlockEvt && !isSlotReservationEvt;
+    const fmtTime = (d: Date | null | undefined) =>
+      d ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : null;
+    const infoLabels = {
+      blocked: t('opCalendar.roomBlocked', 'BLOCKED'),
+      slotReserved: t('opCalendar.slotReserved', 'SLOT RESERVED'),
+      localAnesthesia: t('opCalendar.localAnesthesia', 'LA'),
+      pacuBed: t('anesthesia.pacu.pacuBed', 'PACU Bed'),
+      waiting: t('anesthesia.clinic.waitingLabel', 'Waiting'),
+      suspended: t('opCalendar.suspended', 'SUSPENDED'),
+      cancelled: t('opCalendar.cancelled', 'Cancelled'),
+    };
+    const infoVariant: "surgery" | "slotReservation" | "roomBlock" =
+      isRoomBlockEvt ? "roomBlock" : isSlotReservationEvt ? "slotReservation" : "surgery";
+    const infoCard = (
+      <SurgeryInfoCard
+        variant={infoVariant}
+        plannedSurgery={event.plannedSurgery}
+        patientName={event.patientName}
+        patientBirthday={event.patientBirthday}
+        surgeonName={event.surgeonName}
+        startTime={fmtTime(event.start)}
+        endTime={fmtTime(event.end)}
+        preOpLabel={preOpStatus.label}
+        noPreOpRequired={event.noPreOpRequired}
+        pacuBedName={event.pacuBedName}
+        clinicRoomName={event.clinicRoomName}
+        isSuspended={event.isSuspended}
+        suspendedReason={event.suspendedReason}
+        isCancelled={event.isCancelled}
+        notes={event.notes}
+        labels={infoLabels}
+      />
+    );
     const ambulantForHover: AmbulantSummary | null = event.ambulantQuickCheck
       ? {
           decision: event.ambulantQuickCheck.decision,
@@ -1370,7 +1364,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
       : null;
 
     const tileNode = (
-      <div className={`flex flex-col h-full p-0.5 sm:p-1 overflow-hidden relative ${heatmapClass}`} data-testid={`event-${event.surgeryId}`} title={tooltipText}>
+      <div className={`flex flex-col h-full p-0.5 sm:p-1 overflow-hidden relative ${heatmapClass}`} data-testid={`event-${event.surgeryId}`}>
         {qDot && !isRoomBlockEvt && !isSlotReservationEvt && !heatmapEnabled && (
           <div
             className={`absolute top-1 right-0.5 w-2.5 h-2.5 rounded-full ${qDot.color} ring-1 ring-white/50`}
@@ -1474,17 +1468,21 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
       </div>
     );
 
-    if (showHoverBreakdown && event.perioperativeRisk) {
-      return (
-        <HoverCard openDelay={250} closeDelay={120}>
-          <HoverCardTrigger asChild>{tileNode}</HoverCardTrigger>
-          <HoverCardContent side="right" align="start" className="p-0 w-auto border-none bg-transparent shadow-none">
-            <RiskBreakdownPopover risk={event.perioperativeRisk} ambulant={ambulantForHover} />
-          </HoverCardContent>
-        </HoverCard>
-      );
-    }
-    return tileNode;
+    return (
+      <HoverCard openDelay={250} closeDelay={120}>
+        <HoverCardTrigger asChild>{tileNode}</HoverCardTrigger>
+        <HoverCardContent side="right" align="start" className="p-0 w-auto border-none bg-transparent shadow-none">
+          {showHoverBreakdown && event.perioperativeRisk ? (
+            <div className="flex flex-col gap-2">
+              <RiskBreakdownPopover risk={event.perioperativeRisk} ambulant={ambulantForHover} />
+              {infoCard}
+            </div>
+          ) : (
+            infoCard
+          )}
+        </HoverCardContent>
+      </HoverCard>
+    );
   }, [getPreOpStatus, getQuestionnaireDot, t, heatmapEnabled]);
 
   // Custom month date cell component - show indicator dots instead of event details

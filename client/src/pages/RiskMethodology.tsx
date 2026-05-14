@@ -56,8 +56,11 @@ export function RiskMethodology() {
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-2">Surgery weight</h2>
         <p className="text-slate-300">
-          Bands directly from the surgery&apos;s risk class: minor &rarr; low, standard / large &rarr; med,
-          critical &rarr; high.
+          Bands directly from the surgery&apos;s risk class: minor / standard &rarr; low, large &rarr; med,
+          critical &rarr; high. Standard procedures (cataract, lap chole, hernia, lid surgery,
+          arthroscopy, etc.) carry &lt;1% baseline MACE for a healthy patient and do not contribute
+          a surgery-axis bump on their own &mdash; comorbidities still drive the cardiac, VTE,
+          pulmonary, and frailty axes.
         </p>
       </section>
 
