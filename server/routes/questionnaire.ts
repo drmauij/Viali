@@ -21,6 +21,7 @@ import { resolveLocalized, isSupportedLang, type Lang } from "@shared/i18n";
 import type { IllnessListItem } from "@shared/schema";
 import { inArray } from "drizzle-orm";
 import logger from "../logger";
+import { recomputeRiskForPatientFutureSurgeries } from "../scoring/computePerioperativeRisk";
 
 const router = Router();
 
@@ -594,6 +595,10 @@ router.put('/api/questionnaire/responses/:responseId', isAuthenticated, requireS
     }
 
     const updated = await storage.updateQuestionnaireResponse(responseId, parsed.data);
+
+    if (link.patientId) {
+      await recomputeRiskForPatientFutureSurgeries(link.patientId);
+    }
 
     res.json(updated);
   } catch (error) {
@@ -1638,6 +1643,10 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
 
     // Submit the response
     const submitted = await storage.submitQuestionnaireResponse(response.id);
+
+    if (link.patientId) {
+      await recomputeRiskForPatientFutureSurgeries(link.patientId);
+    }
 
     // Copy caregiver to patient.emergencyContact* — only when:
     //   1. The questionnaire link is bound to a surgery (clinical safety case)
