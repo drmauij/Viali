@@ -36,15 +36,20 @@ describe("OPCalendar — heat-map wiring", () => {
     expect(SOURCE).toContain("heatmap-green");
   });
 
-  it("uses the established tint + left-border treatment per grade", () => {
-    expect(SOURCE).toContain("bg-red-500/20 border-l-4 border-red-500");
-    expect(SOURCE).toContain("bg-orange-500/20 border-l-4 border-orange-500");
-    expect(SOURCE).toContain("bg-green-500/15 border-l-4 border-green-500");
+  it("applies a left-border accent per grade on the event tile inner wrapper", () => {
+    expect(SOURCE).toContain("border-l-4 border-red-500");
+    expect(SOURCE).toContain("border-l-4 border-orange-500");
+    expect(SOURCE).toContain("border-l-4 border-green-500");
   });
 
-  it("renders RiskChip in the event tile when heatmap is ON", () => {
+  it("overrides the event tile background with the risk color in eventStyleGetter", () => {
+    expect(SOURCE).toMatch(/heatmapEnabled\s*&&\s*event\.riskGrade\s*&&[\s\S]*?event\.riskGrade\s*===\s*'red'/);
+    expect(SOURCE).toMatch(/heatmapEnabled[\s\S]*?\[heatmapEnabled\]/);
+  });
+
+  it("renders a compact RiskChip inline with the title when heatmap is ON", () => {
     expect(SOURCE).toMatch(/heatmapEnabled\s+&&\s+event\.riskGrade\s+&&\s+event\.perioperativeRisk/);
-    expect(SOURCE).toMatch(/<RiskChip[\s\S]*?worstDomain=\{event\.perioperativeRisk\.worstDomain\}/);
+    expect(SOURCE).toMatch(/<RiskChip[\s\S]*?worstDomain=\{event\.perioperativeRisk\.worstDomain\}[\s\S]*?compact/);
   });
 
   it("guards riskGrade nullability — chip render is conditional", () => {

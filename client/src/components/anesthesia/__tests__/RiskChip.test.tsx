@@ -27,4 +27,21 @@ describe("<RiskChip />", () => {
     rerender(<RiskChip grade="red" worstDomain="cardiac" />);
     expect(container.querySelector(".bg-red-500\\/25")).toBeTruthy();
   });
+
+  it("in compact mode, renders the abbreviated worst-domain only (no LOW/MED/HIGH)", () => {
+    render(<RiskChip grade="orange" worstDomain="surgery" compact />);
+    expect(screen.getByText("SURG")).toBeTruthy();
+    expect(screen.queryByText(/MED · SURGERY/)).toBeNull();
+  });
+
+  it("in compact mode, maps each domain to a short label", () => {
+    const { rerender } = render(<RiskChip grade="red" worstDomain="cardiac" compact />);
+    expect(screen.getByText("CARD")).toBeTruthy();
+    rerender(<RiskChip grade="red" worstDomain="pulmonary" compact />);
+    expect(screen.getByText("PULM")).toBeTruthy();
+    rerender(<RiskChip grade="red" worstDomain="frailty" compact />);
+    expect(screen.getByText("FRAIL")).toBeTruthy();
+    rerender(<RiskChip grade="red" worstDomain="vte" compact />);
+    expect(screen.getByText("VTE")).toBeTruthy();
+  });
 });
