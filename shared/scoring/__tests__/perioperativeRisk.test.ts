@@ -40,3 +40,12 @@ describe("vteBandFromCaprini", () => {
   it("maps 'high' to 'high'",     () => expect(vteBandFromCaprini("high")).toBe("high"));
   it("maps 'veryHigh' to 'high'", () => expect(vteBandFromCaprini("veryHigh")).toBe("high"));
 });
+
+import { surgeryBandFromRiskClass } from "../perioperativeRisk";
+
+describe("surgeryBandFromRiskClass", () => {
+  it("minor → low",    () => expect(surgeryBandFromRiskClass("minor")).toBe("low"));
+  it("standard → med", () => expect(surgeryBandFromRiskClass("standard")).toBe("med"));
+  it("large → med",    () => expect(surgeryBandFromRiskClass("large")).toBe("med"));
+  it("critical → high",() => expect(surgeryBandFromRiskClass("critical")).toBe("high"));
+});

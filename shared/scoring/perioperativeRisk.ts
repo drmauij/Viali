@@ -19,7 +19,9 @@ export interface PerioperativeRiskResult {
   calculatedAt: string;
 }
 
-import type { RcriResult, CapriniResult } from "./types";
+import type { RcriResult, CapriniResult, SurgeryRiskClass } from "./types";
+
+export type { SurgeryRiskClass } from "./types";
 
 export function cardiacBandFromRcri(category: RcriResult["category"]): DomainBand {
   if (category === "high") return "high";
@@ -30,5 +32,11 @@ export function cardiacBandFromRcri(category: RcriResult["category"]): DomainBan
 export function vteBandFromCaprini(category: CapriniResult["category"]): DomainBand {
   if (category === "high" || category === "veryHigh") return "high";
   if (category === "higher") return "med";
+  return "low";
+}
+
+export function surgeryBandFromRiskClass(rc: SurgeryRiskClass): DomainBand {
+  if (rc === "critical") return "high";
+  if (rc === "standard" || rc === "large") return "med";
   return "low";
 }
