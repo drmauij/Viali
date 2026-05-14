@@ -211,7 +211,7 @@ export function PatientInfoHeader({
                 )}
               </div>
               {riskPopoverOpen && (surgery as any)?.perioperativeRisk && (
-                <div className="absolute z-50 top-full mt-2 left-0">
+                <div className="absolute z-[100] top-full mt-2 left-0">
                   <RiskBreakdownPopover
                     risk={(surgery as any).perioperativeRisk}
                     ambulant={(surgery as any)?.ambulantQuickCheck

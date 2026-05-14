@@ -164,7 +164,7 @@ export default function PatientDetail() {
   } = usePatientState();
 
   const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
-  const [riskPopoverOpenAt, setRiskPopoverOpenAt] = useState<"sticky" | "card" | "preop" | null>(null);
+  const [riskPopoverOpenAt, setRiskPopoverOpenAt] = useState<"preop" | null>(null);
 
   // --- Ambulant eligibility (modal open state — fields live on assessmentData) ---
   const [ambulantOverrideOpen, setAmbulantOverrideOpen] = useState(false);
@@ -1995,32 +1995,15 @@ export default function PatientDetail() {
     );
   }
 
-  // When the user has explicitly opened a surgery, show that one's risk. When
-  // they're just looking at the patient header without a surgery selected,
-  // fall back to the next upcoming non-cancelled surgery, then the most recent
-  // past one — so the chip is visible on first load.
-  const surgeryForRiskChip = (() => {
-    if (!surgeries || surgeries.length === 0) return null;
-    if (selectedCaseId) {
-      const explicit = surgeries.find(s => s.id === selectedCaseId);
-      if (explicit) return explicit as any;
-    }
-    const now = Date.now();
-    const upcoming = surgeries
-      .filter(s => s.status !== 'cancelled' && s.plannedDate && new Date(s.plannedDate).getTime() >= now)
-      .sort((a, b) => new Date(a.plannedDate).getTime() - new Date(b.plannedDate).getTime())[0];
-    if (upcoming) return upcoming as any;
-    const past = surgeries
-      .filter(s => s.status !== 'cancelled' && s.plannedDate)
-      .sort((a, b) => new Date(b.plannedDate).getTime() - new Date(a.plannedDate).getTime())[0];
-    return (past ?? null) as any;
-  })();
-  const riskForChip: PerioperativeRiskResult | null = surgeryForRiskChip?.perioperativeRisk ?? null;
-  const ambulantForChip: AmbulantSummary | null = surgeryForRiskChip?.ambulantQuickCheck
+  // Risk chip in the Pre-Op Assessment dialog is the only remaining surface in
+  // this file — bound to the explicitly opened surgery via selectedCaseId.
+  const selectedSurgeryForRisk = surgeries?.find(s => s.id === selectedCaseId) as any;
+  const riskForChip: PerioperativeRiskResult | null = selectedSurgeryForRisk?.perioperativeRisk ?? null;
+  const ambulantForChip: AmbulantSummary | null = selectedSurgeryForRisk?.ambulantQuickCheck
     ? {
-        decision: surgeryForRiskChip.ambulantQuickCheck.decision,
-        hardExclusions: surgeryForRiskChip.ambulantQuickCheck.hardExclusions ?? [],
-        yellowFactors: surgeryForRiskChip.ambulantQuickCheck.yellowFactors ?? [],
+        decision: selectedSurgeryForRisk.ambulantQuickCheck.decision,
+        hardExclusions: selectedSurgeryForRisk.ambulantQuickCheck.hardExclusions ?? [],
+        yellowFactors: selectedSurgeryForRisk.ambulantQuickCheck.yellowFactors ?? [],
       }
     : null;
 
@@ -2039,29 +2022,14 @@ export default function PatientDetail() {
               ) : (
                 <UserRound className="h-5 w-5 text-pink-500" data-testid="icon-sex-female" />
               )}
-              <div className="relative">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="font-semibold" data-testid="text-patient-name">{patient.surname}, {patient.firstName}</div>
-                  {riskForChip && (
-                    <RiskChip
-                      grade={riskForChip.grade}
-                      worstDomain={riskForChip.worstDomain}
-                      size="sm"
-                      onClick={() => setRiskPopoverOpenAt(riskPopoverOpenAt === "sticky" ? null : "sticky")}
-                    />
-                  )}
-                </div>
+              <div>
+                <div className="font-semibold" data-testid="text-patient-name">{patient.surname}, {patient.firstName}</div>
                 <p className="text-xs text-muted-foreground" data-testid="text-patient-info">
                   {isBirthdayUnknown(patient.birthday)
                     ? <span className="text-amber-500 font-medium">{t('common.birthdayNotProvided', 'Birthday not provided')}</span>
                     : <>{formatDate(patient.birthday)} ({calculateAge(patient.birthday)} years)</>
                   } • Patient ID: {patient.patientNumber}
                 </p>
-                {riskPopoverOpenAt === "sticky" && riskForChip && (
-                  <div className="absolute z-50 top-full mt-2 left-0">
-                    <RiskBreakdownPopover risk={riskForChip} ambulant={ambulantForChip} />
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -2083,17 +2051,8 @@ export default function PatientDetail() {
                 ) : (
                   <UserRound className="h-6 w-6 text-pink-500" data-testid="icon-sex-female-card" />
                 )}
-                <div className="relative">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div data-testid="text-patient-fullname">{patient.surname}, {patient.firstName}</div>
-                    {riskForChip && (
-                      <RiskChip
-                        grade={riskForChip.grade}
-                        worstDomain={riskForChip.worstDomain}
-                        onClick={() => setRiskPopoverOpenAt(riskPopoverOpenAt === "card" ? null : "card")}
-                      />
-                    )}
-                  </div>
+                <div>
+                  <div data-testid="text-patient-fullname">{patient.surname}, {patient.firstName}</div>
                   <p className="text-sm font-normal mt-1">
                     <span className={isBirthdayUnknown(patient.birthday) ? "text-amber-500 font-medium" : "text-foreground font-medium"} data-testid="text-patient-birthday">{isBirthdayUnknown(patient.birthday) ? t('common.birthdayNotProvided', 'Birthday not provided') : `${formatDate(patient.birthday)} (${calculateAge(patient.birthday)} years)`}</span>
                     <span className="text-muted-foreground" data-testid="text-patient-number"> • Patient ID: {patient.patientNumber}</span>
@@ -2101,11 +2060,6 @@ export default function PatientDetail() {
                   <div className="mt-2">
                     <PatientPortalLinkBadge patientId={patient.id} canWrite={canWrite} />
                   </div>
-                  {riskPopoverOpenAt === "card" && riskForChip && (
-                    <div className="absolute z-50 top-full mt-2 left-0">
-                      <RiskBreakdownPopover risk={riskForChip} ambulant={ambulantForChip} />
-                    </div>
-                  )}
                 </div>
               </div>
               {canWrite && (
