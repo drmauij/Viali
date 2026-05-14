@@ -49,6 +49,7 @@ import {
   ClipboardList,
   CheckCircle,
   Pencil,
+  Footprints,
 } from "lucide-react";
 import SignaturePad from "@/components/SignaturePad";
 import { useTranslation } from "react-i18next";
@@ -216,6 +217,7 @@ interface FormData {
 const STEPS = [
   { id: "personal", icon: User, labelKey: "questionnaire.steps.personal" },
   { id: "allergies", icon: AlertTriangle, labelKey: "questionnaire.steps.allergies" },
+  { id: "capacity", icon: Footprints, labelKey: "questionnaire.steps.capacity" },
   { id: "conditions", icon: Heart, labelKey: "questionnaire.steps.conditions" },
   { id: "medications", icon: Pill, labelKey: "questionnaire.steps.medications" },
   { id: "lifestyle", icon: Cigarette, labelKey: "questionnaire.steps.lifestyle" },
@@ -231,13 +233,15 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.subtitle": "Please complete this form before your surgery",
     "questionnaire.start": "Start Questionnaire",
     "questionnaire.starting": "Starting...",
-    "questionnaire.steps.personal": "Personal Info",
-    "questionnaire.steps.conditions": "Medical Conditions",
+    "questionnaire.steps.personal": "Personal",
+    "questionnaire.steps.conditions": "Conditions",
+    "questionnaire.steps.capacity": "Fitness",
+    "questionnaire.capacity.intro": "Two quick questions about your daily fitness — these help us tailor your care.",
     "questionnaire.steps.medications": "Medications",
     "questionnaire.steps.allergies": "Allergies",
     "questionnaire.steps.lifestyle": "Lifestyle",
     "questionnaire.steps.history": "Medical History",
-    "questionnaire.steps.notes": "Additional Notes",
+    "questionnaire.steps.notes": "Notes",
     "questionnaire.personal.firstName": "First Name",
     "questionnaire.personal.lastName": "Last Name",
     "questionnaire.personal.birthday": "Date of Birth",
@@ -461,13 +465,15 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.subtitle": "Bitte füllen Sie dieses Formular vor Ihrer Operation aus",
     "questionnaire.start": "Fragebogen starten",
     "questionnaire.starting": "Wird gestartet...",
-    "questionnaire.steps.personal": "Persönliche Daten",
+    "questionnaire.steps.personal": "Persönliches",
     "questionnaire.steps.conditions": "Erkrankungen",
+    "questionnaire.steps.capacity": "Belastbarkeit",
+    "questionnaire.capacity.intro": "Zwei kurze Fragen zu Ihrer körperlichen Verfassung im Alltag — sie helfen uns, Ihre Behandlung optimal zu planen.",
     "questionnaire.steps.medications": "Medikamente",
     "questionnaire.steps.allergies": "Allergien",
     "questionnaire.steps.lifestyle": "Lebensstil",
     "questionnaire.steps.history": "Krankengeschichte",
-    "questionnaire.steps.notes": "Zusätzliche Hinweise",
+    "questionnaire.steps.notes": "Hinweise",
     "questionnaire.personal.firstName": "Vorname",
     "questionnaire.personal.lastName": "Nachname",
     "questionnaire.personal.birthday": "Geburtsdatum",
@@ -691,13 +697,15 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.subtitle": "Si prega di compilare questo modulo prima dell'intervento",
     "questionnaire.start": "Iniziare il questionario",
     "questionnaire.starting": "Avvio in corso...",
-    "questionnaire.steps.personal": "Dati personali",
+    "questionnaire.steps.personal": "Dati",
     "questionnaire.steps.conditions": "Patologie",
+    "questionnaire.steps.capacity": "Capacità",
+    "questionnaire.capacity.intro": "Due brevi domande sulla sua forma fisica quotidiana — ci aiutano a personalizzare la cura.",
     "questionnaire.steps.medications": "Farmaci",
     "questionnaire.steps.allergies": "Allergie",
-    "questionnaire.steps.lifestyle": "Stile di vita",
+    "questionnaire.steps.lifestyle": "Stile vita",
     "questionnaire.steps.history": "Anamnesi",
-    "questionnaire.steps.notes": "Note aggiuntive",
+    "questionnaire.steps.notes": "Note",
     "questionnaire.personal.firstName": "Nome",
     "questionnaire.personal.lastName": "Cognome",
     "questionnaire.personal.birthday": "Data di nascita",
@@ -919,13 +927,15 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.subtitle": "Por favor complete este formulario antes de su operación",
     "questionnaire.start": "Iniciar cuestionario",
     "questionnaire.starting": "Iniciando...",
-    "questionnaire.steps.personal": "Datos personales",
+    "questionnaire.steps.personal": "Datos",
     "questionnaire.steps.conditions": "Patologías",
+    "questionnaire.steps.capacity": "Capacidad",
+    "questionnaire.capacity.intro": "Dos preguntas breves sobre su forma física diaria — nos ayudan a adaptar su atención.",
     "questionnaire.steps.medications": "Medicamentos",
     "questionnaire.steps.allergies": "Alergias",
-    "questionnaire.steps.lifestyle": "Estilo de vida",
+    "questionnaire.steps.lifestyle": "Estilo",
     "questionnaire.steps.history": "Historial médico",
-    "questionnaire.steps.notes": "Notas adicionales",
+    "questionnaire.steps.notes": "Notas",
     "questionnaire.personal.firstName": "Nombre",
     "questionnaire.personal.lastName": "Apellido",
     "questionnaire.personal.birthday": "Fecha de nacimiento",
@@ -1147,13 +1157,15 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.subtitle": "Veuillez remplir ce formulaire avant votre opération",
     "questionnaire.start": "Commencer le questionnaire",
     "questionnaire.starting": "Démarrage...",
-    "questionnaire.steps.personal": "Données personnelles",
+    "questionnaire.steps.personal": "Données",
     "questionnaire.steps.conditions": "Pathologies",
+    "questionnaire.steps.capacity": "Capacité",
+    "questionnaire.capacity.intro": "Deux courtes questions sur votre forme physique au quotidien — pour adapter votre prise en charge.",
     "questionnaire.steps.medications": "Médicaments",
     "questionnaire.steps.allergies": "Allergies",
     "questionnaire.steps.lifestyle": "Mode de vie",
     "questionnaire.steps.history": "Antécédents médicaux",
-    "questionnaire.steps.notes": "Notes supplémentaires",
+    "questionnaire.steps.notes": "Notes",
     "questionnaire.personal.firstName": "Prénom",
     "questionnaire.personal.lastName": "Nom",
     "questionnaire.personal.birthday": "Date de naissance",
@@ -1377,6 +1389,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.starting": "正在开始...",
     "questionnaire.steps.personal": "个人信息",
     "questionnaire.steps.conditions": "健康状况",
+    "questionnaire.steps.capacity": "身体活动能力",
+    "questionnaire.capacity.intro": "关于您日常体能的两个简短问题，帮助我们为您制定合适的治疗方案。",
     "questionnaire.steps.medications": "用药情况",
     "questionnaire.steps.allergies": "过敏史",
     "questionnaire.steps.lifestyle": "生活习惯",
@@ -2086,16 +2100,15 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
         return !!(formData.patientFirstName && formData.patientLastName && formData.patientBirthday && formData.patientPhone && formData.height && formData.weight && formData.smsConsent);
       case 'allergies':
         return formData.noAllergies || formData.allergies.length > 0 || !!formData.allergiesNotes;
-      case 'conditions': {
-        const functionalAnswered = formData.metAbove4 !== null && formData.functionallyDependent !== null;
-        const conditionsAnswered = (formData.noConditions && formData.noPreviousSurgeries && formData.noAnesthesiaProblems && formData.noDentalIssues && formData.noPonvIssues)
+      case 'capacity':
+        return formData.metAbove4 !== null && formData.functionallyDependent !== null;
+      case 'conditions':
+        return (formData.noConditions && formData.noPreviousSurgeries && formData.noAnesthesiaProblems && formData.noDentalIssues && formData.noPonvIssues)
           || Object.values(formData.conditions).some(c => c.checked)
           || !!formData.previousSurgeries
           || !!formData.previousAnesthesiaProblems
           || Object.values(formData.dentalIssues).some(v => v)
           || Object.values(formData.ponvTransfusionIssues).some(v => v);
-        return functionalAnswered && conditionsAnswered;
-      }
       case 'medications':
         return formData.noMedications || formData.medications.length > 0 || !!formData.medicationsNotes;
       case 'lifestyle':
@@ -2472,18 +2485,25 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
                 onNoneChecked={() => handleAutoAdvance()}
               />
             )}
-            {currentStep === 2 && config && (
+            {currentStep === 2 && (
+              <CapacityStep
+                formData={formData}
+                updateField={updateField}
+                t={t}
+                attemptedNext={attemptedNext}
+              />
+            )}
+            {currentStep === 3 && config && (
               <ConditionsStep
                 formData={formData}
                 updateField={updateField}
                 conditions={config.conditionsList}
                 t={t}
                 language={language}
-                attemptedNext={attemptedNext}
                 onNoneChecked={() => handleAutoAdvance()}
               />
             )}
-            {currentStep === 3 && (
+            {currentStep === 4 && (
               <MedicationsStep
                 formData={formData}
                 updateField={updateField}
@@ -2492,7 +2512,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
                 onNoneChecked={() => handleAutoAdvance()}
               />
             )}
-            {currentStep === 4 && (
+            {currentStep === 5 && (
               <LifestyleStep
                 formData={formData}
                 updateField={updateField}
@@ -2501,7 +2521,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
                 onNoneChecked={() => handleAutoAdvance()}
               />
             )}
-            {currentStep === 5 && (
+            {currentStep === 6 && (
               <UploadsStep
                 uploads={uploads}
                 uploadError={uploadError}
@@ -2510,7 +2530,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
                 t={t}
               />
             )}
-            {currentStep === 6 && (
+            {currentStep === 7 && (
               <NotesStep
                 formData={formData}
                 updateField={updateField}
@@ -2518,7 +2538,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
                 surgeryLinked={!!config?.surgeryId}
               />
             )}
-            {currentStep === 7 && (
+            {currentStep === 8 && (
               <SummaryStep
                 formData={formData}
                 t={t}
@@ -2530,7 +2550,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
                 surgeryLinked={!!config?.surgeryId}
               />
             )}
-            {currentStep === 8 && (
+            {currentStep === 9 && (
               <SubmitStep
                 formData={formData}
                 updateField={updateField}
@@ -2807,14 +2827,76 @@ function PersonalInfoStep({ formData, updateField, t, attemptedNext }: StepProps
   );
 }
 
+function CapacityStep({ formData, updateField, t, attemptedNext }: StepProps) {
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        {t("questionnaire.capacity.intro")}
+      </p>
+      <div>
+        <p className="text-sm mb-1">{t("questionnaire.lifestyle.met.question")}</p>
+        <p className="text-xs text-muted-foreground mb-2">{t("questionnaire.lifestyle.met.help")}</p>
+        <RadioGroup
+          value={formData.metAbove4 === true ? "yes" : formData.metAbove4 === false ? "no" : ""}
+          onValueChange={(value) => updateField("metAbove4", value === "yes" ? true : value === "no" ? false : null)}
+        >
+          <div className={`space-y-2 ${attemptedNext && formData.metAbove4 === null ? "ring-1 ring-red-500 rounded p-2" : ""}`}>
+            <div className="flex items-center gap-3 p-2 border rounded">
+              <RadioGroupItem value="yes" id="met-yes" data-testid="radio-met-yes" />
+              <Label htmlFor="met-yes" className="font-normal cursor-pointer">
+                {t("questionnaire.lifestyle.met.yes")}
+              </Label>
+            </div>
+            <div className="flex items-center gap-3 p-2 border rounded">
+              <RadioGroupItem value="no" id="met-no" data-testid="radio-met-no" />
+              <Label htmlFor="met-no" className="font-normal cursor-pointer">
+                {t("questionnaire.lifestyle.met.no")}
+              </Label>
+            </div>
+          </div>
+        </RadioGroup>
+      </div>
+
+      <div>
+        <p className="text-sm mb-1">{t("questionnaire.lifestyle.independence.question")}</p>
+        <p className="text-xs text-muted-foreground mb-2">{t("questionnaire.lifestyle.independence.help")}</p>
+        <RadioGroup
+          value={formData.functionallyDependent === false ? "independent" : formData.functionallyDependent === true ? "dependent" : ""}
+          onValueChange={(value) => updateField("functionallyDependent", value === "dependent" ? true : value === "independent" ? false : null)}
+        >
+          <div className={`space-y-2 ${attemptedNext && formData.functionallyDependent === null ? "ring-1 ring-red-500 rounded p-2" : ""}`}>
+            <div className="flex items-center gap-3 p-2 border rounded">
+              <RadioGroupItem value="independent" id="independence-yes" data-testid="radio-independence-yes" />
+              <Label htmlFor="independence-yes" className="font-normal cursor-pointer">
+                {t("questionnaire.lifestyle.independence.yes")}
+              </Label>
+            </div>
+            <div className="flex items-center gap-3 p-2 border rounded">
+              <RadioGroupItem value="dependent" id="independence-no" data-testid="radio-independence-no" />
+              <Label htmlFor="independence-no" className="font-normal cursor-pointer">
+                {t("questionnaire.lifestyle.independence.no")}
+              </Label>
+            </div>
+          </div>
+        </RadioGroup>
+      </div>
+
+      {attemptedNext && (formData.metAbove4 === null || formData.functionallyDependent === null) && (
+        <p className="text-sm text-red-500" data-testid="error-functional-capacity-required">
+          {t("questionnaire.lifestyle.functionalCapacity.required")}
+        </p>
+      )}
+    </div>
+  );
+}
+
 interface ConditionsStepProps extends StepProps {
   conditions: Array<{ id: string; label: string; patientLabel?: string; patientHelpText?: string; patientVisible?: boolean; category: string }>;
   language: string;
-  attemptedNext: boolean;
   onNoneChecked: () => void;
 }
 
-function ConditionsStep({ formData, updateField, conditions, t, language, attemptedNext, onNoneChecked }: ConditionsStepProps) {
+function ConditionsStep({ formData, updateField, conditions, t, language, onNoneChecked }: ConditionsStepProps) {
   const categoryOrder = [
     "cardiovascular", "heart", "pulmonary", "lung", "gi", "gastrointestinal", 
     "kidney", "renal", "metabolic", "neurological", "neuro", "psychiatry", "psych",
@@ -2915,68 +2997,6 @@ function ConditionsStep({ formData, updateField, conditions, t, language, attemp
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="font-semibold mb-3">{t("questionnaire.lifestyle.functionalCapacity.title")}</h3>
-
-        <div className="space-y-4">
-          <div>
-            <p className="text-sm mb-1">{t("questionnaire.lifestyle.met.question")}</p>
-            <p className="text-xs text-muted-foreground mb-2">{t("questionnaire.lifestyle.met.help")}</p>
-            <RadioGroup
-              value={formData.metAbove4 === true ? "yes" : formData.metAbove4 === false ? "no" : ""}
-              onValueChange={(value) => updateField("metAbove4", value === "yes" ? true : value === "no" ? false : null)}
-            >
-              <div className={`space-y-2 ${attemptedNext && formData.metAbove4 === null ? "ring-1 ring-red-500 rounded p-2" : ""}`}>
-                <div className="flex items-center gap-3 p-2 border rounded">
-                  <RadioGroupItem value="yes" id="met-yes" data-testid="radio-met-yes" />
-                  <Label htmlFor="met-yes" className="font-normal cursor-pointer">
-                    {t("questionnaire.lifestyle.met.yes")}
-                  </Label>
-                </div>
-                <div className="flex items-center gap-3 p-2 border rounded">
-                  <RadioGroupItem value="no" id="met-no" data-testid="radio-met-no" />
-                  <Label htmlFor="met-no" className="font-normal cursor-pointer">
-                    {t("questionnaire.lifestyle.met.no")}
-                  </Label>
-                </div>
-              </div>
-            </RadioGroup>
-          </div>
-
-          <div>
-            <p className="text-sm mb-1">{t("questionnaire.lifestyle.independence.question")}</p>
-            <p className="text-xs text-muted-foreground mb-2">{t("questionnaire.lifestyle.independence.help")}</p>
-            <RadioGroup
-              value={formData.functionallyDependent === false ? "independent" : formData.functionallyDependent === true ? "dependent" : ""}
-              onValueChange={(value) => updateField("functionallyDependent", value === "dependent" ? true : value === "independent" ? false : null)}
-            >
-              <div className={`space-y-2 ${attemptedNext && formData.functionallyDependent === null ? "ring-1 ring-red-500 rounded p-2" : ""}`}>
-                <div className="flex items-center gap-3 p-2 border rounded">
-                  <RadioGroupItem value="independent" id="independence-yes" data-testid="radio-independence-yes" />
-                  <Label htmlFor="independence-yes" className="font-normal cursor-pointer">
-                    {t("questionnaire.lifestyle.independence.yes")}
-                  </Label>
-                </div>
-                <div className="flex items-center gap-3 p-2 border rounded">
-                  <RadioGroupItem value="dependent" id="independence-no" data-testid="radio-independence-no" />
-                  <Label htmlFor="independence-no" className="font-normal cursor-pointer">
-                    {t("questionnaire.lifestyle.independence.no")}
-                  </Label>
-                </div>
-              </div>
-            </RadioGroup>
-          </div>
-
-          {attemptedNext && (formData.metAbove4 === null || formData.functionallyDependent === null) && (
-            <p className="text-sm text-red-500" data-testid="error-functional-capacity-required">
-              {t("questionnaire.lifestyle.functionalCapacity.required")}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <Separator />
-
       <p className="text-sm text-gray-600 dark:text-gray-400">
         {t("questionnaire.conditions.title")}
       </p>
@@ -3953,7 +3973,31 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
         </div>
 
         <div className="border rounded-lg p-3 space-y-2">
-          <SectionHeader title={t("questionnaire.steps.conditions")} stepIndex={2} />
+          <SectionHeader title={t("questionnaire.steps.capacity")} stepIndex={2} />
+          <div>
+            <p className="text-xs font-medium text-gray-500">{t("questionnaire.summary.met")}</p>
+            {formData.metAbove4 === true ? (
+              <p className="text-sm">{t("questionnaire.summary.yes")}</p>
+            ) : formData.metAbove4 === false ? (
+              <p className="text-sm">{t("questionnaire.summary.no")}</p>
+            ) : (
+              <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>
+            )}
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500">{t("questionnaire.summary.independence")}</p>
+            {formData.functionallyDependent === false ? (
+              <p className="text-sm">{t("questionnaire.summary.yes")}</p>
+            ) : formData.functionallyDependent === true ? (
+              <p className="text-sm">{t("questionnaire.summary.no")}</p>
+            ) : (
+              <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="border rounded-lg p-3 space-y-2">
+          <SectionHeader title={t("questionnaire.steps.conditions")} stepIndex={3} />
           {formData.noConditions ? (
             <NoneBadge />
           ) : checkedConditions.length > 0 ? (
@@ -4006,7 +4050,7 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
         </div>
 
         <div className="border rounded-lg p-3 space-y-1">
-          <SectionHeader title={t("questionnaire.steps.medications")} stepIndex={3} />
+          <SectionHeader title={t("questionnaire.steps.medications")} stepIndex={4} />
           {formData.noMedications ? (
             <NoneBadge />
           ) : formData.medications.length > 0 ? (
@@ -4023,7 +4067,7 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
         </div>
 
         <div className="border rounded-lg p-3 space-y-2">
-          <SectionHeader title={t("questionnaire.steps.lifestyle")} stepIndex={4} />
+          <SectionHeader title={t("questionnaire.steps.lifestyle")} stepIndex={5} />
           <div>
             <p className="text-xs font-medium text-gray-500">{t("questionnaire.summary.smoking")}</p>
             {formData.noSmokingAlcohol ? <NoneBadge /> : formData.smokingStatus ? (
@@ -4048,38 +4092,18 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
               </div>
             ) : <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>}
           </div>
-          <div>
-            <p className="text-xs font-medium text-gray-500">{t("questionnaire.summary.met")}</p>
-            {formData.metAbove4 === true ? (
-              <p className="text-sm">{t("questionnaire.summary.yes")}</p>
-            ) : formData.metAbove4 === false ? (
-              <p className="text-sm">{t("questionnaire.summary.no")}</p>
-            ) : (
-              <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>
-            )}
-          </div>
-          <div>
-            <p className="text-xs font-medium text-gray-500">{t("questionnaire.summary.independence")}</p>
-            {formData.functionallyDependent === false ? (
-              <p className="text-sm">{t("questionnaire.summary.yes")}</p>
-            ) : formData.functionallyDependent === true ? (
-              <p className="text-sm">{t("questionnaire.summary.no")}</p>
-            ) : (
-              <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>
-            )}
-          </div>
         </div>
 
         {uploads.length > 0 && (
           <div className="border rounded-lg p-3 space-y-1">
-            <SectionHeader title={t("questionnaire.summary.documents")} stepIndex={5} />
+            <SectionHeader title={t("questionnaire.summary.documents")} stepIndex={6} />
             <p className="text-sm">{uploads.length} {language === "de" ? "Dokument(e)" : "document(s)"}</p>
           </div>
         )}
 
         {(formData.additionalNotes || formData.questionsForDoctor) && (
           <div className="border rounded-lg p-3 space-y-1">
-            <SectionHeader title={t("questionnaire.summary.additionalNotes")} stepIndex={6} />
+            <SectionHeader title={t("questionnaire.summary.additionalNotes")} stepIndex={7} />
             {formData.additionalNotes && <p className="text-sm">{formData.additionalNotes}</p>}
             {formData.questionsForDoctor && (
               <p className="text-sm text-gray-500">{t("questionnaire.summary.questionsForDoctor")}: {formData.questionsForDoctor}</p>
