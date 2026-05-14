@@ -44,11 +44,17 @@ function snapshotsEqual(a: unknown, b: unknown): boolean {
 export async function backfillRiskGrade(): Promise<BackfillStats> {
   const stats: BackfillStats = { scanned: 0, updated: 0, skipped: 0 };
 
+  // Default: future surgeries only. Set BACKFILL_DAYS_AGO=N to include the
+  // last N days too (e.g. =7 covers the past week, =365 covers the past year).
+  const daysAgo = Number(process.env.BACKFILL_DAYS_AGO ?? 0);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - (Number.isFinite(daysAgo) && daysAgo > 0 ? daysAgo : 0));
+
   const rows = await db
     .select()
     .from(surgeries)
     .where(and(
-      gte(surgeries.plannedDate, new Date()),
+      gte(surgeries.plannedDate, cutoff),
       ne(surgeries.status, "cancelled"),
     ));
 
