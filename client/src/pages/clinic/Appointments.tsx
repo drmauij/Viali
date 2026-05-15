@@ -36,6 +36,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -596,6 +597,9 @@ export function BookingDialog({
   const [newPatientSurname, setNewPatientSurname] = useState("");
   const [newPatientDOB, setNewPatientDOB] = useState("");
   const [newPatientPhone, setNewPatientPhone] = useState("");
+  const [newPatientStreet, setNewPatientStreet] = useState("");
+  const [newPatientPostalCode, setNewPatientPostalCode] = useState("");
+  const [newPatientCity, setNewPatientCity] = useState("");
   const [birthdayInput, setBirthdayInput] = useState("");
   const [referralSource, setReferralSource] = useState<string>("");
   const [referralSourceDetail, setReferralSourceDetail] = useState<string>("");
@@ -731,6 +735,9 @@ export function BookingDialog({
       setShowNewPatientForm(false);
       setShowLeadImport(false);
       setLeadPasteText("");
+      setNewPatientStreet("");
+      setNewPatientPostalCode("");
+      setNewPatientCity("");
       toast({
         title: t('anesthesia.quickSchedule.patientCreated', 'Patient created'),
         description: t('anesthesia.quickSchedule.patientCreatedDescription', 'Patient has been created and selected'),
@@ -761,6 +768,9 @@ export function BookingDialog({
       birthday: newPatientDOB,
       sex: "M",
       phone: newPatientPhone.trim() || undefined,
+      street: newPatientStreet.trim() || undefined,
+      postalCode: newPatientPostalCode.trim() || undefined,
+      city: newPatientCity.trim() || undefined,
     });
   };
 
@@ -1083,6 +1093,17 @@ export function BookingDialog({
                       onChange={(value) => setNewPatientPhone(value)}
                       data-testid="input-new-patient-phone" />
                   </div>
+                </div>
+                <div className="space-y-1">
+                  <Label>{t('anesthesia.quickSchedule.address', 'Address')}</Label>
+                  <AddressAutocomplete
+                    values={{ street: newPatientStreet, postalCode: newPatientPostalCode, city: newPatientCity }}
+                    onChange={(v) => {
+                      setNewPatientStreet(v.street);
+                      setNewPatientPostalCode(v.postalCode);
+                      setNewPatientCity(v.city);
+                    }}
+                  />
                 </div>
                 <Button onClick={handleCreatePatient} disabled={createPatientMutation.isPending}
                   className="w-full" data-testid="button-create-patient">

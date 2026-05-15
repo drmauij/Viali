@@ -526,9 +526,13 @@ export default function AppointmentDetailDialog({
                             </div>
                           </div>
                         ) : (() => {
-                          const street = (appointment.patient as any).street as string | null | undefined;
-                          const postal = (appointment.patient as any).postalCode as string | null | undefined;
-                          const city = (appointment.patient as any).city as string | null | undefined;
+                          // Read from local state so the row reflects an
+                          // edit-and-save immediately. State is seeded from
+                          // the prop on patient.id change (see useEffect
+                          // above), so this is always in sync at open.
+                          const street = addressStreet || null;
+                          const postal = addressPostalCode || null;
+                          const city = addressCity || null;
                           const hasAddress = !!(street || postal || city);
                           return (
                             <button
