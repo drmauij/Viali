@@ -166,6 +166,10 @@ export const hospitals = pgTable("hospitals", {
   addonClinic: boolean("addon_clinic").default(false), // Clinic module with invoices & appointments (+10 CHF/month)
   addonPatientChat: boolean("addon_patient_chat").default(false), // 2-way patient chat via portal
   addonAmbulantEligibility: boolean("addon_ambulant_eligibility").notNull().default(false), // Pre-op ambulant eligibility scoring (Caprini/STOP-BANG/RCRI/Apfel) + gate
+  // Lead invitation email — when true, the public leads webhook sends an HTML invite to book on /book/:token
+  autoSendLeadInvitationEmail: boolean("auto_send_lead_invitation_email").notNull().default(true),
+  // Optional per-hospital HMAC secret used to sign lead-attribution tokens (auto-generated lazily on first send)
+  leadAttributionSecret: varchar("lead_attribution_secret"),
   // Idle session auto-logout (Security tab). 0 = disabled. Applies to staff sessions only,
   // not patient/portal sessions. Enforced server-side; client shows a countdown warning.
   idleTimeoutMinutes: integer("idle_timeout_minutes").default(0).notNull(),
@@ -6968,6 +6972,8 @@ export const referralEvents = pgTable("referral_events", {
   // Meta Lead Forms IDs for offline conversion tracking
   metaLeadId: varchar("meta_lead_id"),
   metaFormId: varchar("meta_form_id"),
+  // Lead that drove this referral event (invitation-email booking attribution)
+  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'set null' }),
   // Ad platform campaign attribution (campaign/adset/ad hierarchy)
   campaignId: varchar("campaign_id"),
   campaignName: varchar("campaign_name"),
@@ -7019,6 +7025,9 @@ export const leads = pgTable("leads", {
   timeslot: text("timeslot"),
   // ISO 639-1 language hint (en/de/fr/it) — drives outbound greeting copy
   language: varchar("language", { length: 5 }),
+  // Lead invitation email (transactional, sent on webhook receipt)
+  invitationEmailSentAt: timestamp("invitation_email_sent_at"),
+  invitationEmailError: text("invitation_email_error"),
   metaLeadId: varchar("meta_lead_id"),
   metaFormId: varchar("meta_form_id"),
   // Ad platform campaign attribution (from lead webhook: campaign/adset/ad hierarchy)
