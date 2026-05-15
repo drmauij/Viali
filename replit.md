@@ -172,3 +172,28 @@ The webhook automatically flips `emailMarketingConsent = false` on the recipient
 - Phase 2 (event tracking + webhook) — shipped on main
 - Phase 2.1 (revenue + cost + ROI) — spec written, not implemented
 - Phase 3 (A/B testing with auto-winner selection) — spec written, not implemented
+## Risk Grade — Surgery-Class Attenuation & Preliminary State (2026-05-14)
+
+After deploy:
+
+1. Run the backfill to repopulate snapshots with the new fields
+   (`ageEligible`, `ageModifierSuppressed`, `inputSource`):
+
+   ```
+   BACKFILL_DAYS_AGO=365 node scripts/run-with-pm2-env.cjs scripts/backfill-risk-grade.ts
+   ```
+
+   Idempotent — safe to re-run.
+
+2. Manual smoke (see plan §4.7 in
+   `docs/superpowers/specs/2026-05-14-risk-grade-attenuation-and-preliminary-design.md`):
+
+   - Eva Steiner's surgery shows MED · VTE (was HIGH · VTE).
+   - Popover for any age-<75 surgery has neither the suppressed nor the
+     bumped-up amber line.
+   - A patient with only a submitted questionnaire shows a dashed chip
+     with `· ~` and the Preliminary header in the popover.
+   - After the anesthetist saves a pre-op assessment, the chip becomes
+     solid (no tilde, no dashed border).
+   - `/risk-methodology` shows the new top section and all 4 worked
+     examples; the 5 existing domain sections still render below.
