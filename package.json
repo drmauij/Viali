@@ -4,7 +4,7 @@
   "type": "module",
   "license": "Elastic-2.0",
   "scripts": {
-    "dev": "NODE_ENV=development tsx server/index.ts",
+    "dev": "NODE_ENV=development tsx watch server/index.ts",
     "build": "NODE_OPTIONS='--max-old-space-size=2048' vite build && esbuild server/index.ts server/worker.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
