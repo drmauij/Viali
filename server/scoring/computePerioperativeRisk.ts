@@ -6,6 +6,7 @@ import {
 } from "@shared/scoring/perioperativeRisk";
 import type { ScoringConcept } from "@shared/scoring/concepts";
 import { findConcept } from "@shared/scoring/findConcept";
+import { projectQuestionnaireConditionsToOrganMaps } from "./projectQuestionnaireConditionsToOrganMaps";
 
 type AnyRec = Record<string, any>;
 type ItemList = Array<{ id: string; scoringConcept?: string | null }>;
@@ -28,6 +29,18 @@ function bmiFromAssessment(assessment: AnyRec | null | undefined): number | null
   if (!assessment) return null;
   const wRaw = assessment.weight;
   const hRaw = assessment.height;
+  const w = wRaw ? Number(wRaw) : null;
+  const h = hRaw ? Number(hRaw) : null;
+  if (!w || !h) return null;
+  const meters = h > 3 ? h / 100 : h;
+  if (!meters) return null;
+  return w / (meters * meters);
+}
+
+function bmiFromQuestionnaire(questionnaire: AnyRec | null | undefined): number | null {
+  if (!questionnaire) return null;
+  const wRaw = questionnaire.weight;
+  const hRaw = questionnaire.height;
   const w = wRaw ? Number(wRaw) : null;
   const h = hRaw ? Number(hRaw) : null;
   if (!w || !h) return null;
@@ -59,6 +72,7 @@ function isCurrentSmokerFromSources(
 export interface RiskInputBundle {
   inputs: PerioperativeRiskInputs;
   partial: boolean;
+  inputSource: "assessment" | "questionnaire" | "default";
 }
 
 export function deriveRiskInputsFromRecords(
@@ -78,14 +92,57 @@ export function deriveRiskInputsFromRecords(
   const woman = lists.woman ?? [];
   const ponv = lists.ponvTransfusion ?? [];
 
-  const heart = (assessment?.heartIllnesses ?? {}) as Record<string, boolean>;
-  const lung = (assessment?.lungIllnesses ?? {}) as Record<string, boolean>;
-  const coagD = (assessment?.coagulationIllnesses ?? {}) as Record<string, boolean>;
-  const neuroD = (assessment?.neuroIllnesses ?? {}) as Record<string, boolean>;
-  const metabD = (assessment?.metabolicIllnesses ?? {}) as Record<string, boolean>;
-  const infectD = (assessment?.infectiousIllnesses ?? {}) as Record<string, boolean>;
-  const womanD = (assessment?.womanIssues ?? {}) as Record<string, boolean>;
-  const ponvD = (assessment?.ponvTransfusionIssues ?? {}) as Record<string, boolean>;
+  // Assessment organ-system maps (existing).
+  const a = {
+    cardiovascular: (assessment?.heartIllnesses ?? {}) as Record<string, boolean>,
+    pulmonary:      (assessment?.lungIllnesses ?? {}) as Record<string, boolean>,
+    coagulation:    (assessment?.coagulationIllnesses ?? {}) as Record<string, boolean>,
+    neurological:   (assessment?.neuroIllnesses ?? {}) as Record<string, boolean>,
+    metabolic:      (assessment?.metabolicIllnesses ?? {}) as Record<string, boolean>,
+    infectious:     (assessment?.infectiousIllnesses ?? {}) as Record<string, boolean>,
+    woman:          (assessment?.womanIssues ?? {}) as Record<string, boolean>,
+    ponvTransfusion: (assessment?.ponvTransfusionIssues ?? {}) as Record<string, boolean>,
+  };
+
+  // NEW: questionnaire conditions → per-organ shape.
+  const q = projectQuestionnaireConditionsToOrganMaps(
+    questionnaire?.conditions as Record<string, { checked?: boolean }> | undefined,
+    lists as Record<string, Array<{ id: string }>>,
+  );
+
+  // Per-key fall-through: assessment overrides, questionnaire fills gaps.
+  function merged(category: keyof typeof a): Record<string, boolean> {
+    const result: Record<string, boolean> = {};
+    const fromQ = q[category] ?? {};
+    for (const [k, v] of Object.entries(fromQ)) result[k] = v;
+    for (const [k, v] of Object.entries(a[category])) result[k] = v; // assessment overrides
+    return result;
+  }
+
+  const heart   = merged("cardiovascular");
+  const lung    = merged("pulmonary");
+  const coagD   = merged("coagulation");
+  const neuroD  = merged("neurological");
+  const metabD  = merged("metabolic");
+  const infectD = merged("infectious");
+  const womanD  = merged("woman");
+  const ponvD   = merged("ponvTransfusion");
+
+  // inputSource resolution.
+  const anyAssessmentData = Object.values(a).some((m) => Object.keys(m).length > 0);
+  const anyQuestionnaireData =
+    !!questionnaire &&
+    (Object.keys(q).length > 0 ||
+      questionnaire.smokingStatus ||
+      typeof questionnaire.functionallyDependent === "boolean" ||
+      typeof questionnaire.metAbove4 === "boolean" ||
+      questionnaire.weight ||
+      questionnaire.height);
+  const inputSource: "assessment" | "questionnaire" | "default" = anyAssessmentData
+    ? "assessment"
+    : anyQuestionnaireData
+      ? "questionnaire"
+      : "default";
 
   const find = (
     data: Record<string, boolean>,
@@ -96,7 +153,7 @@ export function deriveRiskInputsFromRecords(
   const inputs: PerioperativeRiskInputs = {
     age: ageFromPatient(patient),
     sex: sexFromPatient(patient),
-    bmi: bmiFromAssessment(assessment),
+    bmi: bmiFromAssessment(assessment) ?? bmiFromQuestionnaire(questionnaire),
     surgeryRiskClass: (surgery.surgeryRiskClass ?? "minor") as SurgeryRiskClass,
     plannedDurationMinutes: plannedMinutesFromSurgery(surgery),
     isCurrentSmoker: isCurrentSmokerFromSources(assessment, questionnaire),
@@ -132,7 +189,7 @@ export function deriveRiskInputsFromRecords(
     },
   };
 
-  return { inputs, partial: !assessment };
+  return { inputs, partial: inputSource !== "assessment", inputSource };
 }
 
 export function computeRiskSnapshot(
@@ -142,7 +199,7 @@ export function computeRiskSnapshot(
   questionnaire: AnyRec | null | undefined,
   illnessLists: IllnessLists | null | undefined,
 ): PerioperativeRiskResult {
-  const { inputs, partial } = deriveRiskInputsFromRecords(
+  const { inputs, partial, inputSource } = deriveRiskInputsFromRecords(
     patient,
     surgery,
     assessment,
@@ -150,10 +207,7 @@ export function computeRiskSnapshot(
     illnessLists,
   );
   const result = calculatePerioperativeRisk(inputs);
-  if (partial) {
-    return { ...result, partial: true };
-  }
-  return result;
+  return { ...result, partial, inputSource };
 }
 
 export async function recomputeRiskForSurgery(surgeryId: string): Promise<void> {
