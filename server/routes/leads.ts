@@ -1386,6 +1386,19 @@ router.patch(
         );
       }
 
+      if (typeof enabled === "boolean") {
+        // Preserve the original contract: an `enabled` PATCH against a hospital
+        // with no webhook config row is a user error, not a silent no-op.
+        const [existing] = await db
+          .select({ id: leadWebhookConfig.hospitalId })
+          .from(leadWebhookConfig)
+          .where(eq(leadWebhookConfig.hospitalId, hospitalId))
+          .limit(1);
+        if (!existing) {
+          return res.status(404).json({ error: "Webhook config not found. Generate an API key first." });
+        }
+      }
+
       if (updates.length === 0) {
         return res.status(400).json({ error: "No valid fields provided" });
       }

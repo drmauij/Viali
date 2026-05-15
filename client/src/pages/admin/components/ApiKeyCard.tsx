@@ -248,7 +248,9 @@ export function ApiKeyCard() {
               <p className="text-xs text-muted-foreground mt-1">
                 {config.emailEnabled
                   ? "When a new lead arrives via the webhook, send the patient a branded \"Book your appointment\" email automatically. Uncheck if your team prefers to call first."
-                  : "Email sending not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL to enable."}
+                  : config.autoSendLeadInvitationEmail
+                    ? "Email sending not configured (your preference is set to auto-send; this will resume once RESEND_API_KEY and RESEND_FROM_EMAIL are set)."
+                    : "Email sending not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL to enable."}
               </p>
             </div>
             <Switch
