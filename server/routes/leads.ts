@@ -19,6 +19,7 @@ import {
   userHasGroupAwareHospitalAccess,
 } from "../utils";
 import { sendAppointmentNotification } from "./clinic";
+import { sendLeadInvitationEmail } from "../services/leadInvitation";
 
 /**
  * Task 13: Funnels scope toggle — resolve the hospital scope for a lead read.
@@ -333,6 +334,27 @@ router.post("/api/webhooks/leads/:hospitalId", async (req, res) => {
       .returning({ id: leads.id });
 
     logger.info({ hospitalId, leadId: inserted.id, source: data.source }, "Lead received");
+
+    // Best-effort invitation email. The lead is already committed to the DB
+    // at this point — nothing here must be able to undo that. Wrap the
+    // dispatch in:
+    //   (a) a guard on `data.email` so we skip the DB roundtrip when no
+    //       email is present,
+    //   (b) a try/catch around the synchronous part of the call (in case
+    //       a future refactor removes the function's `async` keyword),
+    //   (c) a `.catch()` on the returned Promise so async rejection is
+    //       captured and never bubbles up to the webhook response.
+    // The function itself also has its own outer try/catch (defence-in-
+    // depth — three layers of "cannot break the webhook").
+    if (data.email) {
+      try {
+        sendLeadInvitationEmail({ leadId: inserted.id, hospitalId }).catch((err) => {
+          logger.error({ err, leadId: inserted.id, hospitalId }, "Lead invitation dispatch (async) error");
+        });
+      } catch (err) {
+        logger.error({ err, leadId: inserted.id, hospitalId }, "Lead invitation dispatch (sync) error");
+      }
+    }
 
     return res.status(200).json({ status: "received", id: inserted.id });
   } catch (err) {

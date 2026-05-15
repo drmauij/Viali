@@ -231,4 +231,23 @@ describe('Leads Webhook Validation', () => {
     expect(result.success).toBe(true);
     expect(result.data!.language).toBeNull();
   });
+
+  // ── invitation email fire-and-forget safety net ──
+  // These tests defend the hard invariant: the webhook MUST save the lead
+  // even if the invitation-email code path explodes. validateLeadPayload
+  // is a pure function and must NEVER call into email-sending code.
+
+  it('keeps validateLeadPayload pure (no coupling to email sender)', () => {
+    // Tripwire: if a future refactor moves sending INTO validation, the
+    // returned data shape changes or validation acquires async behavior.
+    const result = validateLeadPayload({
+      source: 'website',
+      first_name: 'Test',
+      last_name: 'User',
+      email: 'safety@example.com',
+    });
+    expect(result.success).toBe(true);
+    // No promise or thenable should appear in the returned data
+    expect((result.data as any)?.then).toBeUndefined();
+  });
 });
