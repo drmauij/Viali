@@ -6,6 +6,11 @@ import {
   escapeHtml,
   type LeadGreetingLanguage,
 } from '@shared/leadInvitationTemplate';
+import { db } from '../db';
+import { leads, hospitals } from '@shared/schema';
+import { eq } from 'drizzle-orm';
+import { getUncachableResendClient, getAppBaseUrl } from '../email';
+import logger from '../logger';
 
 const SIG_LENGTH = 22; // ~128 bits of entropy, keeps URLs short
 
@@ -152,4 +157,66 @@ export function buildLeadInvitationHtml(args: {
   const text = copy.altPlain(lead.firstName || '', hospital.name, bookingUrl);
 
   return { subject, html, text };
+}
+
+export async function sendLeadInvitationEmail(args: {
+  leadId: string;
+  hospitalId: string;
+}): Promise<void> {
+  try {
+    const [lead] = await db.select().from(leads).where(eq(leads.id, args.leadId)).limit(1);
+    if (!lead || !lead.email) return;
+    if (lead.invitationEmailSentAt) return;
+
+    const [hospital] = await db.select().from(hospitals).where(eq(hospitals.id, args.hospitalId)).limit(1);
+    if (!hospital || !hospital.autoSendLeadInvitationEmail) return;
+
+    let secret: string;
+    try {
+      secret = getLeadAttributionSecret(hospital);
+    } catch (err: any) {
+      await db.update(leads)
+        .set({ invitationEmailError: `secret missing: ${err.message}`.slice(0, 500) })
+        .where(eq(leads.id, lead.id));
+      logger.warn({ leadId: lead.id }, 'Lead invitation skipped: attribution secret not configured');
+      return;
+    }
+
+    const signedLid = signLeadAttribution(lead.id, secret);
+    const baseUrl = getAppBaseUrl();
+    const { subject, html, text } = buildLeadInvitationHtml({
+      lead,
+      hospital: {
+        id: hospital.id,
+        name: hospital.name,
+        bookingToken: hospital.bookingToken,
+        companyLogoUrl: hospital.companyLogoUrl,
+        bookingTheme: hospital.bookingTheme as { primaryColor?: string | null; bgColor?: string | null } | null,
+        defaultLanguage: hospital.defaultLanguage,
+        // Hospital `phone` is stored under `companyPhone`; legacy test fixtures
+        // also accept a `phone` field directly on the row.
+        phone: (hospital as { phone?: string | null }).phone ?? hospital.companyPhone ?? null,
+      },
+      baseUrl,
+      signedLid,
+    });
+
+    try {
+      const { client, fromEmail } = await getUncachableResendClient();
+      await client.emails.send({ from: fromEmail, to: lead.email, subject, html, text });
+      await db.update(leads)
+        .set({ invitationEmailSentAt: new Date(), invitationEmailError: null })
+        .where(eq(leads.id, lead.id));
+      logger.info({ leadId: lead.id, hospitalId: hospital.id }, 'Lead invitation email sent');
+    } catch (err: any) {
+      const errMsg = err?.message ?? String(err);
+      await db.update(leads)
+        .set({ invitationEmailError: errMsg.slice(0, 500) })
+        .where(eq(leads.id, lead.id));
+      logger.error({ err, leadId: lead.id, hospitalId: hospital.id }, 'Lead invitation email failed');
+    }
+  } catch (outerErr) {
+    // Defense-in-depth: never let this propagate to the webhook handler.
+    logger.error({ err: outerErr, leadId: args.leadId }, 'sendLeadInvitationEmail outer error');
+  }
 }

@@ -24,7 +24,7 @@ export async function getUncachableResendClient() {
   return getResendClient();
 }
 
-function getAppBaseUrl(): string {
+export function getAppBaseUrl(): string {
   // Use PRODUCTION_URL or APP_URL for production, fall back to Replit domains for development
   if (process.env.PRODUCTION_URL) {
     return process.env.PRODUCTION_URL;
