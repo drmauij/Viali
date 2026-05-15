@@ -35,8 +35,8 @@ Mapping subtypes (when the order doesn't fit medication/iv_fluid/lab/vitals_moni
 - Generic clinical order that doesn't fit above (e.g. "call doctor if X") → task with subtype "generic".
 
 Rules:
-1. For each medication, try to match to an inventory item provided in the user message. Use the inventory item's "name" verbatim as \`medicationRef\`.
-2. If no inventory match, set \`medicationRef\` to the name the user wrote, and add the drug name to \`unresolved\`.
+1. For each medication, try to match to an inventory item provided in the user message. The inventory rows are tokenized — each starts with a short \`[mN]\` token (e.g. \`[m3]\`). Return the token (e.g. "m3") as \`medicationRef\`, NOT the human-readable drug name. The server resolves the token to the canonical drug name afterwards.
+2. If no inventory match, set \`medicationRef\` to the name the user wrote (NOT a token), and add the drug name to \`unresolved\`.
 3. "bei Bedarf" / "as needed" / "PRN" → timing: { mode: "ad_hoc" }. "every N hours max M/day" in PRN → prnMaxPerInterval: { count: 1, intervalH: N }, prnMaxPerDay: M.
 4. "every N hours" in a scheduled context → timing: { mode: "scheduled", frequency: "qNh" } if N is standard, else use the closest code.
 5. Generate UUIDs for id fields. Use crypto-random style (e.g. "ai-1", "ai-2" is fine — the client will replace them).
@@ -140,11 +140,25 @@ export async function parsePostopOrders(
   // chart actually needs.
   const inventory = await getConfiguredMedicationItems(hospitalId, unitId);
   const deduped = dedupeInventory(inventory).slice(0, MAX_INVENTORY_SIZE);
+  // Tokenize the inventory so the LLM returns a short, easy-to-copy `[mN]`
+  // token instead of the (sometimes long) canonical name. This avoids the
+  // class of bug where the model trims a packaging suffix from a "verbatim"
+  // copy. Server resolves token → canonical name after the response.
+  const tokenMap = new Map<string, string>();
+  deduped.forEach((inv, idx) => {
+    const token = `m${idx + 1}`;
+    tokenMap.set(token, inv.name);
+  });
   const inventoryLines = deduped
-    .map(i => i.description && i.description !== i.name ? `- ${i.name} (${i.description})` : `- ${i.name}`)
+    .map((inv, idx) => {
+      const token = `m${idx + 1}`;
+      const label = inv.description && inv.description !== inv.name ? `${inv.name} (${inv.description})` : inv.name;
+      return `- [${token}] ${label}`;
+    })
     .join('\n');
 
-  const userMessage = `Available inventory (use exactly the name before the parenthesis as medicationRef):
+  const userMessage = `Available inventory. Each row is prefixed with a short token in square brackets. Return the token (e.g. "m3") as \`medicationRef\` — NOT the human name. The server resolves the token to the canonical name.
+
 ${inventoryLines || '(no inventory)'}
 
 Instructions to parse:
@@ -196,10 +210,17 @@ ${rawText}`;
     .filter(it => it && typeof it === 'object' && typeof (it as any).type === 'string')
     .map(it => ({ ...it, id: typeof it.id === 'string' && it.id ? it.id : crypto.randomUUID() }))
     .map((it: any) => {
-      if (it.type === 'medication' && typeof it.medicationRef === 'string') {
-        return { ...it, medicationRef: snapMedicationRefToInventory(it.medicationRef, inventory) };
+      if (it.type !== 'medication' || typeof it.medicationRef !== 'string') return it;
+      const ref = it.medicationRef.trim();
+      // Primary: AI followed instructions and returned a token like "m3".
+      const tokenMatch = ref.match(/^\[?(m\d+)\]?$/i);
+      if (tokenMatch) {
+        const canonical = tokenMap.get(tokenMatch[1].toLowerCase());
+        if (canonical) return { ...it, medicationRef: canonical };
       }
-      return it;
+      // Fallback: AI ignored the token convention and emitted a name. Snap to
+      // the closest canonical name in case the name was truncated.
+      return { ...it, medicationRef: snapMedicationRefToInventory(ref, inventory) };
     });
 
   return { items: validated, unresolved, warnings };
