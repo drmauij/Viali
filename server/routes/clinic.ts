@@ -458,31 +458,45 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
     } | null = null;
 
     const lidParam = typeof req.query.lid === "string" ? req.query.lid.trim() : null;
-    if (lidParam) {
+    if (lidParam && lidParam.length <= 256) {
+      let secret: string | null = null;
       try {
-        const secret = getLeadAttributionSecret(hospital);
+        secret = getLeadAttributionSecret(hospital);
+      } catch (err) {
+        // No secret configured — page still renders, but flag it loudly so
+        // operators can fix the env var. Warn (not debug) so it appears in
+        // shipped logs.
+        logger.warn({ err, hospitalId: hospital.id }, "lid prefill skipped: lead attribution secret not configured");
+      }
+
+      if (secret) {
         const leadId = verifyLeadAttribution(lidParam, secret);
         if (leadId) {
-          const [lead] = await db
-            .select()
-            .from(leads)
-            .where(and(eq(leads.id, leadId), eq(leads.hospitalId, hospital.id)))
-            .limit(1);
-          if (lead && lead.status !== "converted") {
-            prefill = {
-              firstName: lead.firstName,
-              lastName: lead.lastName,
-              email: lead.email,
-              phone: lead.phone,
-              language: lead.language,
-              operation: lead.operation,
-            };
+          try {
+            const [lead] = await db
+              .select()
+              .from(leads)
+              .where(and(eq(leads.id, leadId), eq(leads.hospitalId, hospital.id)))
+              .limit(1);
+            // Only prefill for genuinely-open leads — matches the POST
+            // attachLeadToBooking filter so the GET prefill experience and
+            // the POST attribution behavior agree.
+            if (lead && (lead.status === "new" || lead.status === "in_progress")) {
+              prefill = {
+                firstName: lead.firstName,
+                lastName: lead.lastName,
+                email: lead.email,
+                phone: lead.phone,
+                language: lead.language,
+                operation: lead.operation,
+              };
+            }
+          } catch (err) {
+            // DB hiccup — render the page without prefill rather than 500ing
+            // the entire booking flow.
+            logger.warn({ err, hospitalId: hospital.id, leadId }, "lid prefill skipped: lead lookup failed");
           }
         }
-      } catch (err) {
-        // Secret missing or other recoverable error → silently skip prefill.
-        // The page still renders; the lid just doesn't pre-fill anything.
-        logger.debug({ err }, "lid prefill failed (likely no secret configured)");
       }
     }
 
