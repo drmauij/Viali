@@ -11,6 +11,7 @@ export default defineConfig({
       "tests/**/*.test.ts",
       "tests/**/*.test.tsx",
       "shared/**/__tests__/*.test.ts",
+      "server/**/__tests__/*.test.ts",
       "client/src/**/__tests__/*.test.tsx",
     ],
     testTimeout: 15000,
