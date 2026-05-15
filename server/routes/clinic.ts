@@ -1163,24 +1163,26 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
           appointmentId: appointment.id,
         });
 
-        if (attribution.leadId) {
+        if (attribution.leadId && attribution.lead) {
           // Confirm a referralEvents row exists; if none was inserted by the
-          // referral-data block above, insert a minimal one tagged with leadId.
+          // referral-data block above, insert one derived from the lead so
+          // analytics group cleanly (source/utm/click IDs all come from the
+          // originating lead, not from the booking-form referral inputs).
           const { referralEvents } = await import("@shared/schema");
+          const { mapLeadToReferralFields } = await import("@shared/leadToReferralMapping");
           const existing = await db
             .select({ id: referralEvents.id })
             .from(referralEvents)
             .where(eq(referralEvents.appointmentId, appointment.id))
             .limit(1);
           if (existing.length === 0) {
+            const mapped = mapLeadToReferralFields(attribution.lead);
             await db.insert(referralEvents).values({
               hospitalId: hospital.id,
               patientId: patient.id,
               appointmentId: appointment.id,
-              source: "lead_invitation" as any,
-              sourceDetail: attribution.attributionSource,
+              ...mapped,
               leadId: attribution.leadId,
-              captureMethod: "lead_attribution" as any,
             });
           }
         }

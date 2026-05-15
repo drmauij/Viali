@@ -252,7 +252,11 @@ export async function attachLeadToBooking(args: {
   signedLid: string | undefined;
   patientId: string;
   appointmentId: string;
-}): Promise<{ leadId: string | null; attributionSource: 'lid' | 'email-fallback' | null }> {
+}): Promise<{
+  leadId: string | null;
+  attributionSource: 'lid' | 'email-fallback' | null;
+  lead: typeof leads.$inferSelect | null;
+}> {
   let leadId: string | null = null;
   let attributionSource: 'lid' | 'email-fallback' | null = null;
 
@@ -290,9 +294,26 @@ export async function attachLeadToBooking(args: {
     // 2+ matches → silent skip (ambiguous, operator handles manually)
   }
 
-  if (!leadId) return { leadId: null, attributionSource: null };
+  if (!leadId) return { leadId: null, attributionSource: null, lead: null };
 
-  // 3. Conditional UPDATE — race-safe via status filter.
+  // Fetch the lead row for downstream referral-event mapping.
+  const [leadRow] = await db
+    .select()
+    .from(leads)
+    .where(and(eq(leads.id, leadId), eq(leads.hospitalId, args.hospital.id)))
+    .limit(1);
+
+  if (!leadRow) {
+    // The lid resolved to a leadId that doesn't belong to this hospital
+    // (or has been deleted). Silently skip — never expose cross-tenant data.
+    return { leadId: null, attributionSource: null, lead: null };
+  }
+
+  // 3. Conditional UPDATE — race-safe via status filter, cross-tenant safe
+  // via hospitalId filter. Both guards matter: the lid HMAC alone does not
+  // bind the leadId to this hospital when LEAD_ATTRIBUTION_SECRET is shared
+  // across tenants (env-var fallback). Without the hospitalId guard, a lid
+  // for hospital A's lead would be writable from hospital B's booking POST.
   const updated = await db
     .update(leads)
     .set({
@@ -303,13 +324,14 @@ export async function attachLeadToBooking(args: {
     })
     .where(and(
       eq(leads.id, leadId),
+      eq(leads.hospitalId, args.hospital.id),
       inArray(leads.status, ['new', 'in_progress']),
     ))
     .returning({ id: leads.id });
 
   if (updated.length === 0) {
     // Race: someone else already converted this lead, or it was closed.
-    return { leadId: null, attributionSource: null };
+    return { leadId: null, attributionSource: null, lead: null };
   }
 
   // 4. Tag the referral_events row.
@@ -324,5 +346,5 @@ export async function attachLeadToBooking(args: {
     'Lead auto-converted via booking',
   );
 
-  return { leadId, attributionSource };
+  return { leadId, attributionSource, lead: leadRow };
 }

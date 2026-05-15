@@ -182,4 +182,27 @@ describe('attachLeadToBooking', () => {
     expect(leadsTable[0].patientId).toBe('P_old');
     expect(leadsTable[0].appointmentId).toBe('A_old');
   });
+
+  it('skips attribution when valid lid resolves to a lead NOT in this hospital', async () => {
+    // The lid is for L1 (signed with the test-secret). L1 exists in the DB
+    // but belongs to a different hospital — the UPDATE/SELECT must filter
+    // by args.hospital.id and find nothing.
+    leadsTable.push({ id: 'L1', hospitalId: 'other-hospital', email: 'm@x.com', status: 'new', patientId: null, appointmentId: null });
+    refTable.push({ appointmentId: 'A1', leadId: null });
+    (globalThis as any).__leadsQuery = () => leadsTable.filter(l => l.hospitalId === 'hosp-1');
+    (globalThis as any).__updateTargetId = 'L1';
+    (globalThis as any).__refUpdateAppointmentId = 'A1';
+
+    const lid = signLeadAttribution('L1', 'test-secret');
+
+    await attachLeadToBooking({
+      hospital: HOSPITAL, bookingEmail: 'm@x.com', signedLid: lid,
+      patientId: 'P1', appointmentId: 'A1',
+    });
+
+    // L1 belongs to other-hospital; hosp-1 must NOT be able to touch it.
+    expect(leadsTable[0].status).toBe('new');
+    expect(leadsTable[0].hospitalId).toBe('other-hospital');
+    expect(refTable[0].leadId).toBeNull();
+  });
 });
