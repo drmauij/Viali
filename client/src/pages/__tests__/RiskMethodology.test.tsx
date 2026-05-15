@@ -18,3 +18,27 @@ describe("/risk-methodology", () => {
     expect(screen.getByText(/Methodology v1/)).toBeTruthy();
   });
 });
+
+describe("RiskMethodology — How calculated section", () => {
+  it("renders the 'How the final grade is calculated' heading", () => {
+    render(<RiskMethodology />);
+    expect(screen.getByTestId("how-calculated-section")).toBeTruthy();
+  });
+
+  it("renders all four worked example titles", () => {
+    render(<RiskMethodology />);
+    expect(screen.getByTestId("example-a")).toBeTruthy();
+    expect(screen.getByTestId("example-b")).toBeTruthy();
+    expect(screen.getByTestId("example-c")).toBeTruthy();
+    expect(screen.getByTestId("example-d")).toBeTruthy();
+  });
+
+  it("still renders the five domain sections (regression)", () => {
+    render(<RiskMethodology />);
+    expect(screen.getAllByText(/RCRI/i).length).toBeGreaterThan(0);        // cardiac
+    expect(screen.getAllByText(/Caprini/i).length).toBeGreaterThan(0);     // vte
+    expect(screen.getAllByText(/Viali pulmonary/i).length).toBeGreaterThan(0); // pulmonary
+    expect(screen.getAllByText(/mFI-5/i).length).toBeGreaterThan(0);       // frailty (in body text)
+    expect(screen.getAllByText(/Surgery weight/i).length).toBeGreaterThan(0); // surgery
+  });
+});

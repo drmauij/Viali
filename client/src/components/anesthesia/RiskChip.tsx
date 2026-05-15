@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { RiskGrade, DomainKey } from "@shared/scoring/perioperativeRisk";
 
 const GRADE_LABEL: Record<RiskGrade, string> = { green: "LOW", orange: "MED", red: "HIGH" };
@@ -20,30 +21,55 @@ export interface RiskChipProps {
   compact?: boolean;
   /** When true (or when grade is missing), the chip renders NOT DEFINED. */
   insufficient?: boolean;
+  /** When true, the snapshot was computed without an anesthesia pre-op
+   *  assessment. The chip renders with a dashed border and a tilde marker. */
+  preliminary?: boolean;
 }
 
-export function RiskChip({ grade, worstDomain, onClick, size = "md", compact = false, insufficient = false }: RiskChipProps) {
+export function RiskChip({
+  grade,
+  worstDomain,
+  onClick,
+  size = "md",
+  compact = false,
+  insufficient = false,
+  preliminary = false,
+}: RiskChipProps) {
+  const { t } = useTranslation();
+
   if (compact) {
     const unknown = insufficient || !grade;
+    // Preliminary marker doesn't apply to NOT DEFINED — different state.
+    const showPreliminary = preliminary && !unknown;
+    const baseClass = "inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold tracking-wide bg-black/35 text-white whitespace-nowrap shrink-0";
+    const borderClass = showPreliminary ? "border border-dashed border-white/60" : "";
+    const ariaLabel = showPreliminary ? t("chip.preliminaryTooltip") : undefined;
     return (
       <span
-        className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold tracking-wide bg-black/35 text-white whitespace-nowrap shrink-0"
+        className={`${baseClass} ${borderClass}`}
         data-testid={`risk-chip-${unknown ? "unknown" : grade}`}
+        aria-label={ariaLabel}
+        title={ariaLabel}
       >
-        {unknown ? "NOT DEFINED" : GRADE_LABEL_FULL[grade!]}
+        {unknown ? "NOT DEFINED" : `${showPreliminary ? "~" : ""}${GRADE_LABEL_FULL[grade!]}`}
       </span>
     );
   }
+
   // Full chip — used in headers + popovers. Requires grade + worstDomain.
   if (!grade || !worstDomain) return null;
-  const text = `${GRADE_LABEL[grade]} · ${worstDomain.toUpperCase()}`;
+  const text = `${GRADE_LABEL[grade]} · ${worstDomain.toUpperCase()}${preliminary ? " · ~" : ""}`;
   const sizeClass = size === "sm" ? "text-[10px] px-2 py-0.5" : "text-xs px-2.5 py-1";
+  const borderStyle = preliminary ? "border-dashed" : "";
+  const ariaLabel = preliminary ? t("chip.preliminaryTooltip") : undefined;
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full border font-bold tracking-wide ${sizeClass} ${GRADE_CLASS[grade]} ${onClick ? "cursor-pointer hover:brightness-110" : "cursor-default"}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border font-bold tracking-wide ${sizeClass} ${GRADE_CLASS[grade]} ${borderStyle} ${onClick ? "cursor-pointer hover:brightness-110" : "cursor-default"}`}
       data-testid={`risk-chip-${grade}`}
+      aria-label={ariaLabel}
+      title={ariaLabel}
     >
       <span className={`inline-block w-2 h-2 rounded-full ${DOT_CLASS[grade]}`} />
       {text}

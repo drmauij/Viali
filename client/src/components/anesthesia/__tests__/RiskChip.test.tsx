@@ -48,3 +48,39 @@ describe("<RiskChip />", () => {
     expect(screen.getByText("NOT DEFINED")).toBeTruthy();
   });
 });
+
+describe("RiskChip preliminary state", () => {
+  it("preliminary=false renders solid border and no tilde suffix", () => {
+    render(<RiskChip grade="orange" worstDomain="vte" preliminary={false} />);
+    const chip = screen.getByTestId("risk-chip-orange");
+    expect(chip.className).not.toContain("border-dashed");
+    expect(chip.textContent).not.toContain("~");
+  });
+
+  it("preliminary=true renders dashed border and ' · ~' suffix", () => {
+    render(<RiskChip grade="orange" worstDomain="vte" preliminary={true} />);
+    const chip = screen.getByTestId("risk-chip-orange");
+    expect(chip.className).toContain("border-dashed");
+    expect(chip.textContent).toContain("~");
+  });
+
+  it("preliminary=true sets aria-label to the preliminary tooltip", () => {
+    render(<RiskChip grade="orange" worstDomain="vte" preliminary={true} />);
+    const chip = screen.getByTestId("risk-chip-orange");
+    expect(chip.getAttribute("aria-label")).toMatch(/preliminary/i);
+  });
+
+  it("compact + preliminary renders dashed wrapper and leading tilde", () => {
+    render(<RiskChip grade="orange" compact={true} preliminary={true} />);
+    const chip = screen.getByTestId("risk-chip-orange");
+    expect(chip.className).toContain("border-dashed");
+    expect(chip.textContent?.trim().startsWith("~")).toBe(true);
+  });
+
+  it("insufficient overrides preliminary — NOT DEFINED has no marker", () => {
+    render(<RiskChip compact={true} insufficient={true} preliminary={true} />);
+    const chip = screen.getByTestId("risk-chip-unknown");
+    expect(chip.className).not.toContain("border-dashed");
+    expect(chip.textContent).toBe("NOT DEFINED");
+  });
+});

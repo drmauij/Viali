@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import type { PerioperativeRiskResult, DomainKey } from "@shared/scoring/perioperativeRisk";
+import { useTranslation } from "react-i18next";
+import { isPreliminary, type PerioperativeRiskResult, type DomainKey } from "@shared/scoring/perioperativeRisk";
 
 const DOMAIN_LABEL: Record<DomainKey, string> = {
   cardiac: "Cardiac", vte: "VTE", pulmonary: "Pulmonary", frailty: "Frailty", surgery: "Surgery",
@@ -20,7 +21,9 @@ export interface RiskBreakdownPopoverProps {
 }
 
 export function RiskBreakdownPopover({ risk, ambulant, onClose }: RiskBreakdownPopoverProps) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
+  const preliminary = isPreliminary(risk);
 
   useEffect(() => {
     if (!onClose) return;
@@ -31,8 +34,6 @@ export function RiskBreakdownPopover({ risk, ambulant, onClose }: RiskBreakdownP
       if (target && !node.contains(target)) onClose();
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    // Defer to next tick so the click that opened the popover doesn't
-    // immediately close it via this listener.
     const id = setTimeout(() => {
       document.addEventListener("mousedown", onMouseDown, true);
       document.addEventListener("keydown", onKey);
@@ -46,6 +47,11 @@ export function RiskBreakdownPopover({ risk, ambulant, onClose }: RiskBreakdownP
 
   return (
     <div ref={ref} className="w-80 bg-slate-900 text-slate-100 rounded-lg border border-slate-700 p-3 shadow-xl">
+      {preliminary && (
+        <div className="text-[11px] text-amber-300 mb-2" data-testid="popover-preliminary-note">
+          ⓘ {t("popover.preliminaryNote")}
+        </div>
+      )}
       <div className="text-xs font-semibold text-slate-400 mb-2">DOMAINS</div>
       <div className="space-y-1.5 mb-3">
         {(Object.keys(risk.domains) as DomainKey[]).map((k) => (
@@ -60,6 +66,11 @@ export function RiskBreakdownPopover({ risk, ambulant, onClose }: RiskBreakdownP
       </div>
       {risk.ageModifier === 1 && (
         <div className="text-[11px] text-amber-300 mb-2">Age ≥ 75 — bumped up one band</div>
+      )}
+      {risk.ageModifierSuppressed && (
+        <div className="text-[11px] text-slate-400 mb-2" data-testid="popover-age-suppressed-note">
+          ⓘ {t("popover.ageSuppressedNote")}
+        </div>
       )}
       {risk.drivers.length > 0 && (
         <div className="mb-3">

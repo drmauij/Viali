@@ -39,7 +39,7 @@ export function HeatmapToggle({ enabled, onChange }: HeatmapToggleProps) {
       data-state={enabled ? "on" : "off"}
       data-testid="heatmap-toggle"
       aria-pressed={enabled}
-      aria-label="Risk heat-map"
+      aria-label="Risk"
       className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs border transition-colors ${
         enabled
           ? "border-transparent bg-gradient-to-r from-green-500 via-orange-500 to-red-500 text-white font-semibold"
@@ -57,7 +57,7 @@ export function HeatmapToggle({ enabled, onChange }: HeatmapToggleProps) {
           }`}
         />
       </span>
-      Risk heat-map
+      Risk
     </button>
   );
 }

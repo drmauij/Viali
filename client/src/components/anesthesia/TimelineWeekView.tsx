@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { getDateFnsTimeFormat } from "@/lib/dateUtils";
 import { RiskChip } from "./RiskChip";
 import { RiskBreakdownPopover, type AmbulantSummary } from "./RiskBreakdownPopover";
+import { isPreliminary } from "@shared/scoring/perioperativeRisk";
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import type { LucideIcon } from "lucide-react";
 
@@ -1003,6 +1004,7 @@ export default function TimelineWeekView({
                                   !surgery.perioperativeRisk ||
                                   (surgery.perioperativeRisk.partial === true && (surgery.perioperativeRisk.drivers?.length ?? 0) === 0)
                                 }
+                                preliminary={isPreliminary(surgery.perioperativeRisk)}
                               />
                             </div>
                           )}

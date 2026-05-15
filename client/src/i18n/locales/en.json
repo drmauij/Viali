@@ -8800,7 +8800,44 @@
   "riskMethodology": {
     "title": "Perioperative Risk Grade",
     "intro": "The risk grade is a single green / orange / red signal showing global perioperative risk. It is computed automatically from existing patient and surgery data and updates whenever comorbidities, the questionnaire, or the surgery itself changes.",
-    "aggregation": "Aggregation: the worst band across five independent domains drives the grade. If any domain is high, the grade is red; if any is med (and none high), it is orange; otherwise green. Patients aged 75 or older are bumped one band up (never down).",
+    "howCalculated": {
+      "title": "How the final grade is calculated",
+      "pipeline": "Pipeline: patient + surgery → 5 independent domain bands (cardiac, VTE, pulmonary, frailty, surgery) → worst-domain wins → age modifier (≥ 75 bumps up one band, except on minor/standard surgery) → final grade (LOW / MED / HIGH). The grade is never bumped down.",
+      "tiebreaker": "If two domains share the worst band, the headline driver is chosen in this order: cardiac → VTE → pulmonary → frailty → surgery.",
+      "attenuation": "Attenuation rule: when the surgery is minor or standard, the age-≥-75 bump is suppressed. A low-risk procedure does not amplify age-driven baseline risk — domain bands are still shown unchanged so the underlying picture stays visible.",
+      "preliminary": "Risk is calculated as soon as the patient submits the questionnaire and is refined once the anesthesia pre-op assessment is completed. The anesthetist's entry overrides patient-reported data on a per-condition basis. Preliminary grades are shown with a dashed border and a tilde marker (~).",
+      "examplesHeading": "Worked examples",
+      "examples": {
+        "a": {
+          "title": "Example A — Eva-like patient on a minor surgery",
+          "facts": "82-year-old female, current smoker, no comorbidities. Outpatient hernia repair.",
+          "bands": "Cardiac LOW · VTE MED · Pulmonary MED · Frailty LOW · Surgery LOW",
+          "modifier": "Age ≥ 75 but surgery is minor — bump suppressed.",
+          "result": "ORANGE · VTE (MED tier; not escalated to HIGH)"
+        },
+        "b": {
+          "title": "Example B — same patient, large surgery",
+          "facts": "Same 82-year-old female smoker. Total hip replacement (large).",
+          "bands": "Cardiac LOW · VTE MED · Pulmonary MED · Frailty LOW · Surgery MED",
+          "modifier": "Age ≥ 75 and surgery is large — bump applies.",
+          "result": "RED · VTE (age modifier correctly re-escalates on a high-impact procedure)"
+        },
+        "c": {
+          "title": "Example C — sick patient, minor surgery",
+          "facts": "70-year-old male with CAD, CHF, CKD, functional dependence. Cataract (minor).",
+          "bands": "Cardiac HIGH · VTE LOW · Pulmonary LOW · Frailty MED · Surgery LOW",
+          "modifier": "Age < 75 — modifier not eligible.",
+          "result": "RED · CARDIAC (attenuation does not mask a genuinely high-domain patient)"
+        },
+        "d": {
+          "title": "Example D — questionnaire only, no pre-op assessment yet",
+          "facts": "Same patient as Example A. Patient submitted the questionnaire; anesthesia pre-op not yet completed.",
+          "bands": "Computed from questionnaire-reported data; same bands as Example A.",
+          "modifier": "Bump suppressed (minor surgery).",
+          "result": "ORANGE · VTE · ~ (Preliminary — refines once the anesthetist completes the pre-op assessment)"
+        }
+      }
+    },
     "cardiac": {
       "title": "Cardiac — RCRI",
       "body": "Revised Cardiac Risk Index (Lee et al., 1999). Counts of: high-risk surgery, ischemic heart disease, congestive heart failure, cerebrovascular disease, insulin-dependent diabetes, serum creatinine > 2 mg/dL. Bands: low (0 pts) / med (1 pt) / high (≥ 2 pts)."
@@ -8821,6 +8858,13 @@
       "title": "Surgery weight",
       "body": "Bands directly from the surgery's risk class: minor / standard → low, large → med, critical → high. Standard procedures (cataract, lap chole, hernia, lid surgery, arthroscopy, etc.) carry < 1% baseline MACE for a healthy patient and do not contribute a surgery-axis bump on their own — comorbidities still drive the cardiac, VTE, pulmonary, and frailty axes."
     },
-    "footer": "Methodology v1 · effective 2026-05-13. Threshold or formula changes will bump the version number."
+    "footer": "Methodology v1.1 · effective 2026-05-14. Threshold or formula changes will bump the version number."
+  },
+  "chip": {
+    "preliminaryTooltip": "Preliminary — based on patient questionnaire only"
+  },
+  "popover": {
+    "preliminaryNote": "Preliminary — based on patient questionnaire (no anesthesia pre-op assessment yet)",
+    "ageSuppressedNote": "Age ≥ 75 bump suppressed (minor surgery)"
   }
 }

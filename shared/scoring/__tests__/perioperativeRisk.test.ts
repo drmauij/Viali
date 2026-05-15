@@ -4,6 +4,7 @@ import {
   type DomainBand,
   type DomainKey,
   type PerioperativeRiskResult,
+  type PerioperativeRiskInputs,
 } from "../perioperativeRisk";
 
 describe("perioperativeRisk types", () => {
@@ -93,14 +94,12 @@ describe("calculatePerioperativeRisk — aggregation", () => {
     expect(r.worstDomain).toBe("cardiac");
   });
 
-  it("age >= 75 bumps green to orange", () => {
-    // Note: at age 75 the Caprini sub-score alone reaches 'higher' (3 pts) =>
-    // VTE band 'med' => baseline grade 'orange' before the age modifier, which
-    // then bumps the grade to 'red'. The original plan expectation of
-    // green->orange ignored the age contribution to Caprini. The behaviour under
-    // test here is "age >= 75 still applies the ageModifier and never bumps
-    // down".
-    const r = calculatePerioperativeRisk({ ...baseInputs, age: 75 });
+  it("age >= 75 bumps green to orange (large surgery)", () => {
+    // For a large surgery the age bump is NOT suppressed. At age 75 the Caprini
+    // sub-score alone reaches 'higher' (3 pts) => VTE med => baseline orange,
+    // then the age modifier bumps it to red. The behaviour under test is
+    // "age >= 75 still applies the ageModifier on large/critical and never bumps down".
+    const r = calculatePerioperativeRisk({ ...baseInputs, age: 75, surgeryRiskClass: "large" });
     expect(r.grade).toBe("red");
     expect(r.ageModifier).toBe(1);
   });
@@ -171,5 +170,139 @@ describe("calculatePerioperativeRisk — aggregation", () => {
   it("metAbove4 === null does NOT produce partial=true — MET<4 is a refining bump, not a load-bearing input", () => {
     const r = calculatePerioperativeRisk({ ...baseInputs, metAbove4: null });
     expect(r.partial).toBe(false);
+  });
+});
+
+const ZERO_CONCEPTS: PerioperativeRiskInputs["concepts"] = {
+  CAD: false, CHF: false, STROKE_HISTORY: false, INSULIN_DIABETES: false,
+  CKD_OR_DIALYSIS: false, COPD: false, HYPERTENSION: false, ACTIVE_CANCER: false,
+  VTE_HISTORY: false, VARICOSE_VEINS: false, LEG_SWELLING: false,
+  FAMILY_THROMBOPHILIA: false, OC_OR_HRT: false, PREGNANCY_OR_POSTPARTUM: false,
+  RECENT_STROKE_30D: false, SPINAL_CORD_INJURY: false, KNOWN_UNTREATED_OSAS: false,
+  PONV_HISTORY: false,
+};
+
+function baseInputs(overrides: Partial<PerioperativeRiskInputs> = {}): PerioperativeRiskInputs {
+  return {
+    age: 82,
+    sex: "f",
+    bmi: 25,
+    surgeryRiskClass: "minor",
+    plannedDurationMinutes: 60,
+    isCurrentSmoker: true, // produces Pulmonary MED for age ≥ 70
+    functionallyDependent: null,
+    metAbove4: null,
+    concepts: ZERO_CONCEPTS,
+    ...overrides,
+  };
+}
+
+describe("age modifier × surgery class attenuation", () => {
+  it("applies the bump on a large surgery", () => {
+    const r = calculatePerioperativeRisk(baseInputs({ surgeryRiskClass: "large" }));
+    expect(r.ageEligible).toBe(true);
+    expect(r.ageModifier).toBe(1);
+    expect(r.ageModifierSuppressed).toBe(false);
+    expect(r.grade).toBe("red");
+  });
+
+  it("applies the bump on a critical surgery", () => {
+    const r = calculatePerioperativeRisk(baseInputs({ surgeryRiskClass: "critical" }));
+    expect(r.ageModifier).toBe(1);
+    expect(r.ageModifierSuppressed).toBe(false);
+    expect(r.grade).toBe("red");
+  });
+
+  it("suppresses the bump on a minor surgery", () => {
+    const r = calculatePerioperativeRisk(baseInputs({ surgeryRiskClass: "minor" }));
+    expect(r.ageEligible).toBe(true);
+    expect(r.ageModifier).toBe(0);
+    expect(r.ageModifierSuppressed).toBe(true);
+    expect(r.grade).toBe("orange");
+  });
+
+  it("suppresses the bump on a standard surgery", () => {
+    const r = calculatePerioperativeRisk(baseInputs({ surgeryRiskClass: "standard" }));
+    expect(r.ageModifier).toBe(0);
+    expect(r.ageModifierSuppressed).toBe(true);
+    expect(r.grade).toBe("orange");
+  });
+
+  it("below threshold age — no suppression flag, no bump", () => {
+    const r = calculatePerioperativeRisk(baseInputs({ age: 70, surgeryRiskClass: "minor" }));
+    expect(r.ageEligible).toBe(false);
+    expect(r.ageModifier).toBe(0);
+    expect(r.ageModifierSuppressed).toBe(false);
+  });
+
+  it("does not mask a high-domain patient on a minor surgery", () => {
+    const r = calculatePerioperativeRisk(baseInputs({
+      age: 70,
+      surgeryRiskClass: "minor",
+      concepts: { ...ZERO_CONCEPTS, CAD: true, CHF: true, CKD_OR_DIALYSIS: true },
+    }));
+    expect(r.grade).toBe("red");
+    expect(r.worstDomain).toBe("cardiac");
+  });
+
+  it("below threshold age + large surgery + HIGH worst domain → RED, no bump", () => {
+    const r = calculatePerioperativeRisk(baseInputs({
+      age: 70,
+      surgeryRiskClass: "large",
+      concepts: { ...ZERO_CONCEPTS, CAD: true, CHF: true, CKD_OR_DIALYSIS: true },
+    }));
+    expect(r.grade).toBe("red");
+    expect(r.ageEligible).toBe(false);
+    expect(r.ageModifier).toBe(0);
+    expect(r.ageModifierSuppressed).toBe(false);
+  });
+
+  it("Eva regression: 82 + smoker + minor → ORANGE · VTE", () => {
+    const r = calculatePerioperativeRisk(baseInputs({}));
+    expect(r.worstDomain).toBe("vte");
+    expect(r.grade).toBe("orange");
+    expect(r.ageModifierSuppressed).toBe(true);
+  });
+
+  it("ageEligible is true whenever age ≥ 75, regardless of suppression", () => {
+    const minorR = calculatePerioperativeRisk(baseInputs({ age: 80, surgeryRiskClass: "minor" }));
+    const largeR = calculatePerioperativeRisk(baseInputs({ age: 80, surgeryRiskClass: "large" }));
+    expect(minorR.ageEligible).toBe(true);
+    expect(largeR.ageEligible).toBe(true);
+  });
+
+  it("ageModifier === 1 and ageModifierSuppressed are mutually exclusive", () => {
+    for (const sc of ["minor", "standard", "large", "critical"] as const) {
+      for (const age of [50, 75, 90]) {
+        const r = calculatePerioperativeRisk(baseInputs({ age, surgeryRiskClass: sc }));
+        expect(r.ageModifier === 1 && r.ageModifierSuppressed).toBe(false);
+      }
+    }
+  });
+});
+
+import { isPreliminary } from "../perioperativeRisk";
+
+describe("isPreliminary helper", () => {
+  it("returns false when inputSource is 'assessment'", () => {
+    expect(isPreliminary({ inputSource: "assessment", partial: false } as any)).toBe(false);
+  });
+
+  it("returns true when inputSource is 'questionnaire'", () => {
+    expect(isPreliminary({ inputSource: "questionnaire", partial: true } as any)).toBe(true);
+  });
+
+  it("returns true when inputSource is 'default'", () => {
+    expect(isPreliminary({ inputSource: "default", partial: true } as any)).toBe(true);
+  });
+
+  it("backwards-compat: falls back to partial when inputSource is missing", () => {
+    expect(isPreliminary({ partial: true } as any)).toBe(true);
+    expect(isPreliminary({ partial: false } as any)).toBe(false);
+  });
+
+  it("returns false for null/undefined", () => {
+    expect(isPreliminary(null)).toBe(false);
+    expect(isPreliminary(undefined)).toBe(false);
   });
 });

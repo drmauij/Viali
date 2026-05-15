@@ -47,6 +47,7 @@ import AnesthesiaRecordButton from "@/components/anesthesia/AnesthesiaRecordButt
 import { RiskChip } from "@/components/anesthesia/RiskChip";
 import { RiskBreakdownPopover, type AmbulantSummary } from "@/components/anesthesia/RiskBreakdownPopover";
 import type { PerioperativeRiskResult } from "@shared/scoring/perioperativeRisk";
+import { isPreliminary } from "@shared/scoring/perioperativeRisk";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -3949,6 +3950,7 @@ export default function PatientDetail() {
                       grade={riskForChip.grade}
                       worstDomain={riskForChip.worstDomain}
                       size="sm"
+                      preliminary={isPreliminary(riskForChip)}
                       onClick={() => setRiskPopoverOpenAt(riskPopoverOpenAt === "preop" ? null : "preop")}
                     />
                   )}

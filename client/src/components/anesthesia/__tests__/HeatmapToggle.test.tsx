@@ -14,7 +14,7 @@ describe("HeatmapToggle", () => {
       return <HeatmapToggle enabled={enabled} onChange={setEnabled} />;
     }
     render(<Wrap />);
-    const btn = screen.getByRole("button", { name: /risk heat-map/i });
+    const btn = screen.getByRole("button", { name: /^risk$/i });
     expect(btn.getAttribute("data-state")).toBe("off");
     fireEvent.click(btn);
     expect(btn.getAttribute("data-state")).toBe("on");
@@ -29,7 +29,7 @@ describe("HeatmapToggle", () => {
     }
     render(<Wrap />);
     expect(
-      screen.getByRole("button", { name: /risk heat-map/i }).getAttribute("data-state"),
+      screen.getByRole("button", { name: /^risk$/i }).getAttribute("data-state"),
     ).toBe("on");
   });
 });
