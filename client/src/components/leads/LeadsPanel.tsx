@@ -289,11 +289,11 @@ function ContactLogDialog({
       <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0">
         {/* Sticky header */}
         <DialogHeader className="px-6 pt-6 pb-3 border-b shrink-0">
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="group/title flex items-center gap-2">
             <span>{t("leads.contactTitle", "Contact — {{name}}", { name: `${lead.firstName} ${lead.lastName}` })}</span>
             <button
               type="button"
-              className="text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground opacity-0 group-hover/title:opacity-100 focus:opacity-100 transition-opacity"
               title={t("common.copyName", "Copy name")}
               onClick={() => {
                 navigator.clipboard.writeText(`${lead.firstName} ${lead.lastName}`.trim());
@@ -319,11 +319,11 @@ function ContactLogDialog({
               {lead.operation && <span>— {lead.operation}</span>}
             </div>
             {lead.phone && (
-              <div className="flex items-center gap-2 text-sm">
+              <div className="group flex items-center gap-2 text-sm">
                 <a href={`tel:${lead.phone}`} className="hover:underline">{lead.phone}</a>
                 <button
                   type="button"
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                   title={t("common.copy", "Copy")}
                   onClick={() => {
                     navigator.clipboard.writeText(lead.phone!);
@@ -336,7 +336,17 @@ function ContactLogDialog({
                 <a
                   href={whatsappUrl(
                     lead.phone,
-                    t("leads.whatsappGreeting", "Hallo {{firstName}}, vielen Dank für Ihre Anfrage.", { firstName: lead.firstName || "" }),
+                    lead.operation
+                      ? t(
+                          "leads.whatsappGreetingWithOp",
+                          "Hallo {{firstName}}, vielen Dank für Ihre Anfrage zu {{operation}}.",
+                          { firstName: lead.firstName || "", operation: lead.operation },
+                        )
+                      : t(
+                          "leads.whatsappGreeting",
+                          "Hallo {{firstName}}, vielen Dank für Ihre Anfrage.",
+                          { firstName: lead.firstName || "" },
+                        ),
                   )}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -350,11 +360,11 @@ function ContactLogDialog({
               </div>
             )}
             {lead.email && (
-              <div className="flex items-center gap-2 text-sm">
+              <div className="group flex items-center gap-2 text-sm">
                 <a href={`mailto:${lead.email}`} className="hover:underline">{lead.email}</a>
                 <button
                   type="button"
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                   title={t("common.copy", "Copy")}
                   onClick={() => {
                     navigator.clipboard.writeText(lead.email!);
