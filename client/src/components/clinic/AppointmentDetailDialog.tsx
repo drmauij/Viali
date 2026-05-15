@@ -69,6 +69,7 @@ import { formatDateLong } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 export type AppointmentWithDetails = ClinicAppointment & {
   patient?: Patient;
@@ -484,29 +485,19 @@ export default function AppointmentDetailDialog({
                       <div className="text-sm text-muted-foreground" onClick={(e) => e.stopPropagation()}>
                         {addressEditing ? (
                           <div className="flex flex-col gap-1.5 mt-1">
-                            <Input
-                              value={addressStreet}
-                              onChange={(e) => setAddressStreet(e.target.value)}
-                              placeholder={t('appointments.addressStreet', 'Street')}
-                              className="h-7 text-xs"
-                              data-testid="input-address-street"
+                            <AddressAutocomplete
+                              values={{
+                                street: addressStreet,
+                                postalCode: addressPostalCode,
+                                city: addressCity,
+                              }}
+                              onChange={(v) => {
+                                setAddressStreet(v.street);
+                                setAddressPostalCode(v.postalCode);
+                                setAddressCity(v.city);
+                              }}
+                              inputClassName="h-7 text-xs"
                             />
-                            <div className="flex gap-1.5">
-                              <Input
-                                value={addressPostalCode}
-                                onChange={(e) => setAddressPostalCode(e.target.value)}
-                                placeholder={t('appointments.addressPostalCode', 'Postal code')}
-                                className="h-7 text-xs w-24"
-                                data-testid="input-address-postal"
-                              />
-                              <Input
-                                value={addressCity}
-                                onChange={(e) => setAddressCity(e.target.value)}
-                                placeholder={t('appointments.addressCity', 'City')}
-                                className="h-7 text-xs flex-1"
-                                data-testid="input-address-city"
-                              />
-                            </div>
                             <div className="flex gap-1">
                               <Button
                                 size="sm"
