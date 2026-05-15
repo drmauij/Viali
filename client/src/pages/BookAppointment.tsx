@@ -56,6 +56,15 @@ type BookingData = {
   };
   providers: Provider[];
   enableReferralOnBooking?: boolean;
+  /** Server-resolved prefill from a signed `lid` token (lead-invitation email click). */
+  prefill?: {
+    firstName: string;
+    lastName: string;
+    email: string | null;
+    phone: string | null;
+    language: string | null;
+    operation: string | null;
+  } | null;
 };
 
 type Slot = { startTime: string; endTime: string };
@@ -172,6 +181,7 @@ export default function BookAppointment() {
   const utmTerm = searchParams.get("utm_term");
   const utmContent = searchParams.get("utm_content");
   const feToken = searchParams.get("fe");
+  const lidToken = searchParams.get("lid");
   const refParam = searchParams.get("ref");
   // Ad platform campaign attribution
   const campaignId = searchParams.get("campaign_id");
@@ -305,7 +315,10 @@ export default function BookAppointment() {
 
   useEffect(() => {
     if (!token) return;
-    fetch(`/api/public/booking/${token}`)
+    const url = lidToken
+      ? `/api/public/booking/${token}?lid=${encodeURIComponent(lidToken)}`
+      : `/api/public/booking/${token}`;
+    fetch(url)
       .then(async (res) => {
         if (!res.ok) {
           setError(res.status === 429 ? "rate_limit" : "not_found");
@@ -313,6 +326,16 @@ export default function BookAppointment() {
         }
         const d: BookingData = await res.json();
         setData(d);
+        // Lead-invitation prefill: when ?lid=<signed> resolves to an open lead,
+        // the server returns a `prefill` object so the patient doesn't re-type
+        // data they already gave us via the Meta / website lead form.
+        if (d.prefill) {
+          const p = d.prefill;
+          if (p.firstName) setFirstName((cur) => cur || p.firstName);
+          if (p.lastName) setSurname((cur) => cur || p.lastName);
+          if (p.email) setEmail((cur) => cur || p.email!);
+          if (p.phone) setPhone((cur) => cur || p.phone!);
+        }
         // Auto-skip provider selection if deep-linked
         const preselected = preselectedProviderId
           ? d.providers.find(p => p.id === preselectedProviderId)
@@ -816,6 +839,7 @@ export default function BookAppointment() {
           serviceId: serviceInfo?.id || undefined,
           promoCode: promoData?.valid ? promoData.code : undefined,
           fe: feToken || undefined,
+          lid: lidToken || undefined,
         }),
       });
 
