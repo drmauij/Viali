@@ -29,6 +29,7 @@ import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
 import { SendSurgeonSummaryDialog } from "@/components/anesthesia/SendSurgeonSummaryDialog";
 import { RiskChip } from "@/components/anesthesia/RiskChip";
 import { RiskBreakdownPopover, type AmbulantSummary } from "@/components/anesthesia/RiskBreakdownPopover";
+import { isPreliminary } from "@shared/scoring/perioperativeRisk";
 import { formatDate, formatTime, formatDateTime } from "@/lib/dateUtils";
 import { generateWristbandPdf } from "@/lib/wristbandPdf";
 
@@ -390,6 +391,7 @@ export default function SurgerySummaryDialog({
                           grade={(surgery as any).perioperativeRisk.grade}
                           worstDomain={(surgery as any).perioperativeRisk.worstDomain}
                           size="sm"
+                          preliminary={isPreliminary((surgery as any).perioperativeRisk)}
                           onClick={() => setRiskPopoverOpen((v) => !v)}
                         />
                       )}
