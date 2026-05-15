@@ -347,13 +347,25 @@ function ContactLogDialog({
                   {t("leads.copyReferral", "Copy referral")}
                 </Button>
               </div>
-              {referralOpen && (lead.utmSource || lead.utmMedium || lead.utmCampaign) && (
+              {referralOpen && (
                 <div className="space-y-1 text-xs text-muted-foreground pt-2">
                   {lead.utmSource && <p>{t("leads.source", "Source")}: {lead.utmSource}</p>}
                   {lead.utmMedium && <p>{t("leads.medium", "Medium")}: {lead.utmMedium}</p>}
                   {lead.utmCampaign && <p>{t("leads.campaign", "Campaign")}: {lead.utmCampaign}</p>}
                   {lead.utmTerm && <p>{t("leads.searchTerm", "Search term")}: {lead.utmTerm}</p>}
+                  {lead.utmContent && <p>{t("leads.content", "Content")}: {lead.utmContent}</p>}
+                  {lead.campaignName && <p>{t("leads.campaignName", "Campaign name")}: {lead.campaignName}</p>}
+                  {lead.adsetId && <p>Ad set: {lead.adsetId}</p>}
+                  {lead.adId && <p>Ad: {lead.adId}</p>}
                   {lead.gclid && <p>Google Click ID: {lead.gclid.slice(0, 12)}...</p>}
+                  {lead.fbclid && <p>Facebook Click ID: {lead.fbclid.slice(0, 12)}...</p>}
+                  {lead.msclkid && <p>Microsoft Click ID: {lead.msclkid.slice(0, 12)}...</p>}
+                  {lead.ttclid && <p>TikTok Click ID: {lead.ttclid.slice(0, 12)}...</p>}
+                  {!lead.utmSource && !lead.utmMedium && !lead.utmCampaign && !lead.utmTerm &&
+                   !lead.utmContent && !lead.campaignName && !lead.adsetId && !lead.adId &&
+                   !lead.gclid && !lead.fbclid && !lead.msclkid && !lead.ttclid && (
+                    <p className="italic">{t("leads.noReferralInfo", "No referral attribution captured")}</p>
+                  )}
                 </div>
               )}
             </div>
