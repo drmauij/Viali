@@ -27,8 +27,13 @@ import {
   ProviderTimeOff,
   clinicDayNotes,
   flowExecutions,
+  leads,
 } from "@shared/schema";
 import { verifyExecutionToken } from "../services/marketingExecutionToken";
+import {
+  verifyLeadAttribution,
+  getLeadAttributionSecret,
+} from "../services/leadInvitation";
 import { eq, and, desc, sql, max, inArray, or, gte, lte, ilike, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { expandRecurringTimeOff, type ExpandedTimeOff } from "../utils/timeoff";
@@ -440,6 +445,47 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
       bookingTheme = hospital.bookingTheme ?? null;
     }
 
+    // Lead-invitation prefill: when the patient clicked the CTA in the
+    // invitation email, the URL carries a signed `lid` token. Verify it
+    // and return a prefill payload so the booking form pre-populates.
+    let prefill: {
+      firstName: string;
+      lastName: string;
+      email: string | null;
+      phone: string | null;
+      language: string | null;
+      operation: string | null;
+    } | null = null;
+
+    const lidParam = typeof req.query.lid === "string" ? req.query.lid.trim() : null;
+    if (lidParam) {
+      try {
+        const secret = getLeadAttributionSecret(hospital);
+        const leadId = verifyLeadAttribution(lidParam, secret);
+        if (leadId) {
+          const [lead] = await db
+            .select()
+            .from(leads)
+            .where(and(eq(leads.id, leadId), eq(leads.hospitalId, hospital.id)))
+            .limit(1);
+          if (lead && lead.status !== "converted") {
+            prefill = {
+              firstName: lead.firstName,
+              lastName: lead.lastName,
+              email: lead.email,
+              phone: lead.phone,
+              language: lead.language,
+              operation: lead.operation,
+            };
+          }
+        }
+      } catch (err) {
+        // Secret missing or other recoverable error → silently skip prefill.
+        // The page still renders; the lid just doesn't pre-fill anything.
+        logger.debug({ err }, "lid prefill failed (likely no secret configured)");
+      }
+    }
+
     res.json({
       hospital: {
         name: hospital.name,
@@ -465,6 +511,7 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
         role: p.role || null,
       })),
       enableReferralOnBooking: hospital.enableReferralOnBooking ?? false,
+      prefill,
     });
   } catch (error) {
     logger.error('Error fetching booking page data:', error);
