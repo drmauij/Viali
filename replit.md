@@ -172,6 +172,25 @@ The webhook automatically flips `emailMarketingConsent = false` on the recipient
 - Phase 2 (event tracking + webhook) — shipped on main
 - Phase 2.1 (revenue + cost + ROI) — spec written, not implemented
 - Phase 3 (A/B testing with auto-winner selection) — spec written, not implemented
+
+### Lead invitation email — Operator Setup
+
+The lead-webhook invitation email signs its CTA link with an HMAC secret.
+Set `LEAD_ATTRIBUTION_SECRET` to any 32+ character random string on the VPS,
+or omit it — the code falls back to `MARKETING_UNSUBSCRIBE_SECRET` (already
+configured for Flows) if unset. The fallback means existing deployments do
+not need any new env var to be functional.
+
+Rotating the secret invalidates previously sent invitation links; affected
+patients can still book and will be attributed via the email-fallback path
+(exact email match against the originating lead).
+
+The feature defaults to **ON** for all clinics. Operators who prefer to
+call leads first can disable per-clinic in **/admin → Integrations → Lead
+webhook → Auto-send lead invitation email**. When `RESEND_API_KEY` /
+`RESEND_FROM_EMAIL` are not set the toggle is disabled (read-only) and the
+helper text explains the missing configuration.
+
 ## Risk Grade — Surgery-Class Attenuation & Preliminary State (2026-05-14)
 
 After deploy:
