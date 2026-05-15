@@ -11,7 +11,10 @@ import {
 } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { Video } from "lucide-react";
+import { Video, Umbrella, Thermometer, BookOpen, Baby, Home, Hourglass, Ban, Plane } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
+import { AppointmentInfoCard } from "./AppointmentInfoCard";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 
 type AppointmentWithDetails = ClinicAppointment & {
@@ -78,16 +81,18 @@ const ABSENCE_COLORS: Record<string, string> = {
   default: "bg-gray-100 dark:bg-gray-800/50",
 };
 
-const ABSENCE_ICONS: Record<string, string> = {
-  vacation: "🏖️",
-  sick: "🤒",
-  training: "📚",
-  parental: "👶",
-  homeoffice: "🏠",
-  overtime: "⏱️",
-  blocked: "🚫",
-  sabbatical: "✈️",
-  default: "🚫",
+type IconType = ComponentType<SVGProps<SVGSVGElement>>;
+
+const ABSENCE_ICONS: Record<string, IconType> = {
+  vacation: Umbrella,
+  sick: Thermometer,
+  training: BookOpen,
+  parental: Baby,
+  homeoffice: Home,
+  overtime: Hourglass,
+  blocked: Ban,
+  sabbatical: Plane,
+  default: Ban,
 };
 
 const ABSENCE_TYPE_LABEL_KEYS: Record<string, { key: string; fallback: string }> = {
@@ -403,14 +408,33 @@ export default function AppointmentsWeekView({
                     data-testid={`day-cell-${provider.id}-${dayStr}`}
                   >
                     {absence && !absence.isPartial ? (
-                      <div className={cn(
-                        "flex items-center justify-center h-full text-muted-foreground text-sm",
-                        absence.approvalStatus === 'pending' && "opacity-60"
-                      )}>
-                        <span className="mr-1">{ABSENCE_ICONS[absence.type] || ABSENCE_ICONS.default}</span>
-                        <span>{getAbsenceLabel(absence.type)}</span>
-                        {absence.approvalStatus === 'pending' && <span className="ml-1">{'\u2753'}</span>}
-                      </div>
+                      (() => {
+                        const AbsenceIcon = ABSENCE_ICONS[absence.type] ?? ABSENCE_ICONS.default;
+                        const label = getAbsenceLabel(absence.type);
+                        const tileNode = (
+                          <div className={cn(
+                            "flex items-center justify-center h-full text-muted-foreground text-sm",
+                            absence.approvalStatus === 'pending' && "opacity-60"
+                          )}>
+                            <AbsenceIcon className="w-3.5 h-3.5 mr-1 flex-shrink-0" />
+                            <span>{label}</span>
+                            {absence.approvalStatus === 'pending' && <Hourglass className="w-3 h-3 ml-1 flex-shrink-0" />}
+                          </div>
+                        );
+                        return (
+                          <HoverCard openDelay={250} closeDelay={120}>
+                            <HoverCardTrigger asChild>{tileNode}</HoverCardTrigger>
+                            <HoverCardContent side="right" align="start" className="p-0 w-auto border-none bg-transparent shadow-none">
+                              <AppointmentInfoCard
+                                variant="absence"
+                                title={label}
+                                ReasonIcon={AbsenceIcon}
+                                isPending={absence.approvalStatus === 'pending'}
+                              />
+                            </HoverCardContent>
+                          </HoverCard>
+                        );
+                      })()
                     ) : (() => {
                       // Build a merged list of appointments and partial time-off, sorted by start time
                       const items: { key: string; startTime: string; type: 'appointment' | 'timeoff'; appt?: typeof dayAppointments[0]; absence?: typeof absence }[] = [];
@@ -424,53 +448,97 @@ export default function AppointmentsWeekView({
 
                       return (
                         <div className="space-y-1">
-                          {items.map(item => item.type === 'timeoff' ? (
-                            <div key={item.key} className="border-l-4 border-orange-500 bg-orange-500/10 px-1.5 py-1 rounded text-xs text-muted-foreground">
-                              <span className="mr-1">{ABSENCE_ICONS[item.absence!.type] || ABSENCE_ICONS.default}</span>
-                              {item.absence!.startTime}–{item.absence!.endTime} {getAbsenceLabel(item.absence!.type)}
-                            </div>
-                          ) : (
-                            <div
-                              key={item.key}
-                              className={cn(
-                                "border-l-4 px-1.5 py-1 rounded text-xs cursor-pointer transition-all hover:shadow-md overflow-hidden",
-                                getStatusClass(item.appt!.status),
-                                item.appt!.isVideoAppointment && "!border-l-indigo-500 dark:!border-l-indigo-400"
-                              )}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onEventClick?.(item.appt!);
-                              }}
-                              title={[
-                                item.appt!.isVideoAppointment ? `📹 ${t('appointments.videoAppointment', 'Video Appointment')}` : null,
-                                `${item.appt!.startTime} – ${item.appt!.endTime}`,
-                                `👤 ${getPatientName(item.appt!)}`,
-                                item.appt!.service?.name || null,
-                                item.appt!.notes ? `\n${item.appt!.notes}` : null,
-                              ].filter(Boolean).join('\n')}
-                              data-testid={`appointment-event-${item.appt!.id}`}
-                            >
-                              <div className="font-semibold truncate flex items-center gap-1">
-                                {item.appt!.isVideoAppointment && (
-                                  <span className="flex items-center gap-0.5 text-[9px] font-bold uppercase bg-indigo-500 text-white rounded px-1 py-0 whitespace-nowrap flex-shrink-0">
-                                    <Video className="w-3 h-3" />
-                                    {t('appointments.videoShort', 'Video')}
-                                  </span>
+                          {items.map(item => {
+                            if (item.type === 'timeoff') {
+                              const TimeOffIcon = ABSENCE_ICONS[item.absence!.type] ?? ABSENCE_ICONS.default;
+                              const timeOffLabel = getAbsenceLabel(item.absence!.type);
+                              const timeOffTile = (
+                                <div key={item.key} className="border-l-4 border-orange-500 bg-orange-500/10 px-1.5 py-1 rounded text-xs text-muted-foreground flex items-center gap-1">
+                                  <TimeOffIcon className="w-3 h-3 flex-shrink-0" />
+                                  <span>{item.absence!.startTime}–{item.absence!.endTime} {timeOffLabel}</span>
+                                </div>
+                              );
+                              return (
+                                <HoverCard key={item.key} openDelay={250} closeDelay={120}>
+                                  <HoverCardTrigger asChild>{timeOffTile}</HoverCardTrigger>
+                                  <HoverCardContent side="right" align="start" className="p-0 w-auto border-none bg-transparent shadow-none">
+                                    <AppointmentInfoCard
+                                      variant="timeOff"
+                                      ReasonIcon={TimeOffIcon}
+                                      serviceName={timeOffLabel}
+                                      startTime={item.absence!.startTime}
+                                      endTime={item.absence!.endTime}
+                                      isPending={item.absence!.approvalStatus === 'pending'}
+                                      notes={item.absence!.notes}
+                                    />
+                                  </HoverCardContent>
+                                </HoverCard>
+                              );
+                            }
+
+                            const statusLabels: Record<string, string> = {
+                              scheduled: t('appointments.status.scheduled', 'Scheduled'),
+                              confirmed: t('appointments.status.confirmed', 'Confirmed'),
+                              arrived: t('appointments.status.arrived', 'Arrived'),
+                              in_progress: t('appointments.status.inProgress', 'In Progress'),
+                              completed: t('appointments.status.completed', 'Completed'),
+                              cancelled: t('appointments.status.cancelled', 'Cancelled'),
+                              no_show: t('appointments.status.noShow', 'No Show'),
+                            };
+                            const apptTile = (
+                              <div
+                                className={cn(
+                                  "border-l-4 px-1.5 py-1 rounded text-xs cursor-pointer transition-all hover:shadow-md overflow-hidden",
+                                  getStatusClass(item.appt!.status),
+                                  item.appt!.isVideoAppointment && "!border-l-indigo-500 dark:!border-l-indigo-400"
                                 )}
-                                {item.appt!.startTime} {getPatientName(item.appt!)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEventClick?.(item.appt!);
+                                }}
+                                data-testid={`appointment-event-${item.appt!.id}`}
+                              >
+                                <div className="font-semibold truncate flex items-center gap-1">
+                                  {item.appt!.isVideoAppointment && (
+                                    <span className="flex items-center gap-0.5 text-[9px] font-bold uppercase bg-indigo-500 text-white rounded px-1 py-0 whitespace-nowrap flex-shrink-0">
+                                      <Video className="w-3 h-3" />
+                                      {t('appointments.videoShort', 'Video')}
+                                    </span>
+                                  )}
+                                  {item.appt!.startTime} {getPatientName(item.appt!)}
+                                </div>
+                                {item.appt!.service?.name && (
+                                  <div className="truncate opacity-80">
+                                    {item.appt!.service.name}
+                                  </div>
+                                )}
+                                {item.appt!.notes && (
+                                  <div className="truncate opacity-60 text-[10px]">
+                                    {item.appt!.notes}
+                                  </div>
+                                )}
                               </div>
-                              {item.appt!.service?.name && (
-                                <div className="truncate opacity-80">
-                                  {item.appt!.service.name}
-                                </div>
-                              )}
-                              {item.appt!.notes && (
-                                <div className="truncate opacity-60 text-[10px]">
-                                  {item.appt!.notes}
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                            );
+                            return (
+                              <HoverCard key={item.key} openDelay={250} closeDelay={120}>
+                                <HoverCardTrigger asChild>{apptTile}</HoverCardTrigger>
+                                <HoverCardContent side="right" align="start" className="p-0 w-auto border-none bg-transparent shadow-none">
+                                  <AppointmentInfoCard
+                                    variant="appointment"
+                                    patientName={getPatientName(item.appt!)}
+                                    serviceName={item.appt!.service?.name ?? null}
+                                    startTime={item.appt!.startTime}
+                                    endTime={item.appt!.endTime}
+                                    status={item.appt!.status}
+                                    statusLabel={statusLabels[item.appt!.status ?? ''] ?? (item.appt!.status ?? null)}
+                                    notes={item.appt!.notes ?? null}
+                                    isVideoAppointment={!!item.appt!.isVideoAppointment}
+                                    isCancelled={item.appt!.status === 'cancelled'}
+                                  />
+                                </HoverCardContent>
+                              </HoverCard>
+                            );
+                          })}
                         </div>
                       );
                     })()}

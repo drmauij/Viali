@@ -73,12 +73,14 @@ export function AppointmentInfoCard(props: AppointmentInfoCardProps) {
   }
 
   if (props.variant === "absence") {
+    const AbsenceIcon = props.ReasonIcon ?? Ban;
     return (
       <div className="w-72 bg-slate-900 text-slate-100 rounded-lg border border-slate-700 p-3 shadow-xl space-y-1.5">
-        <Row Icon={Ban}>{props.title || "Absent"}</Row>
+        <Row Icon={AbsenceIcon}>{props.title || "Absent"}</Row>
         {props.startTime && props.endTime && (
           <Row Icon={Clock}>{`${props.startTime} – ${props.endTime}`}</Row>
         )}
+        {props.isPending && <Row Icon={Hourglass}>{"Pending approval"}</Row>}
       </div>
     );
   }
