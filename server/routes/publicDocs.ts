@@ -273,6 +273,11 @@ POST /api/webhooks/leads/<HOSPITAL_ID>?key=<YOUR_API_KEY>
 - \`first_name\`, \`last_name\`
 - At least one of \`email\` or \`phone\`
 
+### Optional fields (all sources)
+
+- \`timeslot\` — free-text preferred call-back window from the lead (e.g. \`"weekend mornings"\`, \`"after 18:00"\`). Shown to the clinic in the lead inbox. Max 200 characters.
+- \`language\` — ISO 639-1 code for the lead's preferred language. Allowed values: \`en\`, \`de\`, \`fr\`, \`it\`. Drives the language of the outbound WhatsApp greeting and the patient-facing booking invitation email. If omitted, defaults to the clinic's UI language.
+
 ### Meta (Facebook / Instagram) leads
 
 Also require: \`lead_id\`, \`form_id\`, \`operation\`.
@@ -310,6 +315,8 @@ curl -X POST "https://<your-viali-host>/api/webhooks/leads/YOUR_HOSPITAL_ID?key=
     "email": "maria@example.com",
     "phone": "+41791234567",
     "message": "Interested in rhinoplasty",
+    "timeslot": "weekend mornings",
+    "language": "de",
     "utm_source": "google",
     "utm_medium": "cpc",
     "utm_campaign": "spring-2026",

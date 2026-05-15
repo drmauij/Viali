@@ -81,6 +81,10 @@ const router = Router();
 
 const META_SOURCES = ["fb", "ig"] as const;
 
+export const SUPPORTED_LEAD_LANGUAGES = ["en", "de", "fr", "it"] as const;
+export type LeadLanguage = (typeof SUPPORTED_LEAD_LANGUAGES)[number];
+const MAX_TIMESLOT_LENGTH = 200;
+
 interface ValidatedLead {
   firstName: string;
   lastName: string;
@@ -95,6 +99,8 @@ interface ValidatedLead {
   adId: string | null;
   operation: string | null;
   message: string | null;
+  timeslot: string | null;
+  language: string | null;
   utmSource: string | null;
   utmMedium: string | null;
   utmCampaign: string | null;
@@ -161,6 +167,24 @@ export function validateLeadPayload(body: unknown): {
   const optStr = (key: string): string | null =>
     typeof b[key] === "string" && (b[key] as string).trim() !== "" ? (b[key] as string).trim() : null;
 
+  const timeslot = optStr("timeslot");
+  if (timeslot && timeslot.length > MAX_TIMESLOT_LENGTH) {
+    return { success: false, error: `Field "timeslot" exceeds ${MAX_TIMESLOT_LENGTH} characters` };
+  }
+
+  let language: LeadLanguage | null = null;
+  const rawLanguage = optStr("language");
+  if (rawLanguage) {
+    const candidate = rawLanguage.toLowerCase();
+    if (!(SUPPORTED_LEAD_LANGUAGES as readonly string[]).includes(candidate)) {
+      return {
+        success: false,
+        error: `Field "language" must be one of: ${SUPPORTED_LEAD_LANGUAGES.join(", ")}`,
+      };
+    }
+    language = candidate as LeadLanguage;
+  }
+
   return {
     success: true,
     data: {
@@ -177,6 +201,8 @@ export function validateLeadPayload(body: unknown): {
       adId: optStr("ad_id"),
       operation: optStr("operation"),
       message: optStr("message"),
+      timeslot,
+      language,
       utmSource: optStr("utm_source"),
       utmMedium: optStr("utm_medium"),
       utmCampaign: optStr("utm_campaign"),
@@ -279,6 +305,8 @@ router.post("/api/webhooks/leads/:hospitalId", async (req, res) => {
         phone: data.phone,
         operation: data.operation,
         message: data.message,
+        timeslot: data.timeslot,
+        language: data.language,
         source: data.source,
         metaLeadId: data.metaLeadId,
         metaFormId: data.metaFormId,

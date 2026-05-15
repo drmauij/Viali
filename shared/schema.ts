@@ -7015,6 +7015,10 @@ export const leads = pgTable("leads", {
   operation: varchar("operation"),
   message: text("message"),
   source: varchar("source").notNull(), // "fb", "ig", "website", "email", etc.
+  // Optional free-text preferred call-back window from the lead form (e.g. "weekend mornings")
+  timeslot: text("timeslot"),
+  // ISO 639-1 language hint (en/de/fr/it) — drives outbound greeting copy
+  language: varchar("language", { length: 5 }),
   metaLeadId: varchar("meta_lead_id"),
   metaFormId: varchar("meta_form_id"),
   // Ad platform campaign attribution (from lead webhook: campaign/adset/ad hierarchy)

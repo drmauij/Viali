@@ -120,6 +120,71 @@ function whatsappUrl(phone: string, prefilledText?: string): string {
   return prefilledText ? `${base}?text=${encodeURIComponent(prefilledText)}` : base;
 }
 
+type LeadGreetingLang = "en" | "de" | "fr" | "it";
+
+// Lead-language WhatsApp greeting templates. All four use the formal register
+// ("Sie" / "vous" / "Lei") since Viali is registration-grade clinical software.
+// The lead's `language` column overrides the operator's UI locale — the message
+// is going to the patient, not the operator.
+const LEAD_GREETINGS: Record<LeadGreetingLang, {
+  base: (firstName: string, clinicName: string) => string;
+  withOp: (firstName: string, clinicName: string, operation: string) => string;
+  timeslotPrefix: (timeslot: string) => string;
+  question: string;
+}> = {
+  de: {
+    base: (firstName, clinicName) =>
+      `Hallo ${firstName}, hier schreibt ${clinicName}. Vielen Dank für Ihre Anfrage.`,
+    withOp: (firstName, clinicName, operation) =>
+      `Hallo ${firstName}, hier schreibt ${clinicName}. Vielen Dank für Ihre Anfrage zu ${operation}.`,
+    timeslotPrefix: (timeslot) => `Sie hatten angegeben: „${timeslot}".`,
+    question: "Gerne beraten wir Sie persönlich – wann dürfen wir Sie für ein kurzes Telefonat erreichen?",
+  },
+  en: {
+    base: (firstName, clinicName) =>
+      `Hello ${firstName}, this is ${clinicName}. Thank you for your enquiry.`,
+    withOp: (firstName, clinicName, operation) =>
+      `Hello ${firstName}, this is ${clinicName}. Thank you for your enquiry about ${operation}.`,
+    timeslotPrefix: (timeslot) => `You mentioned: "${timeslot}".`,
+    question: "We would be glad to advise you personally — when may we reach you for a brief call?",
+  },
+  fr: {
+    base: (firstName, clinicName) =>
+      `Bonjour ${firstName}, ${clinicName} à l'appareil. Merci pour votre demande.`,
+    withOp: (firstName, clinicName, operation) =>
+      `Bonjour ${firstName}, ${clinicName} à l'appareil. Merci pour votre demande concernant ${operation}.`,
+    timeslotPrefix: (timeslot) => `Vous aviez indiqué : « ${timeslot} ».`,
+    question: "Nous serions ravis de vous conseiller personnellement — quand pouvons-nous vous joindre pour un bref entretien ?",
+  },
+  it: {
+    base: (firstName, clinicName) =>
+      `Buongiorno ${firstName}, qui è ${clinicName}. La ringraziamo per la Sua richiesta.`,
+    withOp: (firstName, clinicName, operation) =>
+      `Buongiorno ${firstName}, qui è ${clinicName}. La ringraziamo per la Sua richiesta riguardante ${operation}.`,
+    timeslotPrefix: (timeslot) => `Lei aveva indicato: «${timeslot}».`,
+    question: "Saremo lieti di consigliarLa personalmente — quando possiamo contattarLa per una breve telefonata?",
+  },
+};
+
+function buildLeadGreeting(
+  language: string | null | undefined,
+  firstName: string,
+  clinicName: string,
+  operation: string | null | undefined,
+  timeslot: string | null | undefined,
+): string {
+  const lang: LeadGreetingLang =
+    language && (["en", "de", "fr", "it"] as const).includes(language as LeadGreetingLang)
+      ? (language as LeadGreetingLang)
+      : "de";
+  const tpl = LEAD_GREETINGS[lang];
+  const opening = operation
+    ? tpl.withOp(firstName || "", clinicName, operation)
+    : tpl.base(firstName || "", clinicName);
+  const middle = timeslot ? ` ${tpl.timeslotPrefix(timeslot)}` : "";
+  return `${opening}${middle} ${tpl.question}`;
+}
+
 function buildLeadReferralClipboardPayload(lead: LeadWithSummary | Lead): string {
   // Compact human-readable summary for the paste-confirmation dialog
   const summaryParts: string[] = [];
@@ -338,17 +403,13 @@ function ContactLogDialog({
                 <a
                   href={whatsappUrl(
                     lead.phone,
-                    lead.operation
-                      ? t(
-                          "leads.whatsappGreetingWithOp",
-                          "Hallo {{firstName}}, hier schreibt {{clinicName}}. Vielen Dank für Ihre Anfrage zu {{operation}}. Gerne beraten wir Sie persönlich – wann dürfen wir Sie für ein kurzes Telefonat erreichen?",
-                          { firstName: lead.firstName || "", operation: lead.operation, clinicName },
-                        )
-                      : t(
-                          "leads.whatsappGreeting",
-                          "Hallo {{firstName}}, hier schreibt {{clinicName}}. Vielen Dank für Ihre Anfrage. Gerne beraten wir Sie persönlich – wann dürfen wir Sie für ein kurzes Telefonat erreichen?",
-                          { firstName: lead.firstName || "", clinicName },
-                        ),
+                    buildLeadGreeting(
+                      lead.language,
+                      lead.firstName,
+                      clinicName,
+                      lead.operation,
+                      lead.timeslot,
+                    ),
                   )}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -376,6 +437,15 @@ function ContactLogDialog({
                 >
                   <Copy className="h-3.5 w-3.5" />
                 </button>
+              </div>
+            )}
+            {lead.timeslot && (
+              <div className="flex items-start gap-1.5 text-xs text-foreground border-t pt-1.5 mt-1.5">
+                <Clock className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                <span>
+                  <span className="text-muted-foreground">{t("leads.preferredCallback", "Preferred callback")}: </span>
+                  {lead.timeslot}
+                </span>
               </div>
             )}
             {lead.message && (

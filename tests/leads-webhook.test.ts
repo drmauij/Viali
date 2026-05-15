@@ -182,5 +182,53 @@ describe('Leads Webhook Validation', () => {
     expect(result.data!.utmSource).toBeNull();
     expect(result.data!.gclid).toBeNull();
     expect(result.data!.operation).toBeNull();
+    expect(result.data!.timeslot).toBeNull();
+    expect(result.data!.language).toBeNull();
+  });
+
+  // ── timeslot + language (new in webhook v2) ──
+
+  it('accepts and trims a timeslot', () => {
+    const result = validateLeadPayload({
+      ...validWebsitePayload,
+      timeslot: '  weekend mornings  ',
+    });
+    expect(result.success).toBe(true);
+    expect(result.data!.timeslot).toBe('weekend mornings');
+  });
+
+  it('rejects timeslot longer than 200 chars', () => {
+    const result = validateLeadPayload({
+      ...validWebsitePayload,
+      timeslot: 'x'.repeat(201),
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('timeslot');
+  });
+
+  it('accepts each supported language code', () => {
+    for (const lang of ['en', 'de', 'fr', 'it']) {
+      const result = validateLeadPayload({ ...validWebsitePayload, language: lang });
+      expect(result.success).toBe(true);
+      expect(result.data!.language).toBe(lang);
+    }
+  });
+
+  it('normalizes language to lowercase', () => {
+    const result = validateLeadPayload({ ...validWebsitePayload, language: 'DE' });
+    expect(result.success).toBe(true);
+    expect(result.data!.language).toBe('de');
+  });
+
+  it('rejects unsupported language codes', () => {
+    const result = validateLeadPayload({ ...validWebsitePayload, language: 'es' });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('language');
+  });
+
+  it('treats empty-string language as omitted (null)', () => {
+    const result = validateLeadPayload({ ...validWebsitePayload, language: '' });
+    expect(result.success).toBe(true);
+    expect(result.data!.language).toBeNull();
   });
 });

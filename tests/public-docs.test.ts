@@ -96,6 +96,17 @@ describe("/api.md", () => {
     expect(res.text).toContain("400");
   });
 
+  it("documents leads webhook optional timeslot + language fields", async () => {
+    const res = await request(buildApp()).get("/api.md");
+    expect(res.text).toContain("timeslot");
+    expect(res.text).toContain("language");
+    // Language allowlist must stay in sync with server validation
+    expect(res.text).toMatch(/\ben\b/);
+    expect(res.text).toMatch(/\bde\b/);
+    expect(res.text).toMatch(/\bfr\b/);
+    expect(res.text).toMatch(/\bit\b/);
+  });
+
   it("documents conversions API filters and levels", async () => {
     const res = await request(buildApp()).get("/api.md");
     expect(res.text).toContain("platform");
