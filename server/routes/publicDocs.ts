@@ -278,6 +278,22 @@ POST /api/webhooks/leads/<HOSPITAL_ID>?key=<YOUR_API_KEY>
 - \`timeslot\` — free-text preferred call-back window from the lead (e.g. \`"weekend mornings"\`, \`"after 18:00"\`). Shown to the clinic in the lead inbox. Max 200 characters.
 - \`language\` — ISO 639-1 code for the lead's preferred language. Allowed values: \`en\`, \`de\`, \`fr\`, \`it\`. Drives the language of the outbound WhatsApp greeting and the patient-facing booking invitation email. If omitted, defaults to the clinic's UI language.
 
+### Invitation email and conversion tracking
+
+When \`email\` is present on the lead payload and the clinic has invitation
+emails enabled, Viali sends the patient a branded "Book your appointment"
+email immediately after the lead is received. The CTA includes a signed
+\`lid\` parameter; when the patient books through that link, the appointment
+is automatically attributed to the lead and the lead status flips to
+\`converted\`. If the patient ignores the email and books later via the
+public booking page, attribution still applies as long as the booking
+email exactly matches the lead email (case-insensitive). Ambiguous matches
+(2+ open leads with the same email) are left for the operator to resolve
+manually.
+
+The clinic can disable auto-send in **Settings → Integrations → Lead
+webhook → Auto-send lead invitation email**.
+
 ### Meta (Facebook / Instagram) leads
 
 Also require: \`lead_id\`, \`form_id\`, \`operation\`.

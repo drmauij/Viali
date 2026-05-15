@@ -107,6 +107,13 @@ describe("/api.md", () => {
     expect(res.text).toMatch(/\bit\b/);
   });
 
+  it("documents lead invitation email + conversion tracking", async () => {
+    const res = await request(buildApp()).get("/api.md");
+    expect(res.text).toMatch(/invitation email/i);
+    expect(res.text).toContain("`lid`");
+    expect(res.text).toContain("converted");
+  });
+
   it("documents conversions API filters and levels", async () => {
     const res = await request(buildApp()).get("/api.md");
     expect(res.text).toContain("platform");
