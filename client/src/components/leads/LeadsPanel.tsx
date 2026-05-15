@@ -914,8 +914,17 @@ export function ScheduleLeadDialog({
         },
         refetchType: 'all',
       });
-      // Invalidate appointments/calendar queries
-      queryClient.invalidateQueries({ queryKey: ["/api/clinic-appointments"], exact: false });
+      // Invalidate appointment queries — the calendar fetches with
+      // /api/clinic/${hospitalId}/appointments?startDate=...&endDate=... and
+      // PatientDetail with /api/clinic/${hospitalId}/appointments (no params),
+      // both as a single string key. Predicate prefix-match catches both.
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith(`/api/clinic/${hospitalId}/appointments`);
+        },
+        refetchType: 'all',
+      });
     },
     onError: () => {
       toast({ title: t("leads.errorConverting", "Error converting lead"), variant: "destructive" });
