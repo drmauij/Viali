@@ -136,16 +136,50 @@ export function deriveRiskInputsFromRecords(
   // isn't a real signal — only positive values are. We also accept
   // information-bearing lifestyle scalars from the questionnaire (current /
   // former smoker is a positive signal; "never" is the default and is not).
+  //
+  // BUT a healthy ASA-I patient with zero positive comorbidities is still a
+  // *completed* assessment — the clinician reviewed and confirmed there's
+  // nothing to flag. We use the form-completion markers as definitive
+  // "filled" signals on top of positive-condition checks, so that healthy
+  // patients render with a real grade rather than gray NOT DEFINED.
   const hasPositive = (m: Record<string, boolean>): boolean =>
     Object.values(m).some((v) => v === true);
-  const anyAssessmentData = Object.values(a).some(hasPositive);
+
+  // Assessment is "filled" when the doctor has reached any conclusion on it:
+  //   - finalised (status='completed')
+  //   - made a surgical-approval decision ('approved' | 'not-approved')
+  //   - put it on stand-by (waiting for signature / consent / exams / other)
+  // OR when they recorded objective findings (ASA, weight, height, planned
+  // anesthesia technique) OR any positive illness checkbox.
+  // The conclusion markers are the strongest signal: a healthy patient
+  // legitimately has zero positive boxes but the doctor still signed off,
+  // and that "no illnesses confirmed" is exactly what we want to count.
+  const assessmentConcluded =
+    assessment?.status === "completed" ||
+    !!assessment?.surgicalApproval ||
+    assessment?.standBy === true;
+  const assessmentHasObjectiveData =
+    !!assessment?.asa ||
+    (!!assessment?.weight && Number(assessment.weight) > 0) ||
+    (!!assessment?.height && Number(assessment.height) > 0) ||
+    !!assessment?.anesthesiaTechniques;
+  const anyAssessmentData =
+    assessmentConcluded ||
+    assessmentHasObjectiveData ||
+    Object.values(a).some(hasPositive);
+
+  // Questionnaire is "filled" when EITHER the patient submitted it
+  // (submittedAt set) OR they reported any information-bearing scalar.
+  const questionnaireSubmitted = !!questionnaire?.submittedAt;
   const anyQuestionnaireData =
     !!questionnaire &&
-    (Object.values(q).some(hasPositive) ||
+    (questionnaireSubmitted ||
+      Object.values(q).some(hasPositive) ||
       questionnaire.smokingStatus === "current" ||
       questionnaire.smokingStatus === "former" ||
       questionnaire.functionallyDependent === true ||
       questionnaire.metAbove4 === false);
+
   const inputSource: "assessment" | "questionnaire" | "default" = anyAssessmentData
     ? "assessment"
     : anyQuestionnaireData

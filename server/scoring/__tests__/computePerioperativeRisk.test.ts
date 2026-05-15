@@ -87,18 +87,31 @@ describe("deriveRiskInputsFromRecords", () => {
     expect(snap.ageModifier).toBe(0);
   });
 
-  it("stub assessment (organ-system maps populated with all-false keys) does NOT count as data", () => {
-    // Form rendering pre-populates every checkbox as `{itemId: false}` — this
-    // is identical in shape to a real assessment, so presence of keys alone
-    // can't be the signal. Only positive values count.
-    const stubAssessment = {
+  it("draft assessment with objective findings (weight) counts as assessment data", () => {
+    // A clinician who recorded the weight has touched the form — even
+    // without positive comorbidities. Weight=70 is a real measurement,
+    // not an auto-default.
+    const draftAssessment = {
       heartIllnesses: { cad: false, htn: false },
       lungIllnesses: { copd: false },
       weight: "70",
     };
-    const r = deriveRiskInputsFromRecords(PATIENT, SURGERY, stubAssessment, null, ILLNESS_LISTS);
-    expect(r.inputSource).toBe("default");
-    expect(r.partial).toBe(true);
+    const r = deriveRiskInputsFromRecords(PATIENT, SURGERY, draftAssessment, null, ILLNESS_LISTS);
+    expect(r.inputSource).toBe("assessment");
+  });
+
+  it("completed assessment with NO illnesses counts as assessment data (healthy patient confirmed)", () => {
+    // The clinician finalised (status='completed') and recorded no
+    // comorbidities — i.e. patient is healthy. This is the strongest
+    // possible "form filled" signal and must produce a real grade,
+    // never NOT DEFINED.
+    const completedAssessment = {
+      status: "completed",
+      heartIllnesses: { cad: false, htn: false },
+      lungIllnesses: { copd: false },
+    };
+    const r = deriveRiskInputsFromRecords(PATIENT, SURGERY, completedAssessment, null, ILLNESS_LISTS);
+    expect(r.inputSource).toBe("assessment");
   });
 
   it("real assessment (at least one true comorbidity) counts as assessment data", () => {
@@ -108,12 +121,26 @@ describe("deriveRiskInputsFromRecords", () => {
     expect(r.inputs.concepts.CAD).toBe(true);
   });
 
-  it("questionnaire with only smokingStatus='never' falls through to default", () => {
-    // "never" is the default smoking option and indistinguishable from an
-    // auto-stub; it should not be treated as a positive signal.
+  it("questionnaire with only smokingStatus='never' (unsubmitted) falls through to default", () => {
+    // Without a submittedAt timestamp, a questionnaire that only says
+    // smokingStatus=never could be an auto-stub. Treat as default.
     const stubQuestionnaire = { smokingStatus: "never", conditions: {} };
     const r = deriveRiskInputsFromRecords(PATIENT, SURGERY, null, stubQuestionnaire, ILLNESS_LISTS);
     expect(r.inputSource).toBe("default");
+  });
+
+  it("submitted questionnaire with NO conditions counts as questionnaire data (healthy patient self-confirmed)", () => {
+    // The patient submitted the questionnaire; the online form requires
+    // explicit "I have no illnesses" / "I don't smoke" answers, so a
+    // submitted-with-nothing-positive response means the patient
+    // affirmatively confirmed they are healthy. Render a real grade.
+    const submittedQuestionnaire = {
+      submittedAt: new Date("2026-05-01"),
+      smokingStatus: "never",
+      conditions: { cad: { checked: false } },
+    };
+    const r = deriveRiskInputsFromRecords(PATIENT, SURGERY, null, submittedQuestionnaire, ILLNESS_LISTS);
+    expect(r.inputSource).toBe("questionnaire");
   });
 
   it("questionnaire with smokingStatus='current' counts as questionnaire data", () => {
@@ -122,7 +149,7 @@ describe("deriveRiskInputsFromRecords", () => {
     expect(r.inputSource).toBe("questionnaire");
   });
 
-  it("stub questionnaire (all conditions present but checked=false) falls through to default", () => {
+  it("unsubmitted questionnaire stub (all conditions checked=false) falls through to default", () => {
     const stubQ = {
       conditions: {
         cad: { checked: false },
@@ -133,10 +160,19 @@ describe("deriveRiskInputsFromRecords", () => {
     expect(r.inputSource).toBe("default");
   });
 
-  it("assessment stub + questionnaire stub → both ignored, inputSource is default", () => {
-    const stubA = { heartIllnesses: { cad: false }, weight: "70" };
+  it("draft assessment with weight + unsubmitted questionnaire stub → assessment wins (weight is real)", () => {
+    const draftA = { heartIllnesses: { cad: false }, weight: "70" };
     const stubQ = { smokingStatus: "never", conditions: { cad: { checked: false } } };
-    const r = deriveRiskInputsFromRecords(PATIENT, SURGERY, stubA, stubQ, ILLNESS_LISTS);
+    const r = deriveRiskInputsFromRecords(PATIENT, SURGERY, draftA, stubQ, ILLNESS_LISTS);
+    expect(r.inputSource).toBe("assessment");
+  });
+
+  it("empty assessment + empty unsubmitted questionnaire → default", () => {
+    // No status='completed', no submittedAt, no objective fields, no
+    // positive boxes. Both records are pure auto-stubs.
+    const emptyA = { heartIllnesses: {}, lungIllnesses: {} };
+    const emptyQ = { conditions: {} };
+    const r = deriveRiskInputsFromRecords(PATIENT, SURGERY, emptyA, emptyQ, ILLNESS_LISTS);
     expect(r.inputSource).toBe("default");
   });
 });
