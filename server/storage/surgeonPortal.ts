@@ -394,28 +394,65 @@ export async function getHospitalByExternalSurgeryToken(
 // ========== PRAXIS HELPERS ==========
 
 /**
- * Return all users where parent_surgeon_id = praxisUserId.
- * Caller is responsible for verifying praxisUserId actually has is_praxis=true.
+ * Return users where parent_surgeon_id = praxisUserId.
+ * If hospitalId is provided, restricts to children that have at least one
+ * userHospitalRoles row at that hospital — the "hospital slice" of the praxis.
+ *
+ * is_praxis and parent_surgeon_id live on users globally, but the admin UI
+ * operates per-clinic; pass hospitalId so a Kreuzlingen admin only sees
+ * Kreuzlingen-side children, never Weinberg-side ones.
  */
-export async function getChildrenOfPraxis(praxisUserId: string) {
-  return await db
-    .select()
+export async function getChildrenOfPraxis(
+  praxisUserId: string,
+  hospitalId?: string,
+) {
+  if (!hospitalId) {
+    return await db
+      .select()
+      .from(users)
+      .where(eq(users.parentSurgeonId, praxisUserId));
+  }
+  const rows = await db
+    .selectDistinct({ user: users })
     .from(users)
-    .where(eq(users.parentSurgeonId, praxisUserId));
+    .innerJoin(userHospitalRoles, eq(userHospitalRoles.userId, users.id))
+    .where(
+      and(
+        eq(users.parentSurgeonId, praxisUserId),
+        eq(userHospitalRoles.hospitalId, hospitalId),
+      ),
+    );
+  return rows.map((r) => r.user);
 }
 
 /**
- * Replace the set of children for a praxis. Rewrites parent_surgeon_id atomically:
- *   - new children get parent_surgeon_id = praxisUserId
- *   - previously-linked children NOT in the new set get parent_surgeon_id = null
+ * Replace the set of children for a praxis WITHIN ONE HOSPITAL'S SLICE.
+ * Children at other hospitals are not touched, even when they are not in
+ * childUserIds — each clinic admin manages only their own slice.
+ *
+ * Within the hospital slice:
+ *   - children newly in childUserIds get parent_surgeon_id = praxisUserId
+ *   - children previously linked at this hospital but not in childUserIds get
+ *     parent_surgeon_id = null (only if they have no roles at any other hospital
+ *     where the praxis still owns them — see below)
+ *
+ * Because parent_surgeon_id is one column per user, "unlinking at one hospital
+ * only" cannot truly preserve linkage at another hospital for the SAME user.
+ * Practically, a doctor user typically belongs to one clinic; if a child is
+ * shared across clinics, unlinking it here unlinks it everywhere. That edge
+ * case is intentionally accepted as the trade-off of a per-user parent column.
+ *
  * Throws if:
  *   - any candidate child has is_praxis=true (one-level only),
  *   - the praxis is included in its own children (self-loop),
- *   - the praxis target is not flagged is_praxis=true.
+ *   - the praxis target is not flagged is_praxis=true,
+ *   - any candidate child does not belong to hospitalId,
+ *   - any candidate child currently has a different parent (linked to another praxis).
  */
 export async function setPraxisChildren(
   praxisUserId: string,
   childUserIds: string[],
+  hospitalId: string,
 ) {
   if (childUserIds.includes(praxisUserId)) {
     throw new Error(
@@ -439,7 +476,7 @@ export async function setPraxisChildren(
 
   if (childUserIds.length > 0) {
     const candidates = await db
-      .select({ id: users.id, isPraxis: users.isPraxis })
+      .select({ id: users.id, isPraxis: users.isPraxis, parentSurgeonId: users.parentSurgeonId })
       .from(users)
       .where(inArray(users.id, childUserIds));
 
@@ -449,34 +486,84 @@ export async function setPraxisChildren(
         `User(s) ${praxisChildren.map((c) => c.id).join(", ")} cannot be a child — already a praxis`,
       );
     }
+
+    const otherParented = candidates.filter(
+      (c) => c.parentSurgeonId && c.parentSurgeonId !== praxisUserId,
+    );
+    if (otherParented.length > 0) {
+      throw new Error(
+        `User(s) ${otherParented.map((c) => c.id).join(", ")} are already linked to a different praxis`,
+      );
+    }
+
+    const candidateHospitals = await db
+      .select({ userId: userHospitalRoles.userId })
+      .from(userHospitalRoles)
+      .where(
+        and(
+          inArray(userHospitalRoles.userId, childUserIds),
+          eq(userHospitalRoles.hospitalId, hospitalId),
+        ),
+      );
+    const validIds = new Set(candidateHospitals.map((r) => r.userId));
+    const invalid = childUserIds.filter((id) => !validIds.has(id));
+    if (invalid.length > 0) {
+      throw new Error(
+        `User(s) ${invalid.join(", ")} do not belong to this hospital`,
+      );
+    }
   }
 
-  await db.transaction(async (tx) => {
-    // 1. Clear all current children of this praxis
-    await tx
-      .update(users)
-      .set({ parentSurgeonId: null })
-      .where(eq(users.parentSurgeonId, praxisUserId));
+  // Compute the hospital-scoped diff so other clinics' linkages survive.
+  const currentAtHospital = await getChildrenOfPraxis(praxisUserId, hospitalId);
+  const currentIds = new Set(currentAtHospital.map((c) => c.id));
+  const desiredIds = new Set(childUserIds);
+  const toUnlink = currentAtHospital
+    .map((c) => c.id)
+    .filter((id) => !desiredIds.has(id));
+  const toLink = childUserIds.filter((id) => !currentIds.has(id));
 
-    // 2. Set new children
-    if (childUserIds.length > 0) {
+  await db.transaction(async (tx) => {
+    if (toUnlink.length > 0) {
+      await tx
+        .update(users)
+        .set({ parentSurgeonId: null })
+        .where(
+          and(
+            inArray(users.id, toUnlink),
+            eq(users.parentSurgeonId, praxisUserId),
+          ),
+        );
+    }
+    if (toLink.length > 0) {
       await tx
         .update(users)
         .set({ parentSurgeonId: praxisUserId })
-        .where(inArray(users.id, childUserIds));
+        .where(inArray(users.id, toLink));
     }
   });
 }
 
 /**
- * Toggle is_praxis on a user. When turning OFF, refuses if children are still linked.
+ * Toggle is_praxis on a user. When turning OFF:
+ *   - If hospitalId is provided, only blocks if children remain AT THAT
+ *     hospital. Children at other clinics keep their parent_surgeon_id
+ *     pointing at this user (now non-praxis); each other clinic's admin can
+ *     re-toggle is_praxis on if they still need praxis roll-up there.
+ *   - If hospitalId is omitted, falls back to the global check (any child
+ *     anywhere blocks).
  */
-export async function togglePraxis(userId: string, isPraxis: boolean) {
+export async function togglePraxis(
+  userId: string,
+  isPraxis: boolean,
+  hospitalId?: string,
+) {
   if (!isPraxis) {
-    const children = await getChildrenOfPraxis(userId);
+    const children = await getChildrenOfPraxis(userId, hospitalId);
     if (children.length > 0) {
+      const where = hospitalId ? " at this hospital" : "";
       throw new Error(
-        `User ${userId} still has linked children — unlink them before disabling praxis`,
+        `User ${userId} still has linked children${where} — unlink them before disabling praxis`,
       );
     }
   }

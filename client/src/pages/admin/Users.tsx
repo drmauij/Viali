@@ -1941,11 +1941,27 @@ export default function Users() {
                       checked={editingUserDetails?.isPraxis ?? false}
                       onCheckedChange={(checked) => {
                         if (editingUserDetails) {
+                          // Optimistic toggle for snappy UI; rolled back on
+                          // mutation error so the multi-select stays visible
+                          // when the backend rejects ("still has children").
+                          const previousIsPraxis = editingUserDetails.isPraxis ?? false;
+                          const targetUserId = editingUserDetails.id;
                           setEditingUserDetails({ ...editingUserDetails, isPraxis: checked });
-                          updateUserAccessMutation.mutate({
-                            userId: editingUserDetails.id,
-                            isPraxis: checked,
-                          });
+                          updateUserAccessMutation.mutate(
+                            {
+                              userId: targetUserId,
+                              isPraxis: checked,
+                            },
+                            {
+                              onError: () => {
+                                setEditingUserDetails((curr) =>
+                                  curr && curr.id === targetUserId
+                                    ? { ...curr, isPraxis: previousIsPraxis }
+                                    : curr,
+                                );
+                              },
+                            },
+                          );
                         }
                       }}
                       disabled={updateUserAccessMutation.isPending}

@@ -38,7 +38,11 @@ export default function PraxisChildrenSelect({
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const childrenQueryKey = [`/api/admin/users/${praxisUserId}/praxis-children`];
+  // Hospital-scoped: only this clinic's slice of the praxis. Children at
+  // other clinics aren't shown OR sent in the save payload, so a Kreuzlingen
+  // admin can't accidentally drop a Weinberg child.
+  const childrenQueryUrl = `/api/admin/users/${praxisUserId}/praxis-children?hospitalId=${encodeURIComponent(hospitalId)}`;
+  const childrenQueryKey = [childrenQueryUrl];
   const { data: currentChildren = [] } = useQuery<
     Array<{ id: string; firstName: string; lastName: string; email: string }>
   >({

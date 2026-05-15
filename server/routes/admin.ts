@@ -855,7 +855,7 @@ router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAc
       // Use storage helper so the "still has children" guard fires
       const { togglePraxis } = await import("../storage/surgeonPortal");
       try {
-        await togglePraxis(userId, !!isPraxis);
+        await togglePraxis(userId, !!isPraxis, hospitalId);
       } catch (e: any) {
         return res.status(409).json({ message: e.message });
       }
@@ -900,18 +900,12 @@ router.put('/api/admin/users/:userId/praxis-children', isAuthenticated, requireW
       return res.status(403).json({ message: "User does not belong to this hospital" });
     }
 
-    if (childUserIds.length > 0) {
-      for (const childId of childUserIds) {
-        const childHosps = await storage.getUserHospitals(childId);
-        if (!childHosps.some(h => h.id === hospitalId)) {
-          return res.status(400).json({ message: `Child ${childId} does not belong to this hospital` });
-        }
-      }
-    }
+    // Per-child hospital validation now lives inside setPraxisChildren so it
+    // can run in the same transaction. Don't double-check here.
 
     const { setPraxisChildren } = await import("../storage/surgeonPortal");
     try {
-      await setPraxisChildren(userId, childUserIds);
+      await setPraxisChildren(userId, childUserIds, hospitalId);
     } catch (e: any) {
       return res.status(409).json({ message: e.message });
     }
@@ -926,8 +920,9 @@ router.put('/api/admin/users/:userId/praxis-children', isAuthenticated, requireW
 router.get('/api/admin/users/:userId/praxis-children', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { userId } = req.params;
+    const hospitalId = typeof req.query.hospitalId === "string" ? req.query.hospitalId : undefined;
     const { getChildrenOfPraxis } = await import("../storage/surgeonPortal");
-    const children = await getChildrenOfPraxis(userId);
+    const children = await getChildrenOfPraxis(userId, hospitalId);
     res.json(children.map((c: any) => ({
       id: c.id,
       firstName: c.firstName,
@@ -1111,7 +1106,7 @@ router.patch('/api/admin/users/:userId/access', isAuthenticated, requireWriteAcc
     if (isPraxis !== undefined) {
       const { togglePraxis } = await import("../storage/surgeonPortal");
       try {
-        await togglePraxis(userId, !!isPraxis);
+        await togglePraxis(userId, !!isPraxis, hospitalId);
       } catch (e: any) {
         return res.status(409).json({ message: e?.message || "Failed to toggle praxis" });
       }
