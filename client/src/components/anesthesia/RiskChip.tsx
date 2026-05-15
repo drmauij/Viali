@@ -56,9 +56,28 @@ export function RiskChip({
     );
   }
 
-  // Full chip — used in headers + popovers. Requires grade + worstDomain.
-  if (!grade || !worstDomain) return null;
-  const text = `${GRADE_LABEL[grade]} · ${worstDomain.toUpperCase()}${preliminary ? " · ~" : ""}`;
+  // Full chip — used in headers + popovers.
+  // - When insufficient (no inputs at all) or grade is missing, render a
+  //   static NOT DEFINED chip — clicking it would show an empty popover.
+  // - On a green grade, hide worstDomain (every band is LOW, the "driver"
+  //   is just the tiebreaker's first pick and would mislead).
+  const unknown = insufficient || !grade;
+  if (unknown) {
+    const sizeClass = size === "sm" ? "text-[10px] px-2 py-0.5" : "text-xs px-2.5 py-1";
+    return (
+      <span
+        className={`inline-flex items-center rounded-full border font-bold tracking-wide ${sizeClass} bg-slate-700/40 text-slate-400 border-slate-600/50 whitespace-nowrap`}
+        data-testid="risk-chip-unknown"
+      >
+        NOT DEFINED
+      </span>
+    );
+  }
+  if (grade !== "green" && !worstDomain) return null;
+  const suffix = preliminary ? " · ~" : "";
+  const text = grade === "green"
+    ? `${GRADE_LABEL[grade!]}${suffix}`
+    : `${GRADE_LABEL[grade!]} · ${worstDomain!.toUpperCase()}${suffix}`;
   const sizeClass = size === "sm" ? "text-[10px] px-2 py-0.5" : "text-xs px-2.5 py-1";
   const borderStyle = preliminary ? "border-dashed" : "";
   const ariaLabel = preliminary ? t("chip.preliminaryTooltip") : undefined;

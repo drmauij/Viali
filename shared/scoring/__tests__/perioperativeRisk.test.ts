@@ -306,3 +306,29 @@ describe("isPreliminary helper", () => {
     expect(isPreliminary(undefined)).toBe(false);
   });
 });
+
+import { isInsufficient } from "../perioperativeRisk";
+
+describe("isInsufficient helper", () => {
+  it("returns true when inputSource is 'default'", () => {
+    expect(isInsufficient({ inputSource: "default" } as any)).toBe(true);
+  });
+
+  it("returns false when inputSource is 'questionnaire'", () => {
+    expect(isInsufficient({ inputSource: "questionnaire" } as any)).toBe(false);
+  });
+
+  it("returns false when inputSource is 'assessment'", () => {
+    expect(isInsufficient({ inputSource: "assessment" } as any)).toBe(false);
+  });
+
+  it("returns false for null/undefined", () => {
+    expect(isInsufficient(null)).toBe(false);
+    expect(isInsufficient(undefined)).toBe(false);
+  });
+
+  it("legacy snapshots without inputSource return false (do not break old preliminary flow)", () => {
+    expect(isInsufficient({ partial: true } as any)).toBe(false);
+    expect(isInsufficient({ partial: false } as any)).toBe(false);
+  });
+});

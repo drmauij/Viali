@@ -20,7 +20,7 @@ import { RiskChip } from "@/components/anesthesia/RiskChip";
 import { RiskBreakdownPopover, type AmbulantSummary } from "@/components/anesthesia/RiskBreakdownPopover";
 import type { EligibilityResult } from "@shared/scoring/types";
 import type { PerioperativeRiskResult } from "@shared/scoring/perioperativeRisk";
-import { isPreliminary } from "@shared/scoring/perioperativeRisk";
+import { isPreliminary, isInsufficient } from "@shared/scoring/perioperativeRisk";
 
 type PacuPatient = {
   anesthesiaRecordId: string;
@@ -158,6 +158,7 @@ function PacuPatientCard({
                   worstDomain={patient.perioperativeRisk.worstDomain}
                   size="sm"
                   preliminary={isPreliminary(patient.perioperativeRisk)}
+                  insufficient={isInsufficient(patient.perioperativeRisk)}
                   onClick={() => setRiskPopoverOpen((v) => !v)}
                 />
               </span>

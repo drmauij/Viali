@@ -202,3 +202,20 @@ export function isPreliminary(
   if (snapshot.inputSource) return snapshot.inputSource !== "assessment";
   return snapshot.partial === true;
 }
+
+/**
+ * Returns true when the snapshot was computed with NO inputs at all (neither
+ * questionnaire nor assessment). The grade in this state is mathematically
+ * computable but clinically meaningless — every comorbidity defaults to false.
+ * UI should render NOT DEFINED, not a green chip.
+ *
+ * Backwards-compat: legacy snapshots lacking `inputSource` cannot distinguish
+ * "questionnaire-only" from "no data" and return false, preserving the old
+ * preliminary behaviour until backfill repopulates them.
+ */
+export function isInsufficient(
+  snapshot: PerioperativeRiskResult | null | undefined,
+): boolean {
+  if (!snapshot) return false;
+  return snapshot.inputSource === "default";
+}

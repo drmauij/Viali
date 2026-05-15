@@ -2,7 +2,7 @@ import { useState } from "react";
 import { RiskChip } from "./RiskChip";
 import { RiskBreakdownPopover, type AmbulantSummary } from "./RiskBreakdownPopover";
 import type { PerioperativeRiskResult } from "@shared/scoring/perioperativeRisk";
-import { isPreliminary } from "@shared/scoring/perioperativeRisk";
+import { isPreliminary, isInsufficient } from "@shared/scoring/perioperativeRisk";
 
 export interface PerioperativeRiskHeaderProps {
   patientName: string;
@@ -19,7 +19,7 @@ export function PerioperativeRiskHeader({ patientName, meta, surgeryStayType, ri
     <div className="relative">
       <div className="flex items-baseline gap-3 flex-wrap">
         <h3 className="font-semibold text-lg">{patientName}</h3>
-        {risk && <RiskChip grade={risk.grade} worstDomain={risk.worstDomain} preliminary={isPreliminary(risk)} onClick={() => setOpen((v) => !v)} />}
+        {risk && <RiskChip grade={risk.grade} worstDomain={risk.worstDomain} preliminary={isPreliminary(risk)} insufficient={isInsufficient(risk)} onClick={() => setOpen((v) => !v)} />}
       </div>
       <div className="text-xs text-slate-400 mt-0.5">{meta}</div>
       {showAmbulant && (

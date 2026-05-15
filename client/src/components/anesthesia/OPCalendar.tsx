@@ -44,7 +44,7 @@ import { RiskBreakdownPopover, type AmbulantSummary } from "./RiskBreakdownPopov
 import { SurgeryInfoCard } from "./SurgeryInfoCard";
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import type { PerioperativeRiskResult } from "@shared/scoring/perioperativeRisk";
-import { isPreliminary } from "@shared/scoring/perioperativeRisk";
+import { isPreliminary, isInsufficient } from "@shared/scoring/perioperativeRisk";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
@@ -1416,6 +1416,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
                   insufficient={
                     !event.riskGrade ||
                     !event.perioperativeRisk ||
+                    isInsufficient(event.perioperativeRisk) ||
                     (event.perioperativeRisk.partial === true && (event.perioperativeRisk.drivers?.length ?? 0) === 0)
                   }
                   preliminary={isPreliminary(event.perioperativeRisk)}

@@ -12,7 +12,7 @@ import { AmbulantEligibilityBadge } from "./AmbulantEligibilityBadge";
 import { RiskChip } from "./RiskChip";
 import { RiskBreakdownPopover, type AmbulantSummary } from "./RiskBreakdownPopover";
 import type { EligibilityResult } from "@shared/scoring/types";
-import { isPreliminary } from "@shared/scoring/perioperativeRisk";
+import { isPreliminary, isInsufficient } from "@shared/scoring/perioperativeRisk";
 
 type ConnectionState = 'connected' | 'connecting' | 'disconnected' | 'stale';
 
@@ -208,6 +208,7 @@ export function PatientInfoHeader({
                     worstDomain={(surgery as any).perioperativeRisk.worstDomain}
                     size="sm"
                     preliminary={isPreliminary((surgery as any).perioperativeRisk)}
+                    insufficient={isInsufficient((surgery as any).perioperativeRisk)}
                     onClick={() => setRiskPopoverOpen((v) => !v)}
                   />
                 )}
