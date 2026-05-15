@@ -382,17 +382,10 @@ describe("GET /api/business/:hospitalId/referral-events — scope toggle", () =>
       .get(`/api/business/${hospA}/referral-events?limit=200`)
       .set("X-Active-Hospital-Id", hospA);
     expect(res.status).toBe(200);
-    const ourA = res.body.filter((r: any) => createdReferralIds.includes(r.id));
-    // All our rows in scope=hospital must belong to A — none of B's rows.
-    // We assert by cross-referencing ids: rows from B won't appear here
-    // (hospital_id filter), so our A count must equal 3.
-    const aIdsOnly = ourA.filter((r: any) => {
-      // A's seed uses 'social' source
-      return r.source === "social";
-    });
+    expect(Array.isArray(res.body.rows)).toBe(true);
+    const ourA = res.body.rows.filter((r: any) => createdReferralIds.includes(r.id));
+    const aIdsOnly = ourA.filter((r: any) => r.source === "social");
     expect(aIdsOnly.length).toBeGreaterThanOrEqual(3);
-    // Explicitly none of B's rows (search_engine source from our seed) should
-    // be present in the hospital-scope response.
     const bSources = ourA.filter((r: any) => r.source === "search_engine");
     expect(bSources.length).toBe(0);
   });
@@ -404,7 +397,8 @@ describe("GET /api/business/:hospitalId/referral-events — scope toggle", () =>
       .set("X-Active-Hospital-Id", hospA)
       .set("X-Active-Scope", "group");
     expect(res.status).toBe(200);
-    const ours = res.body.filter((r: any) => createdReferralIds.includes(r.id));
+    expect(Array.isArray(res.body.rows)).toBe(true);
+    const ours = res.body.rows.filter((r: any) => createdReferralIds.includes(r.id));
     const bSources = ours.filter((r: any) => r.source === "search_engine");
     expect(bSources.length).toBeGreaterThanOrEqual(3);
   });
@@ -425,7 +419,9 @@ describe("GET /api/business/:hospitalId/referral-events — scope toggle", () =>
       .set("X-Active-Hospital-Id", hospSolo)
       .set("X-Active-Scope", "group");
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(Array.isArray(res.body.rows)).toBe(true);
+    expect(typeof res.body.total).toBe("number");
+    expect(Array.isArray(res.body.campaigns)).toBe(true);
   });
 });
 

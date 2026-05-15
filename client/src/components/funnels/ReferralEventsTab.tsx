@@ -130,8 +130,18 @@ type ReferralEvent = {
   createdAt: string;
   patientFirstName: string | null;
   patientLastName: string | null;
+  email: string | null;
   treatmentName: string | null;
 };
+
+type ReferralEventsResponse = {
+  rows: ReferralEvent[];
+  total: number;
+  campaigns: string[];
+};
+
+const NO_CAMPAIGN_SENTINEL = "__none__";
+const ALL_CAMPAIGNS = "all";
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -239,6 +249,11 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
   const [referralEventsHasMore, setReferralEventsHasMore] = useState(true);
   const [referralEventsLoadingMore, setReferralEventsLoadingMore] = useState(false);
 
+  // Campaign filter — "all" is in-component sentinel, not sent to server.
+  const [selectedCampaign, setSelectedCampaign] = useState<string>(ALL_CAMPAIGNS);
+  const [referralEventsTotal, setReferralEventsTotal] = useState<number | undefined>(undefined);
+  const [availableCampaigns, setAvailableCampaigns] = useState<string[]>([]);
+
   // ── Queries ────────────────────────────────────────────────────────────────
 
   const statsUrl = funnelsUrl("referral-stats", scope, { from, to });
@@ -258,15 +273,22 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
     enabled: scope.hospitalIds.length > 0,
   });
 
-  const eventsBaseUrl = funnelsUrl("referral-events", scope, { limit: PAGE_SIZE });
-  const { data: referralEventsData, isLoading: referralEventsLoading } = useQuery<ReferralEvent[]>({
+  const campaignParam =
+    selectedCampaign === ALL_CAMPAIGNS ? undefined : selectedCampaign;
+  const eventsBaseUrl = funnelsUrl("referral-events", scope, {
+    limit: PAGE_SIZE,
+    from,
+    to,
+    campaign: campaignParam,
+  });
+  const { data: referralEventsData, isLoading: referralEventsLoading } = useQuery<ReferralEventsResponse>({
     queryKey: [eventsBaseUrl],
     enabled: !!eventsBaseUrl,
     queryFn: async () => {
       if (!eventsBaseUrl) throw new Error("scope not addressable");
       const res = await fetch(eventsBaseUrl, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch referral events");
-      return (await res.json()) as ReferralEvent[];
+      return (await res.json()) as ReferralEventsResponse;
     },
   });
 
@@ -276,8 +298,10 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
   // been reset to []; without this sync the table renders empty until reload.
   useEffect(() => {
     if (!referralEventsData) return;
-    setReferralEvents(referralEventsData);
-    setReferralEventsHasMore(referralEventsData.length === PAGE_SIZE);
+    setReferralEvents(referralEventsData.rows);
+    setReferralEventsHasMore(referralEventsData.rows.length === PAGE_SIZE);
+    setReferralEventsTotal(referralEventsData.total);
+    setAvailableCampaigns(referralEventsData.campaigns);
   }, [referralEventsData]);
 
   const loadMoreReferralEvents = useCallback(async () => {
@@ -286,21 +310,23 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
     try {
       const lastEvent = referralEvents[referralEvents.length - 1];
       if (!lastEvent) return;
-      // Build "load more" URL — always per-hospital for paginated cursor
       const baseUrl = funnelsUrl("referral-events", scope, {
         limit: PAGE_SIZE,
         before: lastEvent.createdAt,
+        from,
+        to,
+        campaign: campaignParam,
       });
       if (!baseUrl) return;
       const res = await fetch(baseUrl, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch more referral events");
-      const data: ReferralEvent[] = await res.json();
-      setReferralEvents((prev) => [...prev, ...data]);
-      setReferralEventsHasMore(data.length === PAGE_SIZE);
+      const data: ReferralEventsResponse = await res.json();
+      setReferralEvents((prev) => [...prev, ...data.rows]);
+      setReferralEventsHasMore(data.rows.length === PAGE_SIZE);
     } finally {
       setReferralEventsLoadingMore(false);
     }
-  }, [scope, referralEvents, referralEventsLoadingMore, referralEventsHasMore]);
+  }, [scope, referralEvents, referralEventsLoadingMore, referralEventsHasMore, from, to, campaignParam]);
 
   // ── Mutations ──────────────────────────────────────────────────────────────
 
@@ -680,10 +706,43 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
           </CardTitle>
           <CardDescription>
             {t("business.referrals.recentEventsHelp", "Booking referrals with ad click IDs for tracking verification")}
-            {referralEvents.length > 0 && <span className="ml-1">({referralEvents.length} loaded)</span>}
+            {referralEventsTotal !== undefined && (
+              <span className="ml-1">
+                ({referralEventsTotal} {t("business.referrals.matching", "matching")} ·{" "}
+                {referralEvents.length} {t("business.referrals.loaded", "loaded")})
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {availableCampaigns.length > 0 && (
+            <div className="flex items-center gap-2 pb-4">
+              <Label className="text-sm text-muted-foreground" htmlFor="referral-campaign-filter">
+                {t("business.referrals.campaignFilter", "Campaign")}
+              </Label>
+              <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
+                <SelectTrigger id="referral-campaign-filter" className="w-[260px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_CAMPAIGNS}>
+                    {t("business.referrals.allCampaigns", "All campaigns")}
+                  </SelectItem>
+                  {availableCampaigns.map((c) =>
+                    c === NO_CAMPAIGN_SENTINEL ? (
+                      <SelectItem key={NO_CAMPAIGN_SENTINEL} value={NO_CAMPAIGN_SENTINEL}>
+                        {t("business.referrals.noCampaign", "(no campaign)")}
+                      </SelectItem>
+                    ) : (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           {referralEventsLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin" />
@@ -698,6 +757,7 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                     <TableRow>
                       <TableHead>{t("common.date", "Date")}</TableHead>
                       <TableHead>{t("common.patient", "Patient")}</TableHead>
+                      <TableHead>{t("common.email", "Email")}</TableHead>
                       <TableHead>{t("business.referrals.source", "Source")}</TableHead>
                       <TableHead>{t("business.referrals.detail", "Detail")}</TableHead>
                       <TableHead>{t("business.referrals.treatment", "Treatment")}</TableHead>
@@ -732,6 +792,9 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                           </TableCell>
                           <TableCell className="text-sm">
                             {[ev.patientFirstName, ev.patientLastName].filter(Boolean).join(" ") || "—"}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {ev.email || "—"}
                           </TableCell>
                           <TableCell>
                             <Badge

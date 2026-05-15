@@ -1235,11 +1235,14 @@ chainRouter.get('/api/chain/:groupId/referral-events', isAuthenticated, isChainA
   try {
     const { groupId } = req.params;
     const { ids } = await resolveHospitalIds(groupId, req.query.hospitalIds);
-    if (ids.length === 0) return res.json([]);
+    if (ids.length === 0) return res.json({ rows: [], total: 0, campaigns: [] });
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
     const before = req.query.before ? new Date(req.query.before as string) : undefined;
-    const rows = await listReferralEvents(ids, { limit, before });
-    res.json(rows);
+    const from = typeof req.query.from === "string" && req.query.from.length > 0 ? req.query.from : undefined;
+    const to = typeof req.query.to === "string" && req.query.to.length > 0 ? req.query.to : undefined;
+    const campaign = typeof req.query.campaign === "string" && req.query.campaign.length > 0 ? req.query.campaign : undefined;
+    const result = await listReferralEvents(ids, { limit, before, from, to, campaign });
+    res.json(result);
   } catch (e: any) {
     if (e instanceof ChainAuthError) return res.status(e.status).json({ message: e.message });
     logger.error("Error fetching chain referral-events:", e);

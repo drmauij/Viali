@@ -181,17 +181,18 @@ describe("chain referral analytics endpoints", () => {
       const res = await request(buildApp(chainAdminId))
         .get(`/api/chain/${groupId}/referral-events?hospitalIds=${hosp1},${hosp2}&limit=100`);
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThanOrEqual(3);
+      expect(Array.isArray(res.body.rows)).toBe(true);
+      expect(res.body.rows.length).toBeGreaterThanOrEqual(3);
+      expect(typeof res.body.total).toBe("number");
+      expect(Array.isArray(res.body.campaigns)).toBe(true);
     });
 
     it("filters to a single clinic when only one hospitalId is requested", async () => {
       const res = await request(buildApp(chainAdminId))
         .get(`/api/chain/${groupId}/referral-events?hospitalIds=${hosp2}&limit=100`);
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      // Only 1 event was inserted for hosp2
-      expect(res.body.length).toBe(1);
+      expect(Array.isArray(res.body.rows)).toBe(true);
+      expect(res.body.rows.length).toBe(1);
     });
   });
 

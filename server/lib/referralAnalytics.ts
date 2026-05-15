@@ -16,6 +16,7 @@ import {
   patients,
   clinicAppointments,
   clinicServices,
+  leads,
 } from "@shared/schema";
 import { and, eq, gte, inArray, lte, sql, desc } from "drizzle-orm";
 
@@ -106,13 +107,46 @@ export async function getReferralTimeseries(
 // referral-events (list)
 // ---------------------------------------------------------------------------
 
+const NO_CAMPAIGN_SENTINEL = "__none__";
+
+export interface ReferralEventsListResult {
+  rows: any[];
+  total: number;
+  campaigns: string[];
+}
+
 export async function listReferralEvents(
   hospitalIds: string[],
-  opts: { limit?: number; before?: Date } = {}
-) {
-  const { limit = 50, before } = opts;
+  opts: {
+    limit?: number;
+    before?: Date;
+    from?: string;
+    to?: string;
+    campaign?: string;
+  } = {},
+): Promise<ReferralEventsListResult> {
+  const { limit = 50, before, from, to, campaign } = opts;
 
-  return db
+  // Filter predicates shared by rows + total. campaigns list reuses scope+date only.
+  const scopeAndDateFilters: any[] = [hospitalScopeClause(referralEvents.hospitalId, hospitalIds)];
+  if (from) scopeAndDateFilters.push(gte(referralEvents.createdAt, new Date(from)));
+  if (to) scopeAndDateFilters.push(lte(referralEvents.createdAt, new Date(to)));
+
+  const rowsAndTotalFilters: any[] = [...scopeAndDateFilters];
+  if (campaign === NO_CAMPAIGN_SENTINEL) {
+    rowsAndTotalFilters.push(
+      sql`(COALESCE(${referralEvents.campaignName}, ${referralEvents.utmCampaign}) IS NULL OR COALESCE(${referralEvents.campaignName}, ${referralEvents.utmCampaign}) = '')`,
+    );
+  } else if (campaign && campaign.length > 0) {
+    rowsAndTotalFilters.push(
+      sql`COALESCE(${referralEvents.campaignName}, ${referralEvents.utmCampaign}) = ${campaign}`,
+    );
+  }
+
+  const pageFilters = [...rowsAndTotalFilters];
+  if (before) pageFilters.push(sql`${referralEvents.createdAt} < ${before}`);
+
+  const rows = await db
     .select({
       id: referralEvents.id,
       hospitalId: referralEvents.hospitalId,
@@ -143,20 +177,45 @@ export async function listReferralEvents(
       createdAt: referralEvents.createdAt,
       patientFirstName: patients.firstName,
       patientLastName: patients.surname,
+      email: sql<string | null>`COALESCE(${patients.email}, ${leads.email})`.as("email"),
       treatmentName: clinicServices.name,
     })
     .from(referralEvents)
     .innerJoin(patients, eq(referralEvents.patientId, patients.id))
+    .leftJoin(leads, eq(referralEvents.leadId, leads.id))
     .leftJoin(clinicAppointments, eq(referralEvents.appointmentId, clinicAppointments.id))
     .leftJoin(clinicServices, eq(clinicAppointments.serviceId, clinicServices.id))
-    .where(
-      and(
-        hospitalScopeClause(referralEvents.hospitalId, hospitalIds),
-        before ? sql`${referralEvents.createdAt} < ${before}` : sql`1=1`
-      )
-    )
+    .where(and(...pageFilters))
     .orderBy(desc(referralEvents.createdAt))
     .limit(limit);
+
+  const [totalRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(referralEvents)
+    .where(and(...rowsAndTotalFilters));
+
+  const distinctRows = await db
+    .select({
+      c: sql<string | null>`COALESCE(${referralEvents.campaignName}, ${referralEvents.utmCampaign})`.as("c"),
+    })
+    .from(referralEvents)
+    .where(and(...scopeAndDateFilters))
+    .groupBy(sql`COALESCE(${referralEvents.campaignName}, ${referralEvents.utmCampaign})`)
+    .orderBy(sql`COALESCE(${referralEvents.campaignName}, ${referralEvents.utmCampaign}) ASC NULLS FIRST`)
+    .limit(200);
+
+  let hasNone = false;
+  const labeled: string[] = [];
+  for (const r of distinctRows) {
+    if (r.c === null || r.c === "") {
+      hasNone = true;
+    } else {
+      labeled.push(r.c);
+    }
+  }
+  const campaigns = hasNone ? [NO_CAMPAIGN_SENTINEL, ...labeled] : labeled;
+
+  return { rows, total: totalRow?.count ?? 0, campaigns };
 }
 
 // ---------------------------------------------------------------------------

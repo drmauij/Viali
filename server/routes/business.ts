@@ -2006,10 +2006,10 @@ router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isMarke
     const { hospitalId } = req.params;
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
     const before = req.query.before ? new Date(req.query.before as string) : undefined;
+    const from = typeof req.query.from === "string" && req.query.from.length > 0 ? req.query.from : undefined;
+    const to = typeof req.query.to === "string" && req.query.to.length > 0 ? req.query.to : undefined;
+    const campaign = typeof req.query.campaign === "string" && req.query.campaign.length > 0 ? req.query.campaign : undefined;
 
-    // Task 13: Funnels scope toggle — widen the `referral_events.hospital_id`
-    // filter to every hospital in the group when requested. Patient / service
-    // joins stay unchanged: those are looked up per-row, not scoped on.
     let hospitalIds: string[];
     try {
       hospitalIds = await resolveHospitalScope(req, req.user.id, hospitalId);
@@ -2020,8 +2020,8 @@ router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isMarke
       throw err;
     }
 
-    const rows = await listReferralEvents(hospitalIds, { limit, before });
-    res.json(rows);
+    const result = await listReferralEvents(hospitalIds, { limit, before, from, to, campaign });
+    res.json(result);
   } catch (error: any) {
     logger.error('Error fetching referral events:', error);
     res.status(500).json({ message: 'Failed to fetch referral events' });
