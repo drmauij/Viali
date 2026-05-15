@@ -57,6 +57,7 @@ import {
   Copy,
   ChevronDown,
   ChevronRight,
+  MessageCircle,
 } from "lucide-react";
 import { SourceIcon, sourceLabel } from "./sourceIcon";
 
@@ -111,6 +112,12 @@ function StatusDot({ status }: { status: string }) {
       className={`inline-block h-2.5 w-2.5 rounded-full ${colors[status] ?? "bg-gray-400"}`}
     />
   );
+}
+
+function whatsappUrl(phone: string, prefilledText?: string): string {
+  const digits = phone.replace(/[^\d]/g, '');
+  const base = `https://wa.me/${digits}`;
+  return prefilledText ? `${base}?text=${encodeURIComponent(prefilledText)}` : base;
 }
 
 function buildLeadReferralClipboardPayload(lead: LeadWithSummary | Lead): string {
@@ -282,7 +289,21 @@ function ContactLogDialog({
       <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0">
         {/* Sticky header */}
         <DialogHeader className="px-6 pt-6 pb-3 border-b shrink-0">
-          <DialogTitle>{t("leads.contactTitle", "Contact — {{name}}", { name: `${lead.firstName} ${lead.lastName}` })}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <span>{t("leads.contactTitle", "Contact — {{name}}", { name: `${lead.firstName} ${lead.lastName}` })}</span>
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground"
+              title={t("common.copyName", "Copy name")}
+              onClick={() => {
+                navigator.clipboard.writeText(`${lead.firstName} ${lead.lastName}`.trim());
+                toast({ title: t("common.copied", "Copied") });
+              }}
+              data-testid="button-copy-lead-name"
+            >
+              <Copy className="h-4 w-4" />
+            </button>
+          </DialogTitle>
           <DialogDescription>
             {t("leads.contactDescription", "Log contact and view history")}
           </DialogDescription>
@@ -298,10 +319,52 @@ function ContactLogDialog({
               {lead.operation && <span>— {lead.operation}</span>}
             </div>
             {lead.phone && (
-              <a href={`tel:${lead.phone}`} className="block text-sm hover:underline">{lead.phone}</a>
+              <div className="flex items-center gap-2 text-sm">
+                <a href={`tel:${lead.phone}`} className="hover:underline">{lead.phone}</a>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground"
+                  title={t("common.copy", "Copy")}
+                  onClick={() => {
+                    navigator.clipboard.writeText(lead.phone!);
+                    toast({ title: t("common.copied", "Copied") });
+                  }}
+                  data-testid="button-copy-lead-phone"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+                <a
+                  href={whatsappUrl(
+                    lead.phone,
+                    t("leads.whatsappGreeting", "Hallo {{firstName}}, vielen Dank für Ihre Anfrage.", { firstName: lead.firstName || "" }),
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[#25D366] hover:opacity-80"
+                  title={t("leads.openWhatsapp", "Open in WhatsApp")}
+                  data-testid="button-whatsapp-lead"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  <span className="text-xs">WhatsApp</span>
+                </a>
+              </div>
             )}
             {lead.email && (
-              <a href={`mailto:${lead.email}`} className="block text-sm hover:underline">{lead.email}</a>
+              <div className="flex items-center gap-2 text-sm">
+                <a href={`mailto:${lead.email}`} className="hover:underline">{lead.email}</a>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground"
+                  title={t("common.copy", "Copy")}
+                  onClick={() => {
+                    navigator.clipboard.writeText(lead.email!);
+                    toast({ title: t("common.copied", "Copied") });
+                  }}
+                  data-testid="button-copy-lead-email"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </div>
             )}
             {lead.message && (
               <p className="text-xs italic border-t pt-1.5 mt-1.5">{lead.message}</p>
