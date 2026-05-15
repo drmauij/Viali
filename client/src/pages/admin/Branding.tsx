@@ -16,6 +16,7 @@ const HEADING_FONTS = [
 const BODY_FONTS = [
   "Inter", "Roboto", "Open Sans", "Lato", "Source Sans 3",
   "Nunito Sans", "Work Sans", "DM Sans", "IBM Plex Sans", "Manrope",
+  "Montserrat", "Poppins",
 ];
 
 interface Props {
