@@ -1,5 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Hospital } from '@shared/schema';
+import {
+  LEAD_INVITATION_COPY,
+  pickInvitationLanguage,
+  escapeHtml,
+  type LeadGreetingLanguage,
+} from '@shared/leadInvitationTemplate';
 
 const SIG_LENGTH = 22; // ~128 bits of entropy, keeps URLs short
 
@@ -60,4 +66,84 @@ export function verifyLeadAttribution(token: string, secret: string): string | n
   } catch {
     return null;
   }
+}
+
+type LeadForInvitation = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  phone: string | null;
+  language: string | null;
+  timeslot: string | null;
+  operation: string | null;
+};
+
+type HospitalForInvitation = {
+  id: string;
+  name: string;
+  bookingToken: string | null;
+  companyLogoUrl: string | null;
+  bookingTheme: { primaryColor?: string | null; bgColor?: string | null } | null;
+  defaultLanguage: string | null;
+  phone: string | null;
+};
+
+const DEFAULT_PRIMARY = '#2563eb';
+const DEFAULT_BG = '#f8fafc';
+
+export function buildLeadInvitationHtml(args: {
+  lead: LeadForInvitation;
+  hospital: HospitalForInvitation;
+  baseUrl: string;
+  signedLid: string;
+}): { subject: string; html: string; text: string } {
+  const { lead, hospital, baseUrl, signedLid } = args;
+  const lang: LeadGreetingLanguage = pickInvitationLanguage(lead.language, hospital.defaultLanguage);
+  const copy = LEAD_INVITATION_COPY[lang];
+
+  const clinic = escapeHtml(hospital.name);
+  const firstName = escapeHtml(lead.firstName || '');
+  const operation = lead.operation ? escapeHtml(lead.operation) : null;
+  const timeslot = lead.timeslot ? escapeHtml(lead.timeslot) : null;
+  const phone = hospital.phone ? escapeHtml(hospital.phone) : null;
+
+  const bookingUrl = `${baseUrl}/book/${hospital.bookingToken}?lid=${encodeURIComponent(signedLid)}`;
+  const primary = hospital.bookingTheme?.primaryColor || DEFAULT_PRIMARY;
+  const bg = hospital.bookingTheme?.bgColor || DEFAULT_BG;
+
+  const logoHtml = hospital.companyLogoUrl
+    ? `<img src="${escapeHtml(hospital.companyLogoUrl)}" alt="${clinic}" style="max-height:48px;display:block;margin-bottom:24px"/>`
+    : '';
+  const timeslotHtml = timeslot
+    ? `<p style="margin:0 0 12px;color:#475569">${copy.timeslotEcho(timeslot)}</p>`
+    : '';
+
+  const subject = copy.subject(hospital.name);
+
+  const html = `<!doctype html>
+<html><head><meta charset="utf-8"/><title>${escapeHtml(subject)}</title></head>
+<body style="margin:0;padding:0;background:${bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${bg};padding:32px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:8px;max-width:600px;width:100%">
+        <tr><td style="padding:32px">
+          ${logoHtml}
+          <h1 style="margin:0 0 16px;font-size:20px;font-weight:600;color:#0f172a">${copy.greeting(firstName)}</h1>
+          <p style="margin:0 0 16px;line-height:1.5;color:#334155">${copy.body(clinic, operation)}</p>
+          ${timeslotHtml}
+          <p style="margin:24px 0">
+            <a href="${bookingUrl}" style="display:inline-block;background:${primary};color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:500">${escapeHtml(copy.cta)}</a>
+          </p>
+          <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
+          <p style="margin:0;font-size:13px;color:#64748b;line-height:1.5">${copy.footer(clinic, phone)}</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  const text = copy.altPlain(lead.firstName || '', hospital.name, bookingUrl);
+
+  return { subject, html, text };
 }
