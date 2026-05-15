@@ -1288,6 +1288,16 @@ router.get(
       const webhookUrl = `${req.protocol}://${req.get("host")}/api/webhooks/leads/${hospitalId}`;
       const conversionsUrl = `${req.protocol}://${req.get("host")}/api/webhooks/conversions/${hospitalId}`;
 
+      const [hospital] = await db
+        .select({
+          autoSend: hospitals.autoSendLeadInvitationEmail,
+        })
+        .from(hospitals)
+        .where(eq(hospitals.id, hospitalId))
+        .limit(1);
+
+      const emailEnabled = !!process.env.RESEND_API_KEY && !!process.env.RESEND_FROM_EMAIL;
+
       return res.json({
         configured: !!config,
         enabled: config?.enabled ?? false,
@@ -1296,6 +1306,8 @@ router.get(
         hasApiKey: !!config?.apiKey,
         lastReceivedAt: lastLead?.createdAt ?? null,
         createdAt: config?.createdAt ?? null,
+        autoSendLeadInvitationEmail: hospital?.autoSend ?? true,
+        emailEnabled,
       });
     } catch (err) {
       logger.error({ err }, "Error fetching lead config");
@@ -1354,23 +1366,40 @@ router.patch(
   async (req: any, res: Response) => {
     try {
       const { hospitalId } = req.params;
-      const { enabled } = req.body;
+      const { enabled, autoSendLeadInvitationEmail } = req.body;
 
-      if (typeof enabled !== "boolean") {
-        return res.status(400).json({ error: "enabled must be a boolean" });
+      const updates: Promise<unknown>[] = [];
+
+      if (typeof enabled === "boolean") {
+        updates.push(
+          db.update(leadWebhookConfig)
+            .set({ enabled })
+            .where(eq(leadWebhookConfig.hospitalId, hospitalId))
+        );
       }
 
-      const [updated] = await db
-        .update(leadWebhookConfig)
-        .set({ enabled })
-        .where(eq(leadWebhookConfig.hospitalId, hospitalId))
-        .returning({ enabled: leadWebhookConfig.enabled });
-
-      if (!updated) {
-        return res.status(404).json({ error: "Webhook config not found. Generate an API key first." });
+      if (typeof autoSendLeadInvitationEmail === "boolean") {
+        updates.push(
+          db.update(hospitals)
+            .set({ autoSendLeadInvitationEmail })
+            .where(eq(hospitals.id, hospitalId))
+        );
       }
 
-      return res.json({ enabled: updated.enabled });
+      if (updates.length === 0) {
+        return res.status(400).json({ error: "No valid fields provided" });
+      }
+
+      await Promise.all(updates);
+
+      // Re-fetch the merged state.
+      const [config] = await db.select().from(leadWebhookConfig).where(eq(leadWebhookConfig.hospitalId, hospitalId)).limit(1);
+      const [hospital] = await db.select({ autoSend: hospitals.autoSendLeadInvitationEmail }).from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
+
+      return res.json({
+        enabled: config?.enabled ?? false,
+        autoSendLeadInvitationEmail: hospital?.autoSend ?? true,
+      });
     } catch (err) {
       logger.error({ err }, "Error updating lead config");
       return res.status(500).json({ error: "Internal server error" });

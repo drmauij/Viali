@@ -30,6 +30,8 @@ interface ApiKeyConfig {
   hasApiKey: boolean;
   lastReceivedAt: string | null;
   createdAt: string | null;
+  autoSendLeadInvitationEmail: boolean;
+  emailEnabled: boolean;
 }
 
 export function ApiKeyCard() {
@@ -72,6 +74,21 @@ export function ApiKeyCard() {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to toggle webhook", variant: "destructive" });
+    },
+  });
+
+  const autoSendMutation = useMutation({
+    mutationFn: async (autoSendLeadInvitationEmail: boolean) => {
+      const res = await apiRequest("PATCH", `/api/admin/${hospitalId}/lead-config`, {
+        autoSendLeadInvitationEmail,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${hospitalId}/lead-config`] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update setting", variant: "destructive" });
     },
   });
 
@@ -217,6 +234,29 @@ export function ApiKeyCard() {
               checked={config.enabled}
               onCheckedChange={(checked) => toggleMutation.mutate(checked)}
               disabled={toggleMutation.isPending}
+            />
+          </div>
+        )}
+
+        {/* Auto-send invitation email toggle */}
+        {config.configured && (
+          <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
+            <div>
+              <Label htmlFor="auto-send-invitation" className="text-sm font-medium">
+                Auto-send lead invitation email
+              </Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                {config.emailEnabled
+                  ? "When a new lead arrives via the webhook, send the patient a branded \"Book your appointment\" email automatically. Uncheck if your team prefers to call first."
+                  : "Email sending not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL to enable."}
+              </p>
+            </div>
+            <Switch
+              id="auto-send-invitation"
+              checked={config.autoSendLeadInvitationEmail && config.emailEnabled}
+              disabled={!config.emailEnabled || autoSendMutation.isPending}
+              onCheckedChange={(checked) => autoSendMutation.mutate(checked)}
+              data-testid="switch-auto-send-invitation"
             />
           </div>
         )}
