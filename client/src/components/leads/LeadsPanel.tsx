@@ -339,12 +339,12 @@ function ContactLogDialog({
                     lead.operation
                       ? t(
                           "leads.whatsappGreetingWithOp",
-                          "Hallo {{firstName}}, vielen Dank für Ihre Anfrage zu {{operation}}.",
+                          "Hallo {{firstName}}, vielen Dank für Ihre Anfrage zu {{operation}}. Gerne beraten wir Sie persönlich – wann dürfen wir Sie für ein kurzes Telefonat erreichen?",
                           { firstName: lead.firstName || "", operation: lead.operation },
                         )
                       : t(
                           "leads.whatsappGreeting",
-                          "Hallo {{firstName}}, vielen Dank für Ihre Anfrage.",
+                          "Hallo {{firstName}}, vielen Dank für Ihre Anfrage. Gerne beraten wir Sie persönlich – wann dürfen wir Sie für ein kurzes Telefonat erreichen?",
                           { firstName: lead.firstName || "" },
                         ),
                   )}
