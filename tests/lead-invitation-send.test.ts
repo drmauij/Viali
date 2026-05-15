@@ -20,7 +20,7 @@ type LeadRow = {
 type HospitalRow = {
   id: string; name: string; bookingToken: string | null;
   companyLogoUrl: string | null; bookingTheme: any;
-  defaultLanguage: string | null; phone: string | null;
+  defaultLanguage: string | null; companyPhone: string | null;
   autoSendLeadInvitationEmail: boolean; leadAttributionSecret: string | null;
 };
 
@@ -68,6 +68,7 @@ vi.mock('@shared/schema', () => ({
 vi.mock('drizzle-orm', () => ({
   eq: (_a: any, _b: any) => ({}),
   and: (..._args: any[]) => ({}),
+  isNull: (_a: any) => ({}),
 }));
 
 vi.mock('../server/logger', () => ({ default: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() } }));
@@ -78,7 +79,7 @@ function seedHospital(overrides: Partial<HospitalRow> = {}): HospitalRow {
   const h: HospitalRow = {
     id: 'hosp-1', name: 'Klinik X', bookingToken: 'tok-abc',
     companyLogoUrl: null, bookingTheme: null,
-    defaultLanguage: 'de', phone: null,
+    defaultLanguage: 'de', companyPhone: null,
     autoSendLeadInvitationEmail: true, leadAttributionSecret: null,
     ...overrides,
   };

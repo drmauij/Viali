@@ -8,7 +8,7 @@ import {
 } from '@shared/leadInvitationTemplate';
 import { db } from '../db';
 import { leads, hospitals } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { getUncachableResendClient, getAppBaseUrl } from '../email';
 import logger from '../logger';
 
@@ -193,9 +193,7 @@ export async function sendLeadInvitationEmail(args: {
         companyLogoUrl: hospital.companyLogoUrl,
         bookingTheme: hospital.bookingTheme as { primaryColor?: string | null; bgColor?: string | null } | null,
         defaultLanguage: hospital.defaultLanguage,
-        // Hospital `phone` is stored under `companyPhone`; legacy test fixtures
-        // also accept a `phone` field directly on the row.
-        phone: (hospital as { phone?: string | null }).phone ?? hospital.companyPhone ?? null,
+        phone: hospital.companyPhone ?? null,
       },
       baseUrl,
       signedLid,
@@ -203,10 +201,17 @@ export async function sendLeadInvitationEmail(args: {
 
     try {
       const { client, fromEmail } = await getUncachableResendClient();
-      await client.emails.send({ from: fromEmail, to: lead.email, subject, html, text });
+      const response = await client.emails.send({ from: fromEmail, to: lead.email, subject, html, text });
+      // Resend SDK returns { data, error } rather than throwing on API errors.
+      // Match the pattern used in server/resend.ts: convert returned error → throw
+      // so the catch below records it.
+      if (response.error) {
+        const msg = response.error.message ?? JSON.stringify(response.error);
+        throw new Error(`Resend API error: ${msg}`);
+      }
       await db.update(leads)
         .set({ invitationEmailSentAt: new Date(), invitationEmailError: null })
-        .where(eq(leads.id, lead.id));
+        .where(and(eq(leads.id, lead.id), isNull(leads.invitationEmailSentAt)));
       logger.info({ leadId: lead.id, hospitalId: hospital.id }, 'Lead invitation email sent');
     } catch (err: any) {
       const errMsg = err?.message ?? String(err);
