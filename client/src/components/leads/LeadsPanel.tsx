@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useToast } from "@/hooks/use-toast";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import type { Lead, LeadContact } from "@shared/schema";
 import { setDraggedLead } from "./useLeadDrag";
@@ -58,6 +58,7 @@ import {
   ChevronDown,
   ChevronRight,
   MessageCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { SourceIcon, sourceLabel } from "./sourceIcon";
 
@@ -445,6 +446,28 @@ function ContactLogDialog({
                 <span>
                   <span className="text-muted-foreground">{t("leads.preferredCallback", "Preferred callback")}: </span>
                   {lead.timeslot}
+                </span>
+              </div>
+            )}
+            {lead.invitationEmailSentAt && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground border-t pt-1.5 mt-1.5">
+                <Mail className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  {t("leads.invitationSent", "Invitation sent {{when}}", {
+                    when: format(new Date(lead.invitationEmailSentAt), "PPp", { locale: dateLocale }),
+                  })}
+                </span>
+              </div>
+            )}
+            {!lead.invitationEmailSentAt && lead.invitationEmailError && (
+              <div className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400 border-t pt-1.5 mt-1.5" title={lead.invitationEmailError}>
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>
+                  {t("leads.invitationFailed", "Invitation email failed: {{error}}", {
+                    error: lead.invitationEmailError.length > 60
+                      ? `${lead.invitationEmailError.slice(0, 60)}…`
+                      : lead.invitationEmailError,
+                  })}
                 </span>
               </div>
             )}
