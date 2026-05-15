@@ -47,6 +47,8 @@ import {
   Users,
   Phone,
   Mail,
+  MapPin,
+  Save,
   X,
   Check,
   Trash2,
@@ -137,6 +139,12 @@ export default function AppointmentDetailDialog({
   const [referralSource, setReferralSource] = useState('');
   const [referralSourceDetail, setReferralSourceDetail] = useState('');
 
+  // Inline patient-address edit state
+  const [addressEditing, setAddressEditing] = useState(false);
+  const [addressStreet, setAddressStreet] = useState('');
+  const [addressPostalCode, setAddressPostalCode] = useState('');
+  const [addressCity, setAddressCity] = useState('');
+
   // Admin-only paste-from-lead state
   const activeHospital = useActiveHospital();
   const isAdmin = activeHospital?.role === "admin";
@@ -186,6 +194,46 @@ export default function AppointmentDetailDialog({
       setReferralSourceDetail('');
     }
   }, [referralEvent]);
+
+  // Reset address inputs whenever the dialog opens / appointment changes.
+  useEffect(() => {
+    if (appointment?.patient) {
+      setAddressStreet((appointment.patient as any).street ?? '');
+      setAddressPostalCode((appointment.patient as any).postalCode ?? '');
+      setAddressCity((appointment.patient as any).city ?? '');
+    }
+    setAddressEditing(false);
+  }, [appointment?.patient?.id]);
+
+  const saveAddressMutation = useMutation({
+    mutationFn: async () => {
+      if (!appointment?.patient?.id) throw new Error('No patient');
+      return apiRequest("PATCH", `/api/patients/${appointment.patient.id}`, {
+        street: addressStreet || null,
+        postalCode: addressPostalCode || null,
+        city: addressCity || null,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: t('appointments.addressUpdated', 'Address updated') });
+      setAddressEditing(false);
+      // Refresh the calendar so the embedded patient object reflects the new
+      // address next time the dialog opens.
+      queryClient.invalidateQueries({
+        predicate: (q) => {
+          const key = q.queryKey[0];
+          return typeof key === 'string' && key.startsWith(`/api/clinic/${hospitalId}/appointments`);
+        },
+      });
+      // Patient detail page also caches this patient.
+      if (appointment?.patient?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/patients/${appointment.patient.id}`] });
+      }
+    },
+    onError: () => {
+      toast({ title: t('appointments.addressUpdateError', 'Failed to update address'), variant: "destructive" });
+    },
+  });
 
   const saveReferralMutation = useMutation({
     mutationFn: async ({ source, sourceDetail }: { source: string; sourceDetail: string }) => {
@@ -431,6 +479,84 @@ export default function AppointmentDetailDialog({
                         <Mail className="h-3 w-3" />
                         {appointment.patient.email}
                       </p>
+                    )}
+                    {appointment.patient && (
+                      <div className="text-sm text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                        {addressEditing ? (
+                          <div className="flex flex-col gap-1.5 mt-1">
+                            <Input
+                              value={addressStreet}
+                              onChange={(e) => setAddressStreet(e.target.value)}
+                              placeholder={t('appointments.addressStreet', 'Street')}
+                              className="h-7 text-xs"
+                              data-testid="input-address-street"
+                            />
+                            <div className="flex gap-1.5">
+                              <Input
+                                value={addressPostalCode}
+                                onChange={(e) => setAddressPostalCode(e.target.value)}
+                                placeholder={t('appointments.addressPostalCode', 'Postal code')}
+                                className="h-7 text-xs w-24"
+                                data-testid="input-address-postal"
+                              />
+                              <Input
+                                value={addressCity}
+                                onChange={(e) => setAddressCity(e.target.value)}
+                                placeholder={t('appointments.addressCity', 'City')}
+                                className="h-7 text-xs flex-1"
+                                data-testid="input-address-city"
+                              />
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => saveAddressMutation.mutate()}
+                                disabled={saveAddressMutation.isPending}
+                                data-testid="button-save-address"
+                              >
+                                <Save className="h-3 w-3 mr-1" />
+                                {t('common.save', 'Save')}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => {
+                                  setAddressStreet((appointment.patient as any).street ?? '');
+                                  setAddressPostalCode((appointment.patient as any).postalCode ?? '');
+                                  setAddressCity((appointment.patient as any).city ?? '');
+                                  setAddressEditing(false);
+                                }}
+                                data-testid="button-cancel-address"
+                              >
+                                {t('common.cancel', 'Cancel')}
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (() => {
+                          const street = (appointment.patient as any).street as string | null | undefined;
+                          const postal = (appointment.patient as any).postalCode as string | null | undefined;
+                          const city = (appointment.patient as any).city as string | null | undefined;
+                          const hasAddress = !!(street || postal || city);
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => setAddressEditing(true)}
+                              className="flex items-center gap-1 hover:text-foreground transition-colors"
+                              data-testid="button-edit-address"
+                            >
+                              <MapPin className="h-3 w-3" />
+                              {hasAddress ? (
+                                <span>{[street, [postal, city].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</span>
+                              ) : (
+                                <span className="italic">{t('appointments.addAddress', 'Add address')}</span>
+                              )}
+                              <Pencil className="h-3 w-3 opacity-60" />
+                            </button>
+                          );
+                        })()}
+                      </div>
                     )}
                   </div>
                   {appointment.patient && (

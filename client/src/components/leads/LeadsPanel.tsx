@@ -194,6 +194,7 @@ function ContactLogDialog({
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const activeHospital = useActiveHospital();
   const dateLocale = i18n.language === "de" ? de : enUS;
   const outcomeLabels = getOutcomeLabels(t);
 
@@ -201,6 +202,7 @@ function ContactLogDialog({
   const [note, setNote] = useState("");
   const [confirmClose, setConfirmClose] = useState(false);
   const [referralOpen, setReferralOpen] = useState(false);
+  const clinicName = activeHospital?.name ?? "";
 
   const detailUrl = `/api/business/${hospitalId}/leads/${lead.id}`;
   const leadsQueryKey = `/api/business/${hospitalId}/leads?limit=50`;
@@ -339,13 +341,13 @@ function ContactLogDialog({
                     lead.operation
                       ? t(
                           "leads.whatsappGreetingWithOp",
-                          "Hallo {{firstName}}, vielen Dank für Ihre Anfrage zu {{operation}}. Gerne beraten wir Sie persönlich – wann dürfen wir Sie für ein kurzes Telefonat erreichen?",
-                          { firstName: lead.firstName || "", operation: lead.operation },
+                          "Hallo {{firstName}}, hier schreibt {{clinicName}}. Vielen Dank für Ihre Anfrage zu {{operation}}. Gerne beraten wir Sie persönlich – wann dürfen wir Sie für ein kurzes Telefonat erreichen?",
+                          { firstName: lead.firstName || "", operation: lead.operation, clinicName },
                         )
                       : t(
                           "leads.whatsappGreeting",
-                          "Hallo {{firstName}}, vielen Dank für Ihre Anfrage. Gerne beraten wir Sie persönlich – wann dürfen wir Sie für ein kurzes Telefonat erreichen?",
-                          { firstName: lead.firstName || "" },
+                          "Hallo {{firstName}}, hier schreibt {{clinicName}}. Vielen Dank für Ihre Anfrage. Gerne beraten wir Sie persönlich – wann dürfen wir Sie für ein kurzes Telefonat erreichen?",
+                          { firstName: lead.firstName || "", clinicName },
                         ),
                   )}
                   target="_blank"
