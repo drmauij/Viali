@@ -247,21 +247,33 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireStrictHo
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    // Check for existing active link (reuse only if same surgery)
+    // Reuse an existing active link instead of creating a duplicate.
+    // ONLY reuse `pending` or `started` — never `submitted` / `reviewed`
+    // (the patient already completed it; a new invitation should be a
+    // fresh link to a fresh form) and never `invalidated` / `expired`
+    // (the operator explicitly retired it). Prefer a link already tied
+    // to this surgery; fall back to a patient-portal link with no
+    // surgery context (which we then upgrade to this surgery).
     const existingLinks = await storage.getQuestionnaireLinksForPatient(patientId);
     const now = new Date();
-    const activeLink = existingLinks.find(l =>
+    const isReusable = (l: typeof existingLinks[number]) =>
       l.hospitalId === hospitalId &&
-      l.surgeryId === (surgeryId || null) &&
-      l.status !== 'expired' &&
-      l.expiresAt && new Date(l.expiresAt) > now
-    );
+      (l.status === 'pending' || l.status === 'started') &&
+      l.expiresAt && new Date(l.expiresAt) > now;
+
+    let activeLink =
+      existingLinks.find((l) => isReusable(l) && l.surgeryId === (surgeryId || null)) ||
+      (surgeryId ? existingLinks.find((l) => isReusable(l) && l.surgeryId === null) : undefined);
 
     if (activeLink) {
-      // Backfill surgeryId if the reused link lacks one and the request provides one
-      if (surgeryId && !activeLink.surgeryId) {
-        await storage.updateQuestionnaireLink(activeLink.id, { surgeryId });
-        activeLink.surgeryId = surgeryId;
+      // Backfill surgeryId if the reused link lacks one and the request provides one.
+      // Also update the language so a follow-up "Send" with a different language
+      // re-points the existing link rather than creating a new one.
+      const updates: Partial<typeof activeLink> = {};
+      if (surgeryId && !activeLink.surgeryId) updates.surgeryId = surgeryId;
+      if (language && activeLink.language !== language) updates.language = language;
+      if (Object.keys(updates).length > 0) {
+        activeLink = await storage.updateQuestionnaireLink(activeLink.id, updates);
       }
 
       // Return existing active link instead of creating new one
