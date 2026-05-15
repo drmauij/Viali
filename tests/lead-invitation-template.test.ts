@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildLeadInvitationHtml } from '../server/services/leadInvitation';
+import { pickInvitationLanguage } from '../shared/leadInvitationTemplate';
 
 const baseLead = {
   id: '550e8400-e29b-41d4-a716-446655440000',
@@ -64,7 +65,7 @@ describe('buildLeadInvitationHtml', () => {
   it('renders English when lead.language is "en"', () => {
     const lead = { ...baseLead, language: 'en' as const };
     const out = buildLeadInvitationHtml({ lead, hospital: baseHospital, baseUrl: BASE_URL, signedLid: SIGNED_LID });
-    expect(out.html).toContain('Hello Maria');
+    expect(out.html).toContain('Dear Maria');
     expect(out.html).toContain('Book your appointment');
   });
 
@@ -86,7 +87,7 @@ describe('buildLeadInvitationHtml', () => {
     const lead = { ...baseLead, language: null as any };
     const englishHospital = { ...baseHospital, defaultLanguage: 'en' };
     const out = buildLeadInvitationHtml({ lead, hospital: englishHospital, baseUrl: BASE_URL, signedLid: SIGNED_LID });
-    expect(out.html).toContain('Hello Maria');
+    expect(out.html).toContain('Dear Maria');
   });
 
   it('escapes HTML in clinic name and first name to prevent injection', () => {
@@ -96,5 +97,52 @@ describe('buildLeadInvitationHtml', () => {
     expect(out.html).not.toContain('<script>alert(1)</script>');
     expect(out.html).toContain('&lt;script&gt;');
     expect(out.html).toContain('&amp;');
+  });
+
+  it('encodeURIComponent-wraps the lid so URL-special characters work', () => {
+    // base64url shouldn't produce URL-special chars, but encodeURIComponent
+    // is defense-in-depth. A signed lid with `+`, `/`, `=`, `&` must round-trip.
+    const tricky = 'abc+def/ghi=jkl&mno';
+    const out = buildLeadInvitationHtml({
+      lead: baseLead,
+      hospital: baseHospital,
+      baseUrl: BASE_URL,
+      signedLid: tricky,
+    });
+    // The raw signed lid must NOT appear literally in the href (it would
+    // create query-param parsing ambiguity)
+    expect(out.html).not.toContain(`?lid=${tricky}"`);
+    // The encoded form must appear
+    expect(out.html).toContain(`?lid=${encodeURIComponent(tricky)}"`);
+  });
+});
+
+describe('pickInvitationLanguage', () => {
+  it('returns the lead language when valid', () => {
+    expect(pickInvitationLanguage('fr', 'de')).toBe('fr');
+  });
+
+  it('normalizes case', () => {
+    expect(pickInvitationLanguage('DE', 'en')).toBe('de');
+  });
+
+  it('falls back to hospital default when lead language is unsupported', () => {
+    expect(pickInvitationLanguage('es', 'en')).toBe('en');
+  });
+
+  it('falls back to hospital default when lead language is null', () => {
+    expect(pickInvitationLanguage(null, 'fr')).toBe('fr');
+  });
+
+  it('falls back to "de" when both are unsupported', () => {
+    expect(pickInvitationLanguage('xx', 'yy')).toBe('de');
+  });
+
+  it('falls back to "de" when both are null', () => {
+    expect(pickInvitationLanguage(null, null)).toBe('de');
+  });
+
+  it('falls back to "de" when both are undefined', () => {
+    expect(pickInvitationLanguage(undefined, undefined)).toBe('de');
   });
 });

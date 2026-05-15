@@ -92,6 +92,12 @@ type HospitalForInvitation = {
 const DEFAULT_PRIMARY = '#2563eb';
 const DEFAULT_BG = '#f8fafc';
 
+// Only accept simple hex colors; admins set this in /admin, but a defense-in-
+// depth regex prevents CSS injection if a malformed value slips in.
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{3,8}$/;
+const safeHexOrDefault = (value: string | null | undefined, fallback: string): string =>
+  value && HEX_COLOR_RE.test(value) ? value : fallback;
+
 export function buildLeadInvitationHtml(args: {
   lead: LeadForInvitation;
   hospital: HospitalForInvitation;
@@ -109,8 +115,8 @@ export function buildLeadInvitationHtml(args: {
   const phone = hospital.phone ? escapeHtml(hospital.phone) : null;
 
   const bookingUrl = `${baseUrl}/book/${hospital.bookingToken}?lid=${encodeURIComponent(signedLid)}`;
-  const primary = hospital.bookingTheme?.primaryColor || DEFAULT_PRIMARY;
-  const bg = hospital.bookingTheme?.bgColor || DEFAULT_BG;
+  const primary = safeHexOrDefault(hospital.bookingTheme?.primaryColor, DEFAULT_PRIMARY);
+  const bg = safeHexOrDefault(hospital.bookingTheme?.bgColor, DEFAULT_BG);
 
   const logoHtml = hospital.companyLogoUrl
     ? `<img src="${escapeHtml(hospital.companyLogoUrl)}" alt="${clinic}" style="max-height:48px;display:block;margin-bottom:24px"/>`

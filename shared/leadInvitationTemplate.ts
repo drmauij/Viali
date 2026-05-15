@@ -25,7 +25,7 @@ export const LEAD_INVITATION_COPY: Record<LeadGreetingLanguage, InvitationCopy> 
       operation
         ? `vielen Dank für Ihre Anfrage zu ${operation} bei ${clinic}. Sie können Ihren Wunschtermin direkt online buchen — wählen Sie einfach Datum und Uhrzeit, die Ihnen passen.`
         : `vielen Dank für Ihre Anfrage bei ${clinic}. Sie können Ihren Wunschtermin direkt online buchen — wählen Sie einfach Datum und Uhrzeit, die Ihnen passen.`,
-    timeslotEcho: (ts) => `Sie hatten als bevorzugte Zeit angegeben: „${ts}".`,
+    timeslotEcho: (ts) => `Sie hatten als bevorzugte Zeit angegeben: „${ts}“.`,
     cta: 'Termin jetzt buchen',
     footer: (clinic, phone) =>
       phone
@@ -36,7 +36,7 @@ export const LEAD_INVITATION_COPY: Record<LeadGreetingLanguage, InvitationCopy> 
   },
   en: {
     subject: (clinic) => `${clinic}: book your appointment online`,
-    greeting: (firstName) => `Hello ${firstName},`,
+    greeting: (firstName) => `Dear ${firstName},`,
     body: (clinic, operation) =>
       operation
         ? `thank you for your enquiry about ${operation} at ${clinic}. You can book a slot that works for you directly online — simply choose your preferred date and time.`
@@ -48,7 +48,7 @@ export const LEAD_INVITATION_COPY: Record<LeadGreetingLanguage, InvitationCopy> 
         ? `If you would prefer a call back, simply reply to this email or call us at ${phone}. — ${clinic}`
         : `If you would prefer a call back, simply reply to this email. — ${clinic}`,
     altPlain: (firstName, clinic, url) =>
-      `Hello ${firstName}, ${clinic} invites you to book your appointment online: ${url}`,
+      `Dear ${firstName}, ${clinic} invites you to book your appointment online: ${url}`,
   },
   fr: {
     subject: (clinic) => `${clinic} : prenez rendez-vous en ligne`,
@@ -88,10 +88,22 @@ export function pickInvitationLanguage(
   leadLanguage: string | null | undefined,
   hospitalDefaultLanguage: string | null | undefined,
 ): LeadGreetingLanguage {
-  const candidate = (leadLanguage || hospitalDefaultLanguage || 'de').toLowerCase();
-  return (SUPPORTED_INVITATION_LANGUAGES as readonly string[]).includes(candidate)
-    ? (candidate as LeadGreetingLanguage)
-    : 'de';
+  const supported = SUPPORTED_INVITATION_LANGUAGES as readonly string[];
+
+  // Try lead language first
+  const leadCandidate = leadLanguage?.toLowerCase();
+  if (leadCandidate && supported.includes(leadCandidate)) {
+    return leadCandidate as LeadGreetingLanguage;
+  }
+
+  // Then hospital default
+  const hospitalCandidate = hospitalDefaultLanguage?.toLowerCase();
+  if (hospitalCandidate && supported.includes(hospitalCandidate)) {
+    return hospitalCandidate as LeadGreetingLanguage;
+  }
+
+  // Final fallback
+  return 'de';
 }
 
 /**
