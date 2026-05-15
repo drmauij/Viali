@@ -700,19 +700,28 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
       {/* Recent referral events table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <List className="h-4 w-4" />
-            {t("business.referrals.recentEvents", "Recent Referral Events")}
-          </CardTitle>
-          <CardDescription>
-            {t("business.referrals.recentEventsHelp", "Booking referrals with ad click IDs for tracking verification")}
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1.5">
+              <CardTitle className="text-base flex items-center gap-2">
+                <List className="h-4 w-4" />
+                {t("business.referrals.recentEvents", "Recent Referral Events")}
+              </CardTitle>
+              <CardDescription>
+                {t("business.referrals.recentEventsHelp", "Booking referrals with ad click IDs for tracking verification")}
+              </CardDescription>
+            </div>
             {referralEventsTotal !== undefined && (
-              <span className="ml-1">
-                ({referralEventsTotal} {t("business.referrals.matching", "matching")} ·{" "}
-                {referralEvents.length} {t("business.referrals.loaded", "loaded")})
-              </span>
+              <div className="text-right shrink-0">
+                <div className="text-2xl font-semibold tabular-nums leading-none">
+                  {referralEventsTotal}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {t("business.referrals.matching", "matching")} · {referralEvents.length}{" "}
+                  {t("business.referrals.loaded", "loaded")}
+                </div>
+              </div>
             )}
-          </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           {availableCampaigns.length > 0 && (
