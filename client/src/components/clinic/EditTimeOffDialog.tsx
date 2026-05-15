@@ -243,7 +243,10 @@ export default function EditTimeOffDialog({
                 <SelectContent>
                   {TIME_OFF_TYPE_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
-                      {opt.icon} {t(opt.labelKey, opt.fallback)}
+                      <span className="flex items-center gap-1.5">
+                        <opt.Icon className="w-3.5 h-3.5 shrink-0" />
+                        {t(opt.labelKey, opt.fallback)}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>

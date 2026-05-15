@@ -8,7 +8,10 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw, Video, FileText, X } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw, Video, FileText, X, Umbrella, Thermometer, BookOpen, Baby, Home, Hourglass, Ban, Plane } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
+import { AppointmentInfoCard } from "./AppointmentInfoCard";
 import { formatDateForInput, formatTime, formatMonthYear, formatDate as formatDateUtil, formatDateHeader, getDateFnsTimeFormat, getWeekStartsOn } from "@/lib/dateUtils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -178,16 +181,18 @@ const ABSENCE_TYPE_LABEL_KEYS: Record<string, { key: string; fallback: string }>
   default: { key: 'appointments.absence.default', fallback: 'Absent' },
 };
 
-const ABSENCE_TYPE_ICONS: Record<string, string> = {
-  vacation: '🏖️',
-  sick: '🤒',
-  training: '📚',
-  parental: '👶',
-  homeoffice: '🏠',
-  overtime: '⏱️',
-  blocked: '🚫',
-  sabbatical: '✈️',
-  default: '🚫',
+type IconType = ComponentType<SVGProps<SVGSVGElement>>;
+
+const ABSENCE_TYPE_ICONS: Record<string, IconType> = {
+  vacation: Umbrella,
+  sick: Thermometer,
+  training: BookOpen,
+  parental: Baby,
+  homeoffice: Home,
+  overtime: Hourglass,
+  blocked: Ban,
+  sabbatical: Plane,
+  default: Ban,
 };
 
 interface ClinicCalendarProps {
@@ -802,14 +807,13 @@ export default function ClinicCalendar({
           const dayEnd = new Date(currentDate);
           dayEnd.setHours(18, 0, 0, 0); // End at 6 PM
           
-          const icon = ABSENCE_TYPE_ICONS[absence.absenceType] || ABSENCE_TYPE_ICONS.default;
           const labelConfig = ABSENCE_TYPE_LABEL_KEYS[absence.absenceType] || ABSENCE_TYPE_LABEL_KEYS.default;
           const defaultLabel = t(labelConfig.key, labelConfig.fallback);
           const displayLabel = absence.notes || defaultLabel;
-          
+
           absenceBlockEvents.push({
             id: `absence-${absence.id}-${formatDateForInput(currentDate)}`,
-            title: `${icon} ${displayLabel}`,
+            title: displayLabel,
             start: dayStart,
             end: dayEnd,
             resource: absence.providerId,
@@ -862,13 +866,11 @@ export default function ClinicCalendar({
           }
 
           const reasonKey = timeOff.reason || 'blocked';
-          const icon = TIME_OFF_TYPE_ICONS[reasonKey] || ABSENCE_TYPE_ICONS[reasonKey] || '🚫';
           const reason = timeOff.notes || t('appointments.timeOff', 'Time Off');
-          const pendingLabel = isPending ? ` \u2753` : '';
 
           timeOffBlockEvents.push({
             id: `timeoff-${timeOff.id}-${formatDateForInput(currentDate)}`,
-            title: `${icon} ${reason}${pendingLabel}`,
+            title: reason,
             start: dayStart,
             end: dayEnd,
             resource: timeOff.providerId,
@@ -910,11 +912,10 @@ export default function ClinicCalendar({
         dayEnd.setHours(endH, endM, 0, 0);
 
         const notes = window.notes || t('appointments.available', 'Available');
-        const publicPrefix = window.isPublic === false ? '🔒 ' : '✓ ';
 
         events.push({
           id: `window-${window.id}`,
-          title: `${publicPrefix}${notes}`,
+          title: notes,
           start: dayStart,
           end: dayEnd,
           resource: window.providerId,
@@ -1228,18 +1229,7 @@ export default function ClinicCalendar({
     return { style };
   }, []);
 
-  const tooltipAccessor = useCallback((event: CalendarEvent): string => {
-    if (event.isSurgeryBlock) {
-      return `${t('appointments.surgery', 'Surgery')}: ${event.surgeryName || event.title}\n${formatTime(event.start)} – ${formatTime(event.end)}`;
-    }
-    if (event.isAbsenceBlock) {
-      return event.title;
-    }
-    if (event.isTimeOffBlock) {
-      return `${event.serviceName || t('appointments.timeOff', 'Time Off')}\n${formatTime(event.start)} – ${formatTime(event.end)}`;
-    }
-    if (event.isAvailabilityWindow) return event.title;
-
+  const EventComponent: React.FC<EventProps<CalendarEvent>> = useCallback(({ event }: EventProps<CalendarEvent>) => {
     const statusLabels: Record<string, string> = {
       scheduled: t('appointments.status.scheduled', 'Scheduled'),
       confirmed: t('appointments.status.confirmed', 'Confirmed'),
@@ -1250,22 +1240,9 @@ export default function ClinicCalendar({
       no_show: t('appointments.status.noShow', 'No Show'),
     };
 
-    const lines: string[] = [];
-    if (event.isVideoAppointment) {
-      lines.push(`📹 ${t('appointments.videoAppointment', 'Video Appointment')}`);
-    }
-    lines.push(`${formatTime(event.start)} – ${formatTime(event.end)}`);
-    if (event.patientName) lines.push(`👤 ${event.patientName}`);
-    if (event.serviceName) lines.push(event.serviceName);
-    lines.push(`● ${statusLabels[event.status] || event.status}`);
-    if (event.notes) lines.push(`\n${event.notes}`);
-    return lines.join('\n');
-  }, [t]);
-
-  const EventComponent: React.FC<EventProps<CalendarEvent>> = useCallback(({ event }: EventProps<CalendarEvent>) => {
     // Surgery block display
     if (event.isSurgeryBlock) {
-      return (
+      const tileNode = (
         <div className="flex flex-col h-full p-1" data-testid={`surgery-block-${event.appointmentId}`}>
           <div className="font-bold text-xs flex items-center gap-1">
             <Scissors className="w-3 h-3" />
@@ -1277,45 +1254,105 @@ export default function ClinicCalendar({
           </div>
         </div>
       );
+      return (
+        <HoverCard openDelay={250} closeDelay={120}>
+          <HoverCardTrigger asChild>{tileNode}</HoverCardTrigger>
+          <HoverCardContent side="right" align="start" className="p-0 w-auto border-none bg-transparent shadow-none">
+            <AppointmentInfoCard
+              variant="surgeryBlock"
+              surgeryName={event.surgeryName}
+              title={event.title}
+              startTime={formatTime(event.start)}
+              endTime={formatTime(event.end)}
+            />
+          </HoverCardContent>
+        </HoverCard>
+      );
     }
-    
+
     // Absence block display
     if (event.isAbsenceBlock) {
-      return (
+      const AbsenceIcon = ABSENCE_TYPE_ICONS[event.absenceType ?? 'default'] ?? ABSENCE_TYPE_ICONS.default;
+      const tileNode = (
         <div className="flex flex-col h-full p-1" data-testid={`absence-block-${event.appointmentId}`}>
-          <div className="font-bold text-xs">
+          <div className="font-bold text-xs flex items-center gap-1">
+            <AbsenceIcon className="w-3 h-3" />
             {event.title}
           </div>
         </div>
       );
+      return (
+        <HoverCard openDelay={250} closeDelay={120}>
+          <HoverCardTrigger asChild>{tileNode}</HoverCardTrigger>
+          <HoverCardContent side="right" align="start" className="p-0 w-auto border-none bg-transparent shadow-none">
+            <AppointmentInfoCard
+              variant="absence"
+              title={event.title}
+              startTime={formatTime(event.start)}
+              endTime={formatTime(event.end)}
+            />
+          </HoverCardContent>
+        </HoverCard>
+      );
     }
-    
+
     // Time off block display
     if (event.isTimeOffBlock) {
       const isPending = event.status === 'time_off_pending';
-      const reasonIcon = event.timeOffReason ? (TIME_OFF_TYPE_ICONS[event.timeOffReason] || '🚫') : '🚫';
-      return (
+      const ReasonIconComponent: IconType =
+        (event.timeOffReason ? (TIME_OFF_TYPE_ICONS[event.timeOffReason] ?? ABSENCE_TYPE_ICONS[event.timeOffReason]) : undefined) ?? Ban;
+      const tileNode = (
         <div className="flex flex-col h-full p-1" data-testid={`timeoff-block-${event.appointmentId}`}>
           <div className="font-bold text-xs flex items-center gap-1">
-            <span>{reasonIcon}</span>
+            <ReasonIconComponent className="w-3 h-3" />
             <span className="text-white">{event.serviceName || t('appointments.timeOff', 'Time Off')}</span>
             {isPending && <span className="bg-white/30 text-white rounded px-1 text-[10px] font-medium">?</span>}
           </div>
         </div>
       );
+      return (
+        <HoverCard openDelay={250} closeDelay={120}>
+          <HoverCardTrigger asChild>{tileNode}</HoverCardTrigger>
+          <HoverCardContent side="right" align="start" className="p-0 w-auto border-none bg-transparent shadow-none">
+            <AppointmentInfoCard
+              variant="timeOff"
+              serviceName={event.serviceName}
+              startTime={formatTime(event.start)}
+              endTime={formatTime(event.end)}
+              ReasonIcon={ReasonIconComponent}
+              isPending={isPending}
+              notes={event.notes}
+            />
+          </HoverCardContent>
+        </HoverCard>
+      );
     }
-    
+
+    // Availability window display (background events — hover still useful)
+    if (event.isAvailabilityWindow) {
+      const tileNode = (
+        <div className="flex flex-col h-full p-1" data-testid={`availability-window-${event.windowId}`}>
+          <div className="font-bold text-xs">{event.title}</div>
+        </div>
+      );
+      return (
+        <HoverCard openDelay={250} closeDelay={120}>
+          <HoverCardTrigger asChild>{tileNode}</HoverCardTrigger>
+          <HoverCardContent side="right" align="start" className="p-0 w-auto border-none bg-transparent shadow-none">
+            <AppointmentInfoCard
+              variant="availability"
+              title={event.title}
+              startTime={formatTime(event.start)}
+              endTime={formatTime(event.end)}
+            />
+          </HoverCardContent>
+        </HoverCard>
+      );
+    }
+
+    // Regular appointment
     const isCancelled = event.status === 'cancelled';
-    const statusShort: Record<string, string> = {
-      scheduled: t('appointments.status.scheduled', 'Scheduled'),
-      confirmed: t('appointments.status.confirmed', 'Confirmed'),
-      arrived: t('appointments.status.arrived', 'Arrived'),
-      in_progress: t('appointments.status.inProgress', 'In Progress'),
-      completed: t('appointments.status.completed', 'Completed'),
-      cancelled: t('appointments.status.cancelled', 'Cancelled'),
-      no_show: t('appointments.status.noShow', 'No Show'),
-    };
-    return (
+    const tileNode = (
       <div className="flex flex-col h-full p-1 overflow-hidden" data-testid={`appointment-event-${event.appointmentId}`}>
         <div className={`font-bold text-xs ${isCancelled ? 'line-through' : ''} flex items-center gap-1`}>
           {event.isVideoAppointment && (
@@ -1326,7 +1363,7 @@ export default function ClinicCalendar({
           )}
           <span className="truncate flex-1">{event.serviceName || t('appointments.appointment', 'Appointment')}</span>
           <span className="text-[9px] font-medium bg-white/20 rounded px-1 py-0 whitespace-nowrap flex-shrink-0">
-            {statusShort[event.status] || event.status}
+            {statusLabels[event.status] || event.status}
           </span>
         </div>
         <div className={`text-xs ${isCancelled ? 'line-through' : ''}`}>
@@ -1338,6 +1375,25 @@ export default function ClinicCalendar({
           </div>
         )}
       </div>
+    );
+    return (
+      <HoverCard openDelay={250} closeDelay={120}>
+        <HoverCardTrigger asChild>{tileNode}</HoverCardTrigger>
+        <HoverCardContent side="right" align="start" className="p-0 w-auto border-none bg-transparent shadow-none">
+          <AppointmentInfoCard
+            variant="appointment"
+            patientName={event.patientName}
+            serviceName={event.serviceName}
+            startTime={formatTime(event.start)}
+            endTime={formatTime(event.end)}
+            status={event.status}
+            statusLabel={statusLabels[event.status] || event.status}
+            notes={event.notes}
+            isVideoAppointment={event.isVideoAppointment}
+            isCancelled={isCancelled}
+          />
+        </HoverCardContent>
+      </HoverCard>
     );
   }, [t]);
 
@@ -1619,7 +1675,7 @@ export default function ClinicCalendar({
             max={new Date(2024, 0, 1, 22, 0, 0)}
             formats={formats}
             eventPropGetter={eventStyleGetter}
-            tooltipAccessor={tooltipAccessor}
+            tooltipAccessor={null as any}
             slotPropGetter={slotPropGetter}
             components={{
               event: EventComponent,

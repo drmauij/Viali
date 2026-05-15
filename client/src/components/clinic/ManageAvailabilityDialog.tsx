@@ -41,7 +41,16 @@ import {
   Copy,
   Check,
   ExternalLink,
+  Umbrella,
+  Thermometer,
+  BookOpen,
+  Baby,
+  Home,
+  Hourglass,
+  Ban,
+  Plane,
 } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
 import { format, parseISO } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -58,17 +67,19 @@ const DAYS_OF_WEEK = [
   { value: 0, label: "Sunday" },
 ];
 
+type IconType = ComponentType<SVGProps<SVGSVGElement>>;
+
 export const TIME_OFF_TYPE_OPTIONS = [
-  { value: 'vacation', icon: '🏖️', labelKey: 'availability.timeOffTypes.vacation', fallback: 'Vacation' },
-  { value: 'sick', icon: '🤒', labelKey: 'availability.timeOffTypes.sick', fallback: 'Sick Leave' },
-  { value: 'training', icon: '📚', labelKey: 'availability.timeOffTypes.training', fallback: 'Training' },
-  { value: 'parental', icon: '👶', labelKey: 'availability.timeOffTypes.parental', fallback: 'Parental Leave' },
-  { value: 'overtime', icon: '⏱️', labelKey: 'availability.timeOffTypes.overtime', fallback: 'Overtime Reduction' },
-  { value: 'blocked', icon: '🚫', labelKey: 'availability.timeOffTypes.blocked', fallback: 'Blocked / Other' },
+  { value: 'vacation', Icon: Umbrella, labelKey: 'availability.timeOffTypes.vacation', fallback: 'Vacation' },
+  { value: 'sick', Icon: Thermometer, labelKey: 'availability.timeOffTypes.sick', fallback: 'Sick Leave' },
+  { value: 'training', Icon: BookOpen, labelKey: 'availability.timeOffTypes.training', fallback: 'Training' },
+  { value: 'parental', Icon: Baby, labelKey: 'availability.timeOffTypes.parental', fallback: 'Parental Leave' },
+  { value: 'overtime', Icon: Hourglass, labelKey: 'availability.timeOffTypes.overtime', fallback: 'Overtime Reduction' },
+  { value: 'blocked', Icon: Ban, labelKey: 'availability.timeOffTypes.blocked', fallback: 'Blocked / Other' },
 ] as const;
 
-export const TIME_OFF_TYPE_ICONS: Record<string, string> = Object.fromEntries(
-  TIME_OFF_TYPE_OPTIONS.map(o => [o.value, o.icon])
+export const TIME_OFF_TYPE_ICONS: Record<string, IconType> = Object.fromEntries(
+  TIME_OFF_TYPE_OPTIONS.map(o => [o.value, o.Icon])
 );
 
 interface ManageAvailabilityDialogProps {
@@ -635,14 +646,18 @@ export function ManageAvailabilityDialog({
                                 )}
                               </p>
                             )}
-                            {item.reason && (
-                              <p className="text-muted-foreground">
-                                {TIME_OFF_TYPE_ICONS[item.reason] || '🚫'}{' '}
-                                {TIME_OFF_TYPE_OPTIONS.find(o => o.value === item.reason)
-                                  ? t(TIME_OFF_TYPE_OPTIONS.find(o => o.value === item.reason)!.labelKey, TIME_OFF_TYPE_OPTIONS.find(o => o.value === item.reason)!.fallback)
+                            {item.reason && (() => {
+                              const ReasonIconComponent = TIME_OFF_TYPE_ICONS[item.reason] ?? Ban;
+                              const reasonOption = TIME_OFF_TYPE_OPTIONS.find(o => o.value === item.reason);
+                              return (
+                              <p className="text-muted-foreground flex items-center gap-1">
+                                <ReasonIconComponent className="w-3.5 h-3.5 shrink-0" />{' '}
+                                {reasonOption
+                                  ? t(reasonOption.labelKey, reasonOption.fallback)
                                   : item.reason}
                               </p>
-                            )}
+                              );
+                            })()}
                             {item.notes && (
                               <p className="text-xs text-muted-foreground/70">{item.notes}</p>
                             )}
@@ -961,7 +976,10 @@ export function TimeOffDialog({
               <SelectContent>
                 {TIME_OFF_TYPE_OPTIONS.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>
-                    {opt.icon} {t(opt.labelKey, opt.fallback)}
+                    <span className="flex items-center gap-1.5">
+                      <opt.Icon className="w-3.5 h-3.5 shrink-0" />
+                      {t(opt.labelKey, opt.fallback)}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
