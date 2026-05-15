@@ -76,6 +76,16 @@ describe("deriveRiskInputsFromRecords", () => {
     expect(deriveRiskInputsFromRecords(PATIENT, SURGERY, both, qOnly, ILLNESS_LISTS).inputs.bmi).toBeCloseTo(80 / 1.75 ** 2, 1);
     expect(deriveRiskInputsFromRecords(PATIENT, SURGERY, null, null, ILLNESS_LISTS).inputs.bmi).toBeNull();
   });
+
+  it("surgeryRiskClass=null defaults to 'minor' (suppresses age bump on a 75+ patient)", () => {
+    const surgeryWithNullClass = { surgeryRiskClass: null, plannedDate: null, actualEndTime: null };
+    const r = deriveRiskInputsFromRecords(PATIENT, surgeryWithNullClass, null, null, ILLNESS_LISTS);
+    expect(r.inputs.surgeryRiskClass).toBe("minor");
+    const snap = computeRiskSnapshot(PATIENT, surgeryWithNullClass, null, null, ILLNESS_LISTS);
+    expect(snap.ageEligible).toBe(true);
+    expect(snap.ageModifierSuppressed).toBe(true);
+    expect(snap.ageModifier).toBe(0);
+  });
 });
 
 describe("computeRiskSnapshot Eva regression", () => {

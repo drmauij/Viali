@@ -245,6 +245,18 @@ describe("age modifier × surgery class attenuation", () => {
     expect(r.worstDomain).toBe("cardiac");
   });
 
+  it("below threshold age + large surgery + HIGH worst domain → RED, no bump", () => {
+    const r = calculatePerioperativeRisk(baseInputs({
+      age: 70,
+      surgeryRiskClass: "large",
+      concepts: { ...ZERO_CONCEPTS, CAD: true, CHF: true, CKD_OR_DIALYSIS: true },
+    }));
+    expect(r.grade).toBe("red");
+    expect(r.ageEligible).toBe(false);
+    expect(r.ageModifier).toBe(0);
+    expect(r.ageModifierSuppressed).toBe(false);
+  });
+
   it("Eva regression: 82 + smoker + minor → ORANGE · VTE", () => {
     const r = calculatePerioperativeRisk(baseInputs({}));
     expect(r.worstDomain).toBe("vte");
