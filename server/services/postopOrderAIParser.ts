@@ -52,14 +52,17 @@ export interface AIParseResult {
   warnings: string[];
 }
 
+function normalizeName(s: string): string {
+  return s.toLowerCase().replace(/[.,/()[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 function dedupeInventory(invItems: Array<{ id: string; name: string | null; description: string | null }>) {
-  const normalize = (s: string) => s.toLowerCase().replace(/[.,/()[\]]/g, ' ').replace(/\s+/g, ' ').trim();
   const groups = new Map<string, { name: string; description: string }>();
   for (const inv of invItems) {
     const name = inv.name ?? '';
     const desc = inv.description ?? '';
     const canonical = desc.length > name.length ? desc : name;
-    const key = normalize(canonical);
+    const key = normalizeName(canonical);
     if (!key) continue;
     const existing = groups.get(key);
     if (!existing) {
@@ -74,6 +77,50 @@ function dedupeInventory(invItems: Array<{ id: string; name: string | null; desc
     }
   }
   return Array.from(groups.values());
+}
+
+/**
+ * LLMs sometimes truncate packaging cruft from a verbatim instruction — e.g.
+ * they emit "NOVALGIN Inj Lös 1 g/2ml i.m./i.v" when the canonical DB name is
+ * "NOVALGIN Inj Lös 1 g/2ml i.m./i.v 10 Amp 2 ml". The client validator does
+ * an exact-name match and would flag this as "Missing configuration", forcing
+ * the user to re-paste or configure manually.
+ *
+ * This snap rewrites `medicationRef` to the canonical inventory name when a
+ * normalized match is unambiguous:
+ *   1. Exact match on normalized form
+ *   2. AI's ref is a prefix of exactly one inventory name (the truncation case)
+ *   3. Inventory name is a prefix of exactly one AI ref (rare — over-padding)
+ * If zero matches or multiple equally-good matches exist, the ref is left as
+ * the AI wrote it (the client will flag and the user can correct manually).
+ */
+export function snapMedicationRefToInventory(
+  ref: string,
+  invItems: Array<{ name: string | null }>,
+): string {
+  const names = invItems.map(i => i.name ?? '').filter(Boolean);
+  if (!ref || names.length === 0) return ref;
+  if (names.includes(ref)) return ref;
+
+  const refN = normalizeName(ref);
+  if (!refN) return ref;
+
+  const exact = names.filter(n => normalizeName(n) === refN);
+  if (exact.length === 1) return exact[0];
+  if (exact.length > 1) return ref;
+
+  // AI's ref is a prefix of the canonical name (truncated suffix).
+  const prefixMatches = names.filter(n => normalizeName(n).startsWith(refN + ' '));
+  if (prefixMatches.length === 1) return prefixMatches[0];
+
+  // Inventory name is a prefix of AI's ref (over-padded by the AI).
+  const suffixMatches = names.filter(n => {
+    const nn = normalizeName(n);
+    return nn.length > 0 && refN.startsWith(nn + ' ');
+  });
+  if (suffixMatches.length === 1) return suffixMatches[0];
+
+  return ref;
 }
 
 export async function parsePostopOrders(
@@ -147,7 +194,13 @@ ${rawText}`;
 
   const validated = items
     .filter(it => it && typeof it === 'object' && typeof (it as any).type === 'string')
-    .map(it => ({ ...it, id: typeof it.id === 'string' && it.id ? it.id : crypto.randomUUID() }));
+    .map(it => ({ ...it, id: typeof it.id === 'string' && it.id ? it.id : crypto.randomUUID() }))
+    .map((it: any) => {
+      if (it.type === 'medication' && typeof it.medicationRef === 'string') {
+        return { ...it, medicationRef: snapMedicationRefToInventory(it.medicationRef, inventory) };
+      }
+      return it;
+    });
 
   return { items: validated, unresolved, warnings };
 }
