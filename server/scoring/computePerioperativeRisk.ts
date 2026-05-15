@@ -129,15 +129,23 @@ export function deriveRiskInputsFromRecords(
   const ponvD   = merged("ponvTransfusion");
 
   // inputSource resolution.
-  const anyAssessmentData = Object.values(a).some((m) => Object.keys(m).length > 0);
+  //
+  // Rendering the preop / questionnaire form pre-populates every organ-system
+  // checkbox as `{itemId: false}`, so "form opened once" looks identical to
+  // "anesthesiologist filled out the assessment". The presence of keys alone
+  // isn't a real signal — only positive values are. We also accept
+  // information-bearing lifestyle scalars from the questionnaire (current /
+  // former smoker is a positive signal; "never" is the default and is not).
+  const hasPositive = (m: Record<string, boolean>): boolean =>
+    Object.values(m).some((v) => v === true);
+  const anyAssessmentData = Object.values(a).some(hasPositive);
   const anyQuestionnaireData =
     !!questionnaire &&
-    (Object.keys(q).length > 0 ||
-      questionnaire.smokingStatus ||
-      typeof questionnaire.functionallyDependent === "boolean" ||
-      typeof questionnaire.metAbove4 === "boolean" ||
-      questionnaire.weight ||
-      questionnaire.height);
+    (Object.values(q).some(hasPositive) ||
+      questionnaire.smokingStatus === "current" ||
+      questionnaire.smokingStatus === "former" ||
+      questionnaire.functionallyDependent === true ||
+      questionnaire.metAbove4 === false);
   const inputSource: "assessment" | "questionnaire" | "default" = anyAssessmentData
     ? "assessment"
     : anyQuestionnaireData

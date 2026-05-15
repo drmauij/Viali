@@ -86,6 +86,59 @@ describe("deriveRiskInputsFromRecords", () => {
     expect(snap.ageModifierSuppressed).toBe(true);
     expect(snap.ageModifier).toBe(0);
   });
+
+  it("stub assessment (organ-system maps populated with all-false keys) does NOT count as data", () => {
+    // Form rendering pre-populates every checkbox as `{itemId: false}` — this
+    // is identical in shape to a real assessment, so presence of keys alone
+    // can't be the signal. Only positive values count.
+    const stubAssessment = {
+      heartIllnesses: { cad: false, htn: false },
+      lungIllnesses: { copd: false },
+      weight: "70",
+    };
+    const r = deriveRiskInputsFromRecords(PATIENT, SURGERY, stubAssessment, null, ILLNESS_LISTS);
+    expect(r.inputSource).toBe("default");
+    expect(r.partial).toBe(true);
+  });
+
+  it("real assessment (at least one true comorbidity) counts as assessment data", () => {
+    const realAssessment = { heartIllnesses: { cad: true, htn: false } };
+    const r = deriveRiskInputsFromRecords(PATIENT, SURGERY, realAssessment, null, ILLNESS_LISTS);
+    expect(r.inputSource).toBe("assessment");
+    expect(r.inputs.concepts.CAD).toBe(true);
+  });
+
+  it("questionnaire with only smokingStatus='never' falls through to default", () => {
+    // "never" is the default smoking option and indistinguishable from an
+    // auto-stub; it should not be treated as a positive signal.
+    const stubQuestionnaire = { smokingStatus: "never", conditions: {} };
+    const r = deriveRiskInputsFromRecords(PATIENT, SURGERY, null, stubQuestionnaire, ILLNESS_LISTS);
+    expect(r.inputSource).toBe("default");
+  });
+
+  it("questionnaire with smokingStatus='current' counts as questionnaire data", () => {
+    const realQuestionnaire = { smokingStatus: "current", conditions: {} };
+    const r = deriveRiskInputsFromRecords(PATIENT, SURGERY, null, realQuestionnaire, ILLNESS_LISTS);
+    expect(r.inputSource).toBe("questionnaire");
+  });
+
+  it("stub questionnaire (all conditions present but checked=false) falls through to default", () => {
+    const stubQ = {
+      conditions: {
+        cad: { checked: false },
+        copd: { checked: false },
+      },
+    };
+    const r = deriveRiskInputsFromRecords(PATIENT, SURGERY, null, stubQ, ILLNESS_LISTS);
+    expect(r.inputSource).toBe("default");
+  });
+
+  it("assessment stub + questionnaire stub → both ignored, inputSource is default", () => {
+    const stubA = { heartIllnesses: { cad: false }, weight: "70" };
+    const stubQ = { smokingStatus: "never", conditions: { cad: { checked: false } } };
+    const r = deriveRiskInputsFromRecords(PATIENT, SURGERY, stubA, stubQ, ILLNESS_LISTS);
+    expect(r.inputSource).toBe("default");
+  });
 });
 
 describe("computeRiskSnapshot Eva regression", () => {
