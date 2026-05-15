@@ -7,8 +7,8 @@ import {
   type LeadGreetingLanguage,
 } from '@shared/leadInvitationTemplate';
 import { db } from '../db';
-import { leads, hospitals } from '@shared/schema';
-import { eq, and, isNull } from 'drizzle-orm';
+import { leads, hospitals, referralEvents } from '@shared/schema';
+import { eq, and, isNull, desc, inArray, sql } from 'drizzle-orm';
 import { getUncachableResendClient, getAppBaseUrl } from '../email';
 import logger from '../logger';
 
@@ -224,4 +224,105 @@ export async function sendLeadInvitationEmail(args: {
     // Defense-in-depth: never let this propagate to the webhook handler.
     logger.error({ err: outerErr, leadId: args.leadId }, 'sendLeadInvitationEmail outer error');
   }
+}
+
+/**
+ * Attribute a freshly-created booking back to the originating lead, if any.
+ *
+ * Resolution order:
+ *   1. Signed `lid` token (trusted — survives email forwards & address typos).
+ *   2. Exact-email fallback — only when EXACTLY ONE open lead matches the
+ *      booking email (case-insensitive). Two or more matches are ambiguous,
+ *      so we silently skip and let the operator convert manually.
+ *
+ * The lead UPDATE is race-safe: the WHERE clause keeps `status IN ('new',
+ * 'in_progress')`, so concurrent bookings can't double-convert and the
+ * patient/appointment IDs on a lead already converted by a previous booking
+ * are never clobbered.
+ *
+ * The matching `referralEvents` row (inserted by the booking POST handler
+ * just before this call) gets its `leadId` column tagged. When no referral
+ * row exists yet, the caller is responsible for inserting a minimal one.
+ *
+ * Never throws — booking flow must succeed even if attribution does not.
+ */
+export async function attachLeadToBooking(args: {
+  hospital: { id: string; leadAttributionSecret: string | null };
+  bookingEmail: string | null;
+  signedLid: string | undefined;
+  patientId: string;
+  appointmentId: string;
+}): Promise<{ leadId: string | null; attributionSource: 'lid' | 'email-fallback' | null }> {
+  let leadId: string | null = null;
+  let attributionSource: 'lid' | 'email-fallback' | null = null;
+
+  // 1. Trust signed lid first.
+  if (args.signedLid) {
+    try {
+      const secret = getLeadAttributionSecret(args.hospital);
+      const decoded = verifyLeadAttribution(args.signedLid, secret);
+      if (decoded) {
+        leadId = decoded;
+        attributionSource = 'lid';
+      }
+    } catch {
+      // secret missing → silently fall through to email fallback
+    }
+  }
+
+  // 2. Exact-email fallback (only when no valid signed token).
+  if (!leadId && args.bookingEmail) {
+    const candidates = await db
+      .select({ id: leads.id })
+      .from(leads)
+      .where(and(
+        eq(leads.hospitalId, args.hospital.id),
+        sql`lower(${leads.email}) = lower(${args.bookingEmail})`,
+        inArray(leads.status, ['new', 'in_progress']),
+      ))
+      .orderBy(desc(leads.createdAt))
+      .limit(2);
+
+    if (candidates.length === 1) {
+      leadId = candidates[0].id;
+      attributionSource = 'email-fallback';
+    }
+    // 2+ matches → silent skip (ambiguous, operator handles manually)
+  }
+
+  if (!leadId) return { leadId: null, attributionSource: null };
+
+  // 3. Conditional UPDATE — race-safe via status filter.
+  const updated = await db
+    .update(leads)
+    .set({
+      status: 'converted',
+      patientId: args.patientId,
+      appointmentId: args.appointmentId,
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(leads.id, leadId),
+      inArray(leads.status, ['new', 'in_progress']),
+    ))
+    .returning({ id: leads.id });
+
+  if (updated.length === 0) {
+    // Race: someone else already converted this lead, or it was closed.
+    return { leadId: null, attributionSource: null };
+  }
+
+  // 4. Tag the referral_events row.
+  await db
+    .update(referralEvents)
+    .set({ leadId })
+    .where(eq(referralEvents.appointmentId, args.appointmentId))
+    .returning({ id: referralEvents.id });
+
+  logger.info(
+    { leadId, appointmentId: args.appointmentId, attributionSource },
+    'Lead auto-converted via booking',
+  );
+
+  return { leadId, attributionSource };
 }

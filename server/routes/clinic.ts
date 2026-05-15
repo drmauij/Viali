@@ -33,6 +33,7 @@ import { verifyExecutionToken } from "../services/marketingExecutionToken";
 import {
   verifyLeadAttribution,
   getLeadAttributionSecret,
+  attachLeadToBooking,
 } from "../services/leadInvitation";
 import { eq, and, desc, sql, max, inArray, or, gte, lte, ilike, isNotNull } from "drizzle-orm";
 import { z } from "zod";
@@ -939,6 +940,8 @@ const bookingSchema = z.object({
   postalCode: z.string().max(50).nullish(),
   city: z.string().max(120).nullish(),
   serviceId: z.string().nullish(),
+  // Lead attribution token from invitation email (?lid=...)
+  lid: z.string().max(200).nullish(),
   // A/B execution token — Phase 3 flow attribution
   fe: z.string().max(2000).nullish(),
 });
@@ -1144,6 +1147,46 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
           captureMethod: parsed.data.captureMethod || "manual",
           flowExecutionId: decodedFlowExecutionId,
         });
+      }
+
+      // Attach the booking back to the originating lead if there is one.
+      // This MUST run after the referralEvents insert so its UPDATE can tag
+      // the row. If no referralEvents row was inserted (no referral data),
+      // we insert a minimal one when attribution lands so the lead → booking
+      // join still works.
+      try {
+        const attribution = await attachLeadToBooking({
+          hospital,
+          bookingEmail: parsed.data.email ?? null,
+          signedLid: (parsed.data.lid ?? undefined) || undefined,
+          patientId: patient.id,
+          appointmentId: appointment.id,
+        });
+
+        if (attribution.leadId) {
+          // Confirm a referralEvents row exists; if none was inserted by the
+          // referral-data block above, insert a minimal one tagged with leadId.
+          const { referralEvents } = await import("@shared/schema");
+          const existing = await db
+            .select({ id: referralEvents.id })
+            .from(referralEvents)
+            .where(eq(referralEvents.appointmentId, appointment.id))
+            .limit(1);
+          if (existing.length === 0) {
+            await db.insert(referralEvents).values({
+              hospitalId: hospital.id,
+              patientId: patient.id,
+              appointmentId: appointment.id,
+              source: "lead_invitation" as any,
+              sourceDetail: attribution.attributionSource,
+              leadId: attribution.leadId,
+              captureMethod: "lead_attribution" as any,
+            });
+          }
+        }
+      } catch (err) {
+        // Booking succeeded — never let attribution errors damage the response.
+        logger.error({ err, appointmentId: appointment.id }, "attachLeadToBooking failed; booking still succeeded");
       }
 
       // Phase 3 A/B attribution: if this booking came from a campaign execution,
