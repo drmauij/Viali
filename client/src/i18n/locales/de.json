@@ -8817,7 +8817,44 @@
   "riskMethodology": {
     "title": "Perioperatives Risiko-Grade",
     "intro": "Das Risiko-Grade ist ein einzelnes grünes / oranges / rotes Signal, das das globale perioperative Risiko anzeigt. Es wird automatisch aus den vorhandenen Patienten- und Operationsdaten berechnet und aktualisiert sich, sobald sich Komorbiditäten, der Fragebogen oder die Operation selbst ändern.",
-    "aggregation": "Aggregation: Das schlechteste Band über fünf unabhängige Domänen treibt das Grade. Ist eine Domäne hoch, ist das Grade rot; ist eine mittel (und keine hoch), ist es orange; sonst grün. Patienten ab 75 Jahren werden um ein Band hochgestuft (nie herab).",
+    "howCalculated": {
+      "title": "So wird die Endbewertung berechnet",
+      "pipeline": "Ablauf: Patient + Eingriff → 5 unabhängige Domänen-Bänder (kardial, VTE, pulmonal, Frailty, Chirurgie) → das schwerste Band entscheidet → Alters-Modifier (≥ 75 hebt um ein Band an, ausgenommen bei kleinen / Standard-Eingriffen) → Endbewertung (NIEDRIG / MITTEL / HOCH). Eine Abstufung nach unten erfolgt nie.",
+      "tiebreaker": "Bei gleichem Band gilt folgende Priorität für das Leit-Domain: kardial → VTE → pulmonal → Frailty → Chirurgie.",
+      "attenuation": "Attenuierungsregel: Bei kleinen oder Standard-Eingriffen wird der Alters-Modifier (≥ 75) unterdrückt. Ein risikoarmer Eingriff verstärkt das altersbedingte Grundrisiko nicht — die Domänen-Bänder bleiben unverändert sichtbar.",
+      "preliminary": "Die Risikobewertung wird berechnet, sobald der Patient den Fragebogen einreicht, und nach Abschluss der anästhesiologischen Prä-OP-Beurteilung verfeinert. Eintragungen der Anästhesie überschreiben die Selbstangaben des Patienten pro Punkt. Vorläufige Bewertungen sind durch einen gestrichelten Rand und ein Tilde-Symbol (~) gekennzeichnet.",
+      "examplesHeading": "Praxisbeispiele",
+      "examples": {
+        "a": {
+          "title": "Beispiel A — Eva-Profil, kleiner Eingriff",
+          "facts": "82-jährige Patientin, aktive Raucherin, keine Komorbiditäten. Ambulante Hernienoperation.",
+          "bands": "Kardial NIEDRIG · VTE MITTEL · Pulmonal MITTEL · Frailty NIEDRIG · Chirurgie NIEDRIG",
+          "modifier": "Alter ≥ 75, aber kleiner Eingriff — Anhebung unterdrückt.",
+          "result": "ORANGE · VTE (MITTEL; keine Hochstufung auf HOCH)"
+        },
+        "b": {
+          "title": "Beispiel B — gleiche Patientin, grosser Eingriff",
+          "facts": "Gleiche 82-jährige Raucherin. Totale Hüftendoprothese (grosser Eingriff).",
+          "bands": "Kardial NIEDRIG · VTE MITTEL · Pulmonal MITTEL · Frailty NIEDRIG · Chirurgie MITTEL",
+          "modifier": "Alter ≥ 75 und grosser Eingriff — Anhebung greift.",
+          "result": "ROT · VTE (Alters-Modifier eskaliert bei grossen Eingriffen wie vorgesehen)"
+        },
+        "c": {
+          "title": "Beispiel C — kranker Patient, kleiner Eingriff",
+          "facts": "70-jähriger Patient mit KHK, Herzinsuffizienz, Niereninsuffizienz, funktionell abhängig. Kataraktoperation (klein).",
+          "bands": "Kardial HOCH · VTE NIEDRIG · Pulmonal NIEDRIG · Frailty MITTEL · Chirurgie NIEDRIG",
+          "modifier": "Alter < 75 — Modifier nicht anwendbar.",
+          "result": "ROT · KARDIAL (Attenuierung verdeckt schwere Domänen-Risiken nicht)"
+        },
+        "d": {
+          "title": "Beispiel D — nur Fragebogen, noch keine Prä-OP-Beurteilung",
+          "facts": "Gleicher Patient wie in Beispiel A. Fragebogen eingereicht; anästhesiologische Prä-OP noch nicht abgeschlossen.",
+          "bands": "Berechnet auf Basis der Selbstangaben aus dem Fragebogen; gleiche Bänder wie Beispiel A.",
+          "modifier": "Anhebung unterdrückt (kleiner Eingriff).",
+          "result": "ORANGE · VTE · ~ (Vorläufig — wird mit dem Pre-OP-Befund der Anästhesie verfeinert)"
+        }
+      }
+    },
     "cardiac": {
       "title": "Kardial — RCRI",
       "body": "Revised Cardiac Risk Index (Lee et al., 1999). Zählt: Hochrisiko-Operation, ischämische Herzkrankheit, Herzinsuffizienz, zerebrovaskuläre Erkrankung, insulinpflichtiger Diabetes, Serumkreatinin > 2 mg/dl. Bänder: niedrig (0 Pkt.) / mittel (1 Pkt.) / hoch (≥ 2 Pkt.)."
@@ -8838,6 +8875,13 @@
       "title": "Operationsgewicht",
       "body": "Bänder direkt aus der Risikoklasse der Operation: gering / standard → niedrig, gross → mittel, kritisch → hoch. Standardeingriffe (Katarakt, Lap-Cholezystektomie, Hernie, Lidchirurgie, Arthroskopie usw.) tragen < 1% baseline MACE für einen gesunden Patienten und liefern allein keinen Operationsachsen-Bump — Komorbiditäten treiben weiterhin die kardiale, VTE-, pulmonale und Gebrechlichkeits-Achse."
     },
-    "footer": "Methodik v1 · gültig ab 2026-05-13. Schwellen- oder Formeländerungen erhöhen die Versionsnummer."
+    "footer": "Methodik v1.1 · gültig ab 2026-05-14. Schwellen- oder Formeländerungen erhöhen die Versionsnummer."
+  },
+  "chip": {
+    "preliminaryTooltip": "Vorläufig — nur basierend auf dem Patientenfragebogen"
+  },
+  "popover": {
+    "preliminaryNote": "Vorläufig — basierend auf dem Patientenfragebogen (anästhesiologische Prä-OP-Beurteilung noch ausstehend)",
+    "ageSuppressedNote": "Alter ≥ 75 — Anhebung unterdrückt (kleiner Eingriff)"
   }
 }
