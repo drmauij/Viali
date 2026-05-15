@@ -201,7 +201,18 @@ export async function sendLeadInvitationEmail(args: {
 
     try {
       const { client, fromEmail } = await getUncachableResendClient();
-      const response = await client.emails.send({ from: fromEmail, to: lead.email, subject, html, text });
+      // Set Reply-To to the clinic's address so patient replies land in the
+      // clinic inbox, not in the noreply mailbox. Skip when no companyEmail
+      // is configured — Resend then falls back to the From: address.
+      const replyTo = hospital.companyEmail?.trim() || undefined;
+      const response = await client.emails.send({
+        from: fromEmail,
+        to: lead.email,
+        subject,
+        html,
+        text,
+        ...(replyTo ? { replyTo } : {}),
+      });
       // Resend SDK returns { data, error } rather than throwing on API errors.
       // Match the pattern used in server/resend.ts: convert returned error → throw
       // so the catch below records it.

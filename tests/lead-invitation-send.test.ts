@@ -20,7 +20,7 @@ type LeadRow = {
 type HospitalRow = {
   id: string; name: string; bookingToken: string | null;
   companyLogoUrl: string | null; bookingTheme: any;
-  defaultLanguage: string | null; companyPhone: string | null;
+  defaultLanguage: string | null; companyPhone: string | null; companyEmail: string | null;
   autoSendLeadInvitationEmail: boolean; leadAttributionSecret: string | null;
 };
 
@@ -79,7 +79,7 @@ function seedHospital(overrides: Partial<HospitalRow> = {}): HospitalRow {
   const h: HospitalRow = {
     id: 'hosp-1', name: 'Klinik X', bookingToken: 'tok-abc',
     companyLogoUrl: null, bookingTheme: null,
-    defaultLanguage: 'de', companyPhone: null,
+    defaultLanguage: 'de', companyPhone: null, companyEmail: null,
     autoSendLeadInvitationEmail: true, leadAttributionSecret: null,
     ...overrides,
   };
@@ -163,5 +163,35 @@ describe('sendLeadInvitationEmail', () => {
     await expect(sendLeadInvitationEmail({ leadId: lead.id, hospitalId: 'hosp-1' })).resolves.toBeUndefined();
     expect(sendMock).not.toHaveBeenCalled();
     expect(lead.invitationEmailError).toMatch(/secret/i);
+  });
+
+  it('sets Reply-To to the clinic email when configured', async () => {
+    seedHospital({ companyEmail: 'reception@klinik-x.example' });
+    seedLead();
+
+    await sendLeadInvitationEmail({ leadId: 'lead-1', hospitalId: 'hosp-1' });
+
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    expect(sendMock.mock.calls[0][0].replyTo).toBe('reception@klinik-x.example');
+  });
+
+  it('omits Reply-To when clinic email is not configured', async () => {
+    seedHospital({ companyEmail: null });
+    seedLead();
+
+    await sendLeadInvitationEmail({ leadId: 'lead-1', hospitalId: 'hosp-1' });
+
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    expect(sendMock.mock.calls[0][0]).not.toHaveProperty('replyTo');
+  });
+
+  it('omits Reply-To when clinic email is an empty / whitespace-only string', async () => {
+    seedHospital({ companyEmail: '   ' });
+    seedLead();
+
+    await sendLeadInvitationEmail({ leadId: 'lead-1', hospitalId: 'hosp-1' });
+
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    expect(sendMock.mock.calls[0][0]).not.toHaveProperty('replyTo');
   });
 });
