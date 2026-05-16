@@ -56,6 +56,8 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
   Legend,
+  BarChart,
+  Bar,
 } from "recharts";
 import { funnelsUrl, type FunnelsScope } from "@/lib/funnelsApi";
 import { apiRequest } from "@/lib/queryClient";
@@ -501,6 +503,46 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
     return flat;
   }, [referralDaily, grain, selectedReferralSource]);
 
+  const weekdayBySource = useMemo(() => {
+    const labels: Array<{ key: string; label: string }> = [
+      { key: "mon", label: t("common.weekday.mon", "Mon") },
+      { key: "tue", label: t("common.weekday.tue", "Tue") },
+      { key: "wed", label: t("common.weekday.wed", "Wed") },
+      { key: "thu", label: t("common.weekday.thu", "Thu") },
+      { key: "fri", label: t("common.weekday.fri", "Fri") },
+      { key: "sat", label: t("common.weekday.sat", "Sat") },
+      { key: "sun", label: t("common.weekday.sun", "Sun") },
+    ];
+    if (!referralDaily?.rows.length) {
+      return labels.map((l) => ({ ...l, totalAvg: 0 }));
+    }
+    const sources = referralDaily.sources;
+    // count of dates per weekday (denominator)
+    const dayCount = [0, 0, 0, 0, 0, 0, 0];
+    // sum of counts per (weekday, source)
+    const sourceSum: Array<Record<string, number>> = [{}, {}, {}, {}, {}, {}, {}];
+    for (const row of referralDaily.rows) {
+      const d = new Date(row.date + "T00:00:00Z");
+      const dow = (d.getUTCDay() + 6) % 7; // 0=Mon..6=Sun
+      dayCount[dow]!++;
+      for (const src of sources) {
+        const v = row.bySource[src] ?? 0;
+        if (v) sourceSum[dow]![src] = (sourceSum[dow]![src] ?? 0) + v;
+      }
+    }
+    return labels.map((l, i) => {
+      const denom = dayCount[i] || 1; // avoid /0; bar shows 0 when denom=0
+      const avgs: Record<string, number> = {};
+      let totalAvg = 0;
+      for (const src of sources) {
+        const a = (sourceSum[i]![src] ?? 0) / denom;
+        avgs[src] = a;
+        totalAvg += a;
+      }
+      return { ...l, totalAvg, ...avgs };
+    });
+  }, [referralDaily, t]);
+
   // LEGACY: superseded by `periodSeries` (Task 10). Safe to remove next release.
   const referralLineData = useMemo(() => {
     if (!referralTimeseries?.length) return [];
@@ -859,6 +901,54 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                 )}
               </CardContent>
             </Card>
+
+            {/* Weekday peaks — average referrals per weekday in the filtered range */}
+            <ChartCard
+              title={t("business.referrals.weekdayPeaks", "Weekday peaks")}
+              helpText={t("business.referrals.weekdayPeaksHelp")}
+            >
+              {referralDailyLoading ? (
+                <div className="flex items-center justify-center h-48">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : referralDaily?.rangeTooWide ? (
+                <div className="flex items-center justify-center h-48 text-muted-foreground text-sm px-6 text-center">
+                  {t("business.referrals.rangeTooWide")}
+                </div>
+              ) : !referralDaily || referralDaily.rows.length === 0 ? (
+                <div className="flex items-center justify-center h-48 text-muted-foreground">
+                  {t("business.referrals.noData")}
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={weekdayBySource}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                    <YAxis allowDecimals={true} tick={{ fontSize: 12 }} />
+                    <RechartsTooltip
+                      formatter={(value: number, name: string) => [
+                        value.toFixed(2),
+                        REFERRAL_LABELS[name] || name,
+                      ]}
+                    />
+                    <Legend
+                      formatter={(value: string) => REFERRAL_LABELS[value] || value}
+                    />
+                    {referralDaily.sources.map((src) => (
+                      <Bar
+                        key={src}
+                        dataKey={src}
+                        stackId="weekday"
+                        fill={REFERRAL_COLORS[src] || "#6b7280"}
+                        opacity={
+                          selectedReferralSource && selectedReferralSource !== src ? 0.25 : 1
+                        }
+                      />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
           </CardContent>
         )}
       </Card>
