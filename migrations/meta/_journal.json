@@ -1821,6 +1821,13 @@
       "when": 1781300000000,
       "tag": "0259_lead_invitation_email",
       "breakpoints": true
+    },
+    {
+      "idx": 260,
+      "version": "7",
+      "when": 1781400000000,
+      "tag": "0260_praxis_mode",
+      "breakpoints": true
     }
   ]
 }
