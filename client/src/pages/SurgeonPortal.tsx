@@ -52,7 +52,9 @@ import {
   LogOut,
   Download,
   Sparkles,
+  X,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   startOfMonth,
   endOfMonth,
@@ -225,6 +227,10 @@ const translations: Record<string, Record<string, string>> = {
     praxisActivationBannerDescription:
       "Verwalten Sie Ihre eigene Patientendatenbank, einen Kalender und Sprechstunden. Ihre bisherigen OP-Anfragen werden automatisch in Ihre neue Praxis-Instanz importiert.",
     praxisActivationBannerCta: "Jetzt aktivieren",
+    praxisActivationBannerFreeTag: "Während der Beta kostenlos",
+    praxisActivationBannerFeeNotice:
+      "Nach dem Ende der Beta-Phase kann eine Abonnementgebühr anfallen.",
+    praxisActivationBannerDismiss: "Banner ausblenden",
   },
   en: {
     // Gate
@@ -371,6 +377,10 @@ const translations: Record<string, Record<string, string>> = {
     praxisActivationBannerDescription:
       "Manage your own patient database, calendar, and consultations. Your historical surgery requests will be imported automatically into your new praxis instance.",
     praxisActivationBannerCta: "Activate now",
+    praxisActivationBannerFreeTag: "Free during beta",
+    praxisActivationBannerFeeNotice:
+      "A subscription fee may apply once Viali leaves beta.",
+    praxisActivationBannerDismiss: "Dismiss banner",
   },
 };
 
@@ -1065,6 +1075,17 @@ function ActionRequestDialog({ open, onOpenChange, type, surgery, token, lang, o
 
 function SurgeonPortalContent({ token }: { token: string }) {
   const [lang, setLang] = useState(() => localStorage.getItem("portal_lang_surgeon") || "de");
+  const { i18n: i18nInstance } = useTranslation();
+  // The portal manages its own `lang` for the inline tFn dictionary, but the
+  // shared dialogs/components (e.g. PraxisActivationModal) use i18next via
+  // useTranslation(). Sync the two so switching the portal language also
+  // flips i18next — otherwise the modal stays on whatever global locale was
+  // last set (typically the browser default).
+  useEffect(() => {
+    if (i18nInstance.language !== lang) {
+      i18nInstance.changeLanguage(lang);
+    }
+  }, [lang, i18nInstance]);
   const t = translations[lang] || translations.de;
   // Stable t() helper passed down to the shared form (which expects a
   // function). Falls back to the German map (which holds every key) so a
@@ -1143,6 +1164,19 @@ function SurgeonPortalContent({ token }: { token: string }) {
 
   const [myDataOpen, setMyDataOpen] = useState(false);
   const [praxisActivationOpen, setPraxisActivationOpen] = useState(false);
+  // The big in-tab banner can be dismissed by the surgeon. We remember the
+  // choice per-portal-token so different surgeon portals on the same browser
+  // keep separate dismissal preferences. When dismissed, a thin always-visible
+  // strip sits above the page header so the activation entry-point is never
+  // lost.
+  const praxisBannerDismissKey = `praxis-banner-dismissed:${token}`;
+  const [praxisBannerDismissed, setPraxisBannerDismissed] = useState<boolean>(
+    () => typeof window !== "undefined" && localStorage.getItem(praxisBannerDismissKey) === "1",
+  );
+  const dismissPraxisBanner = () => {
+    setPraxisBannerDismissed(true);
+    try { localStorage.setItem(praxisBannerDismissKey, "1"); } catch { /* storage disabled */ }
+  };
 
   const [draftBanner, setDraftBanner] = useState<SurgeonPortalDraft | null>(null);
   const [restoredInitialValues, setRestoredInitialValues] = useState<
@@ -1460,6 +1494,31 @@ function SurgeonPortalContent({ token }: { token: string }) {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Compact praxis-activation strip — only shown after the surgeon
+          dismisses the in-tab banner. Lives above the header so the
+          activation entry-point is reachable from every tab. */}
+      {!me?.isPraxis && praxisBannerDismissed && (
+        <div
+          className="border-b border-indigo-500/40 bg-gradient-to-r from-indigo-600 to-purple-700 text-white"
+          data-testid="strip-praxis-activation"
+        >
+          <div className="max-w-2xl mx-auto flex items-center gap-2 px-4 py-1.5 text-xs">
+            <Sparkles className="h-3.5 w-3.5 shrink-0 text-indigo-100" aria-hidden />
+            <span className="flex-1 truncate text-indigo-50">
+              {tFn("praxisActivationBannerTitle")}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPraxisActivationOpen(true)}
+              className="shrink-0 rounded-full bg-white px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-50 transition-colors"
+              data-testid="button-open-praxis-activation-strip"
+            >
+              {tFn("praxisActivationBannerCta")}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="border-b border-border bg-card">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -1554,12 +1613,21 @@ function SurgeonPortalContent({ token }: { token: string }) {
 
         <TabsContent value="newRequest" className="mt-0">
           <div className="max-w-2xl mx-auto px-4 py-6">
-            {!me?.isPraxis && (
+            {!me?.isPraxis && !praxisBannerDismissed && (
               <div
-                className="rounded-xl border border-indigo-500/40 bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-5 mb-6 shadow-lg ring-1 ring-indigo-300/30"
+                className="relative rounded-xl border border-indigo-500/40 bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-5 mb-6 shadow-lg ring-1 ring-indigo-300/30"
                 data-testid="banner-praxis-activation"
               >
-                <div className="flex items-start justify-between gap-4">
+                <button
+                  type="button"
+                  onClick={dismissPraxisBanner}
+                  className="absolute top-2 right-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-indigo-100 hover:bg-white/15 hover:text-white transition-colors"
+                  aria-label={tFn("praxisActivationBannerDismiss")}
+                  data-testid="button-dismiss-praxis-banner"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <div className="flex items-start justify-between gap-4 pr-8">
                   <div className="flex items-start gap-3">
                     <Sparkles className="h-6 w-6 shrink-0 mt-0.5 text-indigo-100" />
                     <div>
@@ -1580,6 +1648,17 @@ function SurgeonPortalContent({ token }: { token: string }) {
                   >
                     {tFn("praxisActivationBannerCta")}
                   </Button>
+                </div>
+                <div
+                  className="mt-4 border-t border-white/15 pt-3 text-xs text-indigo-100"
+                  data-testid="banner-praxis-activation-fee-notice"
+                >
+                  <span className="inline-flex whitespace-nowrap rounded-full bg-emerald-400/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50">
+                    {tFn("praxisActivationBannerFreeTag")}
+                  </span>
+                  <p className="mt-1.5 leading-snug">
+                    {tFn("praxisActivationBannerFeeNotice")}
+                  </p>
                 </div>
               </div>
             )}

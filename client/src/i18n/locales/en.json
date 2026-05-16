@@ -8884,6 +8884,30 @@
     "preliminaryNote": "Preliminary — based on patient questionnaire (no anesthesia pre-op assessment yet)",
     "ageSuppressedNote": "Age ≥ 75 bump suppressed (minor surgery)"
   },
+  "praxisActivation": {
+    "modal": {
+      "title": "Activate your practice on Viali",
+      "description": "This will create a full Viali instance for your practice. You will be redirected after activation. Your existing surgery requests will be imported automatically.",
+      "praxisName": "Practice name",
+      "praxisNamePlaceholder": "Mueller Practice",
+      "password": "Password",
+      "confirmPassword": "Confirm password",
+      "activate": "Activate",
+      "activating": "Activating...",
+      "betaTag": "Beta",
+      "betaSupport": "This is a beta feature — for any issue please reach us at",
+      "freeTag": "Free during beta",
+      "feeNotice": "A subscription fee may apply once Viali leaves beta.",
+      "acceptTerms": "I understand that this is a beta feature and that a subscription fee may apply once it leaves beta."
+    },
+    "success": {
+      "title": "Practice activated",
+      "description": "Redirecting to your calendar ..."
+    },
+    "error": {
+      "title": "Activation failed"
+    }
+  },
   "sidebar": {
     "quickLinksSection": "Quick Links",
     "switchHospital": "Switch hospital",

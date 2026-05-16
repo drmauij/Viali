@@ -8901,6 +8901,30 @@
     "preliminaryNote": "Vorläufig — basierend auf dem Patientenfragebogen (anästhesiologische Prä-OP-Beurteilung noch ausstehend)",
     "ageSuppressedNote": "Alter ≥ 75 — Anhebung unterdrückt (kleiner Eingriff)"
   },
+  "praxisActivation": {
+    "modal": {
+      "title": "Ihre Praxis auf Viali aktivieren",
+      "description": "Dadurch wird eine vollständige Viali-Instanz für Ihre Praxis erstellt. Nach der Aktivierung werden Sie weitergeleitet. Ihre bisherigen OP-Anfragen werden automatisch importiert.",
+      "praxisName": "Praxisname",
+      "praxisNamePlaceholder": "Praxis Mueller",
+      "password": "Passwort",
+      "confirmPassword": "Passwort bestätigen",
+      "activate": "Aktivieren",
+      "activating": "Wird aktiviert ...",
+      "betaTag": "Beta",
+      "betaSupport": "Dies ist eine Beta-Funktion — bei Problemen erreichen Sie uns unter",
+      "freeTag": "Während der Beta kostenlos",
+      "feeNotice": "Nach dem Ende der Beta-Phase kann eine Abonnementgebühr anfallen.",
+      "acceptTerms": "Mir ist bewusst, dass dies eine Beta-Funktion ist und nach dem Ende der Beta-Phase eine Abonnementgebühr anfallen kann."
+    },
+    "success": {
+      "title": "Praxis aktiviert",
+      "description": "Sie werden zu Ihrem Kalender weitergeleitet ..."
+    },
+    "error": {
+      "title": "Aktivierung fehlgeschlagen"
+    }
+  },
   "sidebar": {
     "quickLinksSection": "Schnelllinks",
     "switchHospital": "Klinik wechseln",
