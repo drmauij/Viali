@@ -137,8 +137,26 @@ export function labelFor(
   return t(`sidebar.module.${mod}`, MODULE_LABELS[mod]);
 }
 
+// Each unit type has a single "primary" module — the main surface that the
+// section header surfaces as a clickable card target. Returning null means
+// no primary (unknown unit type / no main module) → the header stays static
+// and all rows render in the list as usual.
+export function primaryModuleFor(unitType: UnitType): ModuleId | null {
+  switch (unitType) {
+    case "anesthesia": return "anesthesia";
+    case "or":         return "surgery";
+    case "clinic":     return "clinic";
+    case "business":   return "business";
+    case "logistic":   return "logistic";
+    default:           return null;
+  }
+}
+
 export interface BuiltGroup {
   hospital: SidebarHospital;
+  /** Primary module row (e.g. "Anesthesia Records" for an anesthesia unit). */
+  primary?: ModuleRow;
+  /** Secondary rows — everything except `primary`. */
   rows: ModuleRow[];
 }
 
@@ -158,7 +176,11 @@ export function buildRows(
     route: s.route,
     badge: s.badge,
   }));
-  return { hospital: h, rows: [...moduleRows, ...shortcutRows] };
+  const all = [...moduleRows, ...shortcutRows];
+  const primaryId = primaryModuleFor(h.unitType);
+  const primary = primaryId ? all.find(r => r.id === primaryId) : undefined;
+  const rows = primary ? all.filter(r => r.id !== primary.id) : all;
+  return { hospital: h, primary, rows };
 }
 
 // ---------------------------------------------------------------------------
@@ -187,6 +209,7 @@ export function rolePriority(role: string): number {
 
 export interface RoleSlice {
   hospital: SidebarHospital;
+  primary?: ModuleRow;
   rows: ModuleRow[];
 }
 
@@ -217,10 +240,10 @@ export function groupByUnit(
     const sortedRoles = [...roles].sort(
       (a, b) => rolePriority(a.role) - rolePriority(b.role),
     );
-    const slices: RoleSlice[] = sortedRoles.map(h => ({
-      hospital: h,
-      rows: buildRows(h, t).rows,
-    }));
+    const slices: RoleSlice[] = sortedRoles.map(h => {
+      const built = buildRows(h, t);
+      return { hospital: h, primary: built.primary, rows: built.rows };
+    });
     groups.push({ hospital: sortedRoles[0], roles: slices });
   }
 

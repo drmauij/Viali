@@ -63,7 +63,7 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 }
 
 describe("SidebarTree", () => {
-  it("renders one group per hospital entry", () => {
+  it("renders one card per (hospital, unit) entry", () => {
     render(
       <SidebarTree
         hospitals={hospitals}
@@ -73,8 +73,9 @@ describe("SidebarTree", () => {
       />,
       { wrapper: Wrapper },
     );
-    expect(screen.getByText(/Anesthesia · admin/i)).toBeInTheDocument();
-    expect(screen.getByText(/Clinic · admin/i)).toBeInTheDocument();
+    expect(screen.getAllByTestId("unit-card")).toHaveLength(2);
+    expect(screen.getByText(/^Anesthesia$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Clinic$/i)).toBeInTheDocument();
   });
 
   it("omits Quick Links when showQuickLinks is false", () => {
@@ -113,8 +114,9 @@ describe("SidebarTree", () => {
     expect(screen.getByTestId("role-chip-doctor")).not.toHaveAttribute("data-selected");
     // While admin is the selected slice, Administration row is visible.
     expect(screen.getByRole("button", { name: /^Administration$/i })).toBeInTheDocument();
-    // Shared rows only appear once (no duplication).
-    expect(screen.getAllByRole("button", { name: /Anesthesia Records/i })).toHaveLength(1);
+    // Primary module ("Anesthesia Records") is subsumed by the card surface,
+    // not rendered as a row button anymore.
+    expect(screen.queryByRole("button", { name: /Anesthesia Records/i })).not.toBeInTheDocument();
   });
 
   it("clicking a chip switches into that role on the same route when possible", async () => {
@@ -184,7 +186,7 @@ describe("SidebarTree", () => {
     expect(route).toBe("/anesthesia/op");
   });
 
-  it("keeps the current single-section rendering when a unit has only one role", () => {
+  it("single-role unit renders the role inline under the unit name (no chip strip)", () => {
     render(
       <SidebarTree
         hospitals={[hospitals[0]]}
@@ -194,7 +196,8 @@ describe("SidebarTree", () => {
       />,
       { wrapper: Wrapper },
     );
-    expect(screen.getByText(/Anesthesia · admin/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Anesthesia$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^admin$/i)).toBeInTheDocument();
     expect(screen.queryByTestId("role-subtitle")).not.toBeInTheDocument();
   });
 });

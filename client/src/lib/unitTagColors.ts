@@ -49,6 +49,30 @@ export const RAIL_BEFORE: Record<TagKey, string> = {
   public:     "before:bg-zinc-500",
 };
 
+// Soft tinted background used for the per-unit card in the Modules dropdown.
+// Keep as complete class strings for Tailwind JIT — runtime interpolation
+// breaks the scanner.
+export const UNIT_CARD_BG: Record<TagKey, string> = {
+  anesthesia: "bg-rose-400/10",
+  or:         "bg-sky-400/10",
+  clinic:     "bg-emerald-400/10",
+  business:   "bg-amber-400/10",
+  logistic:   "bg-teal-400/10",
+  platform:   "bg-violet-400/10",
+  public:     "bg-zinc-500/10",
+};
+
+export function unitCardClass(unitType: UnitType | string | null | undefined): string {
+  switch (unitType) {
+    case "anesthesia": return UNIT_CARD_BG.anesthesia;
+    case "or":         return UNIT_CARD_BG.or;
+    case "clinic":     return UNIT_CARD_BG.clinic;
+    case "business":   return UNIT_CARD_BG.business;
+    case "logistic":   return UNIT_CARD_BG.logistic;
+    default:           return UNIT_CARD_BG.public;
+  }
+}
+
 export function unitRailBeforeClass(unitType: UnitType | string | null | undefined): string {
   switch (unitType) {
     case "anesthesia": return RAIL_BEFORE.anesthesia;

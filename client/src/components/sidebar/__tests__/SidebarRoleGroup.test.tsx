@@ -32,8 +32,13 @@ const baseHospital = {
   role: "admin",
 };
 
-const rows: ModuleRow[] = [
-  { id: "anesthesia", label: "Anesthesia Records", route: "/anesthesia/op" },
+const primary: ModuleRow = {
+  id: "anesthesia",
+  label: "Anesthesia Records",
+  route: "/anesthesia/op",
+};
+
+const secondaryRows: ModuleRow[] = [
   { id: "inventory",  label: "Inventory & Services", route: "/inventory/items" },
   { id: "administration", label: "Administration", route: "/admin" },
   { id: "worklogs-anesthesia", label: "Worklogs", route: "/anesthesia/worklogs", badge: 3 },
@@ -44,57 +49,96 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 }
 
 describe("SidebarRoleGroup", () => {
-  it("renders the group header with unit + role", () => {
+  it("renders the unit name + role in the card header", () => {
     render(
       <SidebarRoleGroup
         hospital={baseHospital}
-        rows={rows}
+        primary={primary}
+        rows={secondaryRows}
         activeRoute="/anesthesia/op"
         isActiveGroup={true}
         onSelect={vi.fn()}
       />,
       { wrapper: Wrapper },
     );
-    expect(screen.getByText(/Anesthesia · admin/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Anesthesia$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^admin$/i)).toBeInTheDocument();
   });
 
-  it("renders one row per module", () => {
+  it("omits the primary row from the secondary list (card subsumes it)", () => {
     render(
       <SidebarRoleGroup
         hospital={baseHospital}
-        rows={rows}
+        primary={primary}
+        rows={secondaryRows}
         activeRoute="/anesthesia/op"
         isActiveGroup={true}
         onSelect={vi.fn()}
       />,
       { wrapper: Wrapper },
     );
-    expect(screen.getByRole("button", { name: /Anesthesia Records/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Anesthesia Records/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Inventory & Services/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Administration$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Worklogs/i })).toBeInTheDocument();
   });
 
-  it("marks the row matching activeRoute as active", () => {
+  it("marks the card itself as active when on the primary route", () => {
     render(
       <SidebarRoleGroup
         hospital={baseHospital}
-        rows={rows}
+        primary={primary}
+        rows={secondaryRows}
         activeRoute="/anesthesia/op"
         isActiveGroup={true}
         onSelect={vi.fn()}
       />,
       { wrapper: Wrapper },
     );
-    const active = screen.getByRole("button", { name: /Anesthesia Records/i });
-    expect(active).toHaveAttribute("data-active", "true");
+    expect(screen.getByTestId("unit-card")).toHaveAttribute("data-active", "true");
+  });
+
+  it("clicking the card surface fires onSelect with the primary row", () => {
+    const onSelect = vi.fn();
+    render(
+      <SidebarRoleGroup
+        hospital={baseHospital}
+        primary={primary}
+        rows={secondaryRows}
+        activeRoute="/inventory/items"
+        isActiveGroup={true}
+        onSelect={onSelect}
+      />,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("unit-card"));
+    expect(onSelect).toHaveBeenCalledWith(baseHospital, primary);
+  });
+
+  it("clicking a secondary row does not also fire the card's primary action", () => {
+    const onSelect = vi.fn();
+    render(
+      <SidebarRoleGroup
+        hospital={baseHospital}
+        primary={primary}
+        rows={secondaryRows}
+        activeRoute="/anesthesia/op"
+        isActiveGroup={true}
+        onSelect={onSelect}
+      />,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Inventory & Services/i }));
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(baseHospital, secondaryRows[0]);
   });
 
   it("shows the badge count on rows that carry one", () => {
     render(
       <SidebarRoleGroup
         hospital={baseHospital}
-        rows={rows}
+        primary={primary}
+        rows={secondaryRows}
         activeRoute="/anesthesia/op"
         isActiveGroup={true}
         onSelect={vi.fn()}
@@ -104,42 +148,27 @@ describe("SidebarRoleGroup", () => {
     expect(screen.getByText("3")).toBeInTheDocument();
   });
 
-  it("calls onSelect with the hospital + row when a row is clicked", () => {
-    const onSelect = vi.fn();
+  it("does not mark the card active when isActiveGroup is false (different clinic on same route)", () => {
     render(
       <SidebarRoleGroup
         hospital={baseHospital}
-        rows={rows}
-        activeRoute="/anesthesia/op"
-        isActiveGroup={true}
-        onSelect={onSelect}
-      />,
-      { wrapper: Wrapper },
-    );
-    fireEvent.click(screen.getByRole("button", { name: /Inventory & Services/i }));
-    expect(onSelect).toHaveBeenCalledWith(baseHospital, rows[1]);
-  });
-
-  it("does not mark the row active when isActiveGroup is false", () => {
-    render(
-      <SidebarRoleGroup
-        hospital={baseHospital}
-        rows={rows}
+        primary={primary}
+        rows={secondaryRows}
         activeRoute="/anesthesia/op"
         isActiveGroup={false}
         onSelect={vi.fn()}
       />,
       { wrapper: Wrapper },
     );
-    const row = screen.getByRole("button", { name: /Anesthesia Records/i });
-    expect(row).not.toHaveAttribute("data-active", "true");
+    expect(screen.getByTestId("unit-card")).not.toHaveAttribute("data-active");
   });
 
-  it("omits the header when single role mode is true", () => {
+  it("omits the header (no card) when single role mode is true", () => {
     render(
       <SidebarRoleGroup
         hospital={baseHospital}
-        rows={rows}
+        primary={primary}
+        rows={secondaryRows}
         activeRoute="/anesthesia/op"
         isActiveGroup={true}
         onSelect={vi.fn()}
@@ -147,6 +176,7 @@ describe("SidebarRoleGroup", () => {
       />,
       { wrapper: Wrapper },
     );
-    expect(screen.queryByText(/Anesthesia · admin/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("unit-card")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Anesthesia$/i)).not.toBeInTheDocument();
   });
 });

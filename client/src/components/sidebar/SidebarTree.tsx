@@ -46,16 +46,20 @@ export function SidebarTree({
                 selected: slice === selectedSlice,
                 // Switch into this role. Stay on the current route if the
                 // role can still reach it; otherwise jump to that role's
-                // first accessible row so we don't dump the user on a page
-                // they no longer have access to.
+                // primary (or first secondary row as a last resort) so we
+                // don't dump the user on a page they no longer have access to.
                 onClick: () => {
                   if (slice === selectedSlice) return;
-                  const sameRoute = slice.rows.find(
+                  const allRoutes = [
+                    ...(slice.primary ? [slice.primary] : []),
+                    ...slice.rows,
+                  ];
+                  const sameRoute = allRoutes.find(
                     row =>
                       activeRoute === row.route ||
                       activeRoute.startsWith(row.route + "/"),
                   );
-                  const target = sameRoute?.route ?? slice.rows[0]?.route;
+                  const target = sameRoute?.route ?? slice.primary?.route ?? slice.rows[0]?.route;
                   if (target) onSelect(slice.hospital, target);
                 },
               }))
@@ -65,6 +69,7 @@ export function SidebarTree({
           <SidebarRoleGroup
             key={`${group.hospital.id}-${group.hospital.unitId}`}
             hospital={selectedSlice.hospital}
+            primary={selectedSlice.primary}
             rows={selectedSlice.rows}
             chips={chips}
             activeRoute={activeRoute}
