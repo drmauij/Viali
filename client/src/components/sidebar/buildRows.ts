@@ -7,7 +7,41 @@ import {
   type UnitType,
 } from "@/lib/moduleVisibility";
 import type { ModuleRow } from "./SidebarRoleGroup";
-import type { SidebarHospital } from "./RoleModuleSidebar";
+
+export interface SidebarHospital {
+  id: string;
+  name: string;
+  unitId: string;
+  unitName: string;
+  unitType: UnitType;
+  role: string;
+  addonSurgery?: boolean;
+  addonClinic?: boolean;
+  addonQuestionnaire?: boolean;
+  addonWorktime?: boolean;
+  addonLogistics?: boolean;
+  questionnaireToken?: string | null;
+  questionnaireAlias?: string | null;
+  externalSurgeryToken?: string | null;
+  bookingToken?: string | null;
+  isDefaultLogin?: boolean;
+  isPlatformOperator?: boolean;
+}
+
+export function orderGroups(
+  hospitals: SidebarHospital[],
+  active: SidebarHospital,
+): SidebarHospital[] {
+  return [...hospitals].sort((a, b) => {
+    const aActive = a.unitId === active.unitId && a.role === active.role ? 1 : 0;
+    const bActive = b.unitId === active.unitId && b.role === active.role ? 1 : 0;
+    if (aActive !== bActive) return bActive - aActive;
+    const aDefault = a.isDefaultLogin ? 1 : 0;
+    const bDefault = b.isDefaultLogin ? 1 : 0;
+    if (aDefault !== bDefault) return bDefault - aDefault;
+    return a.unitName.localeCompare(b.unitName);
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Quick Links — shared data builder consumed by both SidebarQuickLinks (full)

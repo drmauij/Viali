@@ -14,7 +14,7 @@ import { useLocation } from "wouter";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { SidebarTree } from "./sidebar/SidebarTree";
 import { SimpleHospitalPicker } from "./sidebar/SimpleHospitalPicker";
-import type { SidebarHospital } from "./sidebar/RoleModuleSidebar";
+import type { SidebarHospital } from "./sidebar/buildRows";
 
 interface Hospital {
   id: string;
@@ -163,19 +163,8 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   return (
     <div className="top-bar">
       <div className="flex items-center justify-between gap-2 min-w-0">
-        {/* Module Menu and Hospital Switcher */}
+        {/* Hospital Switcher */}
         <div className="flex items-center gap-3 min-w-0">
-          {/* Sidebar state toggle: full → rail → hidden → full */}
-          <button
-            onClick={() => document.dispatchEvent(new CustomEvent("toggle-sidebar-state"))}
-            className="w-10 h-10 shrink-0 rounded-lg hover:bg-accent flex items-center justify-center transition-colors"
-            aria-label={t("sidebar.toggleState", "Toggle sidebar")}
-            title={t("sidebar.toggleState", "Toggle sidebar")}
-            data-testid="sidebar-toggle-button"
-          >
-            <i className="fas fa-bars text-lg text-foreground"></i>
-          </button>
-
           {isChainAdmin ? (
             <button
               type="button"

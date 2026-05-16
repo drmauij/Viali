@@ -1,8 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { orderGroups, type SidebarHospital } from "./RoleModuleSidebar";
 import { SidebarRoleGroup } from "./SidebarRoleGroup";
 import { SidebarQuickLinks } from "./SidebarQuickLinks";
-import { buildRows } from "./buildRows";
+import { buildRows, orderGroups, type SidebarHospital } from "./buildRows";
 
 interface Props {
   hospitals: SidebarHospital[];

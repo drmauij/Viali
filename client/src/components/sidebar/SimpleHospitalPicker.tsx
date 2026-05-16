@@ -1,9 +1,7 @@
 import { unitTagClass } from "@/lib/unitTagColors";
-import { routeFor, labelFor } from "./buildRows";
+import { routeFor, type SidebarHospital } from "./buildRows";
 import { getVisibleModules } from "@/lib/moduleVisibility";
 import type { UnitType } from "@/lib/moduleVisibility";
-import type { SidebarHospital } from "./RoleModuleSidebar";
-import { useTranslation } from "react-i18next";
 
 interface Props {
   hospitals: SidebarHospital[];
@@ -45,7 +43,6 @@ function defaultRouteFor(h: SidebarHospital): string {
 }
 
 export function SimpleHospitalPicker({ hospitals, activeHospital, onSelect }: Props) {
-  const { t } = useTranslation();
   const grouped = groupByHospital(hospitals);
 
   return (
