@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { draggedRequest } from "@/components/surgery/useExternalRequestDrag";
 import CalendarSearch from "@/components/shared/CalendarSearch";
 import type { CalendarSearchResult } from "@/components/shared/CalendarSearch";
+import type { BusyWindow } from "./AvailabilityOverlay";
 import { HeatmapToggle, useHeatmapEnabled } from "./HeatmapToggle";
 import { RiskChip } from "./RiskChip";
 import { RiskBreakdownPopover, type AmbulantSummary } from "./RiskBreakdownPopover";
@@ -405,6 +406,57 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     
     return { start, end };
   }, [selectedDate, currentView]);
+
+  // Collect unique linked hospital IDs from OP rooms (for busy-zone overlay)
+  const linkedHospitalIds = useMemo(() => {
+    const ids = new Set<string>();
+    surgeryRooms.forEach((room: any) => {
+      if (room.linkedHospitalId) ids.add(room.linkedHospitalId);
+    });
+    return Array.from(ids);
+  }, [surgeryRooms]);
+
+  // Fetch busy windows for all destination hospitals linked to OP rooms.
+  // A single query fans out with Promise.all to avoid hook-in-loop issues.
+  const { data: busyWindowsAll = [] } = useQuery<BusyWindow[]>({
+    queryKey: ["availability-all", linkedHospitalIds, dateRange.start.toISOString(), dateRange.end.toISOString()],
+    queryFn: async () => {
+      const results = await Promise.all(
+        linkedHospitalIds.map(async (destId) => {
+          const r = await fetch(
+            `/api/referral-partnerships/${destId}/availability?from=${encodeURIComponent(dateRange.start.toISOString())}&to=${encodeURIComponent(dateRange.end.toISOString())}`
+          );
+          if (!r.ok) return [] as BusyWindow[];
+          const json = await r.json();
+          return (json.busyWindows ?? []) as BusyWindow[];
+        })
+      );
+      return results.flat();
+    },
+    staleTime: 30_000,
+    enabled: linkedHospitalIds.length > 0,
+  });
+
+  // Convert busy windows to RBC background events (one per window, scoped to its room column).
+  // Cast to any[] because RBC's backgroundEvents only uses start/end/resource for positioning,
+  // but the DragAndDropCalendar generic constrains the prop to CalendarEvent[].
+  const busyBackgroundEvents = useMemo((): any[] => {
+    return busyWindowsAll.map((w, i) => ({
+      id: `busy-bg-${i}`,
+      title: "",
+      start: new Date(w.start),
+      end: new Date(w.end),
+      resource: w.room_id,
+      surgeryId: `busy-bg-${i}`,
+      patientId: null,
+      plannedSurgery: "",
+      patientName: "",
+      patientBirthday: "",
+      isCancelled: false,
+      isSuspended: false,
+      _isBusyZone: true,
+    }));
+  }, [busyWindowsAll]);
 
   // Fetch surgeries for the date range with background polling every 30 seconds
   const { data: surgeries = [] } = useQuery<any[]>({
@@ -1090,6 +1142,30 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
       return;
     }
 
+    // Block slot selection when the target room is linked to a destination hospital
+    // and the selected time overlaps a busy window at that destination.
+    if (slotInfo.resourceId) {
+      const roomId = slotInfo.resourceId as string;
+      const room = surgeryRooms.find((r: any) => r.id === roomId);
+      if (room?.linkedHospitalId) {
+        const slotStart = slotInfo.start.getTime();
+        const slotEnd = (slotInfo.end ?? slotInfo.start).getTime();
+        const isInBusyZone = busyWindowsAll.some(
+          (w) =>
+            w.room_id === roomId &&
+            slotStart < new Date(w.end).getTime() &&
+            slotEnd > new Date(w.start).getTime()
+        );
+        if (isInBusyZone) {
+          toast({
+            title: t("opCalendar.busyZoneBlocked", "Slot not available at this destination — pick another time"),
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
+
     // Only open quick create for actual time range selections, not when clicking/dragging events
     // SlotInfo.action can be 'select', 'click', or 'doubleClick'
     // We only want to open quick create on 'select' (drag selection) in day/week views
@@ -1101,7 +1177,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
       });
       setQuickCreateOpen(true);
     }
-  }, [currentView, canPlanSurgery, tapSelectedRequest, onTapSlotWithSelection, closures, toast, t]);
+  }, [currentView, canPlanSurgery, tapSelectedRequest, onTapSlotWithSelection, closures, toast, t, surgeryRooms, busyWindowsAll]);
 
   // Handle event click
   const handleSelectEvent = useCallback((event: CalendarEvent, _e: React.SyntheticEvent) => {
@@ -1973,6 +2049,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
                 onEventDrop={handleEventDrop}
                 onEventResize={handleEventResize}
                 eventPropGetter={eventStyleGetter}
+                backgroundEvents={currentView === "day" ? busyBackgroundEvents : []}
                 formats={formats}
                 components={{
                   event: EventComponent,
