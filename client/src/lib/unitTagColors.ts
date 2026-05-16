@@ -36,3 +36,26 @@ export function unitTagClass(unitType: UnitType | string | null | undefined): st
     default:           return UNIT_TAG_COLORS.public.bg;
   }
 }
+
+// Literal before:bg-* classes for Tailwind JIT (runtime interpolation breaks scanning).
+// Keep every value as a complete, unbroken class string so the scanner sees them.
+export const RAIL_BEFORE: Record<TagKey, string> = {
+  anesthesia: "before:bg-rose-400",
+  or:         "before:bg-sky-400",
+  clinic:     "before:bg-emerald-400",
+  business:   "before:bg-amber-400",
+  logistic:   "before:bg-teal-400",
+  platform:   "before:bg-violet-400",
+  public:     "before:bg-zinc-500",
+};
+
+export function unitRailBeforeClass(unitType: UnitType | string | null | undefined): string {
+  switch (unitType) {
+    case "anesthesia": return RAIL_BEFORE.anesthesia;
+    case "or":         return RAIL_BEFORE.or;
+    case "clinic":     return RAIL_BEFORE.clinic;
+    case "business":   return RAIL_BEFORE.business;
+    case "logistic":   return RAIL_BEFORE.logistic;
+    default:           return RAIL_BEFORE.public;
+  }
+}

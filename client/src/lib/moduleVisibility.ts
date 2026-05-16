@@ -19,7 +19,9 @@ export type UnitType =
   | "clinic"
   | "business"
   | "logistic"
-  | null;
+  | (string & {})  // accept unknown unitType strings (future-proofing for praxis etc.)
+  | null
+  | undefined;
 
 export interface HospitalAddons {
   surgery: boolean;

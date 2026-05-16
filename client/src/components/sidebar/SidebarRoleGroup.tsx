@@ -1,4 +1,3 @@
-import { useTranslation } from "react-i18next";
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -41,7 +40,6 @@ export function SidebarRoleGroup({
   onSelect,
   singleRoleMode = false,
 }: Props) {
-  const { t } = useTranslation();
   const tagBg = unitTagClass(hospital.unitType);
 
   return (

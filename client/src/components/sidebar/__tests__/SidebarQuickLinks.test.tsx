@@ -32,7 +32,7 @@ describe("SidebarQuickLinks", () => {
       />,
     );
     expect(screen.getByText(/clinic questionnaire/i)).toBeInTheDocument();
-    expect(screen.getByText(/OP-Terminreservierung/i)).toBeInTheDocument();
+    expect(screen.getByText(/External Surgery Reservation/i)).toBeInTheDocument();
     expect(screen.getByText(/Online-Terminbuchung/i)).toBeInTheDocument();
   });
 
@@ -55,7 +55,7 @@ describe("SidebarQuickLinks", () => {
         hasMedicalAccess={false}
       />,
     );
-    expect(screen.queryByText(/OP-Terminreservierung/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/External Surgery Reservation/i)).not.toBeInTheDocument();
   });
 
   it("hides the whole section when no tokens are configured", () => {

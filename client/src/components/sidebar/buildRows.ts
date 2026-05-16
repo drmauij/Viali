@@ -9,6 +9,64 @@ import {
 import type { ModuleRow } from "./SidebarRoleGroup";
 import type { SidebarHospital } from "./RoleModuleSidebar";
 
+// ---------------------------------------------------------------------------
+// Quick Links — shared data builder consumed by both SidebarQuickLinks (full)
+// and RoleModuleSidebar / SidebarIconRail (rail). Keeps visibility logic in
+// one place so full and rail states always agree on which links to show.
+// ---------------------------------------------------------------------------
+
+export interface QuickLinkData {
+  id: "questionnaire" | "externalSurgery" | "booking";
+  label: string;
+  url: string;
+  /** Present only on the booking row; used to download the QR poster. */
+  posterUrl?: string;
+}
+
+interface QuickLinkHospital {
+  id: string;
+  questionnaireToken?: string | null;
+  questionnaireAlias?: string | null;
+  externalSurgeryToken?: string | null;
+  bookingToken?: string | null;
+}
+
+export function buildQuickLinks(
+  hospital: QuickLinkHospital,
+  addons: { questionnaire: boolean },
+  hasMedicalAccess: boolean,
+  t: ReturnType<typeof import("react-i18next").useTranslation>["t"],
+): QuickLinkData[] {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const links: QuickLinkData[] = [];
+
+  if (hospital.questionnaireToken && addons.questionnaire) {
+    const url = hospital.questionnaireAlias
+      ? `${origin}/q/${hospital.questionnaireAlias}`
+      : `${origin}/questionnaire/hospital/${hospital.questionnaireToken}`;
+    links.push({ id: "questionnaire", label: t("quickLinks.clinicQuestionnaire"), url });
+  }
+
+  if (hospital.externalSurgeryToken && hasMedicalAccess) {
+    links.push({
+      id: "externalSurgery",
+      label: t("quickLinks.externalSurgery", "External Surgery Reservation"),
+      url: `${origin}/external-surgery/${hospital.externalSurgeryToken}`,
+    });
+  }
+
+  if (hospital.bookingToken) {
+    links.push({
+      id: "booking",
+      label: t("quickLinks.bookingPage", "Online-Terminbuchung"),
+      url: `${origin}/book/${hospital.bookingToken}`,
+      posterUrl: `${origin}/api/booking/poster/${hospital.bookingToken}`,
+    });
+  }
+
+  return links;
+}
+
 export function addonsOf(h: SidebarHospital): HospitalAddons {
   return {
     surgery: !!h.addonSurgery,

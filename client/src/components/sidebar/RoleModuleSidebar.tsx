@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronsRight } from "lucide-react";
 import {
@@ -11,7 +11,7 @@ import type { UnitType } from "@/lib/moduleVisibility";
 import { SidebarRoleGroup } from "./SidebarRoleGroup";
 import { SidebarIconRail, type RailGroup, type RailQuickLink } from "./SidebarIconRail";
 import { SidebarQuickLinks } from "./SidebarQuickLinks";
-import { buildRows } from "./buildRows";
+import { buildRows, buildQuickLinks } from "./buildRows";
 
 export interface SidebarHospital {
   id: string;
@@ -85,8 +85,14 @@ export function RoleModuleSidebar({
     return defaultStateForViewport();
   });
 
+  // Track the last non-hidden state so reopening from hidden restores it.
+  const prevVisibleState = useRef<"full" | "rail">("full");
+
   useEffect(() => {
     localStorage.setItem(STATE_KEY, state);
+    if (state === "full" || state === "rail") {
+      prevVisibleState.current = state;
+    }
   }, [state]);
 
   const ordered = useMemo(
@@ -103,33 +109,24 @@ export function RoleModuleSidebar({
     icons: g.rows,
   }));
 
-  const quickLinkIcons: RailQuickLink[] = [];
-  if (activeHospital.questionnaireToken && activeHospital.addonQuestionnaire) {
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    quickLinkIcons.push({
-      id: "questionnaire",
-      label: t("quickLinks.clinicQuestionnaire"),
-      url: activeHospital.questionnaireAlias
-        ? `${origin}/q/${activeHospital.questionnaireAlias}`
-        : `${origin}/questionnaire/hospital/${activeHospital.questionnaireToken}`,
-    });
-  }
-  if (activeHospital.externalSurgeryToken) {
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    quickLinkIcons.push({
-      id: "externalSurgery",
-      label: t("quickLinks.externalSurgery", "OP-Terminreservierung"),
-      url: `${origin}/external-surgery/${activeHospital.externalSurgeryToken}`,
-    });
-  }
-  if (activeHospital.bookingToken) {
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    quickLinkIcons.push({
-      id: "booking",
-      label: t("quickLinks.bookingPage", "Online-Terminbuchung"),
-      url: `${origin}/book/${activeHospital.bookingToken}`,
-    });
-  }
+  const hasMedicalAccess =
+    activeHospital.unitType === "anesthesia" || activeHospital.unitType === "or";
+
+  const quickLinkData = buildQuickLinks(
+    activeHospital,
+    { questionnaire: !!activeHospital.addonQuestionnaire },
+    hasMedicalAccess,
+    t,
+  );
+
+  // Rail only needs id/label/url — posterUrl is full-state only (icon-only rail
+  // has no room for a QR button, but the visibility decision comes from the same
+  // shared source as the full state).
+  const quickLinkIcons: RailQuickLink[] = quickLinkData.map(ql => ({
+    id: ql.id,
+    label: ql.label,
+    url: ql.url,
+  }));
 
   function isMobile(): boolean {
     return typeof window !== "undefined" && window.innerWidth < 768;
@@ -147,7 +144,7 @@ export function RoleModuleSidebar({
         <button
           type="button"
           aria-label={t("sidebar.showSidebar")}
-          onClick={() => setState("full")}
+          onClick={() => setState(prevVisibleState.current)}
           className="fixed left-0 top-1/2 z-20 flex h-12 w-3 -translate-y-1/2 items-center justify-center rounded-r bg-sidebar text-muted-foreground"
         >
           <ChevronsRight className="h-3 w-3" />
@@ -211,10 +208,7 @@ export function RoleModuleSidebar({
             <SidebarQuickLinks
               hospital={activeHospital}
               addons={{ questionnaire: !!activeHospital.addonQuestionnaire }}
-              hasMedicalAccess={
-                activeHospital.unitType === "anesthesia" ||
-                activeHospital.unitType === "or"
-              }
+              hasMedicalAccess={hasMedicalAccess}
             />
           </SidebarFooter>
         </>

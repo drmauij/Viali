@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { unitTagClass, UNIT_TAG_COLORS } from "./unitTagColors";
+import { unitTagClass, unitRailBeforeClass, UNIT_TAG_COLORS, RAIL_BEFORE } from "./unitTagColors";
 
 describe("unitTagColors", () => {
   it("returns a stable Tailwind class per unit type", () => {
@@ -19,5 +19,27 @@ describe("unitTagColors", () => {
   it("exposes a separate platform tag for cross-tenant rows", () => {
     expect(UNIT_TAG_COLORS.platform.bg).toBeDefined();
     expect(UNIT_TAG_COLORS.platform.bg).not.toBe(UNIT_TAG_COLORS.anesthesia.bg);
+  });
+});
+
+describe("unitRailBeforeClass", () => {
+  it("returns a literal before:bg-* class for each unit type", () => {
+    // The literal string must exist in source — Tailwind JIT scans for exact strings
+    expect(unitRailBeforeClass("anesthesia")).toBe(RAIL_BEFORE.anesthesia);
+    expect(unitRailBeforeClass("or")).toBe(RAIL_BEFORE.or);
+    expect(unitRailBeforeClass("clinic")).toBe(RAIL_BEFORE.clinic);
+    expect(unitRailBeforeClass("business")).toBe(RAIL_BEFORE.business);
+    expect(unitRailBeforeClass("logistic")).toBe(RAIL_BEFORE.logistic);
+  });
+
+  it("anesthesia rail class includes both 'before:' and 'bg-rose-'", () => {
+    const cls = unitRailBeforeClass("anesthesia");
+    expect(cls).toContain("before:");
+    expect(cls).toContain("bg-rose-");
+  });
+
+  it("returns public (zinc) class for null/unknown", () => {
+    expect(unitRailBeforeClass(null)).toBe(RAIL_BEFORE.public);
+    expect(unitRailBeforeClass("something-unknown")).toBe(RAIL_BEFORE.public);
   });
 });

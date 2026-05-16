@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sidebar";
 import { UNIT_TAG_COLORS } from "@/lib/unitTagColors";
 import { useToast } from "@/hooks/use-toast";
+import { buildQuickLinks, type QuickLinkData } from "./buildRows";
 
 interface QuickLinkHospital {
   id: string;
@@ -25,51 +26,17 @@ interface Props {
   hasMedicalAccess: boolean;
 }
 
-interface QuickLink {
-  id: "questionnaire" | "externalSurgery" | "booking";
-  label: string;
-  url: string;
-  icon: JSX.Element;
-  posterUrl?: string;
-}
+const QUICK_LINK_ICON: Record<QuickLinkData["id"], JSX.Element> = {
+  questionnaire: <FileText className="h-3.5 w-3.5" />,
+  externalSurgery: <Calendar className="h-3.5 w-3.5" />,
+  booking: <CalendarCheck className="h-3.5 w-3.5" />,
+};
 
 export function SidebarQuickLinks({ hospital, addons, hasMedicalAccess }: Props) {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
 
-  const links: QuickLink[] = [];
-
-  if (hospital.questionnaireToken && addons.questionnaire) {
-    const url = hospital.questionnaireAlias
-      ? `${origin}/q/${hospital.questionnaireAlias}`
-      : `${origin}/questionnaire/hospital/${hospital.questionnaireToken}`;
-    links.push({
-      id: "questionnaire",
-      label: t("quickLinks.clinicQuestionnaire"),
-      url,
-      icon: <FileText className="h-3.5 w-3.5" />,
-    });
-  }
-
-  if (hospital.externalSurgeryToken && hasMedicalAccess) {
-    links.push({
-      id: "externalSurgery",
-      label: t("quickLinks.externalSurgery", "OP-Terminreservierung"),
-      url: `${origin}/external-surgery/${hospital.externalSurgeryToken}`,
-      icon: <Calendar className="h-3.5 w-3.5" />,
-    });
-  }
-
-  if (hospital.bookingToken) {
-    links.push({
-      id: "booking",
-      label: t("quickLinks.bookingPage", "Online-Terminbuchung"),
-      url: `${origin}/book/${hospital.bookingToken}`,
-      icon: <CalendarCheck className="h-3.5 w-3.5" />,
-      posterUrl: `${origin}/api/booking/poster/${hospital.bookingToken}`,
-    });
-  }
+  const links = buildQuickLinks(hospital, addons, hasMedicalAccess, t);
 
   if (links.length === 0) return null;
 
@@ -114,7 +81,7 @@ export function SidebarQuickLinks({ hospital, addons, hasMedicalAccess }: Props)
                     rel="noopener noreferrer"
                     className="flex flex-1 items-center gap-2 truncate text-foreground hover:text-primary"
                   >
-                    {link.icon}
+                    {QUICK_LINK_ICON[link.id]}
                     <span className="truncate">{link.label}</span>
                   </a>
                   {link.posterUrl && (

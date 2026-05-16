@@ -11,7 +11,7 @@ import { useCardReaderBridge } from "@/hooks/useCardReaderBridge";
 import { isDemoMode, toggleDemoMode } from "@/utils/demoMode";
 import { queryClient } from "@/lib/queryClient";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { RoleModuleSidebar } from "@/components/sidebar/RoleModuleSidebar";
+import { RoleModuleSidebar, type SidebarHospital } from "@/components/sidebar/RoleModuleSidebar";
 
 interface Hospital {
   id: string;
@@ -193,8 +193,8 @@ export default function Layout({ children }: LayoutProps) {
       {sidebarEnabled && activeHospital ? (
         <SidebarProvider>
           <RoleModuleSidebar
-            hospitals={hospitals as Parameters<typeof RoleModuleSidebar>[0]["hospitals"]}
-            activeHospital={activeHospital as Parameters<typeof RoleModuleSidebar>[0]["activeHospital"]}
+            hospitals={hospitals as SidebarHospital[]}
+            activeHospital={activeHospital as SidebarHospital}
             activeRoute={location}
             onNavigate={(h, route) => {
               localStorage.setItem(

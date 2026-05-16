@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { ChevronRight, HeartPulse, Boxes, Shield, Stethoscope, Scissors, BarChart3, Globe, Truck, Clock, ClipboardCheck, FileText, Calendar, CalendarCheck } from "lucide-react";
-import { unitTagClass } from "@/lib/unitTagColors";
+import { unitTagClass, unitRailBeforeClass, RAIL_BEFORE } from "@/lib/unitTagColors";
 import type { UnitType } from "@/lib/moduleVisibility";
 
 interface HospitalRef {
@@ -90,7 +90,7 @@ export function SidebarIconRail({
                 onClick={() => onSelect(group.hospital, icon)}
                 title={`${group.hospital.unitName} · ${group.hospital.role} → ${icon.label}`}
                 aria-label={`${group.hospital.unitName} · ${group.hospital.role} → ${icon.label}`}
-                className={`relative flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent data-[active=true]:bg-sidebar-accent ${unitTagClass(group.hospital.unitType)}/0 before:absolute before:-left-[3px] before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-r-sm before:${unitTagClass(group.hospital.unitType)}`}
+                className={`relative flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent data-[active=true]:bg-sidebar-accent before:absolute before:-left-[3px] before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-r-sm ${unitRailBeforeClass(group.hospital.unitType)}`}
               >
                 {MODULE_ICON[icon.id] ?? <span className="text-xs">·</span>}
                 {icon.badge !== undefined && icon.badge > 0 && (
@@ -116,7 +116,7 @@ export function SidebarIconRail({
                 rel="noopener noreferrer"
                 title={ql.label}
                 aria-label={ql.label}
-                className="relative flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent before:absolute before:-left-[3px] before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-r-sm before:bg-zinc-500"
+                className={`relative flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent before:absolute before:-left-[3px] before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-r-sm ${RAIL_BEFORE.public}`}
               >
                 {QUICK_LINK_ICON[ql.id]}
               </a>

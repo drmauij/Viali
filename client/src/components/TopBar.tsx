@@ -238,12 +238,16 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
               <div className="absolute top-full left-0 mt-2 w-72 bg-card border border-border rounded-lg shadow-lg z-50 max-h-[60vh] overflow-y-auto">
                 {sidebarEnabled && activeHospital ? (
                   <SidebarTree
-                    hospitals={hospitals as unknown as SidebarHospital[]}
-                    activeHospital={activeHospital as unknown as SidebarHospital}
+                    hospitals={hospitals as SidebarHospital[]}
+                    activeHospital={activeHospital as SidebarHospital}
                     activeRoute={typeof window !== "undefined" ? window.location.pathname : ""}
                     onSelect={(h, route) => {
-                      onHospitalChange?.(h as unknown as Hospital);
+                      localStorage.setItem(
+                        "activeHospital",
+                        `${h.id}-${h.unitId}-${h.role}`,
+                      );
                       setShowHospitalDropdown(false);
+                      window.location.href = route;
                     }}
                     showQuickLinks={false}
                   />
