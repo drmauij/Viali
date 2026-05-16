@@ -184,6 +184,7 @@ export const hospitals = pgTable("hospitals", {
   noShowFeeMessage: text("no_show_fee_message"), // When set, enables no-show fee notice at booking + in 24h reminder
   hidePatientCancel: boolean("hide_patient_cancel").default(false), // When true, hides cancel option from patient-facing appointment page + softens SMS/email wording
   groupId: varchar("group_id").references(() => hospitalGroups.id), // Optional hospital_groups FK — ties this hospital to a brand/chain
+  tenantType: varchar("tenant_type").default("clinic"), // 'clinic' | 'praxis'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -331,10 +332,13 @@ export const surgeryRooms = pgTable("surgery_rooms", {
   name: varchar("name").notNull(),
   type: roomTypeEnum("type").default("OP").notNull(), // OP = Operating Room, PACU = Post-Anesthesia Care Unit
   sortOrder: integer("sort_order").default(0),
+  linkedHospitalId: varchar("linked_hospital_id").references(() => hospitals.id, { onDelete: "set null" }),
+  // If non-null, this room represents slots at the linked destination hospital (cross-tenant referrals)
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_surgery_rooms_hospital").on(table.hospitalId),
   index("idx_surgery_rooms_type").on(table.type),
+  index("idx_surgery_rooms_linked_hospital").on(table.linkedHospitalId),
 ]);
 
 // Camera Devices (Raspberry Pi cameras for automated vital signs capture)
@@ -1269,6 +1273,15 @@ export const surgeries = pgTable("surgeries", {
 
   // Clinic appointment link (optional — for surgeries booked via clinic calendar)
   appointmentId: varchar("appointment_id").references(() => clinicAppointments.id, { onDelete: "set null" }),
+
+  // Cross-tenant referral fields (Praxis Mode)
+  externalRequestId: varchar("external_request_id"), // No FK — cross-tenant link
+  referralStatus: varchar("referral_status").default("local"),
+  // 'local' | 'pending_external' | 'confirmed_external' | 'rejected_external' | 'cancelled_external'
+  referralNote: text("referral_note"),
+  lastClinicRescheduleAt: timestamp("last_clinic_reschedule_at"),
+  rescheduleAcknowledgedAt: timestamp("reschedule_acknowledged_at"),
+  rescheduleHistory: jsonb("reschedule_history").default(sql`'[]'::jsonb`),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -4637,6 +4650,12 @@ export const patientQuestionnaireResponses = pgTable("patient_questionnaire_resp
   createdAt: timestamp("created_at").defaultNow(),
   functionallyDependent: boolean("functionally_dependent"),
   metAbove4: boolean("met_above_4"),
+
+  // Praxis Mode provenance — tracks fields pre-filled from a praxis referral
+  importedFromPraxis: boolean("imported_from_praxis").default(false),
+  importedFromPraxisAt: timestamp("imported_from_praxis_at"),
+  importedFieldSources: jsonb("imported_field_sources"),
+  // e.g. { allergies: 'source_referral', medications: 'source_referral' }
 }, (table) => [
   foreignKey({
     columns: [table.linkId],
@@ -5704,7 +5723,12 @@ export const externalSurgeryRequests = pgTable("external_surgery_requests", {
   // Admin notes
   internalNotes: text("internal_notes"),
   declineReason: text("decline_reason"),
-  
+
+  // Cross-tenant provenance (Praxis Mode)
+  sourceHospitalId: varchar("source_hospital_id").references(() => hospitals.id, { onDelete: "set null" }),
+  sourceSurgeryId: varchar("source_surgery_id"), // No FK — cross-tenant link
+  patientSnapshot: jsonb("patient_snapshot"),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   scheduledAt: timestamp("scheduled_at"),
@@ -5733,6 +5757,28 @@ export const insertExternalSurgeryRequestSchema = createInsertSchema(externalSur
 
 export type ExternalSurgeryRequest = typeof externalSurgeryRequests.$inferSelect;
 export type InsertExternalSurgeryRequest = z.infer<typeof insertExternalSurgeryRequestSchema>;
+
+// Referral Partnerships — trusted pairs of praxis ↔ clinic hospitals that can
+// exchange cross-tenant surgery referrals. One row per directional pair
+// (source → destination). The inverse direction requires a separate row.
+export const referralPartnerships = pgTable("referral_partnerships", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceHospitalId: varchar("source_hospital_id").notNull()
+    .references(() => hospitals.id, { onDelete: "cascade" }),
+  destinationHospitalId: varchar("destination_hospital_id").notNull()
+    .references(() => hospitals.id, { onDelete: "cascade" }),
+  status: varchar("status").notNull().default("active"),
+  // 'active' | 'pending' | 'suspended' | 'revoked'
+  pairingSource: varchar("pairing_source").notNull(),
+  // 'auto_on_provision' | 'historical_import' | 'manual_code'
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_referral_partnerships_source").on(table.sourceHospitalId),
+  index("idx_referral_partnerships_destination").on(table.destinationHospitalId),
+  uniqueIndex("referral_partnerships_unique_pair").on(table.sourceHospitalId, table.destinationHospitalId),
+]);
+
+export type ReferralPartnership = typeof referralPartnerships.$inferSelect;
 
 // External Surgery Request Documents - uploaded by external doctors
 export const externalSurgeryRequestDocuments = pgTable("external_surgery_request_documents", {
