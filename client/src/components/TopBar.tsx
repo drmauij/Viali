@@ -14,6 +14,8 @@ import { useLocation } from "wouter";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { HospitalDropdownTabs } from "./sidebar/HospitalDropdownTabs";
 import type { SidebarHospital } from "./sidebar/buildRows";
+import { unitTagClass } from "@/lib/unitTagColors";
+import type { UnitType } from "@/lib/moduleVisibility";
 
 interface Hospital {
   id: string;
@@ -160,7 +162,15 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const userLastName = (user as any)?.lastName;
 
   return (
-    <div className="top-bar">
+    <div className="top-bar relative">
+      {/* Unit-type color cue — vertical bar on the left edge of the header
+          mirrors the per-unitType tag used on dropdown rows. Helps the user
+          identify their current context (anesthesia / OR / clinic / etc.)
+          at a glance. */}
+      <div
+        className={`absolute left-0 top-0 bottom-0 w-1 ${unitTagClass(activeHospital?.unitType as UnitType)}`}
+        aria-hidden
+      />
       <div className="flex items-center justify-between gap-2 min-w-0">
         {/* Hospital Switcher */}
         <div className="flex items-center gap-3 min-w-0">
