@@ -67,107 +67,119 @@ export function PraxisActivationModal({ open, onClose, token }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
+      {/*
+        Mobile-friendly layout: cap height to the viewport and split into
+        sticky header + scrollable body + sticky footer so the Cancel /
+        Activate buttons stay reachable on phones. The default DialogContent
+        has p-6 + gap-4 + no max-h, which clipped this dialog top/bottom on
+        small screens and made the Activate button unreachable without
+        zooming out.
+      */}
+      <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-2rem)] max-w-lg flex-col gap-0 p-0 sm:w-full">
+        <DialogHeader className="shrink-0 border-b border-border px-4 py-3 sm:px-6 sm:py-4">
           <DialogTitle>{t("praxisActivation.modal.title", "Activate your practice on Viali")}</DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-muted-foreground">
-          {t(
-            "praxisActivation.modal.description",
-            "This will create a full Viali instance for your practice. You will be redirected after activation. Your existing surgery requests will be imported automatically.",
-          )}
-        </p>
-        <div className="space-y-3 mt-4">
-          <div>
-            <Label htmlFor="praxis-name">{t("praxisActivation.modal.praxisName", "Practice name")}</Label>
-            <Input
-              id="praxis-name"
-              value={sourceName}
-              onChange={(e) => setSourceName(e.target.value)}
-              placeholder={t("praxisActivation.modal.praxisNamePlaceholder", "Mueller Practice")}
-              data-testid="input-praxis-name"
-            />
+
+        <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
+          <p className="text-sm text-muted-foreground">
+            {t(
+              "praxisActivation.modal.description",
+              "This will create a full Viali instance for your practice. You will be redirected after activation. Your existing surgery requests will be imported automatically.",
+            )}
+          </p>
+          <div className="space-y-3 mt-4">
+            <div>
+              <Label htmlFor="praxis-name">{t("praxisActivation.modal.praxisName", "Practice name")}</Label>
+              <Input
+                id="praxis-name"
+                value={sourceName}
+                onChange={(e) => setSourceName(e.target.value)}
+                placeholder={t("praxisActivation.modal.praxisNamePlaceholder", "Mueller Practice")}
+                data-testid="input-praxis-name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="praxis-password">{t("praxisActivation.modal.password", "Password")}</Label>
+              <Input
+                id="praxis-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                data-testid="input-praxis-password"
+              />
+            </div>
+            <div>
+              <Label htmlFor="praxis-confirm">{t("praxisActivation.modal.confirmPassword", "Confirm password")}</Label>
+              <Input
+                id="praxis-confirm"
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                data-testid="input-praxis-confirm"
+              />
+            </div>
           </div>
-          <div>
-            <Label htmlFor="praxis-password">{t("praxisActivation.modal.password", "Password")}</Label>
-            <Input
-              id="praxis-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              data-testid="input-praxis-password"
-            />
-          </div>
-          <div>
-            <Label htmlFor="praxis-confirm">{t("praxisActivation.modal.confirmPassword", "Confirm password")}</Label>
-            <Input
-              id="praxis-confirm"
-              type="password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              data-testid="input-praxis-confirm"
-            />
-          </div>
-        </div>
-        <div
-          data-testid="praxis-beta-banner"
-          className="relative mt-4 overflow-hidden rounded-xl border border-indigo-500/40 bg-gradient-to-br from-indigo-600 to-purple-700 p-4 text-white shadow-lg ring-1 ring-indigo-300/30"
-        >
-          <div className="flex items-start gap-3">
-            <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-indigo-100" aria-hidden />
-            <div className="flex-1 space-y-3">
-              {/* Paragraph 1 — beta status + support contact */}
-              <div>
-                <span className="inline-flex rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                  {t("praxisActivation.modal.betaTag", "Beta")}
-                </span>
-                <p className="mt-1.5 text-sm leading-snug text-indigo-50">
-                  {t(
-                    "praxisActivation.modal.betaSupport",
-                    "This is a beta feature — for any issue please reach us at",
-                  )}{" "}
-                  <a
-                    href="mailto:support@viali.app"
-                    className="font-semibold text-white underline underline-offset-2 hover:text-indigo-100"
-                  >
-                    support@viali.app
-                  </a>
-                </p>
-              </div>
-              {/* Paragraph 2 — pricing, visually separated */}
-              <div className="border-t border-white/15 pt-3">
-                <span className="inline-flex rounded-full bg-emerald-400/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50">
-                  {t("praxisActivation.modal.freeTag", "Free during beta")}
-                </span>
-                <p className="mt-1.5 text-sm leading-snug text-indigo-100">
-                  {t(
-                    "praxisActivation.modal.feeNotice",
-                    "A subscription fee may apply once Viali leaves beta.",
-                  )}
-                </p>
+          <div
+            data-testid="praxis-beta-banner"
+            className="relative mt-4 overflow-hidden rounded-xl border border-indigo-500/40 bg-gradient-to-br from-indigo-600 to-purple-700 p-4 text-white shadow-lg ring-1 ring-indigo-300/30"
+          >
+            <div className="flex items-start gap-3">
+              <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-indigo-100" aria-hidden />
+              <div className="flex-1 space-y-3">
+                {/* Paragraph 1 — beta status + support contact */}
+                <div>
+                  <span className="inline-flex rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                    {t("praxisActivation.modal.betaTag", "Beta")}
+                  </span>
+                  <p className="mt-1.5 text-sm leading-snug text-indigo-50">
+                    {t(
+                      "praxisActivation.modal.betaSupport",
+                      "This is a beta feature — for any issue please reach us at",
+                    )}{" "}
+                    <a
+                      href="mailto:support@viali.app"
+                      className="font-semibold text-white underline underline-offset-2 hover:text-indigo-100"
+                    >
+                      support@viali.app
+                    </a>
+                  </p>
+                </div>
+                {/* Paragraph 2 — pricing, visually separated */}
+                <div className="border-t border-white/15 pt-3">
+                  <span className="inline-flex whitespace-nowrap rounded-full bg-emerald-400/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50">
+                    {t("praxisActivation.modal.freeTag", "Free during beta")}
+                  </span>
+                  <p className="mt-1.5 text-sm leading-snug text-indigo-100">
+                    {t(
+                      "praxisActivation.modal.feeNotice",
+                      "A subscription fee may apply once Viali leaves beta.",
+                    )}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
+          <label
+            htmlFor="praxis-accept"
+            className="mt-3 flex cursor-pointer items-start gap-2 text-xs text-foreground"
+          >
+            <Checkbox
+              id="praxis-accept"
+              checked={accepted}
+              onCheckedChange={v => setAccepted(v === true)}
+              data-testid="checkbox-praxis-accept"
+              className="mt-0.5"
+            />
+            <span className="leading-snug">
+              {t(
+                "praxisActivation.modal.acceptTerms",
+                "I understand that this is a beta feature and that a subscription fee may apply once it leaves beta.",
+              )}
+            </span>
+          </label>
         </div>
-        <label
-          htmlFor="praxis-accept"
-          className="mt-3 flex cursor-pointer items-start gap-2 text-xs text-foreground"
-        >
-          <Checkbox
-            id="praxis-accept"
-            checked={accepted}
-            onCheckedChange={v => setAccepted(v === true)}
-            data-testid="checkbox-praxis-accept"
-            className="mt-0.5"
-          />
-          <span className="leading-snug">
-            {t(
-              "praxisActivation.modal.acceptTerms",
-              "I understand that this is a beta feature and that a subscription fee may apply once it leaves beta.",
-            )}
-          </span>
-        </label>
-        <div className="flex justify-end gap-2 mt-4">
+
+        <div className="shrink-0 flex justify-end gap-2 border-t border-border bg-background px-4 py-3 sm:px-6 sm:py-4">
           <Button variant="outline" onClick={onClose}>
             {t("common.cancel", "Cancel")}
           </Button>
