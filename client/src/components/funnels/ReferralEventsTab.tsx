@@ -425,6 +425,19 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
 
   // ── Derived data ───────────────────────────────────────────────────────────
 
+  const daysInRange = useMemo(() => {
+    if (from && to) {
+      const ms = new Date(to).getTime() - new Date(from).getTime();
+      return Math.max(1, Math.round(ms / (24 * 60 * 60 * 1000)) + 1);
+    }
+    return referralDaily?.rows.length ?? 0;
+  }, [from, to, referralDaily]);
+
+  const avgPerDay = useMemo(() => {
+    if (!referralData || daysInRange <= 0) return null;
+    return referralData.totalReferrals / daysInRange;
+  }, [referralData, daysInRange]);
+
   const referralLineData = useMemo(() => {
     if (!referralTimeseries?.length) return [];
     const monthMap: Record<string, Record<string, number>> = {};
@@ -529,6 +542,13 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
             {referralData && (
               <div className="text-sm text-muted-foreground px-1">
                 {referralData.totalReferrals} {t("business.referrals.totalBookingReferrals")}
+                {avgPerDay !== null && (
+                  <>
+                    {" · "}
+                    <span className="font-medium text-foreground">{avgPerDay.toFixed(1)}</span>{" "}
+                    {t("business.referrals.avgPerDayShort", "/day avg")}
+                  </>
+                )}
               </div>
             )}
 
