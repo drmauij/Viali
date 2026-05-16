@@ -1,7 +1,7 @@
 import crypto from "crypto";
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, desc } from "drizzle-orm";
 import { db } from "../db";
-import { hospitals, units, userHospitalRoles, referralPartnerships, externalSurgeryRequests, surgeries, patients, surgeryRooms, users as usersTable } from "@shared/schema";
+import { hospitals, units, userHospitalRoles, referralPartnerships, externalSurgeryRequests, surgeries, patients, surgeryRooms, users as usersTable, patientQuestionnaireLinks, patientQuestionnaireResponses } from "@shared/schema";
 import { dispatchRescheduleAlert, dispatchCancelAfterAcceptAlert } from "../services/referralAlerts";
 
 export const PRAXIS_ADDON_DEFAULTS = {
@@ -414,9 +414,78 @@ export async function createCrossTenantReferral(
       };
     }
   }
+
+  // Pull the most recent questionnaire response for this patient to include
+  // clinical intake data in the snapshot (Task 15a).
+  let intake: Record<string, any> = {};
+  if (input.patientId) {
+    // patientQuestionnaireResponses links via linkId → patientQuestionnaireLinks.patientId
+    const recentLinks = await db
+      .select({ id: patientQuestionnaireLinks.id })
+      .from(patientQuestionnaireLinks)
+      .where(
+        and(
+          eq(patientQuestionnaireLinks.patientId, input.patientId),
+          eq(patientQuestionnaireLinks.hospitalId, input.sourceHospitalId),
+        ),
+      )
+      .orderBy(desc(patientQuestionnaireLinks.createdAt))
+      .limit(1);
+
+    if (recentLinks.length > 0) {
+      const [resp] = await db
+        .select()
+        .from(patientQuestionnaireResponses)
+        .where(eq(patientQuestionnaireResponses.linkId, recentLinks[0].id))
+        .orderBy(desc(patientQuestionnaireResponses.createdAt))
+        .limit(1);
+
+      if (resp) {
+        const candidate: Record<string, any> = {
+          allergies: resp.allergies,
+          allergiesNotes: resp.allergiesNotes,
+          medications: resp.medications,
+          medicationsNotes: resp.medicationsNotes,
+          conditions: resp.conditions,
+          smokingStatus: resp.smokingStatus,
+          smokingDetails: resp.smokingDetails,
+          alcoholStatus: resp.alcoholStatus,
+          alcoholDetails: resp.alcoholDetails,
+          height: resp.height,
+          weight: resp.weight,
+          previousSurgeries: resp.previousSurgeries,
+          previousAnesthesiaProblems: resp.previousAnesthesiaProblems,
+          pregnancyStatus: resp.pregnancyStatus,
+          breastfeeding: resp.breastfeeding,
+          dentalIssues: resp.dentalIssues,
+          dentalNotes: resp.dentalNotes,
+          ponvTransfusionIssues: resp.ponvTransfusionIssues,
+          ponvTransfusionNotes: resp.ponvTransfusionNotes,
+          drugUse: resp.drugUse,
+          drugUseDetails: resp.drugUseDetails,
+          noAllergies: resp.noAllergies,
+          noMedications: resp.noMedications,
+          noConditions: resp.noConditions,
+          noSmokingAlcohol: resp.noSmokingAlcohol,
+          noPreviousSurgeries: resp.noPreviousSurgeries,
+          noAnesthesiaProblems: resp.noAnesthesiaProblems,
+          noDentalIssues: resp.noDentalIssues,
+          noPonvIssues: resp.noPonvIssues,
+          noDrugUse: resp.noDrugUse,
+          additionalNotes: resp.additionalNotes,
+          functionallyDependent: resp.functionallyDependent,
+          metAbove4: resp.metAbove4,
+        };
+        intake = Object.fromEntries(
+          Object.entries(candidate).filter(([, v]) => v !== null && v !== undefined),
+        );
+      }
+    }
+  }
+
   const snapshot = {
     demographics,
-    intake: {},
+    intake,
     ambulant_eligibility: input.surgery.ambulantQuickCheck ?? null,
     consents: {
       given: true,
@@ -607,6 +676,70 @@ export async function acceptReferralAndImport(input: {
     .update(externalSurgeryRequests)
     .set({ status: "scheduled", patientId: destPt.id })
     .where(eq(externalSurgeryRequests.id, input.externalRequestId));
+
+  // Import questionnaire intake from snapshot into destination (Task 15b).
+  // Only runs when the snapshot carries non-empty intake data.
+  const intake = snap?.intake;
+  if (intake && Object.keys(intake).length > 0) {
+    const token = crypto.randomBytes(16).toString("hex");
+    // expiresAt is NOT NULL — use a far-future date for imported/synthetic links
+    const expiresAt = new Date(Date.now() + 365 * 24 * 3600 * 1000);
+    const [linkRow] = await db
+      .insert(patientQuestionnaireLinks)
+      .values({
+        token,
+        patientId: destPt.id,
+        hospitalId: input.destinationHospitalId,
+        status: "submitted",
+        expiresAt,
+        submittedAt: new Date(),
+      } as any)
+      .returning();
+
+    const fieldSources: Record<string, string> = {};
+    for (const key of Object.keys(intake)) fieldSources[key] = "source_referral";
+
+    await db.insert(patientQuestionnaireResponses).values({
+      linkId: linkRow.id,
+      allergies: intake.allergies,
+      allergiesNotes: intake.allergiesNotes,
+      medications: intake.medications,
+      medicationsNotes: intake.medicationsNotes,
+      conditions: intake.conditions,
+      smokingStatus: intake.smokingStatus,
+      smokingDetails: intake.smokingDetails,
+      alcoholStatus: intake.alcoholStatus,
+      alcoholDetails: intake.alcoholDetails,
+      height: intake.height,
+      weight: intake.weight,
+      previousSurgeries: intake.previousSurgeries,
+      previousAnesthesiaProblems: intake.previousAnesthesiaProblems,
+      pregnancyStatus: intake.pregnancyStatus,
+      breastfeeding: intake.breastfeeding,
+      dentalIssues: intake.dentalIssues,
+      dentalNotes: intake.dentalNotes,
+      ponvTransfusionIssues: intake.ponvTransfusionIssues,
+      ponvTransfusionNotes: intake.ponvTransfusionNotes,
+      drugUse: intake.drugUse,
+      drugUseDetails: intake.drugUseDetails,
+      noAllergies: intake.noAllergies,
+      noMedications: intake.noMedications,
+      noConditions: intake.noConditions,
+      noSmokingAlcohol: intake.noSmokingAlcohol,
+      noPreviousSurgeries: intake.noPreviousSurgeries,
+      noAnesthesiaProblems: intake.noAnesthesiaProblems,
+      noDentalIssues: intake.noDentalIssues,
+      noPonvIssues: intake.noPonvIssues,
+      noDrugUse: intake.noDrugUse,
+      additionalNotes: intake.additionalNotes,
+      functionallyDependent: intake.functionallyDependent,
+      metAbove4: intake.metAbove4,
+      submittedAt: new Date(),
+      importedFromPraxis: true,
+      importedFromPraxisAt: new Date(),
+      importedFieldSources: fieldSources,
+    } as any);
+  }
 
   // Push status back to the source-side surgery
   await pushReferralStatus({

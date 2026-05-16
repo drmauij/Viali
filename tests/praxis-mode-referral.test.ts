@@ -13,6 +13,8 @@ import {
   referralPartnerships,
   surgeryRooms,
   units,
+  patientQuestionnaireLinks,
+  patientQuestionnaireResponses,
 } from "@shared/schema";
 import { eq, inArray } from "drizzle-orm";
 import { provisionSourceHospital } from "../server/storage/praxisMode";
@@ -43,6 +45,7 @@ const created = {
   surgeries: [] as string[],
   requests: [] as string[],
   patients: [] as string[],
+  questionnaireLinks: [] as string[],
 };
 
 afterAll(async () => {
@@ -50,12 +53,21 @@ afterAll(async () => {
     await db.delete(surgeries).where(inArray(surgeries.id, created.surgeries));
   if (created.requests.length)
     await db.delete(externalSurgeryRequests).where(inArray(externalSurgeryRequests.id, created.requests));
+  if (created.questionnaireLinks.length)
+    await db.delete(patientQuestionnaireLinks).where(inArray(patientQuestionnaireLinks.id, created.questionnaireLinks));
+  // Delete questionnaire links for individually-tracked patients before deleting patients
+  // (responses cascade-delete on link delete via FK)
+  for (const pId of created.patients) {
+    await db.delete(patientQuestionnaireLinks).where(eq(patientQuestionnaireLinks.patientId, pId));
+  }
   if (created.patients.length)
     await db.delete(patients).where(inArray(patients.id, created.patients));
   for (const hId of created.hospitals) {
     await db.delete(surgeries).where(eq(surgeries.hospitalId, hId));
     await db.delete(externalSurgeryRequests).where(eq(externalSurgeryRequests.hospitalId, hId));
     await db.delete(surgeryRooms).where(eq(surgeryRooms.hospitalId, hId));
+    // Remove questionnaire links (responses cascade-delete on link delete)
+    await db.delete(patientQuestionnaireLinks).where(eq(patientQuestionnaireLinks.hospitalId, hId));
     await db.delete(patients).where(eq(patients.hospitalId, hId));
     await db.delete(referralPartnerships).where(eq(referralPartnerships.sourceHospitalId, hId));
     await db.delete(referralPartnerships).where(eq(referralPartnerships.destinationHospitalId, hId));
@@ -416,5 +428,88 @@ describe("destination reject/cancel + acknowledge-reschedule", () => {
 
     const [src] = await db.select().from(surgeries).where(eq(surgeries.id, sourceSurgeryId));
     expect(src.rescheduleAcknowledgedAt).toBeTruthy();
+  });
+});
+
+describe("questionnaire dedup across tenants", () => {
+  it("source-side questionnaire flows into snapshot.intake and is imported on accept with imported_from_praxis flags", async () => {
+    const { dest, surgeon, sourceHospitalId, room, patient } = await setup();
+
+    // Create a source-side questionnaire link + response for the patient
+    const token = `tok-${Date.now()}`;
+    const expiresAt = new Date(Date.now() + 30 * 24 * 3600 * 1000);
+    const [link] = await db.insert(patientQuestionnaireLinks).values({
+      token,
+      patientId: patient.id,
+      hospitalId: sourceHospitalId,
+      status: "submitted",
+      expiresAt,
+      submittedAt: new Date(),
+    } as any).returning();
+    created.questionnaireLinks.push(link.id);
+
+    await db.insert(patientQuestionnaireResponses).values({
+      linkId: link.id,
+      allergies: ["penicillin"],
+      medications: [{ name: "metformin", dosage: "500mg" }],
+    } as any);
+
+    // Submit the surgery — should trigger referral with intake in snapshot
+    const submit = await request(combinedApp)
+      .post("/api/anesthesia/surgeries")
+      .set("x-test-user-id", surgeon.id).set("x-test-hospital-id", sourceHospitalId)
+      .send({
+        hospitalId: sourceHospitalId,
+        patientId: patient.id, surgeryRoomId: room.id,
+        plannedDate: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
+        plannedSurgery: "Septo", consentGiven: true,
+      });
+    expect(submit.status).toBe(201);
+    created.surgeries.push(submit.body.id);
+
+    const [srcSurg] = await db.select().from(surgeries).where(eq(surgeries.id, submit.body.id));
+    const externalRequestId = srcSurg.externalRequestId!;
+    created.requests.push(externalRequestId);
+
+    // Verify snapshot carries intake
+    const [req] = await db.select().from(externalSurgeryRequests).where(eq(externalSurgeryRequests.id, externalRequestId));
+    expect((req.patientSnapshot as any).intake).toBeTruthy();
+    expect((req.patientSnapshot as any).intake.allergies).toEqual(["penicillin"]);
+    expect((req.patientSnapshot as any).intake.medications).toEqual([{ name: "metformin", dosage: "500mg" }]);
+
+    // Accept the request — should create a destination-side questionnaire response
+    const [adminUser] = await db.insert(users).values({
+      email: `q-adm-${Date.now()}@t.local`, firstName: "A", lastName: "A",
+    }).returning();
+    created.users.push(adminUser.id);
+    const [destUnit] = await db.select().from(units).where(eq(units.hospitalId, dest.id));
+    await db.insert(userHospitalRoles).values({
+      userId: adminUser.id, hospitalId: dest.id, unitId: destUnit.id, role: "admin",
+    } as any);
+
+    const accept = await request(combinedApp)
+      .post(`/api/external-surgery-requests/${externalRequestId}/accept`)
+      .set("x-test-user-id", adminUser.id).set("x-test-hospital-id", dest.id)
+      .send({});
+    expect(accept.status).toBe(200);
+    created.patients.push(accept.body.destinationPatientId);
+
+    // Verify destination questionnaire link + response were created with provenance flags
+    const destLinks = await db.select().from(patientQuestionnaireLinks)
+      .where(eq(patientQuestionnaireLinks.patientId, accept.body.destinationPatientId));
+    expect(destLinks.length).toBe(1);
+    expect(destLinks[0].status).toBe("submitted");
+
+    const destResponses = await db.select().from(patientQuestionnaireResponses)
+      .where(eq(patientQuestionnaireResponses.linkId, destLinks[0].id));
+    expect(destResponses.length).toBe(1);
+    expect(destResponses[0].importedFromPraxis).toBe(true);
+    expect(destResponses[0].importedFromPraxisAt).toBeTruthy();
+    expect(destResponses[0].importedFieldSources).toMatchObject({
+      allergies: "source_referral",
+      medications: "source_referral",
+    });
+    expect(destResponses[0].allergies).toEqual(["penicillin"]);
+    expect(destResponses[0].medications).toEqual([{ name: "metformin", dosage: "500mg" }]);
   });
 });
