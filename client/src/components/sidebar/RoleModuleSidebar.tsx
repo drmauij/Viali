@@ -163,11 +163,7 @@ export function RoleModuleSidebar({
           <ChevronsRight className="h-3 w-3" />
         </button>
       )}
-    <Sidebar
-      collapsible={state === "rail" ? "icon" : state === "hidden" ? "offcanvas" : "none"}
-      data-testid="role-module-sidebar"
-    >
-      {state === "rail" ? (
+      {state === "rail" && (
         <SidebarIconRail
           groups={railGroups}
           quickLinkIcons={quickLinkIcons}
@@ -176,8 +172,9 @@ export function RoleModuleSidebar({
           onSelect={(h, icon) => handleSelect(h, icon.route)}
           onExpand={() => setState("full")}
         />
-      ) : state === "hidden" ? null : (
-        <>
+      )}
+      {state === "full" && (
+        <Sidebar collapsible="none" data-testid="role-module-sidebar">
           <SidebarHeader className="flex flex-row items-center gap-2 px-3 py-2">
             <button
               type="button"
@@ -225,9 +222,8 @@ export function RoleModuleSidebar({
               hasMedicalAccess={hasMedicalAccess}
             />
           </SidebarFooter>
-        </>
+        </Sidebar>
       )}
-    </Sidebar>
     </>
   );
 }
