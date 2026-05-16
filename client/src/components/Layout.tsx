@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import TopBar from "./TopBar";
 import BottomNav from "./BottomNav";
-import ModuleDrawer from "./ModuleDrawer";
 import { BillingLock } from "./BillingLock";
 import { CommandPaletteProvider } from "@/components/CommandPalette";
 import { useCardReaderBridge } from "@/hooks/useCardReaderBridge";
@@ -155,8 +154,6 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const [location] = useLocation();
-  const sidebarEnabled =
-    typeof window !== "undefined" && localStorage.getItem("featureSidebar") === "1";
 
   if (!isAuthenticated) {
     return <div className="screen-container">{children}</div>;
@@ -177,7 +174,6 @@ export default function Layout({ children }: LayoutProps) {
           DEMO MODE
         </div>
       )}
-      {!sidebarEnabled && <ModuleDrawer />}
       <TopBar
         hospitals={hospitals}
         activeHospital={activeHospital}
@@ -190,7 +186,7 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <CommandPaletteProvider>
-      {sidebarEnabled && activeHospital ? (
+      {activeHospital ? (
         <SidebarProvider>
           <RoleModuleSidebar
             hospitals={hospitals as SidebarHospital[]}
