@@ -174,7 +174,7 @@ function ChartCard({ title, description, helpText, children }: ChartCardProps) {
     <Card>
       <CardHeader>
         <div className="flex items-center">
-          <CardTitle className="text-lg">{title}</CardTitle>
+          <CardTitle className="text-lg text-foreground">{title}</CardTitle>
           <HelpTooltip content={helpText} />
         </div>
         {description && <CardDescription>{description}</CardDescription>}
