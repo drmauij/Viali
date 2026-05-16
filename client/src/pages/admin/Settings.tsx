@@ -24,6 +24,7 @@ import { LoginAuditLogTab } from "./LoginAuditLog";
 import { BookingTokenSection } from "./components/BookingTokenSection";
 import Branding from "./Branding";
 import { TissueSampleLabsPanel } from "@/components/admin/TissueSampleLabsPanel";
+import { ReferralPartnersCard } from "@/components/admin/ReferralPartnersCard";
 
 export default function SettingsPage() {
   const { t } = useTranslation();
@@ -1349,6 +1350,10 @@ export default function SettingsPage() {
                 <i className="fas fa-calendar-check mr-2"></i>
                 {t("admin.bookingAndAppointments", "Booking & Appointments")}
               </TabsTrigger>
+              <TabsTrigger value="referral-partners" className="whitespace-nowrap">
+                <i className="fas fa-handshake mr-2"></i>
+                {t("admin.referralPartners", "Referral Partners")}
+              </TabsTrigger>
               <TabsTrigger value="other-links" className="whitespace-nowrap">
                 <i className="fas fa-link mr-2"></i>
                 {t("admin.otherLinks", "Other Links")}
@@ -1464,6 +1469,12 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+          </TabsContent>
+
+          <TabsContent value="referral-partners">
+            <div className="space-y-4">
+              <ReferralPartnersCard />
+            </div>
           </TabsContent>
 
           <TabsContent value="other-links">
