@@ -6,7 +6,7 @@ import { db } from "../db";
 import { surgeries, users, userHospitalRoles, hospitals, surgeryRooms } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import logger from "../logger";
-import { provisionSourceHospital, backfillReferralHistory } from "../storage/praxisMode";
+import { provisionSourceHospital, backfillReferralHistory, cancelPendingReferral } from "../storage/praxisMode";
 
 export const praxisModeRouter = Router();
 
@@ -108,5 +108,22 @@ praxisModeRouter.post("/api/surgeon-portal/praxis/activate", async (req: any, re
   } catch (err: any) {
     logger.error("[praxis-activate] activation failed", err);
     return res.status(500).json({ error: err.message ?? "activation failed" });
+  }
+});
+
+// ========== SOURCE-SIDE CANCEL PENDING REFERRAL (Task 21) ==========
+// Called by the praxis/surgeon side when they want to retract a referral that
+// is still in `pending_external` state (destination has not accepted yet).
+// Sets destination's externalSurgeryRequests row to 'declined' and marks the
+// source surgery as cancelled_external + archived.
+
+praxisModeRouter.post("/api/surgeries/:id/cancel-referral", async (req: any, res) => {
+  const userId = req.user?.id ?? (req.headers["x-test-user-id"] ? String(req.headers["x-test-user-id"]) : null);
+  if (!userId) return res.status(401).json({ error: "not authenticated" });
+  try {
+    await cancelPendingReferral({ sourceSurgeryId: req.params.id, byUserId: userId });
+    return res.json({ ok: true });
+  } catch (err: any) {
+    return res.status(400).json({ error: err.message });
   }
 });

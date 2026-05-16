@@ -621,6 +621,39 @@ export async function pushReferralStatus(input: {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Task 21: source-side cancel pending referral
+// ---------------------------------------------------------------------------
+
+export async function cancelPendingReferral(input: {
+  sourceSurgeryId: string;
+  byUserId: string;
+}): Promise<void> {
+  const [src] = await db.select().from(surgeries).where(eq(surgeries.id, input.sourceSurgeryId));
+  if (!src) throw new Error("surgery not found");
+  if ((src as any).referralStatus !== "pending_external") {
+    throw new Error("not pending — cannot cancel via this path");
+  }
+
+  await db.transaction(async (tx) => {
+    if ((src as any).externalRequestId) {
+      await tx
+        .update(externalSurgeryRequests)
+        .set({ status: "declined", cancellationReason: "cancelled_by_source" } as any)
+        .where(eq(externalSurgeryRequests.id, (src as any).externalRequestId));
+    }
+    await tx
+      .update(surgeries)
+      .set({
+        referralStatus: "cancelled_external",
+        isArchived: true,
+        archivedAt: new Date(),
+        archivedBy: input.byUserId,
+      } as any)
+      .where(eq(surgeries.id, input.sourceSurgeryId));
+  });
+}
+
 export async function acceptReferralAndImport(input: {
   destinationHospitalId: string;
   externalRequestId: string;

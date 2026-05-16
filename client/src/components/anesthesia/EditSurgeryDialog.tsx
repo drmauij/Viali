@@ -355,6 +355,31 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     }
   }
 
+  // Cancel pending referral mutation (Task 21)
+  const cancelReferralMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("POST", `/api/surgeries/${id}/cancel-referral`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes('/api/anesthesia/surgeries');
+        }
+      });
+      toast({ title: t('anesthesia.editSurgery.referralCancelled', 'Referral cancelled') });
+      onClose();
+    },
+    onError: (err: any) => {
+      toast({
+        title: t('anesthesia.editSurgery.cancelReferralFailed', 'Cancel failed'),
+        description: err?.message ?? t('common.tryAgain', 'Please try again'),
+        variant: "destructive",
+      });
+    },
+  });
+
   // Archive mutation
   const archiveMutation = useMutation({
     mutationFn: async () => {
@@ -942,6 +967,35 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    {surgery?.referralStatus === "pending_external" && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => cancelReferralMutation.mutate(surgery.id)}
+                        disabled={cancelReferralMutation.isPending}
+                        data-testid="button-cancel-referral"
+                        className="w-full sm:w-auto"
+                      >
+                        {cancelReferralMutation.isPending
+                          ? t('anesthesia.editSurgery.cancellingReferral', 'Cancelling...')
+                          : t('anesthesia.editSurgery.cancelReferral', 'Cancel referral')}
+                      </Button>
+                    )}
+                    {(surgery?.referralStatus === "rejected_external" || surgery?.referralStatus === "cancelled_external") && !surgery?.isArchived && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => archiveMutation.mutate()}
+                        disabled={archiveMutation.isPending}
+                        data-testid="button-archive-surgery"
+                        className="w-full sm:w-auto"
+                      >
+                        <Archive className="mr-1 h-3.5 w-3.5" />
+                        {archiveMutation.isPending
+                          ? t('anesthesia.editSurgery.archiving', 'Archiving...')
+                          : t('anesthesia.editSurgery.archiveSurgery', 'Archive')}
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       onClick={onClose}
