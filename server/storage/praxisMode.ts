@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { eq, and } from "drizzle-orm";
 import { db } from "../db";
-import { hospitals, units, userHospitalRoles, referralPartnerships } from "@shared/schema";
+import { hospitals, units, userHospitalRoles, referralPartnerships, externalSurgeryRequests, surgeries, patients, surgeryRooms } from "@shared/schema";
 
 export const PRAXIS_ADDON_DEFAULTS = {
   addonClinic: true,
@@ -134,4 +134,183 @@ export async function rejectPartnership(input: { partnershipId: string; approver
 
 export async function revokePartnership(input: { partnershipId: string; actor: "source" | "destination" }) {
   await db.update(referralPartnerships).set({ status: "revoked" }).where(eq(referralPartnerships.id, input.partnershipId));
+}
+
+// ---------------------------------------------------------------------------
+// Backfill helper — imports historical external_surgery_requests into the
+// praxis's own calendar. Run once after provisionSourceHospital.
+// ---------------------------------------------------------------------------
+
+function mapRequestStatusToReferralStatus(reqStatus?: string | null): string {
+  switch ((reqStatus ?? "").toLowerCase()) {
+    case "scheduled": return "confirmed_external";
+    case "declined":  return "rejected_external";
+    case "pending":
+    default:          return "pending_external";
+  }
+}
+
+export interface BackfillResult {
+  surgeriesCreated: number;
+  patientsCreated: number;
+  destinationsPaired: number;
+}
+
+export async function backfillReferralHistory(input: {
+  sourceHospitalId: string;
+  surgeonUserId: string;
+  sinceYears?: number;
+}): Promise<BackfillResult> {
+  const since = input.sinceYears ?? 5;
+  const cutoff = new Date(Date.now() - since * 365 * 24 * 3600 * 1000);
+
+  // Pull all eligible requests by this surgeon
+  const reqs = await db.select().from(externalSurgeryRequests).where(
+    eq(externalSurgeryRequests.surgeonId, input.surgeonUserId),
+  );
+  const eligible = reqs.filter(r => !r.wishedDate || new Date(r.wishedDate as string) >= cutoff);
+
+  // Auto-pair every distinct destination hospital + ensure a logical surgery room exists
+  const destIds = Array.from(new Set(eligible.map(r => r.hospitalId)));
+  let destinationsPaired = 0;
+
+  for (const destId of destIds) {
+    const [existingPair] = await db.select().from(referralPartnerships).where(and(
+      eq(referralPartnerships.sourceHospitalId, input.sourceHospitalId),
+      eq(referralPartnerships.destinationHospitalId, destId),
+    ));
+
+    if (!existingPair) {
+      // New destination — create partnership + room
+      await db.insert(referralPartnerships).values({
+        sourceHospitalId: input.sourceHospitalId,
+        destinationHospitalId: destId,
+        status: "active",
+        pairingSource: "historical_import",
+      });
+      destinationsPaired++;
+
+      const [dest] = await db.select().from(hospitals).where(eq(hospitals.id, destId));
+      if (dest) {
+        await db.insert(surgeryRooms).values({
+          hospitalId: input.sourceHospitalId,
+          name: dest.name,
+          type: "OP",
+          linkedHospitalId: destId,
+        } as any);
+      }
+    } else {
+      // Already paired (e.g. originating destination from provisionSourceHospital) — ensure room exists
+      const [hasRoom] = await db.select().from(surgeryRooms).where(and(
+        eq(surgeryRooms.hospitalId, input.sourceHospitalId),
+        eq(surgeryRooms.linkedHospitalId, destId),
+      ));
+      if (!hasRoom) {
+        const [dest] = await db.select().from(hospitals).where(eq(hospitals.id, destId));
+        if (dest) {
+          await db.insert(surgeryRooms).values({
+            hospitalId: input.sourceHospitalId,
+            name: dest.name,
+            type: "OP",
+            linkedHospitalId: destId,
+          } as any);
+        }
+      }
+    }
+  }
+
+  // Seed surgeries + patients (idempotent via externalRequestId)
+  let surgeriesCreated = 0;
+  let patientsCreated = 0;
+
+  for (const req of eligible) {
+    // Idempotency check — skip if already imported
+    const [exists] = await db.select({ id: surgeries.id }).from(surgeries).where(and(
+      eq(surgeries.hospitalId, input.sourceHospitalId),
+      eq(surgeries.externalRequestId, req.id),
+    ));
+    if (exists) continue;
+
+    // Find the logical surgery room for this destination
+    const [room] = await db.select().from(surgeryRooms).where(and(
+      eq(surgeryRooms.hospitalId, input.sourceHospitalId),
+      eq(surgeryRooms.linkedHospitalId, req.hospitalId),
+    ));
+    if (!room) continue; // should not happen, but guard
+
+    // Patient dedup — skip for reservations or missing name
+    let patientId: string | null = null;
+    if (!req.isReservationOnly && req.patientFirstName && req.patientLastName) {
+      const dedupConds: Parameters<typeof and> = [
+        eq(patients.hospitalId, input.sourceHospitalId),
+        eq(patients.firstName, req.patientFirstName),
+        eq(patients.surname, req.patientLastName),
+      ];
+      if (req.patientBirthday) {
+        dedupConds.push(eq(patients.birthday, req.patientBirthday as string));
+      }
+      const [existingPt] = await db.select().from(patients).where(and(...dedupConds));
+      if (existingPt) {
+        patientId = existingPt.id;
+      } else {
+        // Generate a simple patient number scoped to the source hospital
+        const ptCountRows = await db.select({ id: patients.id }).from(patients)
+          .where(eq(patients.hospitalId, input.sourceHospitalId));
+        const ptNumber = `P-${String(ptCountRows.length + 1).padStart(5, "0")}`;
+
+        const [pt] = await db.insert(patients).values({
+          hospitalId: input.sourceHospitalId,
+          firstName: req.patientFirstName,
+          surname: req.patientLastName,
+          patientNumber: ptNumber,
+          birthday: (req.patientBirthday as string | null) ?? "",
+          sex: "O",
+          email: req.patientEmail,
+          phone: req.patientPhone,
+          street: req.patientStreet,
+          postalCode: req.patientPostalCode,
+          city: req.patientCity,
+        } as any).returning();
+        patientId = pt.id;
+        patientsCreated++;
+      }
+    }
+
+    // Compose plannedDate from wishedDate + wishedTimeFrom (minutes from midnight)
+    const wd = new Date(req.wishedDate as string);
+    const minutes = req.wishedTimeFrom ?? 720; // default noon if unset
+    wd.setUTCHours(Math.floor(minutes / 60));
+    wd.setUTCMinutes(minutes % 60);
+    wd.setUTCSeconds(0);
+    wd.setUTCMilliseconds(0);
+
+    await db.insert(surgeries).values({
+      hospitalId: input.sourceHospitalId,
+      patientId,
+      surgeryRoomId: room.id,
+      plannedDate: wd,
+      plannedSurgery: req.surgeryName,
+      chopCode: req.chopCode,
+      surgerySide: req.surgerySide,
+      antibioseProphylaxe: req.antibioseProphylaxe ?? false,
+      diagnosis: req.diagnosis,
+      anesthesiaNotes: req.anesthesiaNotes,
+      notes: req.surgeryNotes,
+      coverageType: req.coverageType,
+      stayType: req.stayType,
+      surgeryRiskClass: req.surgeryRiskClass as any,
+      patientPosition: req.patientPosition as any,
+      leftArmPosition: req.leftArmPosition as any,
+      rightArmPosition: req.rightArmPosition as any,
+      noPreOpRequired: !(req.withAnesthesia ?? true),
+      surgeonId: input.surgeonUserId,
+      externalRequestId: req.id,
+      referralStatus: mapRequestStatusToReferralStatus(req.status),
+      status: "planned",
+      planningStatus: "pre-registered",
+    } as any);
+    surgeriesCreated++;
+  }
+
+  return { surgeriesCreated, patientsCreated, destinationsPaired };
 }
