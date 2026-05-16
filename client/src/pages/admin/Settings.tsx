@@ -1036,6 +1036,37 @@ export default function SettingsPage() {
                     {t("admin.riskMethodologyLink", "Methodology — Perioperative Risk Grade ↗")}
                   </a>
                 </div>
+
+                <div className="mt-6 pt-4 border-t border-border">
+                  <h4 className="text-sm font-medium mb-2">
+                    {t("admin.onboarding", "Onboarding")}
+                  </h4>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        localStorage.removeItem("praxis-tour-completed");
+                        localStorage.setItem("praxis-tour-step", "0");
+                        window.location.href = "/anesthesia/op";
+                      }}
+                      data-testid="button-replay-praxis-tour"
+                    >
+                      {t("admin.replayPraxisTour", "Replay praxis onboarding tour")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        localStorage.removeItem("praxis-discovery-dismissed");
+                        localStorage.removeItem("praxis-first-submission-done");
+                      }}
+                      data-testid="button-replay-praxis-discovery"
+                    >
+                      {t("admin.replayNextStepsPanel", "Replay next-steps panel")}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </TabsContent>
 

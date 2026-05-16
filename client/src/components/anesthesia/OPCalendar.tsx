@@ -29,6 +29,7 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import QuickCreateSurgeryDialog from "./QuickCreateSurgeryDialog";
+import { PraxisOnboardingTour } from "@/components/praxis/PraxisOnboardingTour";
 import TimelineWeekView from "./TimelineWeekView";
 import PlanStaffDialog from "./PlanStaffDialog";
 import PlannedStaffBox, { StaffPoolEntry, ROLE_CONFIG } from "./PlannedStaffBox";
@@ -167,22 +168,24 @@ interface RoomPendingChecklist extends ChecklistTemplate {
   };
 }
 
-function DroppableRoomHeader({ 
-  resource, 
-  label, 
+function DroppableRoomHeader({
+  resource,
+  label,
   roomStaff,
   onRemoveStaff,
   dropStaffText,
   roomChecklists,
   onChecklistClick,
-}: { 
-  resource: CalendarResource; 
+  isLinkedRoom,
+}: {
+  resource: CalendarResource;
   label: string;
   roomStaff: RoomStaffAssignment[];
   onRemoveStaff: (assignmentId: string) => void;
   dropStaffText: string;
   roomChecklists?: RoomPendingChecklist[];
   onChecklistClick?: (roomId: string) => void;
+  isLinkedRoom?: boolean;
 }) {
   const checklists = roomChecklists || [];
   const { isOver, setNodeRef } = useDroppable({
@@ -193,18 +196,19 @@ function DroppableRoomHeader({
       roomName: resource.title,
     },
   });
-  
+
   const assignedStaff = roomStaff.filter(s => s.surgeryRoomId === resource.id);
-  
+
   return (
-    <div 
-      ref={setNodeRef} 
+    <div
+      ref={setNodeRef}
       className={`h-full w-full transition-colors ${
-        isOver 
-          ? 'bg-primary/20 ring-2 ring-primary ring-inset rounded' 
+        isOver
+          ? 'bg-primary/20 ring-2 ring-primary ring-inset rounded'
           : 'hover:bg-muted/30'
       }`}
       data-testid={`room-header-${resource.id}`}
+      {...(isLinkedRoom ? { "data-tour": "linked-room-column" } : {})}
     >
       <div className="font-semibold text-sm p-2 pb-1 flex items-center justify-center relative">
         <span>{label}</span>
@@ -2067,6 +2071,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
                       dropStaffText={t('opCalendar.dropStaffHere')}
                       roomChecklists={checklistsByRoom.get(resource.id) || []}
                       onChecklistClick={handleRoomChecklistClick}
+                      isLinkedRoom={!!surgeryRooms.find((r: any) => r.id === resource.id)?.linkedHospitalId}
                     />
                   ),
                 }}
@@ -2471,6 +2476,9 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         onSave={(sig) => setChecklistSignature(sig)}
         title={t("checklists.yourSignature", "Your Signature")}
       />
+
+      {/* Praxis onboarding coachmark tour — only shown to new praxis users */}
+      <PraxisOnboardingTour />
 
       {/* Slot Reservation / Room Block Dialog */}
       <Dialog open={!!roomBlockEvent} onOpenChange={(open) => { if (!open) setRoomBlockEvent(null); }}>

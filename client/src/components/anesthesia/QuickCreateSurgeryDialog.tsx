@@ -20,6 +20,7 @@ import { AmbulantOverrideModal } from "./AmbulantOverrideModal";
 import { calculateQuick } from "@shared/scoring/ambulantEligibility";
 import type { SurgeryRiskClass } from "@shared/scoring/types";
 import { useMemo } from "react";
+import { PraxisDiscoveryPanel } from "@/components/praxis/PraxisDiscoveryPanel";
 
 interface QuickCreateSurgeryDialogProps {
   open: boolean;
@@ -95,6 +96,7 @@ export default function QuickCreateSurgeryDialog({
   const [ambulantOverrideReason, setAmbulantOverrideReason] = useState<string | null>(null);
   const [ambulantOverrideOpen, setAmbulantOverrideOpen] = useState(false);
   const [rightArmPosition, setRightArmPosition] = useState<"" | "ausgelagert" | "angelagert">("");
+  const [discoveryPanelDestination, setDiscoveryPanelDestination] = useState<string | null>(null);
 
   // New patient form state
   const [newPatientFirstName, setNewPatientFirstName] = useState("");
@@ -234,10 +236,19 @@ export default function QuickCreateSurgeryDialog({
           return typeof key === 'string' && key.includes(`/api/anesthesia/preop?hospitalId=${hospitalId}`);
         }
       });
-      toast({
-        title: t('anesthesia.quickSchedule.surgeryScheduled'),
-        description: t('anesthesia.quickSchedule.surgeryScheduledDescription'),
-      });
+
+      // Trigger the discovery panel on first successful cross-tenant submit
+      if (isClinicLinkedRoom && !localStorage.getItem("praxis-first-submission-done")) {
+        localStorage.setItem("praxis-first-submission-done", "true");
+        const destinationName = selectedRoom?.name ?? "destination";
+        setDiscoveryPanelDestination(destinationName);
+      } else {
+        toast({
+          title: t('anesthesia.quickSchedule.surgeryScheduled'),
+          description: t('anesthesia.quickSchedule.surgeryScheduledDescription'),
+        });
+      }
+
       onOpenChange(false);
       resetForm();
     },
@@ -441,8 +452,15 @@ export default function QuickCreateSurgeryDialog({
   const isClinicLinkedRoom = !!selectedRoom?.linkedHospitalId;
 
   return (
+    <>
+    {discoveryPanelDestination && (
+      <PraxisDiscoveryPanel
+        destinationName={discoveryPanelDestination}
+        onClose={() => setDiscoveryPanelDestination(null)}
+      />
+    )}
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-lg max-h-[85vh] flex flex-col p-0 overflow-hidden gap-0" data-testid="dialog-quick-create-surgery">
+      <DialogContent className="w-[95vw] max-w-lg max-h-[85vh] flex flex-col p-0 overflow-hidden gap-0" data-testid="dialog-quick-create-surgery" data-tour="quick-schedule-dialog">
         <DialogHeader className="shrink-0 bg-background border-b px-4 sm:px-6 py-4">
           <DialogTitle>{t('anesthesia.quickSchedule.title')}</DialogTitle>
         </DialogHeader>
@@ -781,6 +799,7 @@ export default function QuickCreateSurgeryDialog({
             disabled={createSurgeryMutation.isPending || !surgeryRoomId || (!isSlotReservation && !isRoomBlock && (!selectedPatientId || !plannedSurgery.trim() || !surgeryRiskClass)) || ambulantBlocked}
             title={ambulantBlocked ? t('ambulantEligibility.save.blockedTooltip', 'Risk check red — override required or plan as overnight') : undefined}
             data-testid="button-schedule-surgery"
+            data-tour="submit-button"
           >
             {createSurgeryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isRoomBlock
@@ -792,5 +811,6 @@ export default function QuickCreateSurgeryDialog({
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
