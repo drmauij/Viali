@@ -1,14 +1,16 @@
 import { type ReactNode } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import TopBar from "./TopBar";
 import BottomNav from "./BottomNav";
-import ModuleDrawer from "./ModuleDrawer";
 import { BillingLock } from "./BillingLock";
 import { CommandPaletteProvider } from "@/components/CommandPalette";
 import { useCardReaderBridge } from "@/hooks/useCardReaderBridge";
 import { isDemoMode, toggleDemoMode } from "@/utils/demoMode";
 import { queryClient } from "@/lib/queryClient";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { RoleModuleSidebar, type SidebarHospital } from "@/components/sidebar/RoleModuleSidebar";
 
 interface Hospital {
   id: string;
@@ -151,37 +153,62 @@ export default function Layout({ children }: LayoutProps) {
     window.location.href = redirectPath;
   };
 
+  const [location] = useLocation();
+
   if (!isAuthenticated) {
     return <div className="screen-container">{children}</div>;
   }
 
+  const innerContent = (
+    <>
+      {demoMode && (
+        <div
+          className="fixed top-2 right-2 z-[9999] bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg cursor-pointer hover:bg-orange-600 transition-colors"
+          onClick={() => {
+            const next = toggleDemoMode();
+            setDemoMode(next);
+            queryClient.invalidateQueries();
+          }}
+          title="Demo Mode active — click or Ctrl+Shift+D to disable"
+        >
+          DEMO MODE
+        </div>
+      )}
+      <TopBar
+        hospitals={hospitals}
+        activeHospital={activeHospital}
+        onHospitalChange={handleHospitalChange}
+      />
+      <BillingLock>{children}</BillingLock>
+      <BottomNav />
+    </>
+  );
+
   return (
     <CommandPaletteProvider>
-      <div className="screen-container">
-        {demoMode && (
-          <div
-            className="fixed top-2 right-2 z-[9999] bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg cursor-pointer hover:bg-orange-600 transition-colors"
-            onClick={() => {
-              const next = toggleDemoMode();
-              setDemoMode(next);
-              queryClient.invalidateQueries();
+      {activeHospital ? (
+        <SidebarProvider>
+          <RoleModuleSidebar
+            hospitals={hospitals as SidebarHospital[]}
+            activeHospital={activeHospital as SidebarHospital}
+            activeRoute={location}
+            onNavigate={(h, route) => {
+              localStorage.setItem(
+                "activeHospital",
+                `${h.id}-${h.unitId}-${h.role}`,
+              );
+              window.location.href = route;
             }}
-            title="Demo Mode active — click or Ctrl+Shift+D to disable"
-          >
-            DEMO MODE
-          </div>
-        )}
-        <ModuleDrawer />
-        <TopBar
-          hospitals={hospitals}
-          activeHospital={activeHospital}
-          onHospitalChange={handleHospitalChange}
-        />
-        <BillingLock>
-          {children}
-        </BillingLock>
-        <BottomNav />
-      </div>
+            onSwitchHospital={() => {
+              // TopBar's existing dropdown still owns hospital switching
+              document.dispatchEvent(new CustomEvent("topbar-open-hospital-picker"));
+            }}
+          />
+          <div className="screen-container flex-1">{innerContent}</div>
+        </SidebarProvider>
+      ) : (
+        <div className="screen-container">{innerContent}</div>
+      )}
     </CommandPaletteProvider>
   );
 }

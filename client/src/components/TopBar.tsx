@@ -13,6 +13,8 @@ import ChatDock from "./chat/ChatDock";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
+import { SidebarTree } from "./sidebar/SidebarTree";
+import type { SidebarHospital } from "./sidebar/RoleModuleSidebar";
 
 interface Hospital {
   id: string;
@@ -68,6 +70,13 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
     }
   }, []);
 
+  // Listen for RoleModuleSidebar's hidden-state hospital-picker request
+  useEffect(() => {
+    const handler = () => setShowHospitalDropdown(true);
+    document.addEventListener("topbar-open-hospital-picker", handler);
+    return () => document.removeEventListener("topbar-open-hospital-picker", handler);
+  }, []);
+
   const handleOpenPatientInline = useCallback((patientId: string) => {
     // Navigate to the patient detail page for the current module
     if (activeHospital?.unitType === 'clinic') {
@@ -94,28 +103,6 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
     () => (hospitals || []).some(h => h.role === "group_admin"),
     [hospitals],
   );
-
-  // Group hospitals by hospital ID for multi-hospital users
-  const groupedHospitals = useMemo(() => {
-    const grouped = new Map<string, { hospitalName: string; hospitalId: string; roles: Hospital[] }>();
-    
-    hospitals.forEach(hospital => {
-      const key = hospital.id;
-      if (!grouped.has(key)) {
-        grouped.set(key, {
-          hospitalName: hospital.name,
-          hospitalId: hospital.id,
-          roles: []
-        });
-      }
-      grouped.get(key)!.roles.push(hospital);
-    });
-    
-    return Array.from(grouped.values());
-  }, [hospitals]);
-
-  // Check if user has multiple hospitals (not just multiple roles in same hospital)
-  const hasMultipleHospitals = groupedHospitals.length > 1;
 
   const { data: notifications = [] } = useQuery<Array<{ id: string }>>({
     queryKey: ['/api/chat', activeHospital?.id, 'notifications'],
@@ -222,96 +209,22 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
               </div>
             </button>
             
-            {showHospitalDropdown && hospitals.length > 1 && (
+            {showHospitalDropdown && hospitals.length > 1 && activeHospital && (
               <div className="absolute top-full left-0 mt-2 w-72 bg-card border border-border rounded-lg shadow-lg z-50 max-h-[60vh] overflow-y-auto">
-                {hasMultipleHospitals ? (
-                  // Grouped view for multi-hospital users. When a hospital
-                  // has exactly one (unit, role) row we collapse the header
-                  // + sub-row into a single clickable button so the user
-                  // doesn't have to click a nested item — common case for
-                  // group admins seeded with one admin row per clinic.
-                  groupedHospitals.map((group) => {
-                    if (group.roles.length === 1) {
-                      const hospital = group.roles[0];
-                      const isActive =
-                        activeHospital?.id === hospital.id &&
-                        activeHospital?.unitId === hospital.unitId &&
-                        activeHospital?.role === hospital.role;
-                      return (
-                        <button
-                          key={`${hospital.id}-${hospital.unitId}-${hospital.role}`}
-                          className={`w-full px-4 py-2.5 text-left hover:bg-accent hover:text-accent-foreground border-b border-border last:border-b-0 ${isActive ? 'bg-accent/50' : ''}`}
-                          onClick={() => {
-                            onHospitalChange?.(hospital);
-                            setShowHospitalDropdown(false);
-                          }}
-                          data-testid={`hospital-option-${hospital.id}-${hospital.unitId}`}
-                        >
-                          <div className="font-semibold text-sm text-foreground flex items-center gap-2">
-                            <i className="fas fa-hospital text-xs text-primary"></i>
-                            {group.hospitalName}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5 pl-[18px]">
-                            {hospital.unitName} · {hospital.role}
-                          </div>
-                        </button>
-                      );
-                    }
-                    return (
-                      <div key={group.hospitalId}>
-                        {/* Hospital header */}
-                        <div className="px-4 py-2 bg-muted/50 border-b border-border sticky top-0">
-                          <div className="font-semibold text-sm text-foreground flex items-center gap-2">
-                            <i className="fas fa-hospital text-xs text-primary"></i>
-                            {group.hospitalName}
-                          </div>
-                        </div>
-                        {/* Roles within this hospital */}
-                        {group.roles.map((hospital) => {
-                          const isActive =
-                            activeHospital?.id === hospital.id &&
-                            activeHospital?.unitId === hospital.unitId &&
-                            activeHospital?.role === hospital.role;
-                          return (
-                            <button
-                              key={`${hospital.id}-${hospital.unitId}-${hospital.role}`}
-                              className={`w-full px-4 py-2.5 pl-8 text-left hover:bg-accent hover:text-accent-foreground border-b border-border last:border-b-0 ${isActive ? 'bg-accent/50' : ''}`}
-                              onClick={() => {
-                                onHospitalChange?.(hospital);
-                                setShowHospitalDropdown(false);
-                              }}
-                              data-testid={`hospital-option-${hospital.id}-${hospital.unitId}`}
-                            >
-                              <div className="text-sm font-medium">{hospital.unitName}</div>
-                              <div className="text-xs text-muted-foreground">{hospital.role}</div>
-                            </button>
-                          );
-                        })}
-                      </div>
+                <SidebarTree
+                  hospitals={hospitals as SidebarHospital[]}
+                  activeHospital={activeHospital as SidebarHospital}
+                  activeRoute={typeof window !== "undefined" ? window.location.pathname : ""}
+                  onSelect={(h, route) => {
+                    localStorage.setItem(
+                      "activeHospital",
+                      `${h.id}-${h.unitId}-${h.role}`,
                     );
-                  })
-                ) : (
-                  // Simple view for single hospital with multiple roles
-                  hospitals.map((hospital) => {
-                    const isActive = activeHospital?.id === hospital.id && 
-                                    activeHospital?.unitId === hospital.unitId && 
-                                    activeHospital?.role === hospital.role;
-                    return (
-                      <button
-                        key={`${hospital.id}-${hospital.unitId}-${hospital.role}`}
-                        className={`w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground border-b border-border last:border-b-0 ${isActive ? 'bg-accent/50' : ''}`}
-                        onClick={() => {
-                          onHospitalChange?.(hospital);
-                          setShowHospitalDropdown(false);
-                        }}
-                        data-testid={`hospital-option-${hospital.id}-${hospital.unitId}`}
-                      >
-                        <div className="font-medium">{hospital.unitName}</div>
-                        <div className="text-xs text-muted-foreground">{hospital.role}</div>
-                      </button>
-                    );
-                  })
-                )}
+                    setShowHospitalDropdown(false);
+                    window.location.href = route;
+                  }}
+                  showQuickLinks={false}
+                />
               </div>
             )}
           </div>
