@@ -8884,17 +8884,14 @@
     "ageSuppressedNote": "Alter ≥ 75 — Anhebung unterdrückt (kleiner Eingriff)"
   },
   "sidebar": {
-    "groupLabel": "Gruppe",
     "quickLinksSection": "Schnelllinks",
-    "shareSubtitle": "teilen / kopieren",
     "switchHospital": "Klinik wechseln",
-    "collapseTooltip": "Seitenleiste einklappen",
-    "expandTooltip": "Seitenleiste ausklappen",
-    "showSidebar": "Seitenleiste anzeigen",
-    "toggleState": "Seitenleiste umschalten",
     "downloadPoster": "QR-Poster herunterladen",
-    "copyLink": "Link kopieren",
-    "openInNewTab": "In neuem Tab öffnen",
+    "tabs": {
+      "modules": "Module",
+      "links": "Links",
+      "clinics": "Kliniken"
+    },
     "module": {
       "anesthesia": "Anästhesie",
       "surgery": "Chirurgie",

@@ -8867,17 +8867,14 @@
     "ageSuppressedNote": "Age ≥ 75 bump suppressed (minor surgery)"
   },
   "sidebar": {
-    "groupLabel": "Group",
     "quickLinksSection": "Quick Links",
-    "shareSubtitle": "share / copy",
     "switchHospital": "Switch hospital",
-    "collapseTooltip": "Collapse sidebar",
-    "expandTooltip": "Expand sidebar",
-    "showSidebar": "Show sidebar",
-    "toggleState": "Toggle sidebar",
     "downloadPoster": "Download QR poster",
-    "copyLink": "Copy link",
-    "openInNewTab": "Open in new tab",
+    "tabs": {
+      "modules": "Modules",
+      "links": "Links",
+      "clinics": "Clinics"
+    },
     "module": {
       "anesthesia": "Anesthesia Records",
       "surgery": "Surgery",

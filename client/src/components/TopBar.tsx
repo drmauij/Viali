@@ -12,8 +12,7 @@ import ChatDock from "./chat/ChatDock";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
-import { SidebarTree } from "./sidebar/SidebarTree";
-import { SimpleHospitalPicker } from "./sidebar/SimpleHospitalPicker";
+import { HospitalDropdownTabs } from "./sidebar/HospitalDropdownTabs";
 import type { SidebarHospital } from "./sidebar/buildRows";
 
 interface Hospital {
@@ -199,33 +198,20 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
               </div>
             </button>
             
-            {showHospitalDropdown && hospitals.length > 1 && activeHospital && (() => {
-              const distinctHospitalCount = new Set(hospitals.map(h => h.id)).size;
-              const handleSelect = (h: SidebarHospital, route: string) => {
-                localStorage.setItem("activeHospital", `${h.id}-${h.unitId}-${h.role}`);
-                setShowHospitalDropdown(false);
-                window.location.href = route;
-              };
-              return (
-                <div className="absolute top-full left-0 mt-2 w-72 bg-card border border-border rounded-lg shadow-lg z-50 max-h-[60vh] overflow-y-auto">
-                  {distinctHospitalCount > 1 ? (
-                    <SimpleHospitalPicker
-                      hospitals={hospitals as SidebarHospital[]}
-                      activeHospital={activeHospital as SidebarHospital}
-                      onSelect={handleSelect}
-                    />
-                  ) : (
-                    <SidebarTree
-                      hospitals={hospitals as SidebarHospital[]}
-                      activeHospital={activeHospital as SidebarHospital}
-                      activeRoute={typeof window !== "undefined" ? window.location.pathname : ""}
-                      onSelect={(h, route) => handleSelect(h as SidebarHospital, route)}
-                      showQuickLinks={false}
-                    />
-                  )}
-                </div>
-              );
-            })()}
+            {showHospitalDropdown && hospitals.length > 1 && activeHospital && (
+              <div className="absolute top-full left-0 mt-2 w-80 bg-card border border-border rounded-lg shadow-lg z-50 max-h-[70vh] overflow-y-auto">
+                <HospitalDropdownTabs
+                  hospitals={hospitals as SidebarHospital[]}
+                  activeHospital={activeHospital as SidebarHospital}
+                  activeRoute={typeof window !== "undefined" ? window.location.pathname : ""}
+                  onSelect={(h, route) => {
+                    localStorage.setItem("activeHospital", `${h.id}-${h.unitId}-${h.role}`);
+                    setShowHospitalDropdown(false);
+                    window.location.href = route;
+                  }}
+                />
+              </div>
+            )}
           </div>
         </div>
         
