@@ -2,7 +2,15 @@ import { describe, it, expect, afterAll } from "vitest";
 import { db, pool } from "../server/db";
 import { hospitals, users, userHospitalRoles, referralPartnerships, units } from "@shared/schema";
 import { eq, inArray } from "drizzle-orm";
-import { provisionSourceHospital } from "../server/storage/praxisMode";
+import {
+  provisionSourceHospital,
+  listPartnerships,
+  generatePartnershipCode,
+  redeemPartnershipCode,
+  approvePartnership,
+  rejectPartnership,
+  revokePartnership,
+} from "../server/storage/praxisMode";
 
 const created = { hospitals: [] as string[], users: [] as string[] };
 afterAll(async () => {
@@ -83,5 +91,88 @@ describe("provisionSourceHospital", () => {
     })).rejects.toThrow();
     const orphan = await db.select().from(hospitals).where(eq(hospitals.name, "Will Fail"));
     expect(orphan.length).toBe(0);
+  });
+});
+
+describe("referral partnership helpers", () => {
+  it("listPartnerships returns active partnerships only, joined with destination hospital data", async () => {
+    const d1 = await makeDestination(`A ${Date.now()}`);
+    const d2 = await makeDestination(`B ${Date.now()}`);
+    const s = await makeSurgeon(`p-list-${Date.now()}@t.local`);
+    const { sourceHospitalId } = await provisionSourceHospital({
+      surgeonUserId: s.id, originatingDestinationId: d1.id, sourceName: "P",
+    });
+    created.hospitals.push(sourceHospitalId);
+
+    await db.insert(referralPartnerships).values({
+      sourceHospitalId, destinationHospitalId: d2.id, status: "revoked", pairingSource: "manual_code",
+    });
+
+    const list = await listPartnerships(sourceHospitalId);
+    expect(list.length).toBe(1);
+    expect(list[0].destinationHospitalId).toBe(d1.id);
+    expect(list[0].destinationName).toBe(d1.name);
+  });
+
+  it("generate -> redeem -> approve completes a manual pairing", async () => {
+    const dest = await makeDestination(`Dest ${Date.now()}`);
+    const s = await makeSurgeon(`p-code-${Date.now()}@t.local`);
+    const { sourceHospitalId } = await provisionSourceHospital({
+      surgeonUserId: s.id, originatingDestinationId: dest.id, sourceName: "P",
+    });
+    created.hospitals.push(sourceHospitalId);
+
+    const newDest = await makeDestination(`NewDest ${Date.now()}`);
+    const code = await generatePartnershipCode(newDest.id);
+    expect(code).toMatch(/^[A-Z0-9]{8}$/);
+
+    const pending = await redeemPartnershipCode({ sourceHospitalId, code });
+    expect(pending.status).toBe("pending");
+
+    await approvePartnership({ partnershipId: pending.id, approverDestinationId: newDest.id });
+
+    const list = await listPartnerships(sourceHospitalId);
+    expect(list.map(p => p.destinationHospitalId).sort()).toEqual([dest.id, newDest.id].sort());
+  });
+
+  it("redeem rejects an unknown code", async () => {
+    const dest = await makeDestination(`Dest ${Date.now()}`);
+    const s = await makeSurgeon(`p-bad-${Date.now()}@t.local`);
+    const { sourceHospitalId } = await provisionSourceHospital({
+      surgeonUserId: s.id, originatingDestinationId: dest.id, sourceName: "P",
+    });
+    created.hospitals.push(sourceHospitalId);
+    await expect(redeemPartnershipCode({ sourceHospitalId, code: "ZZZZZZZZ" }))
+      .rejects.toThrow(/unknown pairing code/i);
+  });
+
+  it("rejectPartnership marks status revoked", async () => {
+    const dest = await makeDestination(`Dest ${Date.now()}`);
+    const s = await makeSurgeon(`p-rej-${Date.now()}@t.local`);
+    const { sourceHospitalId } = await provisionSourceHospital({
+      surgeonUserId: s.id, originatingDestinationId: dest.id, sourceName: "P",
+    });
+    created.hospitals.push(sourceHospitalId);
+
+    const newDest = await makeDestination(`Other ${Date.now()}`);
+    const code = await generatePartnershipCode(newDest.id);
+    const pending = await redeemPartnershipCode({ sourceHospitalId, code });
+    await rejectPartnership({ partnershipId: pending.id, approverDestinationId: newDest.id });
+
+    const [row] = await db.select().from(referralPartnerships).where(eq(referralPartnerships.id, pending.id));
+    expect(row.status).toBe("revoked");
+  });
+
+  it("revokePartnership flips status to revoked but keeps the row", async () => {
+    const dest = await makeDestination(`Dest ${Date.now()}`);
+    const s = await makeSurgeon(`p-rev-${Date.now()}@t.local`);
+    const { sourceHospitalId, partnershipId } = await provisionSourceHospital({
+      surgeonUserId: s.id, originatingDestinationId: dest.id, sourceName: "P",
+    });
+    created.hospitals.push(sourceHospitalId);
+
+    await revokePartnership({ partnershipId, actor: "source" });
+    const [row] = await db.select().from(referralPartnerships).where(eq(referralPartnerships.id, partnershipId));
+    expect(row.status).toBe("revoked");
   });
 });
