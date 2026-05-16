@@ -8908,12 +8908,18 @@
     "tabs": {
       "modules": "Module",
       "links": "Links",
+      "checklists": "Checklisten",
       "clinics": "Kliniken"
     },
     "systemSection": "System",
     "system": {
       "chain": "Kette",
       "platform": "Plattform"
+    },
+    "checklists": {
+      "overdue": "überfällig",
+      "totalPending": "{{count}} ausstehend",
+      "open": "Checklisten öffnen"
     },
     "module": {
       "anesthesia": "Anästhesie",

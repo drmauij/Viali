@@ -36,7 +36,7 @@ const rows: ModuleRow[] = [
   { id: "anesthesia", label: "Anesthesia Records", route: "/anesthesia/op" },
   { id: "inventory",  label: "Inventory & Services", route: "/inventory/items" },
   { id: "administration", label: "Administration", route: "/admin" },
-  { id: "checklists", label: "Checklists", route: "/inventory/checklists", badge: 3 },
+  { id: "worklogs-anesthesia", label: "Worklogs", route: "/anesthesia/worklogs", badge: 3 },
 ];
 
 function Wrapper({ children }: { children: React.ReactNode }) {
@@ -72,7 +72,7 @@ describe("SidebarRoleGroup", () => {
     expect(screen.getByRole("button", { name: /Anesthesia Records/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Inventory & Services/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Administration$/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Checklists/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Worklogs/i })).toBeInTheDocument();
   });
 
   it("marks the row matching activeRoute as active", () => {
@@ -90,7 +90,7 @@ describe("SidebarRoleGroup", () => {
     expect(active).toHaveAttribute("data-active", "true");
   });
 
-  it("shows the overdue badge on the checklists row", () => {
+  it("shows the badge count on rows that carry one", () => {
     render(
       <SidebarRoleGroup
         hospital={baseHospital}

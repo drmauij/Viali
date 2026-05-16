@@ -28,21 +28,6 @@ export interface SidebarHospital {
   isPlatformOperator?: boolean;
 }
 
-export function orderGroups(
-  hospitals: SidebarHospital[],
-  active: SidebarHospital,
-): SidebarHospital[] {
-  return [...hospitals].sort((a, b) => {
-    const aActive = a.unitId === active.unitId && a.role === active.role ? 1 : 0;
-    const bActive = b.unitId === active.unitId && b.role === active.role ? 1 : 0;
-    if (aActive !== bActive) return bActive - aActive;
-    const aDefault = a.isDefaultLogin ? 1 : 0;
-    const bDefault = b.isDefaultLogin ? 1 : 0;
-    if (aDefault !== bDefault) return bDefault - aDefault;
-    return a.unitName.localeCompare(b.unitName);
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Quick Links — shared data builder consumed by both SidebarQuickLinks (full)
 // and RoleModuleSidebar / SidebarIconRail (rail). Keeps visibility logic in
@@ -160,7 +145,6 @@ export interface BuiltGroup {
 export function buildRows(
   h: SidebarHospital,
   t: ReturnType<typeof import("react-i18next").useTranslation>["t"],
-  overdueChecklists: number,
 ): BuiltGroup {
   const access = accessOf(h);
   const moduleRows: ModuleRow[] = getVisibleModules(access).map(mod => ({
@@ -168,13 +152,84 @@ export function buildRows(
     label: labelFor(mod, t),
     route: routeFor(h.unitType, mod),
   }));
-  const shortcutRows: ModuleRow[] = getInternalShortcuts(access, {
-    overdueChecklists,
-  }).map(s => ({
+  const shortcutRows: ModuleRow[] = getInternalShortcuts(access).map(s => ({
     id: s.id,
     label: t(`sidebar.shortcut.${s.id}`, s.id.replace(/-/g, " ")),
     route: s.route,
     badge: s.badge,
   }));
   return { hospital: h, rows: [...moduleRows, ...shortcutRows] };
+}
+
+// ---------------------------------------------------------------------------
+// Hybrid grouping — when the user has only one role on a unit, render as
+// today; when they hold multiple roles on the same unit, collapse the role
+// groups into one section showing the union of rows and a chip line listing
+// the held roles. Avoids the noise of two near-identical sections (e.g.
+// "ANESTHESIA · DOCTOR" + "ANESTHESIA · ADMIN" stacked) when admin already
+// supersets doctor.
+// ---------------------------------------------------------------------------
+
+// Higher-privilege roles win when picking which one to use on click; admin
+// is a superset of doctor for routes both roles share, so the user lands in
+// the role with the most features available. Unknown roles fall to the end.
+const ROLE_PRIORITY: Record<string, number> = {
+  group_admin: 0,
+  admin: 1,
+  manager: 2,
+  marketing: 3,
+  doctor: 4,
+};
+
+export function rolePriority(role: string): number {
+  return ROLE_PRIORITY[role] ?? 99;
+}
+
+export interface RoleSlice {
+  hospital: SidebarHospital;
+  rows: ModuleRow[];
+}
+
+export interface SidebarUnitGroup {
+  /** Representative hospital row for the unit (highest-priority role). */
+  hospital: SidebarHospital;
+  /** Role slices for this (hospitalId, unitId), sorted by privilege priority. */
+  roles: RoleSlice[];
+}
+
+export function groupByUnit(
+  hospitals: SidebarHospital[],
+  t: ReturnType<typeof import("react-i18next").useTranslation>["t"],
+): SidebarUnitGroup[] {
+  // Bucket by (hospitalId, unitId)
+  const buckets = new Map<string, SidebarHospital[]>();
+  for (const h of hospitals) {
+    const key = `${h.id}-${h.unitId}`;
+    const arr = buckets.get(key) ?? [];
+    arr.push(h);
+    buckets.set(key, arr);
+  }
+
+  const groups: SidebarUnitGroup[] = [];
+  for (const roles of buckets.values()) {
+    // Sort roles by priority so the highest-priv role is first — both the
+    // section representative and the default selection in the chip strip.
+    const sortedRoles = [...roles].sort(
+      (a, b) => rolePriority(a.role) - rolePriority(b.role),
+    );
+    const slices: RoleSlice[] = sortedRoles.map(h => ({
+      hospital: h,
+      rows: buildRows(h, t).rows,
+    }));
+    groups.push({ hospital: sortedRoles[0], roles: slices });
+  }
+
+  // Strict alphabetical order by unit name. We intentionally do NOT promote
+  // the active or default-login group to the top — the active/default state
+  // would shuffle the layout under the user's cursor (and the location of a
+  // module would change depending on where they're currently signed in),
+  // which is more confusing than helpful.
+  return groups.sort((a, b) =>
+    a.hospital.unitName.localeCompare(b.hospital.unitName),
+  );
 }

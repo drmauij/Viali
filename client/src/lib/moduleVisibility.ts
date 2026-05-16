@@ -10,8 +10,7 @@ export type ModuleId =
 
 export type ShortcutId =
   | "worklogs-anesthesia"
-  | "worklogs-surgery"
-  | "checklists";
+  | "worklogs-surgery";
 
 export type UnitType =
   | "anesthesia"
@@ -39,10 +38,6 @@ export interface HospitalAccess {
   isPlatformOperator: boolean;
 }
 
-export interface BadgeCounts {
-  overdueChecklists: number;
-}
-
 export interface Shortcut {
   id: ShortcutId;
   route: string;
@@ -61,10 +56,15 @@ export function getVisibleModules(access: HospitalAccess): ModuleId[] {
   if (access.unitType === "anesthesia") {
     mods.push("anesthesia");
   }
-  if (access.unitType === "or" && access.addons.surgery) {
+  // Surgery/clinic main links follow the role/unit, not the legacy addon
+  // gates — having an OR or clinic unit role IS the access signal. The
+  // addonSurgery/addonClinic columns are part of the unused billing scaffold
+  // and would otherwise hide the main module from users who clearly have
+  // access (see CLAUDE memory: "no addon gates by default").
+  if (access.unitType === "or") {
     mods.push("surgery");
   }
-  if (access.unitType === "clinic" && access.addons.clinic) {
+  if (access.unitType === "clinic") {
     mods.push("clinic");
   }
   if (access.unitType === "business") {
@@ -90,10 +90,7 @@ export function getVisibleModules(access: HospitalAccess): ModuleId[] {
   return mods;
 }
 
-export function getInternalShortcuts(
-  access: HospitalAccess,
-  badges: BadgeCounts,
-): Shortcut[] {
+export function getInternalShortcuts(access: HospitalAccess): Shortcut[] {
   const items: Shortcut[] = [];
 
   if (access.addons.worktime) {
@@ -102,20 +99,6 @@ export function getInternalShortcuts(
     } else if (access.unitType === "or") {
       items.push({ id: "worklogs-surgery", route: "/surgery/worklogs" });
     }
-  }
-
-  // Checklists: belongs to whichever unit currently owns inventory access.
-  // Inventory visibility is computed in getVisibleModules; mirror the rule here.
-  const ownsInventory =
-    access.unitType !== "business" &&
-    access.unitType !== "logistic" &&
-    access.unitType !== null;
-  if (ownsInventory) {
-    const item: Shortcut = { id: "checklists", route: "/inventory/checklists" };
-    if (badges.overdueChecklists > 0) {
-      item.badge = badges.overdueChecklists;
-    }
-    items.push(item);
   }
 
   return items;

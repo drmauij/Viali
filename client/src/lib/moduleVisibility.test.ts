@@ -43,7 +43,7 @@ describe("getVisibleModules", () => {
     ]);
   });
 
-  it("or/admin sees surgery, inventory, administration (with surgery addon)", () => {
+  it("or/admin sees surgery, inventory, administration", () => {
     expect(getVisibleModules(access({ unitType: "or" }))).toEqual([
       "surgery",
       "inventory",
@@ -51,14 +51,14 @@ describe("getVisibleModules", () => {
     ]);
   });
 
-  it("or/admin without surgery addon hides the surgery module", () => {
+  it("or/admin without surgery addon still sees surgery (legacy addon is no longer a gate)", () => {
     const result = getVisibleModules(
       access({ unitType: "or", addons: { ...allAddons, surgery: false } }),
     );
-    expect(result).not.toContain<ModuleId>("surgery");
+    expect(result).toContain<ModuleId>("surgery");
   });
 
-  it("clinic/admin sees clinic, inventory, administration when clinic addon enabled", () => {
+  it("clinic/admin sees clinic, inventory, administration", () => {
     expect(getVisibleModules(access({ unitType: "clinic" }))).toEqual([
       "clinic",
       "inventory",
@@ -66,11 +66,11 @@ describe("getVisibleModules", () => {
     ]);
   });
 
-  it("clinic/admin without clinic addon hides the clinic module", () => {
+  it("clinic/admin without clinic addon still sees clinic (legacy addon is no longer a gate)", () => {
     const result = getVisibleModules(
       access({ unitType: "clinic", addons: { ...allAddons, clinic: false } }),
     );
-    expect(result).not.toContain<ModuleId>("clinic");
+    expect(result).toContain<ModuleId>("clinic");
   });
 
   it("business/admin sees business + administration", () => {
@@ -128,44 +128,24 @@ describe("getVisibleModules", () => {
 
 describe("getInternalShortcuts", () => {
   it("anesthesia/admin with worktime addon gets a worklogs-anesthesia row", () => {
-    const shortcuts = getInternalShortcuts(
-      access({ unitType: "anesthesia" }),
-      { overdueChecklists: 0 },
-    );
+    const shortcuts = getInternalShortcuts(access({ unitType: "anesthesia" }));
     expect(shortcuts.map(s => s.id)).toContain("worklogs-anesthesia");
   });
 
   it("or/admin with worktime addon gets a worklogs-surgery row", () => {
-    const shortcuts = getInternalShortcuts(
-      access({ unitType: "or" }),
-      { overdueChecklists: 0 },
-    );
+    const shortcuts = getInternalShortcuts(access({ unitType: "or" }));
     expect(shortcuts.map(s => s.id)).toContain("worklogs-surgery");
   });
 
   it("no worktime addon → no worklogs shortcut", () => {
     const shortcuts = getInternalShortcuts(
       access({ unitType: "anesthesia", addons: noAddons }),
-      { overdueChecklists: 0 },
     );
     expect(shortcuts.map(s => s.id)).not.toContain("worklogs-anesthesia");
   });
 
-  it("checklists row carries the overdue badge count", () => {
-    const shortcuts = getInternalShortcuts(
-      access({ unitType: "anesthesia" }),
-      { overdueChecklists: 3 },
-    );
-    const checklists = shortcuts.find(s => s.id === "checklists");
-    expect(checklists?.badge).toBe(3);
-  });
-
-  it("zero overdue checklists → no badge property", () => {
-    const shortcuts = getInternalShortcuts(
-      access({ unitType: "anesthesia" }),
-      { overdueChecklists: 0 },
-    );
-    const checklists = shortcuts.find(s => s.id === "checklists");
-    expect(checklists?.badge).toBeUndefined();
+  it("checklists is no longer a per-role shortcut (moved to its own dropdown tab)", () => {
+    const shortcuts = getInternalShortcuts(access({ unitType: "anesthesia" }));
+    expect(shortcuts.find(s => (s.id as string) === "checklists")).toBeUndefined();
   });
 });

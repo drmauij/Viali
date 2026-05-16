@@ -1,13 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { SidebarRoleGroup } from "./SidebarRoleGroup";
 import { SidebarQuickLinks } from "./SidebarQuickLinks";
-import { buildRows, orderGroups, type SidebarHospital } from "./buildRows";
+import { groupByUnit, type SidebarHospital } from "./buildRows";
 
 interface Props {
   hospitals: SidebarHospital[];
   activeHospital: SidebarHospital;
   activeRoute: string;
-  overdueChecklists?: number;
   onSelect: (h: SidebarHospital, route: string) => void;
   showQuickLinks?: boolean;
 }
@@ -16,24 +15,58 @@ export function SidebarTree({
   hospitals,
   activeHospital,
   activeRoute,
-  overdueChecklists = 0,
   onSelect,
   showQuickLinks = true,
 }: Props) {
   const { t } = useTranslation();
-  const ordered = orderGroups(hospitals, activeHospital);
+  const groups = groupByUnit(hospitals, t);
 
   return (
     <div className="flex flex-col">
-      {ordered.map(h => {
-        const { rows } = buildRows(h, t, overdueChecklists);
-        const isActiveGroup =
-          h.unitId === activeHospital.unitId && h.role === activeHospital.role;
+      {groups.map(group => {
+        // The "selected role" for a merged section is the active role if it
+        // lives in this group, otherwise the highest-priv role (first slice).
+        // Drives which slice's rows are listed and which chip is highlighted.
+        const selectedSlice =
+          group.roles.find(
+            r =>
+              r.hospital.unitId === activeHospital.unitId &&
+              r.hospital.role === activeHospital.role,
+          ) ?? group.roles[0];
+        const isActiveGroup = group.roles.some(
+          r =>
+            r.hospital.unitId === activeHospital.unitId &&
+            r.hospital.role === activeHospital.role,
+        );
+
+        const chips =
+          group.roles.length > 1
+            ? group.roles.map(slice => ({
+                role: slice.hospital.role,
+                selected: slice === selectedSlice,
+                // Switch into this role. Stay on the current route if the
+                // role can still reach it; otherwise jump to that role's
+                // first accessible row so we don't dump the user on a page
+                // they no longer have access to.
+                onClick: () => {
+                  if (slice === selectedSlice) return;
+                  const sameRoute = slice.rows.find(
+                    row =>
+                      activeRoute === row.route ||
+                      activeRoute.startsWith(row.route + "/"),
+                  );
+                  const target = sameRoute?.route ?? slice.rows[0]?.route;
+                  if (target) onSelect(slice.hospital, target);
+                },
+              }))
+            : undefined;
+
         return (
           <SidebarRoleGroup
-            key={`${h.unitId}-${h.role}`}
-            hospital={h}
-            rows={rows}
+            key={`${group.hospital.id}-${group.hospital.unitId}`}
+            hospital={selectedSlice.hospital}
+            rows={selectedSlice.rows}
+            chips={chips}
             activeRoute={activeRoute}
             isActiveGroup={isActiveGroup}
             onSelect={(host, row) => onSelect(host, row.route)}
