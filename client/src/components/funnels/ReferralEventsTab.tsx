@@ -445,18 +445,15 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
 
   // ── Derived data ───────────────────────────────────────────────────────────
 
-  const daysInRange = useMemo(() => {
-    if (from && to) {
-      const ms = new Date(to).getTime() - new Date(from).getTime();
-      return Math.max(1, Math.round(ms / (24 * 60 * 60 * 1000)) + 1);
-    }
-    return referralDaily?.rows.length ?? 0;
-  }, [from, to, referralDaily]);
-
+  // avgPerDay derives both numerator and denominator from `referralDaily` so the
+  // metric stays internally consistent even when the page filter is empty.
+  // referral-stats can return lifetime totals (no `from` default) while
+  // referral-daily defaults to the last 90 days; mixing them would over-divide.
   const avgPerDay = useMemo(() => {
-    if (!referralData || daysInRange <= 0) return null;
-    return referralData.totalReferrals / daysInRange;
-  }, [referralData, daysInRange]);
+    if (!referralDaily || referralDaily.rows.length === 0) return null;
+    const sum = referralDaily.rows.reduce((s, r) => s + r.total, 0);
+    return sum / referralDaily.rows.length;
+  }, [referralDaily]);
 
   const periodSeries = useMemo(() => {
     if (!referralDaily?.rows.length) return [];

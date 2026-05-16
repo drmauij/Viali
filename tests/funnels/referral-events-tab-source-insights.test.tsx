@@ -89,30 +89,66 @@ describe("Source insights — derived data", () => {
     localStorage.clear();
   });
 
-  it("renders avg/day = totalReferrals / daysInRange (not rows.length)", () => {
+  it("renders avg/day from referralDaily — sum(rows.total) / rows.length", () => {
     renderWith({
-      stats: { breakdown: [], totalReferrals: 10 },
+      stats: { breakdown: [], totalReferrals: 999 },
       daily: baseDaily,
     });
-    // (2026-05-01..2026-05-10) inclusive = 10 days. 10 / 10 = 1.0
-    // getByText throws if not found, so the assertion is the call itself.
-    expect(screen.getByText("1.0")).toBeTruthy();
+    // baseDaily has 4 rows with totals 2 + 0 + 2 + 3 = 7 → 7 / 4 = 1.75 → "1.8" (toFixed(1))
+    // The high stats.totalReferrals (999) is intentionally ignored so the metric
+    // stays internally consistent regardless of what referral-stats reports.
+    expect(screen.getByText("1.8")).toBeTruthy();
   });
 
-  it("renders the avg/day with one decimal even for fractional values", () => {
+  it("renders avg/day with one decimal for clean fractional values", () => {
     renderWith({
-      stats: { breakdown: [], totalReferrals: 7 },
-      daily: baseDaily,
+      stats: { breakdown: [], totalReferrals: 0 },
+      daily: {
+        rows: [
+          { date: "2026-05-04", total: 1, bySource: { social: 1 } },
+          { date: "2026-05-05", total: 0, bySource: {} },
+          { date: "2026-05-06", total: 0, bySource: {} },
+          { date: "2026-05-07", total: 0, bySource: {} },
+          { date: "2026-05-08", total: 1, bySource: { social: 1 } },
+        ],
+        sources: ["social"],
+        timezone: "Europe/Zurich",
+      },
     });
-    expect(screen.getByText("0.7")).toBeTruthy();
+    // 2 / 5 = 0.4
+    expect(screen.getByText("0.4")).toBeTruthy();
   });
 
-  it("hides the avg/day suffix when totalReferrals is missing", () => {
+  it("hides the avg/day suffix when referralDaily has no rows", () => {
     renderWith({
-      stats: null,
-      daily: baseDaily,
+      stats: { breakdown: [], totalReferrals: 5 },
+      daily: { rows: [], sources: [], timezone: "UTC" },
     });
     expect(screen.queryByText("/day avg")).toBeNull();
+  });
+
+  it("avg/day is independent of stats.totalReferrals (lifetime numerator vs windowed denominator regression)", () => {
+    // Reviewer-flagged regression: previously, an empty page filter caused
+    // referral-stats (no `from` default) to return lifetime totals while
+    // referral-daily defaulted to last 90 days. avg/day was lifetime/91, which
+    // is meaningless. After the fix avg/day comes purely from referralDaily.
+    renderWith({
+      stats: { breakdown: [], totalReferrals: 9000 }, // pretend lifetime total
+      daily: {
+        // a 91-day window with only the last day having any referrals
+        rows: Array.from({ length: 91 }, (_, i) => ({
+          date: `2026-0${1 + Math.floor(i / 31)}-${String((i % 31) + 1).padStart(2, "0")}`,
+          total: i === 90 ? 9 : 0,
+          bySource: i === 90 ? { social: 9 } : {},
+        })),
+        sources: ["social"],
+        timezone: "Europe/Zurich",
+      },
+    });
+    // 9 referrals across 91 days = 0.098… → "0.1"
+    // If the old formula were still in place, avg would be 9000/91 ≈ 98.9 → "98.9"
+    expect(screen.getByText("0.1")).toBeTruthy();
+    expect(screen.queryByText("98.9")).toBeNull();
   });
 
   it("renders the upgraded chart title with foreground contrast", () => {
