@@ -55,7 +55,7 @@ export function HospitalDropdownTabs({
         onClick={() => onSelect(activeHospital, route)}
         className={`relative flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent/50 ${
           isActive
-            ? "bg-accent/60 font-medium text-foreground before:absolute before:left-0 before:top-0 before:h-full before:w-[3px] before:rounded-r-sm before:bg-primary"
+            ? "bg-primary/20 font-semibold text-primary before:absolute before:left-0 before:top-0 before:h-full before:w-[3px] before:rounded-r-sm before:bg-primary"
             : "text-foreground"
         }`}
       >
