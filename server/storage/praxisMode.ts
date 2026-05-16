@@ -30,6 +30,8 @@ export interface ProvisionSourceInput {
 export interface ProvisionSourceResult {
   sourceHospitalId: string;
   partnershipId: string;
+  orUnitId: string;
+  clinicUnitId: string;
 }
 
 export async function provisionSourceHospital(input: ProvisionSourceInput): Promise<ProvisionSourceResult> {
@@ -121,7 +123,12 @@ export async function provisionSourceHospital(input: ProvisionSourceInput): Prom
       pairingSource: "auto_on_provision",
     }).returning();
 
-    return { sourceHospitalId: src.id, partnershipId: pair.id };
+    return {
+      sourceHospitalId: src.id,
+      partnershipId: pair.id,
+      orUnitId: orUnit.id,
+      clinicUnitId: clinicUnit.id,
+    };
   });
 }
 

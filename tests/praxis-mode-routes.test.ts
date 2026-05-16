@@ -59,6 +59,12 @@ describe("POST /api/surgeon-portal/:token/praxis/activate", () => {
       .send({ sourceName: "Praxis Mueller", password: "Test1234!" });
     expect(res.status).toBe(200);
     expect(res.body.sourceHospitalId).toBeTruthy();
+    // activeHospitalKey is the localStorage key the modal stamps so
+    // useActiveHospital picks the new praxis OR row on next boot. Shape:
+    // `${hospitalId}-${unitId}-admin`. Modal contract — do not drop.
+    expect(typeof res.body.activeHospitalKey).toBe("string");
+    expect(res.body.activeHospitalKey.startsWith(`${res.body.sourceHospitalId}-`)).toBe(true);
+    expect(res.body.activeHospitalKey.endsWith("-admin")).toBe(true);
     created.hospitals.push(res.body.sourceHospitalId);
 
     const [src] = await db.select().from(hospitals).where(eq(hospitals.id, res.body.sourceHospitalId));

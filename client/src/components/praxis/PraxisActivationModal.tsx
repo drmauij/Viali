@@ -33,13 +33,19 @@ export function PraxisActivationModal({ open, onClose, token }: Props) {
         const body = await r.json().catch(() => ({}));
         throw new Error(body?.error ?? `activation failed (${r.status})`);
       }
-      return r.json();
+      return r.json() as Promise<{ sourceHospitalId: string; activeHospitalKey?: string }>;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: t("praxisActivation.success.title", "Praxis aktiviert"),
         description: t("praxisActivation.success.description", "Sie werden zu Ihrem Kalender weitergeleitet ..."),
       });
+      // Stamp the new praxis OR row as the active hospital so /surgery/op
+      // boots into the newly provisioned tenant rather than whatever the
+      // surgeon last used (or the first hospital in their list).
+      if (data?.activeHospitalKey) {
+        localStorage.setItem("activeHospital", data.activeHospitalKey);
+      }
       window.location.href = "/surgery/op";
     },
     onError: (err: any) => {

@@ -92,13 +92,23 @@ praxisModeRouter.post(
   if (!sourceName) return res.status(400).json({ error: "sourceName required" });
   if (!password || password.length < 8) return res.status(400).json({ error: "password required (min 8 chars)" });
 
-  // Set/upgrade password on the user record (existing bcrypt pattern from server/storage/users.ts)
+  // Set password + ensure the surgeon can log in to the main app. Portal-only
+  // users may have canLogin=false; activating their praxis grants them the
+  // operator role of their own tenant, so they need main-app access too.
+  // mustChangePassword=false since they just picked this password themselves.
   const bcrypt = await import("bcrypt");
   const hashedPassword = await bcrypt.hash(password, 10);
-  await db.update(users).set({ passwordHash: hashedPassword } as any).where(eq(users.id, ctx.userId));
+  await db
+    .update(users)
+    .set({
+      passwordHash: hashedPassword,
+      canLogin: true,
+      mustChangePassword: false,
+    } as any)
+    .where(eq(users.id, ctx.userId));
 
   try {
-    const { sourceHospitalId } = await provisionSourceHospital({
+    const { sourceHospitalId, orUnitId } = await provisionSourceHospital({
       surgeonUserId: ctx.userId,
       originatingDestinationId: ctx.clinicId,
       sourceName,
@@ -139,7 +149,49 @@ praxisModeRouter.post(
       }
     }
 
-    return res.json({ sourceHospitalId });
+    // Bridge the portal cookie auth into a real Passport session so the
+    // browser can hit /surgery/op without bouncing through /login. Without
+    // this, the modal's window.location.href would land on a protected route
+    // with no req.user and ProtectedRoute would redirect to /login.
+    const [surgeonRow] = await db.select().from(users).where(eq(users.id, ctx.userId));
+    if (!surgeonRow) {
+      return res.status(500).json({ error: "user row missing after provision" });
+    }
+
+    const sessionUser = {
+      id: surgeonRow.id,
+      email: surgeonRow.email,
+      firstName: surgeonRow.firstName,
+      lastName: surgeonRow.lastName,
+      profileImageUrl: (surgeonRow as any).profileImageUrl ?? null,
+      expires_at: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
+      mustChangePassword: false,
+    };
+
+    // activeHospitalKey is what the client stores in localStorage under
+    // 'activeHospital' so useActiveHospital picks the new praxis OR row on
+    // boot, landing the user on /surgery/op for the new tenant. Format must
+    // match client/src/hooks/useActiveHospital.ts: `${id}-${unitId}-${role}`.
+    const activeHospitalKey = `${sourceHospitalId}-${orUnitId}-admin`;
+    const payload = { sourceHospitalId, activeHospitalKey };
+
+    // In test mode req.login may not exist (no passport mounted); just return.
+    if (typeof (req as any).login !== "function") {
+      return res.json(payload);
+    }
+
+    await new Promise<void>((resolve) => {
+      (req as any).login(sessionUser, (err: any) => {
+        if (err) {
+          logger.error("[praxis-activate] req.login failed", err);
+          res.status(500).json({ error: "session bridge failed" });
+        } else {
+          res.json(payload);
+        }
+        resolve();
+      });
+    });
+    return;
   } catch (err: any) {
     logger.error("[praxis-activate] activation failed", err);
     return res.status(500).json({ error: err.message ?? "activation failed" });
