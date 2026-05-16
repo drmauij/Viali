@@ -1,13 +1,5 @@
 import { useTranslation } from "react-i18next";
 import { FileText, Calendar, CalendarCheck, Download } from "lucide-react";
-import {
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarSeparator,
-} from "@/components/ui/sidebar";
 import { UNIT_TAG_COLORS } from "@/lib/unitTagColors";
 import { buildQuickLinks, type QuickLinkData } from "./buildRows";
 
@@ -39,46 +31,41 @@ export function SidebarQuickLinks({ hospital, addons, hasMedicalAccess }: Props)
   if (links.length === 0) return null;
 
   return (
-    <>
-      <SidebarSeparator />
-      <SidebarGroup>
-        <SidebarGroupLabel>{t("sidebar.quickLinksSection")}</SidebarGroupLabel>
-        <SidebarGroupContent>
-          <SidebarMenu>
-            {links.map(link => (
-              <SidebarMenuItem key={link.id}>
-                <div className="flex w-full items-center gap-2 px-2 py-1.5 text-sm">
-                  <span
-                    className={`h-3 w-1 rounded-sm ${UNIT_TAG_COLORS.public.bg}`}
-                    aria-hidden
-                  />
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex flex-1 items-center gap-2 truncate text-foreground hover:text-primary"
-                  >
-                    {QUICK_LINK_ICON[link.id]}
-                    <span className="truncate">{link.label}</span>
-                  </a>
-                  {link.posterUrl && (
-                    <a
-                      href={link.posterUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label={t("sidebar.downloadPoster")}
-                      title={t("sidebar.downloadPoster")}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      <Download className="h-3 w-3" />
-                    </a>
-                  )}
-                </div>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
-    </>
+    <div className="py-1">
+      <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {t("sidebar.quickLinksSection")}
+      </div>
+      <div className="flex flex-col">
+        {links.map(link => (
+          <div key={link.id} className="flex items-center gap-2 px-3 py-1.5 text-sm">
+            <span
+              className={`h-3 w-1 shrink-0 rounded-sm ${UNIT_TAG_COLORS.public.bg}`}
+              aria-hidden
+            />
+            <a
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-1 items-center gap-2 truncate text-foreground hover:text-primary"
+            >
+              {QUICK_LINK_ICON[link.id]}
+              <span className="truncate">{link.label}</span>
+            </a>
+            {link.posterUrl && (
+              <a
+                href={link.posterUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t("sidebar.downloadPoster")}
+                title={t("sidebar.downloadPoster")}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Download className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

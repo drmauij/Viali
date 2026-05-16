@@ -1,11 +1,3 @@
-import {
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-} from "@/components/ui/sidebar";
 import { unitTagClass } from "@/lib/unitTagColors";
 import type { UnitType } from "@/lib/moduleVisibility";
 
@@ -43,39 +35,37 @@ export function SidebarRoleGroup({
   const tagBg = unitTagClass(hospital.unitType);
 
   return (
-    <SidebarGroup>
+    <div className="py-1" data-role-group>
       {!singleRoleMode && (
-        <SidebarGroupLabel>
+        <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           {hospital.unitName} · {hospital.role}
-        </SidebarGroupLabel>
+        </div>
       )}
-      <SidebarGroupContent>
-        <SidebarMenu>
-          {rows.map(row => {
-            const isActive = activeRoute === row.route || activeRoute.startsWith(row.route + "/");
-            return (
-              <SidebarMenuItem key={row.id}>
-                <SidebarMenuButton
-                  data-active={isActive ? "true" : undefined}
-                  onClick={() => onSelect(hospital, row)}
-                  className="gap-2"
-                >
-                  <span
-                    className={`h-3 w-1 rounded-sm ${tagBg}`}
-                    aria-hidden
-                  />
-                  <span className="flex-1 truncate text-left">{row.label}</span>
-                  {row.badge !== undefined && row.badge > 0 && (
-                    <span className="ml-auto rounded-full bg-destructive px-1.5 py-0 text-[10px] font-semibold leading-4 text-destructive-foreground">
-                      {row.badge}
-                    </span>
-                  )}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            );
-          })}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
+      <div className="flex flex-col">
+        {rows.map(row => {
+          const isActive = activeRoute === row.route || activeRoute.startsWith(row.route + "/");
+          return (
+            <button
+              key={row.id}
+              type="button"
+              role="button"
+              data-active={isActive ? "true" : undefined}
+              onClick={() => onSelect(hospital, row)}
+              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent ${
+                isActive ? "bg-accent font-medium text-accent-foreground" : "text-foreground"
+              }`}
+            >
+              <span className={`h-3 w-1 shrink-0 rounded-sm ${tagBg}`} aria-hidden />
+              <span className="flex-1 truncate text-left">{row.label}</span>
+              {row.badge !== undefined && row.badge > 0 && (
+                <span className="ml-auto rounded-full bg-destructive px-1.5 py-0 text-[10px] font-semibold leading-4 text-destructive-foreground">
+                  {row.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
