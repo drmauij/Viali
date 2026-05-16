@@ -21,6 +21,7 @@ import { db } from "../db";
 import logger from "../logger";
 import { getClinicClosuresInRange } from "../storage/clinicClosures";
 import { findFuzzyPatientMatches } from "../services/patientDeduplication";
+import { acceptReferralAndImport } from "../storage/praxisMode";
 
 const router = Router();
 
@@ -1114,6 +1115,42 @@ router.post('/api/hospitals/:hospitalId/surgeon-action-requests/:reqId/refuse', 
   } catch (error) {
     logger.error("Error refusing surgeon action request:", error);
     res.status(500).json({ message: "Failed to refuse request" });
+  }
+});
+
+// ========== CROSS-TENANT REFERRAL ACCEPT (Task 7) ==========
+// Destination admin accepts a cross-tenant referral: imports the patient
+// snapshot into the destination hospital and pushes the confirmed status
+// back to the source-side surgery record.
+
+router.post('/api/external-surgery-requests/:id/accept', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    // In test mode the middleware is mocked; read identity from headers.
+    // In production, req.user is populated by isAuthenticated.
+    const userId: string =
+      (process.env.NODE_ENV === "test" && req.headers["x-test-user-id"])
+        ? String(req.headers["x-test-user-id"])
+        : (req.user?.id ?? "");
+    const hospitalId: string =
+      (process.env.NODE_ENV === "test" && req.headers["x-test-hospital-id"])
+        ? String(req.headers["x-test-hospital-id"])
+        : (req.user?.activeHospitalId ?? "");
+
+    if (!hospitalId) {
+      return res.status(401).json({ error: "no active hospital" });
+    }
+
+    const { destinationPatientId } = await acceptReferralAndImport({
+      destinationHospitalId: hospitalId,
+      externalRequestId: req.params.id,
+      confirmedDate: req.body?.confirmedDate ? new Date(req.body.confirmedDate) : null,
+      byUserId: userId,
+    });
+
+    return res.json({ destinationPatientId });
+  } catch (err: any) {
+    logger.error("[ExternalSurgery] Error accepting referral:", err);
+    return res.status(500).json({ error: err.message ?? "accept failed" });
   }
 });
 

@@ -28,11 +28,13 @@ vi.mock("../server/utils", async (importOriginal) => {
   return {
     ...original,
     requireSurgeryPlanAccess: (_req: any, _res: any, next: any) => next(),
+    requireWriteAccess: (_req: any, _res: any, next: any) => next(),
   };
 });
 
-// Import the router AFTER the mocks are registered
+// Import the routers AFTER the mocks are registered
 import surgeriesRouter from "../server/routes/anesthesia/surgeries";
+import externalSurgeryRouter from "../server/routes/externalSurgery";
 
 const created = {
   hospitals: [] as string[],
@@ -77,6 +79,22 @@ function buildApp(userId: string, hospitalId: string) {
   app.use(surgeriesRouter);
   return app;
 }
+
+// App that mounts the external surgery router and reads user/hospital from
+// x-test-user-id / x-test-hospital-id headers (test-mode bypass).
+function buildExternalSurgeryApp() {
+  const app = express();
+  app.use(express.json());
+  app.use((req: any, _res: any, next: any) => {
+    const userId = String(req.headers["x-test-user-id"] ?? "");
+    const hospitalId = String(req.headers["x-test-hospital-id"] ?? "");
+    req.user = { id: userId, activeHospitalId: hospitalId };
+    next();
+  });
+  app.use(externalSurgeryRouter);
+  return app;
+}
+const externalSurgeryApp = buildExternalSurgeryApp();
 
 async function setup() {
   const ts = Date.now();
@@ -259,5 +277,51 @@ describe("POST /api/anesthesia/surgeries — clinic-linked room creates cross-te
     const [s] = await db.select().from(surgeries).where(eq(surgeries.id, res.body.id));
     expect(s.referralStatus).toBe("local");
     expect(s.externalRequestId).toBeNull();
+  });
+});
+
+describe("destination-side accept of source-sourced request", () => {
+  it("creates destination patient from snapshot + pushes source status to confirmed_external", async () => {
+    const { dest, surgeon, sourceHospitalId, room, patient } = await setup();
+    const submit = await request(buildApp(surgeon.id, sourceHospitalId))
+      .post("/api/anesthesia/surgeries")
+      .set("x-test-user-id", surgeon.id).set("x-test-hospital-id", sourceHospitalId)
+      .send({
+        hospitalId: sourceHospitalId,
+        patientId: patient.id, surgeryRoomId: room.id,
+        plannedDate: new Date(Date.now() + 7*24*3600*1000).toISOString(),
+        plannedSurgery: "Septoplasty", consentGiven: true,
+      });
+    expect(submit.status).toBe(201);
+    created.surgeries.push(submit.body.id);
+    const [srcSurgBefore] = await db.select().from(surgeries).where(eq(surgeries.id, submit.body.id));
+    const externalRequestId = srcSurgBefore.externalRequestId!;
+    created.requests.push(externalRequestId);
+
+    // Simulate destination admin
+    const [adminUser] = await db.insert(users).values({
+      email: `adm-${Date.now()}@t.local`, firstName: "A", lastName: "A",
+    }).returning();
+    created.users.push(adminUser.id);
+    const [destUnit] = await db.select().from(units).where(eq(units.hospitalId, dest.id));
+    await db.insert(userHospitalRoles).values({ userId: adminUser.id, hospitalId: dest.id, unitId: destUnit.id, role: "admin" } as any);
+
+    const confirmedDate = new Date(Date.now() + 10*24*3600*1000);
+    const res = await request(externalSurgeryApp)
+      .post(`/api/external-surgery-requests/${externalRequestId}/accept`)
+      .set("x-test-user-id", adminUser.id).set("x-test-hospital-id", dest.id)
+      .send({ confirmedDate: confirmedDate.toISOString() });
+    expect(res.status).toBe(200);
+    expect(res.body.destinationPatientId).toBeTruthy();
+    created.patients.push(res.body.destinationPatientId);
+
+    const [destPt] = await db.select().from(patients).where(eq(patients.id, res.body.destinationPatientId));
+    expect(destPt.hospitalId).toBe(dest.id);
+    expect(destPt.firstName).toBe("Petra");
+
+    // Source-side surgery confirmed
+    const [srcSurg] = await db.select().from(surgeries).where(eq(surgeries.id, submit.body.id));
+    expect(srcSurg.referralStatus).toBe("confirmed_external");
+    expect(srcSurg.plannedDate).toBeTruthy();
   });
 });

@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { eq, and } from "drizzle-orm";
+import { eq, and, count } from "drizzle-orm";
 import { db } from "../db";
 import { hospitals, units, userHospitalRoles, referralPartnerships, externalSurgeryRequests, surgeries, patients, surgeryRooms, users as usersTable } from "@shared/schema";
 
@@ -479,4 +479,124 @@ export async function createCrossTenantReferral(
     .returning();
 
   return { externalRequestId: req.id };
+}
+
+// ---------------------------------------------------------------------------
+// Task 7: destination-side accept — push status back + import snapshot
+// ---------------------------------------------------------------------------
+
+export async function pushReferralStatus(input: {
+  externalRequestId: string;
+  newStatus: "confirmed_external" | "rejected_external" | "cancelled_external";
+  confirmedDate?: Date | null;
+  note?: string | null;
+  isReschedule?: boolean;
+  byUserId?: string | null;
+  byHospitalId?: string | null;
+}): Promise<void> {
+  const [r] = await db
+    .select()
+    .from(externalSurgeryRequests)
+    .where(eq(externalSurgeryRequests.id, input.externalRequestId));
+  if (!r?.sourceSurgeryId) return;
+
+  const update: Record<string, unknown> = { referralStatus: input.newStatus };
+  if (input.confirmedDate) update.plannedDate = input.confirmedDate;
+  if (input.note != null) update.referralNote = input.note;
+  if (input.isReschedule) update.lastClinicRescheduleAt = new Date();
+
+  // Append to reschedule_history (tracks all status transitions)
+  const [src] = await db
+    .select()
+    .from(surgeries)
+    .where(eq(surgeries.id, r.sourceSurgeryId));
+  if (src) {
+    const history = Array.isArray((src as any).rescheduleHistory)
+      ? [...((src as any).rescheduleHistory as unknown[])]
+      : [];
+    history.push({
+      from_status: (src as any).referralStatus,
+      to_status: input.newStatus,
+      from_date: src.plannedDate,
+      to_date: input.confirmedDate ?? src.plannedDate,
+      at: new Date().toISOString(),
+      by_user_id: input.byUserId ?? null,
+      by_hospital_id: input.byHospitalId ?? null,
+      reason: input.note ?? null,
+    });
+    (update as any).rescheduleHistory = history;
+  }
+
+  await db
+    .update(surgeries)
+    .set(update as any)
+    .where(eq(surgeries.id, r.sourceSurgeryId));
+}
+
+export async function acceptReferralAndImport(input: {
+  destinationHospitalId: string;
+  externalRequestId: string;
+  confirmedDate?: Date | null;
+  byUserId: string;
+}): Promise<{ destinationPatientId: string }> {
+  const [r] = await db
+    .select()
+    .from(externalSurgeryRequests)
+    .where(eq(externalSurgeryRequests.id, input.externalRequestId));
+  if (!r) throw new Error("request not found");
+
+  // Build demographics from snapshot if present, else from request top-level fields
+  const snap = (r.patientSnapshot as any) ?? null;
+  const dem = snap?.demographics ?? {
+    firstName: r.patientFirstName,
+    lastName: r.patientLastName,
+    birthday: r.patientBirthday,
+    sex: "O",
+    email: r.patientEmail,
+    phone: r.patientPhone,
+    street: r.patientStreet,
+    postalCode: r.patientPostalCode,
+    city: r.patientCity,
+  };
+
+  // Generate a unique patientNumber within the destination hospital
+  const [{ value: existingCount }] = await db
+    .select({ value: count() })
+    .from(patients)
+    .where(eq(patients.hospitalId, input.destinationHospitalId));
+  const patientNumber = `P-${String(Number(existingCount) + 1).padStart(5, "0")}`;
+
+  const [destPt] = await db
+    .insert(patients)
+    .values({
+      hospitalId: input.destinationHospitalId,
+      patientNumber,
+      firstName: dem.firstName ?? "Unknown",
+      surname: dem.lastName ?? "Patient",
+      birthday: dem.birthday ?? "",
+      sex: (dem.sex ?? "O") as any,
+      email: dem.email ?? null,
+      phone: dem.phone ?? null,
+      street: dem.street ?? null,
+      postalCode: dem.postalCode ?? null,
+      city: dem.city ?? null,
+    } as any)
+    .returning();
+
+  // Mark the external request as scheduled and link to new destination patient
+  await db
+    .update(externalSurgeryRequests)
+    .set({ status: "scheduled", patientId: destPt.id })
+    .where(eq(externalSurgeryRequests.id, input.externalRequestId));
+
+  // Push status back to the source-side surgery
+  await pushReferralStatus({
+    externalRequestId: input.externalRequestId,
+    newStatus: "confirmed_external",
+    confirmedDate: input.confirmedDate ?? null,
+    byUserId: input.byUserId,
+    byHospitalId: input.destinationHospitalId,
+  });
+
+  return { destinationPatientId: destPt.id };
 }
