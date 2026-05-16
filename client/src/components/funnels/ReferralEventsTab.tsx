@@ -140,6 +140,21 @@ type ReferralEventsResponse = {
   campaigns: string[];
 };
 
+type ReferralDailyRow = {
+  date: string;          // 'YYYY-MM-DD'
+  total: number;
+  bySource: Record<string, number>;
+};
+
+type ReferralDailyResult = {
+  rows: ReferralDailyRow[];
+  sources: string[];
+  timezone: string;
+  rangeTooWide?: boolean; // set client-side when the server returns 400
+                          // so the UI can render the inline guidance message
+                          // instead of a generic empty state.
+};
+
 const NO_CAMPAIGN_SENTINEL = "__none__";
 const ALL_CAMPAIGNS = "all";
 
@@ -271,6 +286,24 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
   >({
     queryKey: [timeseriesUrl],
     enabled: scope.hospitalIds.length > 0,
+  });
+
+  const dailyUrl = funnelsUrl("referral-daily", scope, { from, to });
+  const { data: referralDaily, isLoading: referralDailyLoading } = useQuery<ReferralDailyResult>({
+    queryKey: [dailyUrl],
+    enabled: !!dailyUrl,
+    queryFn: async () => {
+      if (!dailyUrl) throw new Error("scope not addressable");
+      const res = await fetch(dailyUrl, { credentials: "include" });
+      if (!res.ok) {
+        if (res.status === 400) {
+          // Range too wide — flag for the inline guidance message in the UI.
+          return { rows: [], sources: [], timezone: "UTC", rangeTooWide: true };
+        }
+        throw new Error("Failed to fetch referral-daily");
+      }
+      return (await res.json()) as ReferralDailyResult;
+    },
   });
 
   const campaignParam =
