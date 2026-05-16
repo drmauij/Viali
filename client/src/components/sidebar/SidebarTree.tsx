@@ -27,12 +27,15 @@ export function SidebarTree({
     <div className="flex flex-col">
       {ordered.map(h => {
         const { rows } = buildRows(h, t, overdueChecklists);
+        const isActiveGroup =
+          h.unitId === activeHospital.unitId && h.role === activeHospital.role;
         return (
           <SidebarRoleGroup
             key={`${h.unitId}-${h.role}`}
             hospital={h}
             rows={rows}
             activeRoute={activeRoute}
+            isActiveGroup={isActiveGroup}
             onSelect={(host, row) => onSelect(host, row.route)}
           />
         );

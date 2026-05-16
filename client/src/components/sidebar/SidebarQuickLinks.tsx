@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { FileText, Calendar, CalendarCheck, Download } from "lucide-react";
+import { Copy, FileText, Calendar, CalendarCheck, Download } from "lucide-react";
 import { UNIT_TAG_COLORS } from "@/lib/unitTagColors";
+import { useToast } from "@/hooks/use-toast";
 import { buildQuickLinks, type QuickLinkData } from "./buildRows";
 
 interface QuickLinkHospital {
@@ -25,10 +26,27 @@ const QUICK_LINK_ICON: Record<QuickLinkData["id"], JSX.Element> = {
 
 export function SidebarQuickLinks({ hospital, addons, hasMedicalAccess }: Props) {
   const { t } = useTranslation();
+  const { toast } = useToast();
 
   const links = buildQuickLinks(hospital, addons, hasMedicalAccess, t);
 
   if (links.length === 0) return null;
+
+  async function copy(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({
+        title: t("quickLinks.copied"),
+        description: t("quickLinks.copiedDesc"),
+      });
+    } catch {
+      toast({
+        title: t("quickLinks.copyFailed"),
+        description: url,
+        variant: "destructive",
+      });
+    }
+  }
 
   return (
     <div className="py-1">
@@ -60,9 +78,18 @@ export function SidebarQuickLinks({ hospital, addons, hasMedicalAccess }: Props)
                 title={t("sidebar.downloadPoster")}
                 className="text-muted-foreground hover:text-foreground"
               >
-                <Download className="h-3 w-3" />
+                <Download className="h-3.5 w-3.5" />
               </a>
             )}
+            <button
+              type="button"
+              aria-label={t("quickLinks.copyLink", "Copy link")}
+              title={t("quickLinks.copyLink", "Copy link")}
+              onClick={() => copy(link.url)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
           </div>
         ))}
       </div>

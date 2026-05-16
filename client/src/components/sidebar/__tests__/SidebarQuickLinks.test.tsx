@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { SidebarQuickLinks } from "../SidebarQuickLinks";
+
+vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 
 const hospital = {
   id: "h1",
@@ -79,7 +81,7 @@ describe("SidebarQuickLinks", () => {
     expect(posterButtons).toHaveLength(1);
   });
 
-  it("clicking a row opens the URL (no copy/open-in-new-tab buttons rendered)", () => {
+  it("row's link opens in new tab and a copy button is rendered next to it", () => {
     render(
       <SidebarQuickLinks
         hospital={hospital}
@@ -87,11 +89,28 @@ describe("SidebarQuickLinks", () => {
         hasMedicalAccess={true}
       />,
     );
-    expect(screen.queryByLabelText(/copy link/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/open in new tab/i)).not.toBeInTheDocument();
     const link = screen.getByRole("link", { name: /clinic questionnaire/i });
     expect(link).toHaveAttribute("href", "https://example.test/questionnaire/hospital/qtok");
     expect(link).toHaveAttribute("target", "_blank");
+    expect(screen.getAllByLabelText(/copy link/i).length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText(/open in new tab/i)).not.toBeInTheDocument();
+  });
+
+  it("copy button writes the URL to the clipboard", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    render(
+      <SidebarQuickLinks
+        hospital={hospital}
+        addons={baseAddons}
+        hasMedicalAccess={true}
+      />,
+    );
+    fireEvent.click(screen.getAllByLabelText(/copy link/i)[0]);
+    expect(writeText).toHaveBeenCalledWith("https://example.test/questionnaire/hospital/qtok");
   });
 
   it("uses the questionnaireAlias when present", () => {

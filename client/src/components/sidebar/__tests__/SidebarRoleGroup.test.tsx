@@ -50,6 +50,7 @@ describe("SidebarRoleGroup", () => {
         hospital={baseHospital}
         rows={rows}
         activeRoute="/anesthesia/op"
+        isActiveGroup={true}
         onSelect={vi.fn()}
       />,
       { wrapper: Wrapper },
@@ -63,6 +64,7 @@ describe("SidebarRoleGroup", () => {
         hospital={baseHospital}
         rows={rows}
         activeRoute="/anesthesia/op"
+        isActiveGroup={true}
         onSelect={vi.fn()}
       />,
       { wrapper: Wrapper },
@@ -79,6 +81,7 @@ describe("SidebarRoleGroup", () => {
         hospital={baseHospital}
         rows={rows}
         activeRoute="/anesthesia/op"
+        isActiveGroup={true}
         onSelect={vi.fn()}
       />,
       { wrapper: Wrapper },
@@ -93,6 +96,7 @@ describe("SidebarRoleGroup", () => {
         hospital={baseHospital}
         rows={rows}
         activeRoute="/anesthesia/op"
+        isActiveGroup={true}
         onSelect={vi.fn()}
       />,
       { wrapper: Wrapper },
@@ -107,6 +111,7 @@ describe("SidebarRoleGroup", () => {
         hospital={baseHospital}
         rows={rows}
         activeRoute="/anesthesia/op"
+        isActiveGroup={true}
         onSelect={onSelect}
       />,
       { wrapper: Wrapper },
@@ -115,12 +120,28 @@ describe("SidebarRoleGroup", () => {
     expect(onSelect).toHaveBeenCalledWith(baseHospital, rows[1]);
   });
 
+  it("does not mark the row active when isActiveGroup is false", () => {
+    render(
+      <SidebarRoleGroup
+        hospital={baseHospital}
+        rows={rows}
+        activeRoute="/anesthesia/op"
+        isActiveGroup={false}
+        onSelect={vi.fn()}
+      />,
+      { wrapper: Wrapper },
+    );
+    const row = screen.getByRole("button", { name: /Anesthesia Records/i });
+    expect(row).not.toHaveAttribute("data-active", "true");
+  });
+
   it("omits the header when single role mode is true", () => {
     render(
       <SidebarRoleGroup
         hospital={baseHospital}
         rows={rows}
         activeRoute="/anesthesia/op"
+        isActiveGroup={true}
         onSelect={vi.fn()}
         singleRoleMode
       />,

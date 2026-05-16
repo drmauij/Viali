@@ -21,6 +21,8 @@ interface Props {
   hospital: HospitalRef;
   rows: ModuleRow[];
   activeRoute: string;
+  /** True when this group's unit-role is the user's currently active selection. */
+  isActiveGroup: boolean;
   onSelect: (hospital: HospitalRef, row: ModuleRow) => void;
   singleRoleMode?: boolean;
 }
@@ -29,6 +31,7 @@ export function SidebarRoleGroup({
   hospital,
   rows,
   activeRoute,
+  isActiveGroup,
   onSelect,
   singleRoleMode = false,
 }: Props) {
@@ -43,7 +46,13 @@ export function SidebarRoleGroup({
       )}
       <div className="flex flex-col">
         {rows.map(row => {
-          const isActive = activeRoute === row.route || activeRoute.startsWith(row.route + "/");
+          // A row is active only when its unit-role group matches the active
+          // selection AND the current URL matches the row's route. Without the
+          // group check, the same module route under multiple unit-roles would
+          // all light up at once.
+          const routeMatches =
+            activeRoute === row.route || activeRoute.startsWith(row.route + "/");
+          const isActive = isActiveGroup && routeMatches;
           return (
             <button
               key={row.id}
@@ -51,8 +60,10 @@ export function SidebarRoleGroup({
               role="button"
               data-active={isActive ? "true" : undefined}
               onClick={() => onSelect(hospital, row)}
-              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent ${
-                isActive ? "bg-accent font-medium text-accent-foreground" : "text-foreground"
+              className={`relative flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent/50 ${
+                isActive
+                  ? "bg-accent/60 font-medium text-foreground before:absolute before:left-0 before:top-0 before:h-full before:w-[3px] before:rounded-r-sm before:bg-primary"
+                  : "text-foreground"
               }`}
             >
               <span className={`h-3 w-1 shrink-0 rounded-sm ${tagBg}`} aria-hidden />
