@@ -6,8 +6,7 @@ import { useTranslation } from "react-i18next";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import PersonalSettingsDialog from "./PersonalSettingsDialog";
 import WorktimeLogDialog from "./WorktimeLogDialog";
-import { useModule } from "@/contexts/ModuleContext";
-import { MessageCircle, Search, PanelLeft } from "lucide-react";
+import { MessageCircle, Search } from "lucide-react";
 import { useCommandPalette } from "@/components/CommandPalette";
 import ChatDock from "./chat/ChatDock";
 import { useQuery } from "@tanstack/react-query";
@@ -39,7 +38,6 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const { language, setLanguage } = useLanguage();
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { setIsDrawerOpen } = useModule();
   const { addons } = useHospitalAddons();
   const { open: openCommandPalette } = useCommandPalette();
   const [, setLocation] = useLocation();
@@ -167,15 +165,6 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
       <div className="flex items-center justify-between gap-2 min-w-0">
         {/* Module Menu and Hospital Switcher */}
         <div className="flex items-center gap-3 min-w-0">
-          {/* Module Drawer Toggle */}
-          <button
-            onClick={() => setIsDrawerOpen(true)}
-            className="w-10 h-10 shrink-0 rounded-lg hover:bg-accent flex items-center justify-center transition-colors"
-            data-testid="module-menu-button"
-          >
-            <i className="fas fa-bars text-lg text-foreground"></i>
-          </button>
-
           {/* Sidebar state toggle: full → rail → hidden → full */}
           <button
             onClick={() => document.dispatchEvent(new CustomEvent("toggle-sidebar-state"))}
@@ -184,7 +173,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
             title={t("sidebar.toggleState", "Toggle sidebar")}
             data-testid="sidebar-toggle-button"
           >
-            <PanelLeft className="w-5 h-5 text-foreground" />
+            <i className="fas fa-bars text-lg text-foreground"></i>
           </button>
 
           {isChainAdmin ? (
