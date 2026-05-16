@@ -8875,6 +8875,11 @@
       "links": "Links",
       "clinics": "Clinics"
     },
+    "systemSection": "System",
+    "system": {
+      "chain": "Chain",
+      "platform": "Platform"
+    },
     "module": {
       "anesthesia": "Anesthesia Records",
       "surgery": "Surgery",

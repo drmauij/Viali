@@ -8892,6 +8892,11 @@
       "links": "Links",
       "clinics": "Kliniken"
     },
+    "systemSection": "System",
+    "system": {
+      "chain": "Kette",
+      "platform": "Plattform"
+    },
     "module": {
       "anesthesia": "Anästhesie",
       "surgery": "Chirurgie",

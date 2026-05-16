@@ -220,7 +220,8 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
                 <HospitalDropdownTabs
                   hospitals={hospitals as SidebarHospital[]}
                   activeHospital={activeHospital as SidebarHospital}
-                  activeRoute={typeof window !== "undefined" ? window.location.pathname : ""}
+                  activeRoute={location}
+                  isPlatformAdmin={!!(user as any)?.isPlatformAdmin}
                   onSelect={(h, route) => {
                     localStorage.setItem("activeHospital", `${h.id}-${h.unitId}-${h.role}`);
                     setShowHospitalDropdown(false);
