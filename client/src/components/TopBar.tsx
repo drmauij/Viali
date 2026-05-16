@@ -39,7 +39,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const { user } = useAuth();
   const { addons } = useHospitalAddons();
   const { open: openCommandPalette } = useCommandPalette();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -194,6 +194,23 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
                 </div>
                 <span className="text-xs text-muted-foreground truncate block">
                   {activeHospital?.unitName || t('topBar.noLocation')} • {activeHospital?.role || t('topBar.noRole')}
+                  {(() => {
+                    const seg = (location || "").split("/").filter(Boolean)[0];
+                    if (!seg) return null;
+                    const moduleKey: Record<string, string> = {
+                      anesthesia: "anesthesia",
+                      surgery: "surgery",
+                      clinic: "clinic",
+                      business: "business",
+                      inventory: "inventory",
+                      admin: "administration",
+                      logistic: "logistic",
+                      platform: "platform",
+                    };
+                    const key = moduleKey[seg];
+                    if (!key) return null;
+                    return <> · {t(`sidebar.module.${key}`)}</>;
+                  })()}
                 </span>
               </div>
             </button>
