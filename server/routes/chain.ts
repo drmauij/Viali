@@ -29,6 +29,7 @@ import {
   getReferralTimeseries,
   listReferralEvents,
   getReferralFunnel,
+  getReferralDailyBySource,
 } from "../lib/referralAnalytics";
 import { getAdPerformance } from "../lib/adPerformance";
 import { getChainFunnelsOverview, emptyKpis } from "../lib/chainFunnelsOverview";
@@ -1228,6 +1229,30 @@ chainRouter.get('/api/chain/:groupId/referral-timeseries', isAuthenticated, isCh
     if (e instanceof ChainAuthError) return res.status(e.status).json({ message: e.message });
     logger.error("Error fetching chain referral-timeseries:", e);
     res.status(500).json({ message: "Failed to fetch chain referral-timeseries" });
+  }
+});
+
+chainRouter.get('/api/chain/:groupId/referral-daily', isAuthenticated, isChainAdminForGroup, async (req: any, res) => {
+  try {
+    const { groupId } = req.params;
+    const { ids } = await resolveHospitalIds(groupId, req.query.hospitalIds);
+    if (ids.length === 0) return res.json({ rows: [], sources: [], timezone: "UTC" });
+    try {
+      const result = await getReferralDailyBySource(ids, {
+        from: req.query.from as string | undefined,
+        to: req.query.to as string | undefined,
+      });
+      res.json(result);
+    } catch (err: any) {
+      if (err?.name === "ReferralDailyRangeError") {
+        return res.status(400).json({ message: err.message });
+      }
+      throw err;
+    }
+  } catch (e: any) {
+    if (e instanceof ChainAuthError) return res.status(e.status).json({ message: e.message });
+    logger.error("Error fetching chain referral-daily:", e);
+    res.status(500).json({ message: "Failed to fetch chain referral-daily" });
   }
 });
 

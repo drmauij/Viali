@@ -12,6 +12,7 @@
 
 import { db } from "../db";
 import {
+  hospitals,
   referralEvents,
   patients,
   clinicAppointments,
@@ -101,6 +102,121 @@ export async function getReferralTimeseries(
     .where(hospitalScopeClause(referralEvents.hospitalId, hospitalIds))
     .groupBy(sql`to_char(${referralEvents.createdAt}, 'YYYY-MM')`, referralEvents.source)
     .orderBy(sql`to_char(${referralEvents.createdAt}, 'YYYY-MM')`);
+}
+
+// ---------------------------------------------------------------------------
+// referral-daily — daily-by-source counts with gap-free padding
+// ---------------------------------------------------------------------------
+
+export interface ReferralDailyRow {
+  date: string;                     // 'YYYY-MM-DD' in the bucketing timezone
+  total: number;
+  bySource: Record<string, number>;
+}
+
+export interface ReferralDailyResult {
+  rows: ReferralDailyRow[];
+  sources: string[];
+  timezone: string;
+}
+
+export class ReferralDailyRangeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ReferralDailyRangeError";
+  }
+}
+
+const MAX_DAILY_RANGE_DAYS = 366;
+
+export async function getReferralDailyBySource(
+  hospitalIds: string[],
+  opts: { from?: string; to?: string } = {},
+): Promise<ReferralDailyResult> {
+  // 1. Resolve the bucketing timezone. All hospitals in scope share one tz =>
+  //    use it; mixed tz => UTC.
+  const tzRows = await db
+    .select({ tz: hospitals.timezone })
+    .from(hospitals)
+    .where(hospitalScopeClause(hospitals.id, hospitalIds));
+  const distinctTz = new Set(tzRows.map((r) => r.tz || "UTC"));
+  const timezone = distinctTz.size === 1 ? [...distinctTz][0]! : "UTC";
+
+  // 2. Resolve [from, to] with defaults: to = now, from = to - 90d.
+  const toDate = opts.to ? new Date(opts.to) : new Date();
+  const fromDate = opts.from
+    ? new Date(opts.from)
+    : new Date(toDate.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+  if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+    throw new ReferralDailyRangeError("invalid from/to");
+  }
+  const rangeDays = Math.floor((toDate.getTime() - fromDate.getTime()) / (24 * 60 * 60 * 1000));
+  if (rangeDays > MAX_DAILY_RANGE_DAYS) {
+    throw new ReferralDailyRangeError(`range exceeds ${MAX_DAILY_RANGE_DAYS} days`);
+  }
+  if (rangeDays < 0) {
+    throw new ReferralDailyRangeError("from is after to");
+  }
+
+  // 3. One query: generate_series LEFT JOIN grouped events.
+  //    The bucketing is `to_char(re.created_at AT TIME ZONE $tz, 'YYYY-MM-DD')`.
+  //    Filter events by the bucketed day vs the [from, to] day strings so the
+  //    upper bound is inclusive of the entire local day in `timezone`.
+  const fromDay = fromDate.toISOString().slice(0, 10);
+  const toDay = toDate.toISOString().slice(0, 10);
+  const result = await db.execute(sql`
+    WITH days AS (
+      SELECT to_char(d::date, 'YYYY-MM-DD') AS day
+      FROM generate_series(
+        ${fromDay}::date,
+        ${toDay}::date,
+        '1 day'
+      ) AS d
+    ),
+    events AS (
+      SELECT
+        to_char(re.created_at AT TIME ZONE ${timezone}, 'YYYY-MM-DD') AS day,
+        re.source AS source,
+        count(*)::int AS count
+      FROM referral_events re
+      WHERE ${hospitalIds.length === 1
+        ? sql`re.hospital_id = ${hospitalIds[0]}`
+        : sql`re.hospital_id IN (${sql.join(hospitalIds.map((id) => sql`${id}`), sql`, `)})`}
+        AND to_char(re.created_at AT TIME ZONE ${timezone}, 'YYYY-MM-DD') >= ${fromDay}
+        AND to_char(re.created_at AT TIME ZONE ${timezone}, 'YYYY-MM-DD') <= ${toDay}
+      GROUP BY 1, 2
+    )
+    SELECT
+      d.day AS date,
+      e.source AS source,
+      COALESCE(e.count, 0) AS count
+    FROM days d
+    LEFT JOIN events e ON e.day = d.day
+    ORDER BY d.day ASC, e.source ASC NULLS LAST
+  `);
+
+  // 4. Fold flat rows into one row per day.
+  const rowMap = new Map<string, ReferralDailyRow>();
+  const totals: Record<string, number> = {};
+  for (const r of result.rows as Array<{ date: string; source: string | null; count: number }>) {
+    let row = rowMap.get(r.date);
+    if (!row) {
+      row = { date: r.date, total: 0, bySource: {} };
+      rowMap.set(r.date, row);
+    }
+    if (r.source && r.count > 0) {
+      row.bySource[r.source] = (row.bySource[r.source] ?? 0) + r.count;
+      row.total += r.count;
+      totals[r.source] = (totals[r.source] ?? 0) + r.count;
+    }
+  }
+  const rows = [...rowMap.values()];
+  const sources = Object.entries(totals)
+    .sort((a, b) => b[1] - a[1])
+    .map(([s]) => s);
+
+  return { rows, sources, timezone };
 }
 
 // ---------------------------------------------------------------------------

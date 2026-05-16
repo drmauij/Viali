@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   HelpCircle,
   List,
@@ -55,11 +56,28 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
   Legend,
+  BarChart,
+  Bar,
 } from "recharts";
 import { funnelsUrl, type FunnelsScope } from "@/lib/funnelsApi";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+
+// Returns the period key (YYYY-MM-DD for day, ISO Monday-start week 'YYYY-MM-DD'
+// for week, 'YYYY-MM' for month).
+function periodKey(dateStr: string, grain: "week" | "month" | "day"): string {
+  if (grain === "day") return dateStr;
+  const d = new Date(dateStr + "T00:00:00Z");
+  if (grain === "month") {
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  }
+  // week: Monday-anchored. JS getUTCDay: 0=Sun..6=Sat. We want 0=Mon..6=Sun.
+  const isoDow = (d.getUTCDay() + 6) % 7;
+  const monday = new Date(d);
+  monday.setUTCDate(d.getUTCDate() - isoDow);
+  return monday.toISOString().slice(0, 10);
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -140,6 +158,21 @@ type ReferralEventsResponse = {
   campaigns: string[];
 };
 
+type ReferralDailyRow = {
+  date: string;          // 'YYYY-MM-DD'
+  total: number;
+  bySource: Record<string, number>;
+};
+
+type ReferralDailyResult = {
+  rows: ReferralDailyRow[];
+  sources: string[];
+  timezone: string;
+  rangeTooWide?: boolean; // set client-side when the server returns 400
+                          // so the UI can render the inline guidance message
+                          // instead of a generic empty state.
+};
+
 const NO_CAMPAIGN_SENTINEL = "__none__";
 const ALL_CAMPAIGNS = "all";
 
@@ -174,7 +207,7 @@ function ChartCard({ title, description, helpText, children }: ChartCardProps) {
     <Card>
       <CardHeader>
         <div className="flex items-center">
-          <CardTitle className="text-lg">{title}</CardTitle>
+          <CardTitle className="text-lg text-foreground">{title}</CardTitle>
           <HelpTooltip content={helpText} />
         </div>
         {description && <CardDescription>{description}</CardDescription>}
@@ -232,6 +265,8 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
   // ── Drill-down state ───────────────────────────────────────────────────────
   const [selectedReferralSource, setSelectedReferralSource] = useState<string | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<string | null>(null);
+  type Grain = "week" | "month" | "day";
+  const [grain, setGrain] = useState<Grain>("week");
 
   // ── Edit dialog state ──────────────────────────────────────────────────────
   const [editingReferral, setEditingReferral] = useState<ReferralEvent | null>(null);
@@ -271,6 +306,24 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
   >({
     queryKey: [timeseriesUrl],
     enabled: scope.hospitalIds.length > 0,
+  });
+
+  const dailyUrl = funnelsUrl("referral-daily", scope, { from, to });
+  const { data: referralDaily, isLoading: referralDailyLoading } = useQuery<ReferralDailyResult>({
+    queryKey: [dailyUrl],
+    enabled: !!dailyUrl,
+    queryFn: async () => {
+      if (!dailyUrl) throw new Error("scope not addressable");
+      const res = await fetch(dailyUrl, { credentials: "include" });
+      if (!res.ok) {
+        if (res.status === 400) {
+          // Range too wide — flag for the inline guidance message in the UI.
+          return { rows: [], sources: [], timezone: "UTC", rangeTooWide: true };
+        }
+        throw new Error("Failed to fetch referral-daily");
+      }
+      return (await res.json()) as ReferralDailyResult;
+    },
   });
 
   const campaignParam =
@@ -392,6 +445,102 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
 
   // ── Derived data ───────────────────────────────────────────────────────────
 
+  // avgPerDay derives both numerator and denominator from `referralDaily` so the
+  // metric stays internally consistent even when the page filter is empty.
+  // referral-stats can return lifetime totals (no `from` default) while
+  // referral-daily defaults to the last 90 days; mixing them would over-divide.
+  const avgPerDay = useMemo(() => {
+    if (!referralDaily || referralDaily.rows.length === 0) return null;
+    const sum = referralDaily.rows.reduce((s, r) => s + r.total, 0);
+    return sum / referralDaily.rows.length;
+  }, [referralDaily]);
+
+  const periodSeries = useMemo(() => {
+    if (!referralDaily?.rows.length) return [];
+    const sources = referralDaily.sources;
+
+    // Roll up daily rows into period buckets.
+    const buckets = new Map<string, { period: string; bySource: Record<string, number>; total: number }>();
+    for (const row of referralDaily.rows) {
+      const key = periodKey(row.date, grain);
+      let b = buckets.get(key);
+      if (!b) {
+        b = { period: key, bySource: {}, total: 0 };
+        buckets.set(key, b);
+      }
+      for (const src of sources) {
+        const v = row.bySource[src] ?? 0;
+        if (v) b.bySource[src] = (b.bySource[src] ?? 0) + v;
+      }
+      b.total += row.total;
+    }
+    const orderedKeys = [...buckets.keys()].sort();
+
+    // For each bucket, project bySource into top-level keys (Recharts needs flat shape)
+    // and compute `focused` for the selected source (or null if nothing selected).
+    const flat = orderedKeys.map((k) => {
+      const b = buckets.get(k)!;
+      const flatRow: Record<string, number | string | null> = { period: b.period, total: b.total };
+      for (const src of sources) flatRow[src] = b.bySource[src] ?? 0;
+      flatRow.focused = selectedReferralSource ? (b.bySource[selectedReferralSource] ?? 0) : null;
+      return flatRow;
+    });
+
+    // Trailing 7-period moving average of `focused`. Only meaningful when a source is selected.
+    if (selectedReferralSource) {
+      for (let i = 0; i < flat.length; i++) {
+        const start = Math.max(0, i - 6);
+        const window = flat.slice(start, i + 1);
+        const sum = window.reduce((s, r) => s + (r.focused as number), 0);
+        flat[i]!.ma7 = sum / window.length;
+      }
+    } else {
+      for (const r of flat) r.ma7 = null;
+    }
+    return flat;
+  }, [referralDaily, grain, selectedReferralSource]);
+
+  const weekdayBySource = useMemo(() => {
+    const labels: Array<{ key: string; label: string }> = [
+      { key: "mon", label: t("common.weekday.mon", "Mon") },
+      { key: "tue", label: t("common.weekday.tue", "Tue") },
+      { key: "wed", label: t("common.weekday.wed", "Wed") },
+      { key: "thu", label: t("common.weekday.thu", "Thu") },
+      { key: "fri", label: t("common.weekday.fri", "Fri") },
+      { key: "sat", label: t("common.weekday.sat", "Sat") },
+      { key: "sun", label: t("common.weekday.sun", "Sun") },
+    ];
+    if (!referralDaily?.rows.length) {
+      return labels.map((l) => ({ ...l, totalAvg: 0 }));
+    }
+    const sources = referralDaily.sources;
+    // count of dates per weekday (denominator)
+    const dayCount = [0, 0, 0, 0, 0, 0, 0];
+    // sum of counts per (weekday, source)
+    const sourceSum: Array<Record<string, number>> = [{}, {}, {}, {}, {}, {}, {}];
+    for (const row of referralDaily.rows) {
+      const d = new Date(row.date + "T00:00:00Z");
+      const dow = (d.getUTCDay() + 6) % 7; // 0=Mon..6=Sun
+      dayCount[dow]!++;
+      for (const src of sources) {
+        const v = row.bySource[src] ?? 0;
+        if (v) sourceSum[dow]![src] = (sourceSum[dow]![src] ?? 0) + v;
+      }
+    }
+    return labels.map((l, i) => {
+      const denom = dayCount[i] || 1; // avoid /0; bar shows 0 when denom=0
+      const avgs: Record<string, number> = {};
+      let totalAvg = 0;
+      for (const src of sources) {
+        const a = (sourceSum[i]![src] ?? 0) / denom;
+        avgs[src] = a;
+        totalAvg += a;
+      }
+      return { ...l, totalAvg, ...avgs };
+    });
+  }, [referralDaily, t]);
+
+  // LEGACY: superseded by `periodSeries` (Task 10). Safe to remove next release.
   const referralLineData = useMemo(() => {
     if (!referralTimeseries?.length) return [];
     const monthMap: Record<string, Record<string, number>> = {};
@@ -496,6 +645,13 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
             {referralData && (
               <div className="text-sm text-muted-foreground px-1">
                 {referralData.totalReferrals} {t("business.referrals.totalBookingReferrals")}
+                {avgPerDay !== null && (
+                  <>
+                    {" · "}
+                    <span className="font-medium text-foreground">{avgPerDay.toFixed(1)}</span>{" "}
+                    {t("business.referrals.avgPerDayShort", "/day avg")}
+                  </>
+                )}
               </div>
             )}
 
@@ -514,7 +670,7 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                     {t("business.referrals.noData")}
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ResponsiveContainer width="100%" height={360}>
                     <PieChart>
                       <Pie
                         data={referralPieData}
@@ -546,6 +702,8 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                         formatter={(value: number) => [value, t("business.referrals.responses")]}
                       />
                       <Legend
+                        verticalAlign="bottom"
+                        wrapperStyle={{ paddingTop: 12, maxHeight: 96, overflowY: "auto" }}
                         formatter={(value: string) => {
                           const entry = referralPieData.find((e) => e.name === value);
                           if (!entry) return value;
@@ -656,40 +814,135 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
               </ChartCard>
             </div>
 
-            {/* Referral progress over time — line chart */}
+            {/* Referral sources over time — upgraded: grain toggle + filter-aware + focused MA */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between py-3 space-y-0">
+                <div className="flex items-center">
+                  <CardTitle className="text-lg text-foreground">
+                    {t("business.referrals.progressOverTime")}
+                  </CardTitle>
+                  <HelpTooltip content={t("business.referrals.progressOverTimeHelp")} />
+                  {referralDaily?.timezone === "UTC" && referralDaily.rows.length > 0 && (
+                    <span className="ml-2 text-xs text-muted-foreground">(UTC)</span>
+                  )}
+                </div>
+                <ToggleGroup
+                  type="single"
+                  size="sm"
+                  value={grain}
+                  onValueChange={(v) => v && setGrain(v as Grain)}
+                  className="gap-0"
+                >
+                  <ToggleGroupItem value="week" aria-label="Week">
+                    {t("business.referrals.grain.week", "Week")}
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="month" aria-label="Month">
+                    {t("business.referrals.grain.month", "Month")}
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="day" aria-label="Day">
+                    {t("business.referrals.grain.day", "Day")}
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </CardHeader>
+              <CardContent>
+                {referralDailyLoading ? (
+                  <div className="flex items-center justify-center h-64">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : referralDaily?.rangeTooWide ? (
+                  <div className="flex items-center justify-center h-64 text-muted-foreground text-sm px-6 text-center">
+                    {t("business.referrals.rangeTooWide")}
+                  </div>
+                ) : !referralDaily || referralDaily.rows.length === 0 ? (
+                  <div className="flex items-center justify-center h-64 text-muted-foreground">
+                    {t("business.referrals.noData")}
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={350}>
+                    <LineChart data={periodSeries}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="period" tick={{ fontSize: 12 }} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                      <RechartsTooltip />
+                      <Legend />
+                      {referralDaily.sources.map((src) => (
+                        <Line
+                          key={src}
+                          type="monotone"
+                          dataKey={src}
+                          name={REFERRAL_LABELS[src] || src}
+                          stroke={REFERRAL_COLORS[src] || "#6b7280"}
+                          strokeWidth={selectedReferralSource === src ? 3 : 2}
+                          strokeOpacity={
+                            selectedReferralSource && selectedReferralSource !== src ? 0.25 : 1
+                          }
+                          dot={{ r: 3 }}
+                          activeDot={{ r: 5 }}
+                        />
+                      ))}
+                      {selectedReferralSource && (
+                        <Line
+                          type="monotone"
+                          dataKey="ma7"
+                          name={`${REFERRAL_LABELS[selectedReferralSource] || selectedReferralSource} (7-period avg)`}
+                          stroke="#ffffff"
+                          strokeOpacity={0.7}
+                          strokeDasharray="4 4"
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={false}
+                        />
+                      )}
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Weekday peaks — average referrals per weekday in the filtered range */}
             <ChartCard
-              title={t("business.referrals.progressOverTime")}
-              helpText={t("business.referrals.progressOverTimeHelp")}
+              title={t("business.referrals.weekdayPeaks", "Weekday peaks")}
+              helpText={t("business.referrals.weekdayPeaksHelp")}
             >
-              {referralTimeseriesLoading ? (
-                <div className="flex items-center justify-center h-64">
+              {referralDailyLoading ? (
+                <div className="flex items-center justify-center h-48">
                   <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
-              ) : referralLineData.length === 0 ? (
-                <div className="flex items-center justify-center h-64 text-muted-foreground">
+              ) : referralDaily?.rangeTooWide ? (
+                <div className="flex items-center justify-center h-48 text-muted-foreground text-sm px-6 text-center">
+                  {t("business.referrals.rangeTooWide")}
+                </div>
+              ) : !referralDaily || referralDaily.rows.length === 0 ? (
+                <div className="flex items-center justify-center h-48 text-muted-foreground">
                   {t("business.referrals.noData")}
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={350}>
-                  <LineChart data={referralLineData}>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={weekdayBySource}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                    <RechartsTooltip />
-                    <Legend />
-                    {referralLineSources.map((src) => (
-                      <Line
+                    <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                    <YAxis allowDecimals={true} tick={{ fontSize: 12 }} />
+                    <RechartsTooltip
+                      formatter={(value: number, name: string) => [
+                        value.toFixed(2),
+                        REFERRAL_LABELS[name] || name,
+                      ]}
+                    />
+                    <Legend
+                      formatter={(value: string) => REFERRAL_LABELS[value] || value}
+                    />
+                    {referralDaily.sources.map((src) => (
+                      <Bar
                         key={src}
-                        type="monotone"
                         dataKey={src}
-                        name={REFERRAL_LABELS[src] || src}
-                        stroke={REFERRAL_COLORS[src] || "#6b7280"}
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
-                        activeDot={{ r: 5 }}
+                        stackId="weekday"
+                        fill={REFERRAL_COLORS[src] || "#6b7280"}
+                        opacity={
+                          selectedReferralSource && selectedReferralSource !== src ? 0.25 : 1
+                        }
                       />
                     ))}
-                  </LineChart>
+                  </BarChart>
                 </ResponsiveContainer>
               )}
             </ChartCard>

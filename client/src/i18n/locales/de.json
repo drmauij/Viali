@@ -174,7 +174,16 @@
     "pocInDevelopment": "POC / In Entwicklung",
     "select": "Auswählen...",
     "available": "Verfügbar",
-    "unavailable": "N/V"
+    "unavailable": "N/V",
+    "weekday": {
+      "mon": "Mo",
+      "tue": "Di",
+      "wed": "Mi",
+      "thu": "Do",
+      "fri": "Fr",
+      "sat": "Sa",
+      "sun": "So"
+    }
   },
   "timeline": {
     "dragToReposition": "Ziehen zum Verschieben",
@@ -5825,7 +5834,16 @@
       "saving": "Speichern …",
       "save": "Speichern",
       "sourceInsights": "Quellen-Übersicht",
-      "noOrganicPaidData": "Keine organischen/bezahlten Daten verfügbar"
+      "noOrganicPaidData": "Keine organischen/bezahlten Daten verfügbar",
+      "avgPerDayShort": "/Tag Ø",
+      "weekdayPeaks": "Wochentags-Spitzen",
+      "weekdayPeaksHelp": "Durchschnittliche Empfehlungen pro Wochentag über den gewählten Zeitraum. Gestapelt nach Quelle — klicken Sie auf ein Segment unter „Wie Patienten uns gefunden haben“, um eine Quelle zu isolieren.",
+      "rangeTooWide": "Bereich zu breit für Detailansicht — bitte den Zeitraum eingrenzen, um dieses Diagramm anzuzeigen.",
+      "grain": {
+        "week": "KW",
+        "month": "Monat",
+        "day": "Tag"
+      }
     },
     "leads": {
       "pasteLeads": "Leads einfügen",

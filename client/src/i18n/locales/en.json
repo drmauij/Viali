@@ -93,7 +93,16 @@
     "pocInDevelopment": "POC / In Development",
     "select": "Select...",
     "available": "Available",
-    "unavailable": "N/A"
+    "unavailable": "N/A",
+    "weekday": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    }
   },
   "timeline": {
     "dragToReposition": "Drag to reposition",
@@ -5729,7 +5738,16 @@
       "deleteDialogTitle": "Delete referral?",
       "deleteDialogBody": "This permanently deletes the referral entry for {{name}}. This action cannot be undone.",
       "saving": "Saving…",
-      "save": "Save"
+      "save": "Save",
+      "avgPerDayShort": "/day avg",
+      "weekdayPeaks": "Weekday peaks",
+      "weekdayPeaksHelp": "Average referrals per day for each weekday across the selected range. Stacked by source — click a slice in 'How patients found us' to isolate one.",
+      "rangeTooWide": "Range too wide for daily detail — narrow the date filter to see this chart.",
+      "grain": {
+        "week": "Week",
+        "month": "Month",
+        "day": "Day"
+      }
     },
     "leads": {
       "pasteLeads": "Paste Leads",
