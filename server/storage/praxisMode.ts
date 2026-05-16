@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { eq, and, count } from "drizzle-orm";
 import { db } from "../db";
 import { hospitals, units, userHospitalRoles, referralPartnerships, externalSurgeryRequests, surgeries, patients, surgeryRooms, users as usersTable } from "@shared/schema";
+import { dispatchRescheduleAlert, dispatchCancelAfterAcceptAlert } from "../services/referralAlerts";
 
 export const PRAXIS_ADDON_DEFAULTS = {
   addonClinic: true,
@@ -531,6 +532,24 @@ export async function pushReferralStatus(input: {
     .update(surgeries)
     .set(update as any)
     .where(eq(surgeries.id, r.sourceSurgeryId));
+
+  // Fire-and-forget OOB notifications — failures must never break the caller.
+  if (input.isReschedule && src) {
+    dispatchRescheduleAlert({
+      surgeryId: src.id,
+      oldDate: src.plannedDate ? new Date(src.plannedDate as any) : null,
+      newDate: input.confirmedDate ?? null,
+      reason: input.note ?? null,
+      destinationHospitalId: input.byHospitalId ?? "",
+    }).catch(err => console.error("[pushReferralStatus] reschedule alert dispatch failed", err));
+  }
+  if (input.newStatus === "cancelled_external" && (src as any)?.referralStatus === "confirmed_external") {
+    dispatchCancelAfterAcceptAlert({
+      surgeryId: src!.id,
+      reason: input.note ?? null,
+      destinationHospitalId: input.byHospitalId ?? "",
+    }).catch(err => console.error("[pushReferralStatus] cancel-after-accept alert dispatch failed", err));
+  }
 }
 
 export async function acceptReferralAndImport(input: {
