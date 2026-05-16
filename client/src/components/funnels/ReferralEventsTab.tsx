@@ -34,6 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   HelpCircle,
   List,
@@ -643,24 +644,48 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
           <CardContent id="source-insights-content" className="space-y-4">
             {/* Sample size indicator */}
             {referralData && (
-              <div className="text-sm text-muted-foreground px-1">
-                {referralData.totalReferrals} {t("business.referrals.totalBookingReferrals")}
+              <div className="rounded-md border bg-muted/30 px-4 py-3 flex items-baseline gap-6">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-semibold tabular-nums leading-none text-foreground">
+                    {referralData.totalReferrals}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {t("business.referrals.totalBookingReferrals")}
+                  </span>
+                </div>
                 {avgPerDay !== null && (
-                  <>
-                    {" · "}
-                    <span className="font-medium text-foreground">{avgPerDay.toFixed(1)}</span>{" "}
-                    {t("business.referrals.avgPerDayShort", "/day avg")}
-                  </>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-semibold tabular-nums leading-none text-foreground">
+                      {avgPerDay.toFixed(1)}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {t("business.referrals.avgPerDayShort", "/day avg")}
+                    </span>
+                  </div>
                 )}
               </div>
             )}
 
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Main pie chart */}
-              <ChartCard
-                title={t("business.referrals.sourceBreakdown")}
-                helpText={t("business.referrals.sourceBreakdownHelp")}
-              >
+            <Tabs defaultValue="sources" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="sources">
+                  {t("business.referrals.sourceBreakdown")}
+                </TabsTrigger>
+                <TabsTrigger value="overTime">
+                  {t("business.referrals.progressOverTime")}
+                </TabsTrigger>
+                <TabsTrigger value="weekday">
+                  {t("business.referrals.weekdayPeaks", "Weekday peaks")}
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="sources" className="mt-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Main pie chart */}
+                  <ChartCard
+                    title={t("business.referrals.sourceBreakdown")}
+                    helpText={t("business.referrals.sourceBreakdownHelp")}
+                  >
                 {referralLoading ? (
                   <div className="flex items-center justify-center h-64">
                     <Loader2 className="h-6 w-6 animate-spin" />
@@ -670,50 +695,74 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                     {t("business.referrals.noData")}
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={360}>
-                    <PieChart>
-                      <Pie
-                        data={referralPieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={2}
-                        dataKey="value"
-                        onClick={(entry) => {
-                          setSelectedReferralSource(
-                            selectedReferralSource === entry.source ? null : entry.source,
-                          );
-                          setSelectedDetail(null);
-                        }}
-                        cursor="pointer"
-                      >
-                        {referralPieData.map((entry, index) => (
-                          <Cell
-                            key={index}
-                            fill={entry.color}
-                            opacity={selectedReferralSource && selectedReferralSource !== entry.source ? 0.4 : 1}
-                            stroke={selectedReferralSource === entry.source ? entry.color : "transparent"}
-                            strokeWidth={selectedReferralSource === entry.source ? 3 : 0}
-                          />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip
-                        formatter={(value: number) => [value, t("business.referrals.responses")]}
-                      />
-                      <Legend
-                        verticalAlign="bottom"
-                        wrapperStyle={{ paddingTop: 12, maxHeight: 96, overflowY: "auto" }}
-                        formatter={(value: string) => {
-                          const entry = referralPieData.find((e) => e.name === value);
-                          if (!entry) return value;
-                          const total = referralPieData.reduce((s, e) => s + e.value, 0);
+                  <>
+                    <ResponsiveContainer width="100%" height={240}>
+                      <PieChart>
+                        <Pie
+                          data={referralPieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={55}
+                          outerRadius={95}
+                          paddingAngle={2}
+                          dataKey="value"
+                          onClick={(entry) => {
+                            setSelectedReferralSource(
+                              selectedReferralSource === entry.source ? null : entry.source,
+                            );
+                            setSelectedDetail(null);
+                          }}
+                          cursor="pointer"
+                        >
+                          {referralPieData.map((entry, index) => (
+                            <Cell
+                              key={index}
+                              fill={entry.color}
+                              opacity={selectedReferralSource && selectedReferralSource !== entry.source ? 0.4 : 1}
+                              stroke={selectedReferralSource === entry.source ? entry.color : "transparent"}
+                              strokeWidth={selectedReferralSource === entry.source ? 3 : 0}
+                            />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip
+                          formatter={(value: number) => [value, t("business.referrals.responses")]}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
+                      {(() => {
+                        const total = referralPieData.reduce((s, e) => s + e.value, 0);
+                        return referralPieData.map((entry, idx) => {
                           const pct = total > 0 ? ((entry.value / total) * 100).toFixed(0) : "0";
-                          return `${value} ${entry.value} (${pct}%)`;
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                          const isDimmed = selectedReferralSource && selectedReferralSource !== entry.source;
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setSelectedReferralSource(
+                                  selectedReferralSource === entry.source ? null : entry.source,
+                                );
+                                setSelectedDetail(null);
+                              }}
+                              className={`flex items-center gap-2 min-w-0 text-left rounded-sm px-1 py-0.5 hover:bg-muted/50 transition-opacity ${isDimmed ? "opacity-50" : ""}`}
+                            >
+                              <span
+                                className="h-2.5 w-2.5 rounded-sm shrink-0"
+                                style={{ backgroundColor: entry.color }}
+                              />
+                              <span className="truncate">
+                                {entry.name}{" "}
+                                <span className="text-muted-foreground tabular-nums">
+                                  {entry.value} ({pct}%)
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </>
                 )}
               </ChartCard>
 
@@ -812,10 +861,12 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                   </div>
                 )}
               </ChartCard>
-            </div>
+                </div>
+              </TabsContent>
 
-            {/* Referral sources over time — upgraded: grain toggle + filter-aware + focused MA */}
-            <Card>
+              <TabsContent value="overTime" className="mt-4">
+                {/* Referral sources over time — upgraded: grain toggle + filter-aware + focused MA */}
+                <Card>
               <CardHeader className="flex flex-row items-center justify-between py-3 space-y-0">
                 <div className="flex items-center">
                   <CardTitle className="text-lg text-foreground">
@@ -863,7 +914,10 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="period" tick={{ fontSize: 12 }} />
                       <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                      <RechartsTooltip />
+                      <RechartsTooltip
+                        labelStyle={{ color: "#0f172a", fontWeight: 600 }}
+                        itemStyle={{ color: "#0f172a" }}
+                      />
                       <Legend />
                       {referralDaily.sources.map((src) => (
                         <Line
@@ -897,13 +951,15 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                   </ResponsiveContainer>
                 )}
               </CardContent>
-            </Card>
+                </Card>
+              </TabsContent>
 
-            {/* Weekday peaks — average referrals per weekday in the filtered range */}
-            <ChartCard
-              title={t("business.referrals.weekdayPeaks", "Weekday peaks")}
-              helpText={t("business.referrals.weekdayPeaksHelp")}
-            >
+              <TabsContent value="weekday" className="mt-4">
+                {/* Weekday peaks — average referrals per weekday in the filtered range */}
+                <ChartCard
+                  title={t("business.referrals.weekdayPeaks", "Weekday peaks")}
+                  helpText={t("business.referrals.weekdayPeaksHelp")}
+                >
               {referralDailyLoading ? (
                 <div className="flex items-center justify-center h-48">
                   <Loader2 className="h-6 w-6 animate-spin" />
@@ -923,6 +979,8 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                     <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                     <YAxis allowDecimals={true} tick={{ fontSize: 12 }} />
                     <RechartsTooltip
+                      labelStyle={{ color: "#0f172a", fontWeight: 600 }}
+                      itemStyle={{ color: "#0f172a" }}
                       formatter={(value: number, name: string) => [
                         value.toFixed(2),
                         REFERRAL_LABELS[name] || name,
@@ -945,7 +1003,9 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                   </BarChart>
                 </ResponsiveContainer>
               )}
-            </ChartCard>
+                </ChartCard>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         )}
       </Card>

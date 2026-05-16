@@ -12,6 +12,7 @@ import {
   Legend,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { sourceLabel } from "@/components/leads/sourceIcon";
@@ -83,63 +84,75 @@ export function LeadsStatsCards({
   const { total, converted, bySource, conversionOverall, conversionBySource, avgDaysToConversion, timeseries } = data;
 
   return (
-    <div className="space-y-3">
-      {/* Row 1: three stat tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              {t("business.leads.stats.totalLeads", "Total leads")}
-            </div>
-            <div className="text-2xl font-semibold">{total.toLocaleString()}</div>
-            <div className="text-xs text-muted-foreground">
-              {t("business.leads.stats.inRange", "in range")}
-            </div>
-          </CardContent>
-        </Card>
+    <Tabs defaultValue="overview" className="w-full">
+      <TabsList className="grid w-full grid-cols-3">
+        <TabsTrigger value="overview">
+          {t("business.leads.tabs.overview", "Overview")}
+        </TabsTrigger>
+        <TabsTrigger value="bySource">
+          {t("business.leads.charts.bySource", "Leads by source")}
+        </TabsTrigger>
+        <TabsTrigger value="overTime">
+          {t("business.leads.charts.overTime", "Leads over time")}
+        </TabsTrigger>
+      </TabsList>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              {t("business.leads.stats.conversionRate", "Conversion rate")}
-            </div>
-            <div className="text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
-              {total > 0 ? formatPct(conversionOverall) : "—"}
-            </div>
-            <div className="text-xs font-semibold">
-              {t("business.leads.stats.convertedCount", "{{n}} of {{total}} converted", {
-                n: converted.toLocaleString(),
-                total: total.toLocaleString(),
-              })}
-            </div>
-            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-              {conversionBySource.map((r) => (
-                <span key={r.source}>
-                  {sourceLabel(r.source)} {r.converted}/{r.total} ({formatPct(r.rate)})
-                </span>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <TabsContent value="overview" className="mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                {t("business.leads.stats.totalLeads", "Total leads")}
+              </div>
+              <div className="text-2xl font-semibold">{total.toLocaleString()}</div>
+              <div className="text-xs text-muted-foreground">
+                {t("business.leads.stats.inRange", "in range")}
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              {t("business.leads.stats.avgDaysToConversion", "Avg days to conversion")}
-            </div>
-            <div className="text-2xl font-semibold">
-              {avgDaysToConversion == null ? "—" : avgDaysToConversion.toFixed(1)}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {t("business.leads.stats.leadToAppointment", "lead → appointment")}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                {t("business.leads.stats.conversionRate", "Conversion rate")}
+              </div>
+              <div className="text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
+                {total > 0 ? formatPct(conversionOverall) : "—"}
+              </div>
+              <div className="text-xs font-semibold">
+                {t("business.leads.stats.convertedCount", "{{n}} of {{total}} converted", {
+                  n: converted.toLocaleString(),
+                  total: total.toLocaleString(),
+                })}
+              </div>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                {conversionBySource.map((r) => (
+                  <span key={r.source}>
+                    {sourceLabel(r.source)} {r.converted}/{r.total} ({formatPct(r.rate)})
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Row 2: two charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
-        <Card className="lg:col-span-2">
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                {t("business.leads.stats.avgDaysToConversion", "Avg days to conversion")}
+              </div>
+              <div className="text-2xl font-semibold">
+                {avgDaysToConversion == null ? "—" : avgDaysToConversion.toFixed(1)}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {t("business.leads.stats.leadToAppointment", "lead → appointment")}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="bySource" className="mt-4">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">
               {t("business.leads.charts.bySource", "Leads by source")}
@@ -151,7 +164,7 @@ export function LeadsStatsCards({
                 {t("business.leads.empty", "No leads yet.")}
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={180}>
+              <ResponsiveContainer width="100%" height={240}>
                 <PieChart>
                   <Pie
                     data={bySource.map((r) => ({ name: sourceLabel(r.source), value: r.count, source: r.source }))}
@@ -159,8 +172,8 @@ export function LeadsStatsCards({
                     nameKey="name"
                     cx="50%"
                     cy="50%"
-                    innerRadius={45}
-                    outerRadius={70}
+                    innerRadius={55}
+                    outerRadius={90}
                   >
                     {bySource.map((r) => (
                       <Cell key={r.source} fill={color(r.source)} />
@@ -173,8 +186,10 @@ export function LeadsStatsCards({
             )}
           </CardContent>
         </Card>
+      </TabsContent>
 
-        <Card className="lg:col-span-3">
+      <TabsContent value="overTime" className="mt-4">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">
               {t("business.leads.charts.overTime", "Leads over time")}
@@ -186,18 +201,21 @@ export function LeadsStatsCards({
                 {t("business.leads.empty", "No leads yet.")}
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={180}>
+              <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={timeseries}>
                   <XAxis dataKey="month" tick={{ fontSize: 10 }} />
                   <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                  <Tooltip />
+                  <Tooltip
+                    labelStyle={{ color: "#0f172a", fontWeight: 600 }}
+                    itemStyle={{ color: "#0f172a" }}
+                  />
                   <Bar dataKey="count" fill={SOURCE_COLORS.default} />
                 </BarChart>
               </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
-      </div>
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }
