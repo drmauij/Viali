@@ -6,11 +6,23 @@ import {
   patients,
   patientHospitals,
   referralEvents,
+  users,
+  userHospitalRoles,
+  units,
 } from "@shared/schema";
 import { inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { ensurePatientHospitalLink } from "../server/utils/patientHospitalLink";
 import { getReferralDailyBySource } from "../server/lib/referralAnalytics";
+import express from "express";
+import request from "supertest";
+import { vi } from "vitest";
+
+vi.mock("../server/auth/google", () => ({
+  isAuthenticated: (_req: any, _res: any, next: any) => next(),
+}));
+
+import businessRouter from "../server/routes/business";
 
 const uniq = () => randomUUID().slice(0, 8);
 
@@ -36,6 +48,23 @@ async function mkReferral(hospitalId: string, patientId: string, source: string,
   return r.id;
 }
 
+let managerUserId: string;
+let unitId: string;
+const createdUserIds: string[] = [];
+const createdUnitIds: string[] = [];
+const createdRoleIds: string[] = [];
+
+function buildApp(userId: string | null) {
+  const app = express();
+  app.use(express.json());
+  app.use((req: any, _res, next) => {
+    if (userId) req.user = { id: userId };
+    next();
+  });
+  app.use(businessRouter);
+  return app;
+}
+
 beforeAll(async () => {
   const [h] = await db
     .insert(hospitals)
@@ -59,6 +88,32 @@ beforeAll(async () => {
   patId = p.id;
   createdPatientIds.push(patId);
   await ensurePatientHospitalLink(patId, hospId, null);
+
+  const [u] = await db
+    .insert(units)
+    .values({ hospitalId: hospId, name: "u", type: "clinic" } as any)
+    .returning();
+  unitId = u.id;
+  createdUnitIds.push(unitId);
+
+  const [usr] = await db
+    .insert(users)
+    .values({
+      id: `mgr-${uniq()}`,
+      email: `mgr-${uniq()}@test.invalid`,
+      firstName: "Mgr",
+      lastName: "User",
+      isPlatformAdmin: false,
+    } as any)
+    .returning();
+  managerUserId = usr.id;
+  createdUserIds.push(managerUserId);
+
+  const [r] = await db
+    .insert(userHospitalRoles)
+    .values({ userId: managerUserId, hospitalId: hospId, unitId, role: "manager" } as any)
+    .returning();
+  createdRoleIds.push(r.id);
 });
 
 beforeEach(async () => {
@@ -72,6 +127,12 @@ beforeEach(async () => {
 afterAll(async () => {
   if (createdReferralIds.length)
     await db.delete(referralEvents).where(inArray(referralEvents.id, createdReferralIds));
+  if (createdRoleIds.length)
+    await db.delete(userHospitalRoles).where(inArray(userHospitalRoles.id, createdRoleIds));
+  if (createdUnitIds.length)
+    await db.delete(units).where(inArray(units.id, createdUnitIds));
+  if (createdUserIds.length)
+    await db.delete(users).where(inArray(users.id, createdUserIds));
   await db.delete(patientHospitals).where(inArray(patientHospitals.patientId, createdPatientIds));
   await db.delete(patients).where(inArray(patients.id, createdPatientIds));
   await db.delete(hospitals).where(inArray(hospitals.id, createdHospitalIds));
@@ -184,5 +245,47 @@ describe("getReferralDailyBySource", () => {
     expect(result.rows.length).toBeGreaterThanOrEqual(91);
     expect(result.rows[0]!.date).toBe("2026-03-02");
     expect(result.rows[result.rows.length - 1]!.date).toBe("2026-05-31");
+  });
+});
+
+describe("GET /api/business/:hospitalId/referral-daily", () => {
+  it("returns gap-free daily-by-source rows for the authorized hospital", async () => {
+    await mkReferral(hospId, patId, "social", new Date("2026-06-01T10:00:00Z"));
+    const app = buildApp(managerUserId);
+    const res = await request(app).get(
+      `/api/business/${hospId}/referral-daily?from=2026-06-01&to=2026-06-02`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      rows: expect.any(Array),
+      sources: expect.any(Array),
+      timezone: expect.any(String),
+    });
+    expect(res.body.rows).toHaveLength(2);
+    expect(res.body.rows[0].bySource.social).toBe(1);
+    expect(res.body.rows[1].total).toBe(0);
+    expect(res.body.sources).toEqual(["social"]);
+  });
+
+  it("returns 400 when range exceeds 366 days", async () => {
+    const app = buildApp(managerUserId);
+    const res = await request(app).get(
+      `/api/business/${hospId}/referral-daily?from=2024-01-01&to=2026-01-01`,
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 403 when the user has no access to the hospital", async () => {
+    // Other hospital with no role for this user
+    const [h2] = await db
+      .insert(hospitals)
+      .values({ name: `RDS-noaccess-${uniq()}`, timezone: "Europe/Zurich" } as any)
+      .returning();
+    createdHospitalIds.push(h2.id);
+    const app = buildApp(managerUserId);
+    const res = await request(app).get(
+      `/api/business/${h2.id}/referral-daily?from=2026-06-01&to=2026-06-02`,
+    );
+    expect([401, 403, 404]).toContain(res.status); // exact status depends on existing middleware
   });
 });

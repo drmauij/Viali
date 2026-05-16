@@ -24,6 +24,7 @@ import {
   getReferralTimeseries,
   listReferralEvents,
   getReferralFunnel,
+  getReferralDailyBySource,
 } from "../lib/referralAnalytics";
 import { getAdPerformance } from "../lib/adPerformance";
 
@@ -1997,6 +1998,41 @@ router.get('/api/business/:hospitalId/referral-timeseries', isAuthenticated, isM
   } catch (error: any) {
     logger.error('Error fetching referral timeseries:', error);
     res.status(500).json({ message: 'Failed to fetch referral timeseries' });
+  }
+});
+
+// Referral source daily-by-source counts (powers the upgraded
+// "Referral Sources Over Time" line chart + weekday peaks bar).
+router.get('/api/business/:hospitalId/referral-daily', isAuthenticated, isMarketingOrManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { from, to } = req.query;
+
+    let hospitalIds: string[];
+    try {
+      hospitalIds = await resolveHospitalScope(req, req.user.id, hospitalId);
+    } catch (err) {
+      if (err instanceof ScopeForbiddenError) {
+        return res.status(403).json({ message: err.message, code: err.code });
+      }
+      throw err;
+    }
+
+    try {
+      const result = await getReferralDailyBySource(hospitalIds, {
+        from: from as string | undefined,
+        to: to as string | undefined,
+      });
+      res.json(result);
+    } catch (err: any) {
+      if (err?.name === "ReferralDailyRangeError") {
+        return res.status(400).json({ message: err.message });
+      }
+      throw err;
+    }
+  } catch (error: any) {
+    logger.error('Error fetching referral daily-by-source:', error);
+    res.status(500).json({ message: 'Failed to fetch referral daily-by-source' });
   }
 });
 
