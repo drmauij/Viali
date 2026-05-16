@@ -209,6 +209,7 @@ import type { SurgeryWithAssistants, AssistantInfo, PatientListScope } from "./s
 import * as chatStorage from "./storage/chat";
 import * as questionnaireStorage from "./storage/questionnaires";
 import * as clinicStorage from "./storage/clinic";
+import type { ExternalSurgeryRequestWithSource } from "./storage/clinic";
 import * as worktimeStorage from "./storage/worktime";
 import * as episodeStorage from "./storage/episodes";
 import * as patientDocumentFolderStorage from "./storage/patientDocumentFolders";
@@ -828,7 +829,7 @@ export interface IStorage {
   reorderPersonalTodos(todoIds: string[], status: string): Promise<void>;
   
   // ========== EXTERNAL SURGERY REQUESTS ==========
-  getExternalSurgeryRequests(hospitalId: string, status?: string): Promise<ExternalSurgeryRequest[]>;
+  getExternalSurgeryRequests(hospitalId: string, status?: string): Promise<ExternalSurgeryRequestWithSource[]>;
   getExternalSurgeryRequest(id: string): Promise<ExternalSurgeryRequest | undefined>;
   getExternalSurgeryRequestByHospitalToken(token: string): Promise<{ hospital: Hospital } | undefined>;
   createExternalSurgeryRequest(request: InsertExternalSurgeryRequest): Promise<ExternalSurgeryRequest>;

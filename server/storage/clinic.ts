@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, desc, asc, sql, lte, gte, inArray, isNull, or } from "drizzle-orm";
+import { eq, and, desc, asc, sql, lte, gte, inArray, isNull, or, getTableColumns } from "drizzle-orm";
 import { getClinicClosuresInRange } from "./clinicClosures";
 import { ensurePatientHospitalLink } from "../utils/patientHospitalLink";
 import { alias } from "drizzle-orm/pg-core";
@@ -2484,22 +2484,30 @@ export async function getWorklogWorkers(hospitalId: string): Promise<{ email: st
 
 // ========== EXTERNAL SURGERY REQUESTS ==========
 
-export async function getExternalSurgeryRequests(hospitalId: string, status?: string): Promise<ExternalSurgeryRequest[]> {
-  if (status) {
-    return await db
-      .select()
-      .from(externalSurgeryRequests)
-      .where(and(
+export type ExternalSurgeryRequestWithSource = ExternalSurgeryRequest & {
+  sourceHospitalName: string | null;
+};
+
+export async function getExternalSurgeryRequests(hospitalId: string, status?: string): Promise<ExternalSurgeryRequestWithSource[]> {
+  const sourceHospital = alias(hospitals, "source_hospital");
+  const baseWhere = status
+    ? and(
         eq(externalSurgeryRequests.hospitalId, hospitalId),
         eq(externalSurgeryRequests.status, status as typeof externalSurgeryRequests.status._.data)
-      ))
-      .orderBy(desc(externalSurgeryRequests.createdAt));
-  }
-  return await db
-    .select()
+      )
+    : eq(externalSurgeryRequests.hospitalId, hospitalId);
+
+  const rows = await db
+    .select({
+      ...getTableColumns(externalSurgeryRequests),
+      sourceHospitalName: sourceHospital.name,
+    })
     .from(externalSurgeryRequests)
-    .where(eq(externalSurgeryRequests.hospitalId, hospitalId))
+    .leftJoin(sourceHospital, eq(externalSurgeryRequests.sourceHospitalId, sourceHospital.id))
+    .where(baseWhere)
     .orderBy(desc(externalSurgeryRequests.createdAt));
+
+  return rows as ExternalSurgeryRequestWithSource[];
 }
 
 export async function getExternalSurgeryRequest(id: string): Promise<ExternalSurgeryRequest | undefined> {

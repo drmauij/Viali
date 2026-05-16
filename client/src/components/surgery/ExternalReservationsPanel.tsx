@@ -590,6 +590,20 @@ export function ExternalReservationsPanel({
   const [decliningRequestId, setDecliningRequestId] = useState<string | null>(null);
   const [declineReason, setDeclineReason] = useState('');
 
+  // --- Praxis-mode: snapshot preview before Accept ---
+  const [snapshotPreviewRequest, setSnapshotPreviewRequest] = useState<ExternalSurgeryRequest | null>(null);
+  const [snapshotSendInvitation, setSnapshotSendInvitation] = useState(true);
+
+  // --- Praxis-mode: Reject dialog ---
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+
+  // --- Praxis-mode: Cancel dialog (for scheduled rows) ---
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+
   const hospitalId = activeHospital?.id;
 
   // --- External surgery requests (existing) ---
@@ -680,6 +694,109 @@ export function ExternalReservationsPanel({
   const handleConfirmDecline = () => {
     if (!decliningRequestId) return;
     declineMutation.mutate({ requestId: decliningRequestId, reason: declineReason });
+  };
+
+  // --- Praxis-mode: accept referral (new accept endpoint) ---
+  const acceptReferralMutation = useMutation({
+    mutationFn: async (requestId: string) => {
+      return apiRequest('POST', `/api/external-surgery-requests/${requestId}/accept`, {});
+    },
+    onSuccess: () => {
+      toast({
+        title: isGerman ? 'Überweisung angenommen' : 'Referral accepted',
+        description: isGerman ? 'Patient wurde importiert und angelegt.' : 'Patient has been imported and created.',
+      });
+      setSnapshotPreviewRequest(null);
+      refetch();
+      queryClient.invalidateQueries({ predicate: (query) =>
+        typeof query.queryKey[0] === 'string' &&
+        query.queryKey[0].includes('external-surgery-requests')
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // --- Praxis-mode: reject referral ---
+  const rejectReferralMutation = useMutation({
+    mutationFn: async ({ requestId, reason }: { requestId: string; reason: string }) => {
+      return apiRequest('POST', `/api/external-surgery-requests/${requestId}/reject`, { reason });
+    },
+    onSuccess: () => {
+      toast({
+        title: isGerman ? 'Überweisung abgelehnt' : 'Referral rejected',
+        description: isGerman ? 'Die Überweisung wurde abgelehnt.' : 'The referral has been rejected.',
+      });
+      setRejectDialogOpen(false);
+      setRejectingRequestId(null);
+      setRejectReason('');
+      refetch();
+      queryClient.invalidateQueries({ predicate: (query) =>
+        typeof query.queryKey[0] === 'string' &&
+        query.queryKey[0].includes('external-surgery-requests')
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // --- Praxis-mode: cancel accepted referral ---
+  const cancelReferralMutation = useMutation({
+    mutationFn: async ({ requestId, reason }: { requestId: string; reason: string }) => {
+      return apiRequest('POST', `/api/external-surgery-requests/${requestId}/cancel`, { reason });
+    },
+    onSuccess: () => {
+      toast({
+        title: isGerman ? 'Überweisung storniert' : 'Referral cancelled',
+        description: isGerman ? 'Die Überweisung wurde storniert.' : 'The referral has been cancelled.',
+      });
+      setCancelDialogOpen(false);
+      setCancellingRequestId(null);
+      setCancelReason('');
+      queryClient.invalidateQueries({ predicate: (query) =>
+        typeof query.queryKey[0] === 'string' &&
+        query.queryKey[0].includes('external-surgery-requests')
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleReject = (requestId: string) => {
+    setRejectingRequestId(requestId);
+    setRejectReason('');
+    setRejectDialogOpen(true);
+  };
+
+  const handleConfirmReject = () => {
+    if (!rejectingRequestId || !rejectReason.trim()) return;
+    rejectReferralMutation.mutate({ requestId: rejectingRequestId, reason: rejectReason.trim() });
+  };
+
+  const handleCancel = (requestId: string) => {
+    setCancellingRequestId(requestId);
+    setCancelReason('');
+    setCancelDialogOpen(true);
+  };
+
+  const handleConfirmCancel = () => {
+    if (!cancellingRequestId || !cancelReason.trim()) return;
+    cancelReferralMutation.mutate({ requestId: cancellingRequestId, reason: cancelReason.trim() });
   };
 
   // --- Surgeon action request mutations ---
@@ -1024,6 +1141,213 @@ export function ExternalReservationsPanel({
     </Dialog>
   );
 
+  // --- Snapshot preview dialog ---
+  const snapshotPreviewDialog = (() => {
+    if (!snapshotPreviewRequest) return null;
+    const snap = (snapshotPreviewRequest as any).patientSnapshot as {
+      demographics?: {
+        firstName?: string; lastName?: string; birthday?: string;
+        email?: string; phone?: string; street?: string;
+        postalCode?: string; city?: string;
+      };
+      intake?: Record<string, unknown>;
+    } | null;
+    const demo = snap?.demographics ?? {};
+    const intakeKeys = Object.keys(snap?.intake ?? {});
+    return (
+      <Dialog open={!!snapshotPreviewRequest} onOpenChange={(o) => { if (!o) setSnapshotPreviewRequest(null); }}>
+        <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0 overflow-hidden gap-0">
+          <DialogHeader className="shrink-0 bg-background border-b px-6 py-4">
+            <DialogTitle>
+              {isGerman ? 'Überweisung annehmen' : 'Accept referral'}
+            </DialogTitle>
+            <DialogDescription>
+              {isGerman
+                ? 'Patientendaten aus der Praxis-Überweisung. Beim Annehmen wird der Patient in dieser Klinik angelegt.'
+                : 'Patient data from the praxis referral. On accept, the patient will be created in this clinic.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
+            {/* Patient demographics */}
+            <div className="bg-muted rounded-lg p-3 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase mb-2">
+                {isGerman ? 'Patientendaten' : 'Patient data'}
+              </p>
+              {(demo.lastName || demo.firstName) && (
+                <p className="text-sm font-medium">{demo.lastName}, {demo.firstName}</p>
+              )}
+              {demo.birthday && (
+                <p className="text-sm text-muted-foreground">* {formatDate(demo.birthday)}</p>
+              )}
+              {demo.email && (
+                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Mail className="h-3 w-3 shrink-0" /> {demo.email}
+                </p>
+              )}
+              {demo.phone && (
+                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Phone className="h-3 w-3 shrink-0" /> {demo.phone}
+                </p>
+              )}
+              {(demo.street || demo.city) && (
+                <p className="text-sm text-muted-foreground">
+                  {[demo.street, demo.postalCode, demo.city].filter(Boolean).join(', ')}
+                </p>
+              )}
+            </div>
+            {/* Surgery summary */}
+            <div className="bg-muted rounded-lg p-3 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase mb-2">
+                {isGerman ? 'Eingriff' : 'Surgery'}
+              </p>
+              <p className="text-sm font-medium">{snapshotPreviewRequest.surgeryName || '—'}</p>
+              {snapshotPreviewRequest.surgeryDurationMinutes && (
+                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" /> {snapshotPreviewRequest.surgeryDurationMinutes} min
+                </p>
+              )}
+              {snapshotPreviewRequest.stayType && (
+                <p className="text-sm text-muted-foreground">
+                  {snapshotPreviewRequest.stayType === 'overnight'
+                    ? t('anesthesia.stayTypeOvernight', 'Overnight Stay')
+                    : t('anesthesia.stayTypeAmbulant', 'Outpatient')}
+                </p>
+              )}
+              {snapshotPreviewRequest.diagnosis && (
+                <p className="text-sm text-muted-foreground">
+                  {t('surgery.externalRequests.diagnosis')}: {snapshotPreviewRequest.diagnosis}
+                </p>
+              )}
+              {snapshotPreviewRequest.surgeryRiskClass && (
+                <p className="text-sm text-muted-foreground">
+                  {isGerman ? 'Risikoklasse' : 'Risk class'}: {snapshotPreviewRequest.surgeryRiskClass}
+                </p>
+              )}
+            </div>
+            {/* Intake fields */}
+            {intakeKeys.length > 0 && (
+              <div className="bg-muted rounded-lg p-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase mb-2">
+                  {isGerman ? 'Vorausgefüllte Felder (Praxis-Anamnese)' : 'Pre-filled fields (praxis intake)'}
+                </p>
+                <ul className="space-y-0.5">
+                  {intakeKeys.map((k) => (
+                    <li key={k} className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Check className="h-3 w-3 text-emerald-600 shrink-0" /> {k}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {/* Send invitation checkbox */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="snapshotSendInvitation"
+                checked={snapshotSendInvitation}
+                onCheckedChange={(checked) => setSnapshotSendInvitation(!!checked)}
+              />
+              <Label htmlFor="snapshotSendInvitation" className="cursor-pointer text-sm">
+                {isGerman ? 'Patienteneinladungslink senden' : 'Send patient invitation link'}
+              </Label>
+            </div>
+          </div>
+          <DialogFooter className="shrink-0 bg-background border-t px-6 py-4">
+            <Button variant="outline" onClick={() => setSnapshotPreviewRequest(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={() => acceptReferralMutation.mutate(snapshotPreviewRequest!.id)}
+              disabled={acceptReferralMutation.isPending}
+            >
+              {acceptReferralMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isGerman ? 'Annehmen und Patient anlegen' : 'Accept and create patient'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  })();
+
+  // --- Reject referral dialog ---
+  const rejectDialog = (
+    <Dialog open={rejectDialogOpen} onOpenChange={(o) => { setRejectDialogOpen(o); if (!o) { setRejectingRequestId(null); setRejectReason(''); } }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{isGerman ? 'Überweisung ablehnen' : 'Reject referral'}</DialogTitle>
+          <DialogDescription>
+            {isGerman
+              ? 'Bitte geben Sie eine Begründung für die Ablehnung an.'
+              : 'Please provide a reason for rejecting this referral.'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="space-y-2">
+            <Label>{isGerman ? 'Begründung' : 'Reason'}</Label>
+            <Textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder={isGerman ? 'Grund für die Ablehnung...' : 'Reason for rejection...'}
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleConfirmReject}
+            disabled={!rejectReason.trim() || rejectReferralMutation.isPending}
+          >
+            {rejectReferralMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isGerman ? 'Ablehnen' : 'Reject'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  // --- Cancel referral dialog (for scheduled rows) ---
+  const cancelDialog = (
+    <Dialog open={cancelDialogOpen} onOpenChange={(o) => { setCancelDialogOpen(o); if (!o) { setCancellingRequestId(null); setCancelReason(''); } }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{isGerman ? 'Überweisung stornieren' : 'Cancel referral'}</DialogTitle>
+          <DialogDescription>
+            {isGerman
+              ? 'Bitte geben Sie eine Begründung für die Stornierung an. Die Praxis wird informiert.'
+              : 'Please provide a reason for cancelling this referral. The referring practice will be notified.'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="space-y-2">
+            <Label>{isGerman ? 'Begründung' : 'Reason'}</Label>
+            <Textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder={isGerman ? 'Grund für die Stornierung...' : 'Reason for cancellation...'}
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleConfirmCancel}
+            disabled={!cancelReason.trim() || cancelReferralMutation.isPending}
+          >
+            {cancelReferralMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isGerman ? 'Stornieren' : 'Cancel referral'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   const archiveStatusBadge = (status: string) => {
     if (status === 'scheduled') {
       return (
@@ -1056,16 +1380,23 @@ export function ExternalReservationsPanel({
           </p>
         </div>
       ) : (
-        archiveRequests.map((request) => (
+        archiveRequests.map((request: ExternalSurgeryRequest & { sourceHospitalName?: string | null }) => (
           <Card key={request.id} className="shadow-sm">
             <CardContent className="py-3 space-y-1.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-sm truncate">
-                    {request.isReservationOnly
-                      ? (isGerman ? 'Slot-Reservierung' : 'Slot reservation')
-                      : `${request.patientLastName ?? ''}, ${request.patientFirstName ?? ''}`}
-                  </p>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <p className="font-medium text-sm truncate">
+                      {request.isReservationOnly
+                        ? (isGerman ? 'Slot-Reservierung' : 'Slot reservation')
+                        : `${request.patientLastName ?? ''}, ${request.patientFirstName ?? ''}`}
+                    </p>
+                    {request.sourceHospitalId && request.sourceHospitalName && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+                        {isGerman ? 'Von' : 'From'} {request.sourceHospitalName}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground truncate">
                     {request.surgeryName || '—'}
                   </p>
@@ -1089,6 +1420,18 @@ export function ExternalReservationsPanel({
                 <div className="text-[11px] text-red-700 dark:text-red-300 mt-1">
                   {isGerman ? 'Grund' : 'Reason'}: {(request as any).declineReason}
                 </div>
+              )}
+              {request.status === 'scheduled' && request.sourceHospitalId && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full text-destructive hover:text-destructive mt-1"
+                  onClick={() => handleCancel(request.id)}
+                  disabled={cancelReferralMutation.isPending && cancellingRequestId === request.id}
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  {isGerman ? 'Überweisung stornieren' : 'Cancel referral'}
+                </Button>
               )}
             </CardContent>
           </Card>
@@ -1117,8 +1460,9 @@ export function ExternalReservationsPanel({
           <p>{t('surgery.externalRequests.noPendingRequests')}</p>
         </div>
       ) : (
-        requests.map((request: ExternalSurgeryRequest & { documents?: any[] }) => {
+        requests.map((request: ExternalSurgeryRequest & { documents?: any[]; sourceHospitalName?: string | null }) => {
           const isSelected = selectedRequestId === request.id;
+          const isPraxisReferral = !!request.sourceHospitalId;
           return (
             <Card
               key={request.id}
@@ -1141,10 +1485,15 @@ export function ExternalReservationsPanel({
                   <div>
                     {request.isReservationOnly ? (
                       <>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-lg text-violet-700 dark:text-violet-300">
                             {t('opCalendar.slotReserved', 'SLOT RESERVED')}
                           </p>
+                          {isPraxisReferral && request.sourceHospitalName && (
+                            <Badge variant="secondary" className="ml-2 text-xs">
+                              {isGerman ? 'Von' : 'From'} {request.sourceHospitalName}
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground">
                           Dr. {request.surgeonLastName}, {request.surgeonFirstName}
@@ -1152,9 +1501,16 @@ export function ExternalReservationsPanel({
                       </>
                     ) : (
                       <>
-                        <p className="font-semibold text-lg">
-                          {request.patientLastName}, {request.patientFirstName}
-                        </p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-lg">
+                            {request.patientLastName}, {request.patientFirstName}
+                          </p>
+                          {isPraxisReferral && request.sourceHospitalName && (
+                            <Badge variant="secondary" className="ml-2 text-xs">
+                              {isGerman ? 'Von' : 'From'} {request.sourceHospitalName}
+                            </Badge>
+                          )}
+                        </div>
                         {request.patientBirthday && (
                           <p className="text-xs text-muted-foreground">
                             *{formatDate(request.patientBirthday)}
@@ -1278,24 +1634,58 @@ export function ExternalReservationsPanel({
                 )}
 
                 <div className="flex flex-col gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    onClick={() => handleSchedule(request)}
-                  >
-                    <Check className="mr-1 h-4 w-4" />
-                    {t('surgery.externalRequests.schedule')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full text-destructive hover:text-destructive"
-                    onClick={() => handleDecline(request.id)}
-                    disabled={declineMutation.isPending && decliningRequestId === request.id}
-                  >
-                    <X className="mr-1 h-4 w-4" />
-                    {t('surgery.externalRequests.decline')}
-                  </Button>
+                  {isPraxisReferral ? (
+                    <>
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          if ((request as any).patientSnapshot) {
+                            setSnapshotPreviewRequest(request);
+                            setSnapshotSendInvitation(true);
+                          } else {
+                            acceptReferralMutation.mutate(request.id);
+                          }
+                        }}
+                        disabled={acceptReferralMutation.isPending}
+                      >
+                        {acceptReferralMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                        <Check className="mr-1 h-4 w-4" />
+                        {isGerman ? 'Annehmen' : 'Accept'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full text-destructive hover:text-destructive"
+                        onClick={() => handleReject(request.id)}
+                        disabled={rejectReferralMutation.isPending && rejectingRequestId === request.id}
+                      >
+                        <X className="mr-1 h-4 w-4" />
+                        {isGerman ? 'Ablehnen' : 'Reject'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleSchedule(request)}
+                      >
+                        <Check className="mr-1 h-4 w-4" />
+                        {t('surgery.externalRequests.schedule')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full text-destructive hover:text-destructive"
+                        onClick={() => handleDecline(request.id)}
+                        disabled={declineMutation.isPending && decliningRequestId === request.id}
+                      >
+                        <X className="mr-1 h-4 w-4" />
+                        {t('surgery.externalRequests.decline')}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1343,6 +1733,9 @@ export function ExternalReservationsPanel({
         </div>
         {refuseDialog}
         {declineDialog}
+        {snapshotPreviewDialog}
+        {rejectDialog}
+        {cancelDialog}
       </div>
     );
   }
@@ -1405,6 +1798,9 @@ export function ExternalReservationsPanel({
 
       {refuseDialog}
       {declineDialog}
+      {snapshotPreviewDialog}
+      {rejectDialog}
+      {cancelDialog}
     </>
   );
 }
