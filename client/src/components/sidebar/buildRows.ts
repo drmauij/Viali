@@ -87,17 +87,13 @@ export function accessOf(h: SidebarHospital): HospitalAccess {
   };
 }
 
-export function routeFor(unitType: UnitType, mod: ModuleId): string {
+export function routeFor(_unitType: UnitType, mod: ModuleId): string {
   switch (mod) {
     case "anesthesia": return "/anesthesia/op";
     case "surgery": return "/surgery/op";
     case "clinic": return "/clinic";
     case "business": return "/business";
-    case "inventory":
-      if (unitType === "anesthesia") return "/anesthesia/inventory";
-      if (unitType === "or") return "/surgery/inventory";
-      if (unitType === "clinic") return "/clinic/inventory";
-      return "/inventory/items";
+    case "inventory": return "/inventory/items";
     case "administration": return "/admin";
     case "logistic": return "/logistic/inventory";
     case "platform": return "/platform";
