@@ -174,7 +174,7 @@ export function RoleModuleSidebar({
         />
       )}
       {state === "full" && (
-        <Sidebar collapsible="none" data-testid="role-module-sidebar">
+        <Sidebar collapsible="none" data-testid="role-module-sidebar" className="animate-in slide-in-from-left-2 duration-200">
           <SidebarHeader className="flex flex-row items-center gap-2 px-3 py-2">
             <button
               type="button"

@@ -40,23 +40,23 @@ interface Props {
 }
 
 const MODULE_ICON: Record<string, JSX.Element> = {
-  anesthesia: <HeartPulse className="h-4 w-4" />,
-  surgery: <Scissors className="h-4 w-4" />,
-  clinic: <Stethoscope className="h-4 w-4" />,
-  business: <BarChart3 className="h-4 w-4" />,
-  inventory: <Boxes className="h-4 w-4" />,
-  administration: <Shield className="h-4 w-4" />,
-  logistic: <Truck className="h-4 w-4" />,
-  platform: <Globe className="h-4 w-4" />,
-  "worklogs-anesthesia": <Clock className="h-4 w-4" />,
-  "worklogs-surgery": <Clock className="h-4 w-4" />,
-  checklists: <ClipboardCheck className="h-4 w-4" />,
+  anesthesia: <HeartPulse className="h-5 w-5" />,
+  surgery: <Scissors className="h-5 w-5" />,
+  clinic: <Stethoscope className="h-5 w-5" />,
+  business: <BarChart3 className="h-5 w-5" />,
+  inventory: <Boxes className="h-5 w-5" />,
+  administration: <Shield className="h-5 w-5" />,
+  logistic: <Truck className="h-5 w-5" />,
+  platform: <Globe className="h-5 w-5" />,
+  "worklogs-anesthesia": <Clock className="h-5 w-5" />,
+  "worklogs-surgery": <Clock className="h-5 w-5" />,
+  checklists: <ClipboardCheck className="h-5 w-5" />,
 };
 
 const QUICK_LINK_ICON: Record<RailQuickLink["id"], JSX.Element> = {
-  questionnaire: <FileText className="h-4 w-4" />,
-  externalSurgery: <Calendar className="h-4 w-4" />,
-  booking: <CalendarCheck className="h-4 w-4" />,
+  questionnaire: <FileText className="h-5 w-5" />,
+  externalSurgery: <Calendar className="h-5 w-5" />,
+  booking: <CalendarCheck className="h-5 w-5" />,
 };
 
 export function SidebarIconRail({
@@ -70,7 +70,7 @@ export function SidebarIconRail({
   const { t } = useTranslation();
   return (
     <div
-      className="flex h-full w-12 flex-col items-center gap-1 overflow-y-auto bg-sidebar py-2 pb-20 [&::-webkit-scrollbar]:hidden"
+      className="flex h-full w-14 flex-col items-center gap-1 overflow-y-auto bg-sidebar py-2 pb-20 shrink-0 animate-in slide-in-from-left-2 duration-200 [&::-webkit-scrollbar]:hidden"
       style={{ scrollbarWidth: "none" }}
     >
       {/* Hospital avatar — click opens TopBar hospital picker */}
@@ -79,7 +79,7 @@ export function SidebarIconRail({
         onClick={() => document.dispatchEvent(new CustomEvent("topbar-open-hospital-picker"))}
         title={activeHospital.name}
         aria-label={activeHospital.name}
-        className="mb-1 flex h-8 w-8 items-center justify-center rounded-md bg-primary text-[10px] font-semibold text-primary-foreground hover:opacity-90 transition-opacity shrink-0"
+        className="mb-1 flex h-10 w-10 items-center justify-center rounded-md bg-primary text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity shrink-0"
       >
         {activeHospital.name.slice(0, 2).toUpperCase()}
       </button>
@@ -103,7 +103,7 @@ export function SidebarIconRail({
                 onClick={() => onSelect(group.hospital, icon)}
                 title={`${group.hospital.unitName} · ${group.hospital.role} → ${icon.label}`}
                 aria-label={`${group.hospital.unitName} · ${group.hospital.role} → ${icon.label}`}
-                className={`relative flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent data-[active=true]:bg-sidebar-accent data-[active=true]:ring-1 data-[active=true]:ring-sidebar-accent-foreground/20 data-[active=true]:text-sidebar-accent-foreground before:absolute before:-left-[3px] before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-r-sm ${unitRailBeforeClass(group.hospital.unitType)}`}
+                className={`relative flex h-10 w-10 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent data-[active=true]:bg-sidebar-accent data-[active=true]:ring-1 data-[active=true]:ring-sidebar-accent-foreground/20 data-[active=true]:text-sidebar-accent-foreground before:absolute before:-left-[3px] before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-sm ${unitRailBeforeClass(group.hospital.unitType)}`}
               >
                 {MODULE_ICON[icon.id] ?? <span className="text-xs">·</span>}
                 {icon.badge !== undefined && icon.badge > 0 && (
@@ -129,7 +129,7 @@ export function SidebarIconRail({
                 rel="noopener noreferrer"
                 title={ql.label}
                 aria-label={ql.label}
-                className={`relative flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent before:absolute before:-left-[3px] before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-r-sm ${RAIL_BEFORE.public}`}
+                className={`relative flex h-10 w-10 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent before:absolute before:-left-[3px] before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-sm ${RAIL_BEFORE.public}`}
               >
                 {QUICK_LINK_ICON[ql.id]}
               </a>
@@ -141,9 +141,9 @@ export function SidebarIconRail({
           onClick={onExpand}
           aria-label={t("sidebar.expandTooltip")}
           title={t("sidebar.expandTooltip")}
-          className="mt-1 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent"
+          className="mt-1 flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent"
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-5 w-5" />
         </button>
       </div>
     </div>

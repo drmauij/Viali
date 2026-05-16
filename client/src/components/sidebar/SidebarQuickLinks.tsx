@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Copy, ExternalLink, FileText, Calendar, CalendarCheck, Download } from "lucide-react";
+import { FileText, Calendar, CalendarCheck, Download } from "lucide-react";
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -9,7 +9,6 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { UNIT_TAG_COLORS } from "@/lib/unitTagColors";
-import { useToast } from "@/hooks/use-toast";
 import { buildQuickLinks, type QuickLinkData } from "./buildRows";
 
 interface QuickLinkHospital {
@@ -34,38 +33,16 @@ const QUICK_LINK_ICON: Record<QuickLinkData["id"], JSX.Element> = {
 
 export function SidebarQuickLinks({ hospital, addons, hasMedicalAccess }: Props) {
   const { t } = useTranslation();
-  const { toast } = useToast();
 
   const links = buildQuickLinks(hospital, addons, hasMedicalAccess, t);
 
   if (links.length === 0) return null;
 
-  async function copy(url: string) {
-    try {
-      await navigator.clipboard.writeText(url);
-      toast({
-        title: t("quickLinks.copied"),
-        description: t("quickLinks.copiedDesc"),
-      });
-    } catch {
-      toast({
-        title: t("quickLinks.copyFailed"),
-        description: url,
-        variant: "destructive",
-      });
-    }
-  }
-
   return (
     <>
       <SidebarSeparator />
       <SidebarGroup>
-        <SidebarGroupLabel>
-          {t("sidebar.quickLinksSection")}
-          <span className="ml-auto text-[10px] text-muted-foreground">
-            {t("sidebar.shareSubtitle")}
-          </span>
-        </SidebarGroupLabel>
+        <SidebarGroupLabel>{t("sidebar.quickLinksSection")}</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
             {links.map(link => (
@@ -96,25 +73,6 @@ export function SidebarQuickLinks({ hospital, addons, hasMedicalAccess }: Props)
                       <Download className="h-3 w-3" />
                     </a>
                   )}
-                  <button
-                    type="button"
-                    aria-label={t("sidebar.copyLink")}
-                    title={t("sidebar.copyLink")}
-                    onClick={() => copy(link.url)}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <Copy className="h-3 w-3" />
-                  </button>
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={t("sidebar.openInNewTab")}
-                    title={t("sidebar.openInNewTab")}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
                 </div>
               </SidebarMenuItem>
             ))}

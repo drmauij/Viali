@@ -204,7 +204,7 @@ export default function Layout({ children }: LayoutProps) {
               document.dispatchEvent(new CustomEvent("topbar-open-hospital-picker"));
             }}
           />
-          <div className="screen-container flex-1">{innerContent}</div>
+          <div className="flex-1 min-h-svh pb-20 bg-background overflow-x-hidden min-w-0">{innerContent}</div>
         </SidebarProvider>
       ) : (
         <div className="screen-container">{innerContent}</div>
