@@ -84,6 +84,12 @@ export function SidebarRoleGroup({
     primary &&
     (activeRoute === primary.route || activeRoute.startsWith(primary.route + "/"));
   const isPrimaryActive = !!routeMatchesPrimary && isActiveGroup;
+  // The card ring fires whenever this unit-role is the user's current
+  // selection — even when the active route is a secondary module (Inventory,
+  // Administration, etc.). The ring tells the user "this unit owns the page
+  // you're on" at a glance, while the header text-primary tint is reserved
+  // for the case where the primary module itself is active.
+  const showCardActive = isActiveGroup;
 
   const cardClickable = !!primary;
   const handleCardClick = () => {
@@ -98,7 +104,8 @@ export function SidebarRoleGroup({
     <div
       data-role-group
       data-testid="unit-card"
-      data-active={isPrimaryActive ? "true" : undefined}
+      data-active={showCardActive ? "true" : undefined}
+      data-primary-active={isPrimaryActive ? "true" : undefined}
       role={cardClickable ? "button" : undefined}
       tabIndex={cardClickable ? 0 : undefined}
       aria-label={cardClickable ? hospital.unitName : undefined}
@@ -115,7 +122,7 @@ export function SidebarRoleGroup({
       }
       className={`mx-2 my-1 overflow-hidden rounded-lg border border-border/40 ${cardBg} transition-colors ${
         cardClickable ? "cursor-pointer hover:bg-accent/40" : ""
-      } ${isPrimaryActive ? "ring-1 ring-primary" : ""}`}
+      } ${showCardActive ? "ring-1 ring-primary" : ""}`}
     >
       <div className="flex items-center gap-2 px-3 pt-2 pb-1">
         <span className={`h-4 w-1 shrink-0 rounded-sm ${tagBg}`} aria-hidden />

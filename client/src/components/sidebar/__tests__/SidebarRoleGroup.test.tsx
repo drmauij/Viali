@@ -83,7 +83,7 @@ describe("SidebarRoleGroup", () => {
     expect(screen.getByRole("button", { name: /Worklogs/i })).toBeInTheDocument();
   });
 
-  it("marks the card itself as active when on the primary route", () => {
+  it("marks the card active and primary-active when on the primary route", () => {
     render(
       <SidebarRoleGroup
         hospital={baseHospital}
@@ -95,7 +95,33 @@ describe("SidebarRoleGroup", () => {
       />,
       { wrapper: Wrapper },
     );
-    expect(screen.getByTestId("unit-card")).toHaveAttribute("data-active", "true");
+    const card = screen.getByTestId("unit-card");
+    expect(card).toHaveAttribute("data-active", "true");
+    expect(card).toHaveAttribute("data-primary-active", "true");
+  });
+
+  it("marks the card active (but not primary-active) when on a secondary route", () => {
+    render(
+      <SidebarRoleGroup
+        hospital={baseHospital}
+        primary={primary}
+        rows={secondaryRows}
+        activeRoute="/admin"
+        isActiveGroup={true}
+        onSelect={vi.fn()}
+      />,
+      { wrapper: Wrapper },
+    );
+    const card = screen.getByTestId("unit-card");
+    // Card-level cue: yes, this unit owns the page you're on.
+    expect(card).toHaveAttribute("data-active", "true");
+    // But the primary module itself is not the active one.
+    expect(card).not.toHaveAttribute("data-primary-active");
+    // The secondary row that matches the route still lights up.
+    expect(screen.getByRole("button", { name: /^Administration$/i })).toHaveAttribute(
+      "data-active",
+      "true",
+    );
   });
 
   it("clicking the card surface fires onSelect with the primary row", () => {
