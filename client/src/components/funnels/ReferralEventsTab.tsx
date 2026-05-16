@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   HelpCircle,
   List,
@@ -500,6 +501,7 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
     return flat;
   }, [referralDaily, grain, selectedReferralSource]);
 
+  // LEGACY: superseded by `periodSeries` (Task 10). Safe to remove next release.
   const referralLineData = useMemo(() => {
     if (!referralTimeseries?.length) return [];
     const monthMap: Record<string, Record<string, number>> = {};
@@ -773,43 +775,90 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
               </ChartCard>
             </div>
 
-            {/* Referral progress over time — line chart */}
-            <ChartCard
-              title={t("business.referrals.progressOverTime")}
-              helpText={t("business.referrals.progressOverTimeHelp")}
-            >
-              {referralTimeseriesLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <Loader2 className="h-6 w-6 animate-spin" />
+            {/* Referral sources over time — upgraded: grain toggle + filter-aware + focused MA */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between py-3 space-y-0">
+                <div className="flex items-center">
+                  <CardTitle className="text-lg text-foreground">
+                    {t("business.referrals.progressOverTime")}
+                  </CardTitle>
+                  <HelpTooltip content={t("business.referrals.progressOverTimeHelp")} />
+                  {referralDaily?.timezone === "UTC" && referralDaily.rows.length > 0 && (
+                    <span className="ml-2 text-xs text-muted-foreground">(UTC)</span>
+                  )}
                 </div>
-              ) : referralLineData.length === 0 ? (
-                <div className="flex items-center justify-center h-64 text-muted-foreground">
-                  {t("business.referrals.noData")}
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={350}>
-                  <LineChart data={referralLineData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                    <RechartsTooltip />
-                    <Legend />
-                    {referralLineSources.map((src) => (
-                      <Line
-                        key={src}
-                        type="monotone"
-                        dataKey={src}
-                        name={REFERRAL_LABELS[src] || src}
-                        stroke={REFERRAL_COLORS[src] || "#6b7280"}
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
-                        activeDot={{ r: 5 }}
-                      />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </ChartCard>
+                <ToggleGroup
+                  type="single"
+                  size="sm"
+                  value={grain}
+                  onValueChange={(v) => v && setGrain(v as Grain)}
+                  className="gap-0"
+                >
+                  <ToggleGroupItem value="week" aria-label="Week">
+                    {t("business.referrals.grain.week", "Week")}
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="month" aria-label="Month">
+                    {t("business.referrals.grain.month", "Month")}
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="day" aria-label="Day">
+                    {t("business.referrals.grain.day", "Day")}
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </CardHeader>
+              <CardContent>
+                {referralDailyLoading ? (
+                  <div className="flex items-center justify-center h-64">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : referralDaily?.rangeTooWide ? (
+                  <div className="flex items-center justify-center h-64 text-muted-foreground text-sm px-6 text-center">
+                    {t("business.referrals.rangeTooWide")}
+                  </div>
+                ) : !referralDaily || referralDaily.rows.length === 0 ? (
+                  <div className="flex items-center justify-center h-64 text-muted-foreground">
+                    {t("business.referrals.noData")}
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={350}>
+                    <LineChart data={periodSeries}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="period" tick={{ fontSize: 12 }} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                      <RechartsTooltip />
+                      <Legend />
+                      {referralDaily.sources.map((src) => (
+                        <Line
+                          key={src}
+                          type="monotone"
+                          dataKey={src}
+                          name={REFERRAL_LABELS[src] || src}
+                          stroke={REFERRAL_COLORS[src] || "#6b7280"}
+                          strokeWidth={selectedReferralSource === src ? 3 : 2}
+                          strokeOpacity={
+                            selectedReferralSource && selectedReferralSource !== src ? 0.25 : 1
+                          }
+                          dot={{ r: 3 }}
+                          activeDot={{ r: 5 }}
+                        />
+                      ))}
+                      {selectedReferralSource && (
+                        <Line
+                          type="monotone"
+                          dataKey="ma7"
+                          name={`${REFERRAL_LABELS[selectedReferralSource] || selectedReferralSource} (7-period avg)`}
+                          stroke="#ffffff"
+                          strokeOpacity={0.7}
+                          strokeDasharray="4 4"
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={false}
+                        />
+                      )}
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
           </CardContent>
         )}
       </Card>
