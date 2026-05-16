@@ -67,6 +67,7 @@ import {
   formatDistanceToNow,
 } from "date-fns";
 import { de, enUS } from "date-fns/locale";
+import { PraxisActivationModal } from "@/components/praxis/PraxisActivationModal";
 import { generateSurgeonSummaryPDF } from "@/lib/surgeonSummaryPdf";
 import {
   loadDraft,
@@ -1130,6 +1131,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
   }, [view, progressState !== null]);
 
   const [myDataOpen, setMyDataOpen] = useState(false);
+  const [praxisActivationOpen, setPraxisActivationOpen] = useState(false);
 
   const [draftBanner, setDraftBanner] = useState<SurgeonPortalDraft | null>(null);
   const [restoredInitialValues, setRestoredInitialValues] = useState<
@@ -1541,6 +1543,22 @@ function SurgeonPortalContent({ token }: { token: string }) {
 
         <TabsContent value="newRequest" className="mt-0">
           <div className="max-w-2xl mx-auto px-4 py-6">
+            {!me?.isPraxis && (
+              <div className="rounded-lg border-2 border-indigo-200 bg-indigo-50 p-4 mb-4 dark:bg-indigo-950/30 dark:border-indigo-800">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-semibold text-sm">Activate your praxis on Viali</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Manage your own patient database, calendar, and consultations. Your historical surgery requests will be imported automatically.
+                    </p>
+                  </div>
+                  <Button size="sm" onClick={() => setPraxisActivationOpen(true)} data-testid="button-open-praxis-activation">
+                    Activate
+                  </Button>
+                </div>
+              </div>
+            )}
+            <PraxisActivationModal open={praxisActivationOpen} onClose={() => setPraxisActivationOpen(false)} />
             {progressState && !submittedSummary && (
               <div ref={progressInFlowRef} className="mb-3">
                 <ProgressHeader
