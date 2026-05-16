@@ -514,7 +514,7 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                     {t("business.referrals.noData")}
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ResponsiveContainer width="100%" height={360}>
                     <PieChart>
                       <Pie
                         data={referralPieData}
@@ -546,6 +546,8 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
                         formatter={(value: number) => [value, t("business.referrals.responses")]}
                       />
                       <Legend
+                        verticalAlign="bottom"
+                        wrapperStyle={{ paddingTop: 12, maxHeight: 96, overflowY: "auto" }}
                         formatter={(value: string) => {
                           const entry = referralPieData.find((e) => e.name === value);
                           if (!entry) return value;
