@@ -161,12 +161,16 @@ export async function getReferralDailyBySource(
 
   // 3. One query: generate_series LEFT JOIN grouped events.
   //    The bucketing is `to_char(re.created_at AT TIME ZONE $tz, 'YYYY-MM-DD')`.
+  //    Filter events by the bucketed day vs the [from, to] day strings so the
+  //    upper bound is inclusive of the entire local day in `timezone`.
+  const fromDay = fromDate.toISOString().slice(0, 10);
+  const toDay = toDate.toISOString().slice(0, 10);
   const result = await db.execute(sql`
     WITH days AS (
       SELECT to_char(d::date, 'YYYY-MM-DD') AS day
       FROM generate_series(
-        ${fromDate.toISOString().slice(0, 10)}::date,
-        ${toDate.toISOString().slice(0, 10)}::date,
+        ${fromDay}::date,
+        ${toDay}::date,
         '1 day'
       ) AS d
     ),
@@ -179,8 +183,8 @@ export async function getReferralDailyBySource(
       WHERE ${hospitalIds.length === 1
         ? sql`re.hospital_id = ${hospitalIds[0]}`
         : sql`re.hospital_id IN (${sql.join(hospitalIds.map((id) => sql`${id}`), sql`, `)})`}
-        AND re.created_at >= ${fromDate.toISOString()}::timestamp
-        AND re.created_at <= ${toDate.toISOString()}::timestamp
+        AND to_char(re.created_at AT TIME ZONE ${timezone}, 'YYYY-MM-DD') >= ${fromDay}
+        AND to_char(re.created_at AT TIME ZONE ${timezone}, 'YYYY-MM-DD') <= ${toDay}
       GROUP BY 1, 2
     )
     SELECT
