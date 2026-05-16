@@ -8893,6 +8893,16 @@
     "showSidebar": "Seitenleiste anzeigen",
     "downloadPoster": "QR-Poster herunterladen",
     "copyLink": "Link kopieren",
-    "openInNewTab": "In neuem Tab öffnen"
+    "openInNewTab": "In neuem Tab öffnen",
+    "module": {
+      "anesthesia": "Anästhesie",
+      "surgery": "Chirurgie",
+      "clinic": "Klinik",
+      "business": "Geschäft",
+      "inventory": "Lager & Leistungen",
+      "administration": "Verwaltung",
+      "logistic": "Logistik",
+      "platform": "Plattform"
+    }
   }
 }

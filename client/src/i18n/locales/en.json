@@ -8876,6 +8876,16 @@
     "showSidebar": "Show sidebar",
     "downloadPoster": "Download QR poster",
     "copyLink": "Copy link",
-    "openInNewTab": "Open in new tab"
+    "openInNewTab": "Open in new tab",
+    "module": {
+      "anesthesia": "Anesthesia Records",
+      "surgery": "Surgery",
+      "clinic": "Clinic",
+      "business": "Business",
+      "inventory": "Inventory & Services",
+      "administration": "Administration",
+      "logistic": "Logistics",
+      "platform": "Platform"
+    }
   }
 }
