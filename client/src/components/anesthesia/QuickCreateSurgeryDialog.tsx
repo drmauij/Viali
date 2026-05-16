@@ -102,6 +102,10 @@ export default function QuickCreateSurgeryDialog({
   const [newPatientDOB, setNewPatientDOB] = useState("");
   const [newPatientGender, setNewPatientGender] = useState("m");
   const [newPatientPhone, setNewPatientPhone] = useState("");
+  const [newPatientEmail, setNewPatientEmail] = useState("");
+  const [newPatientStreet, setNewPatientStreet] = useState("");
+  const [newPatientPostalCode, setNewPatientPostalCode] = useState("");
+  const [newPatientCity, setNewPatientCity] = useState("");
   const [birthdayInput, setBirthdayInput] = useState("");
 
   // Parse birthday from various formats to ISO format (yyyy-mm-dd)
@@ -274,6 +278,10 @@ export default function QuickCreateSurgeryDialog({
     setNewPatientDOB("");
     setNewPatientGender("m");
     setNewPatientPhone("");
+    setNewPatientEmail("");
+    setNewPatientStreet("");
+    setNewPatientPostalCode("");
+    setNewPatientCity("");
     setBirthdayInput("");
     setSurgeryRiskClass("");
     setAmbulantOverrideReason(null);
@@ -290,6 +298,17 @@ export default function QuickCreateSurgeryDialog({
       return;
     }
 
+    if (isClinicLinkedRoom) {
+      if (!newPatientEmail.trim() || !newPatientStreet.trim() || !newPatientPostalCode.trim() || !newPatientCity.trim()) {
+        toast({
+          title: t("common.validationError", "Validation error"),
+          description: "Email, street, postal code, and city are required for cross-tenant referrals.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     createPatientMutation.mutate({
       hospitalId,
       firstName: newPatientFirstName.trim(),
@@ -297,6 +316,10 @@ export default function QuickCreateSurgeryDialog({
       birthday: newPatientDOB,
       sex: newPatientGender.toUpperCase(),
       phone: newPatientPhone.trim() || undefined,
+      email: newPatientEmail.trim() || undefined,
+      street: newPatientStreet.trim() || undefined,
+      postalCode: newPatientPostalCode.trim() || undefined,
+      city: newPatientCity.trim() || undefined,
     });
   };
 
@@ -410,6 +433,12 @@ export default function QuickCreateSurgeryDialog({
     ambulantEligibility.decision === 'red' &&
     stayType === 'ambulant' &&
     !ambulantOverrideReason;
+
+  const selectedRoom = useMemo(
+    () => surgeryRooms.find((r: any) => r.id === surgeryRoomId),
+    [surgeryRooms, surgeryRoomId]
+  );
+  const isClinicLinkedRoom = !!selectedRoom?.linkedHospitalId;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -549,6 +578,51 @@ export default function QuickCreateSurgeryDialog({
                       value={newPatientPhone}
                       onChange={(value) => setNewPatientPhone(value)}
                       data-testid="input-new-patient-phone"
+                    />
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <Label htmlFor="np-email">
+                      {t("anesthesia.quickSchedule.email", "Email")}{isClinicLinkedRoom && <span className="text-red-500"> *</span>}
+                    </Label>
+                    <Input
+                      id="np-email"
+                      type="email"
+                      value={newPatientEmail}
+                      onChange={(e) => setNewPatientEmail(e.target.value)}
+                      data-testid="input-new-patient-email"
+                    />
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <Label htmlFor="np-street">
+                      {t("anesthesia.quickSchedule.street", "Street")}{isClinicLinkedRoom && <span className="text-red-500"> *</span>}
+                    </Label>
+                    <Input
+                      id="np-street"
+                      value={newPatientStreet}
+                      onChange={(e) => setNewPatientStreet(e.target.value)}
+                      data-testid="input-new-patient-street"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="np-postal">
+                      {t("anesthesia.quickSchedule.postalCode", "Postal code")}{isClinicLinkedRoom && <span className="text-red-500"> *</span>}
+                    </Label>
+                    <Input
+                      id="np-postal"
+                      value={newPatientPostalCode}
+                      onChange={(e) => setNewPatientPostalCode(e.target.value)}
+                      data-testid="input-new-patient-postal"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="np-city">
+                      {t("anesthesia.quickSchedule.city", "City")}{isClinicLinkedRoom && <span className="text-red-500"> *</span>}
+                    </Label>
+                    <Input
+                      id="np-city"
+                      value={newPatientCity}
+                      onChange={(e) => setNewPatientCity(e.target.value)}
+                      data-testid="input-new-patient-city"
                     />
                   </div>
                 </div>
