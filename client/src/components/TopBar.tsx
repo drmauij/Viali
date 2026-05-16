@@ -13,6 +13,8 @@ import ChatDock from "./chat/ChatDock";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
+import { SidebarTree } from "./sidebar/SidebarTree";
+import type { SidebarHospital } from "./sidebar/RoleModuleSidebar";
 
 interface Hospital {
   id: string;
@@ -68,6 +70,13 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
     }
   }, []);
 
+  // Listen for RoleModuleSidebar's hidden-state hospital-picker request
+  useEffect(() => {
+    const handler = () => setShowHospitalDropdown(true);
+    document.addEventListener("topbar-open-hospital-picker", handler);
+    return () => document.removeEventListener("topbar-open-hospital-picker", handler);
+  }, []);
+
   const handleOpenPatientInline = useCallback((patientId: string) => {
     // Navigate to the patient detail page for the current module
     if (activeHospital?.unitType === 'clinic') {
@@ -94,6 +103,9 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
     () => (hospitals || []).some(h => h.role === "group_admin"),
     [hospitals],
   );
+
+  const sidebarEnabled =
+    typeof localStorage !== "undefined" && localStorage.getItem("featureSidebar") === "1";
 
   // Group hospitals by hospital ID for multi-hospital users
   const groupedHospitals = useMemo(() => {
@@ -224,7 +236,18 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
             
             {showHospitalDropdown && hospitals.length > 1 && (
               <div className="absolute top-full left-0 mt-2 w-72 bg-card border border-border rounded-lg shadow-lg z-50 max-h-[60vh] overflow-y-auto">
-                {hasMultipleHospitals ? (
+                {sidebarEnabled && activeHospital ? (
+                  <SidebarTree
+                    hospitals={hospitals as unknown as SidebarHospital[]}
+                    activeHospital={activeHospital as unknown as SidebarHospital}
+                    activeRoute={typeof window !== "undefined" ? window.location.pathname : ""}
+                    onSelect={(h, route) => {
+                      onHospitalChange?.(h as unknown as Hospital);
+                      setShowHospitalDropdown(false);
+                    }}
+                    showQuickLinks={false}
+                  />
+                ) : hasMultipleHospitals ? (
                   // Grouped view for multi-hospital users. When a hospital
                   // has exactly one (unit, role) row we collapse the header
                   // + sub-row into a single clickable button so the user
@@ -293,8 +316,8 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
                 ) : (
                   // Simple view for single hospital with multiple roles
                   hospitals.map((hospital) => {
-                    const isActive = activeHospital?.id === hospital.id && 
-                                    activeHospital?.unitId === hospital.unitId && 
+                    const isActive = activeHospital?.id === hospital.id &&
+                                    activeHospital?.unitId === hospital.unitId &&
                                     activeHospital?.role === hospital.role;
                     return (
                       <button
