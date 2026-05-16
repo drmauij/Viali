@@ -54,9 +54,12 @@ describe("provisionSourceHospital", () => {
 
     const roles = await db.select().from(userHospitalRoles)
       .where(eq(userHospitalRoles.hospitalId, result.sourceHospitalId));
-    expect(roles.length).toBe(1);
-    expect(roles[0].userId).toBe(surgeon.id);
-    expect(roles[0].role).toBe("admin");
+    // Surgeon gets 3 rows: admin in Clinic unit + admin in OR unit + doctor in OR unit
+    expect(roles.length).toBe(3);
+    expect(roles.every((r) => r.userId === surgeon.id)).toBe(true);
+    expect(roles.filter((r) => r.role === "admin").length).toBe(2);
+    expect(roles.filter((r) => r.role === "doctor").length).toBe(1);
+    expect(roles.every((r) => r.isBookable === true)).toBe(true);
 
     const pair = await db.select().from(referralPartnerships)
       .where(eq(referralPartnerships.sourceHospitalId, result.sourceHospitalId));
@@ -66,7 +69,7 @@ describe("provisionSourceHospital", () => {
     expect(pair[0].pairingSource).toBe("auto_on_provision");
   });
 
-  it("applies lean addon defaults — addonSurgery off, addonClinic on, addonAmbulantEligibility on", async () => {
+  it("applies praxis addon defaults — addonClinic + addonSurgery on, addonMonitor + addonLogistics off", async () => {
     const dest = await makeDestination(`Dest ${Date.now()}-b`);
     const surgeon = await makeSurgeon(`s-${Date.now()}-b@t.local`);
     const result = await provisionSourceHospital({
@@ -77,7 +80,10 @@ describe("provisionSourceHospital", () => {
     expect(src.addonClinic).toBe(true);
     expect(src.addonQuestionnaire).toBe(true);
     expect(src.addonAmbulantEligibility).toBe(true);
-    expect(src.addonSurgery).toBe(false);
+    // Surgery is ON — the praxis plans surgeries on the OR calendar and submits
+    // referrals via clinic-linked rooms. They don't perform surgery in-house, but
+    // the planning surface is the OR calendar.
+    expect(src.addonSurgery).toBe(true);
     expect(src.addonMonitor).toBe(false);
     expect(src.addonLogistics).toBe(false);
   });

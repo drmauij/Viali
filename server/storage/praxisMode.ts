@@ -9,7 +9,10 @@ export const PRAXIS_ADDON_DEFAULTS = {
   addonQuestionnaire: true,
   addonAmbulantEligibility: true,
   addonPatientChat: true,
-  addonSurgery: false,
+  // Surgery is the primary surface for a praxis — they plan + submit referrals
+  // from the OR calendar (rooms with linked_hospital_id). The praxis doesn't
+  // execute surgery in-house, but the planning view is the OR calendar.
+  addonSurgery: true,
   addonMonitor: false,
   addonLogistics: false,
   addonWorktime: false,
@@ -40,23 +43,75 @@ export async function provisionSourceHospital(input: ProvisionSourceInput): Prom
       ...PRAXIS_ADDON_DEFAULTS,
     } as any).returning();
 
-    // 2. Create a default clinic unit (required by userHospitalRoles.unitId NOT NULL FK)
-    const [defaultUnit] = await tx.insert(units).values({
+    // 2. Create two default units:
+    //    - Clinic unit: for clinic-side admin (patients, appointments, settings)
+    //    - OR unit: for surgery planning on the OR calendar; required so the
+    //      surgeon's activeHospital.unitType resolves to 'or' (gates /surgery/op
+    //      via ProtectedRoute.requireSurgery → hasSurgeryAccess).
+    const [clinicUnit] = await tx.insert(units).values({
       name: "Clinic",
       hospitalId: src.id,
       type: "clinic",
       isClinicModule: true,
     } as any).returning();
+    const [orUnit] = await tx.insert(units).values({
+      name: "OR",
+      hospitalId: src.id,
+      type: "or",
+      isSurgeryModule: true,
+    } as any).returning();
 
-    // 3. Bind surgeon as admin of the new praxis hospital.
+    // 3. Bind the activating surgeon to BOTH units:
+    //    - admin in the Clinic unit (admin access to clinic surfaces)
+    //    - admin in the OR unit AND doctor in the OR unit (so they appear in
+    //      the bookable surgeon list AND have admin powers; surgeon lists
+    //      prefer the 'doctor' row for the Dr. prefix).
+    //    isBookable=true marks the user as schedulable for surgeries/appointments.
     //    Passing the surgeonUserId FK intentionally — if the user doesn't exist,
     //    the FK violation rolls back the whole transaction (atomicity test).
-    await tx.insert(userHospitalRoles).values({
-      userId: input.surgeonUserId,
-      hospitalId: src.id,
-      unitId: defaultUnit.id,
-      role: "admin",
-    } as any);
+    await tx.insert(userHospitalRoles).values([
+      {
+        userId: input.surgeonUserId,
+        hospitalId: src.id,
+        unitId: clinicUnit.id,
+        role: "admin",
+        isBookable: true,
+      },
+      {
+        userId: input.surgeonUserId,
+        hospitalId: src.id,
+        unitId: orUnit.id,
+        role: "admin",
+        isBookable: true,
+      },
+      {
+        userId: input.surgeonUserId,
+        hospitalId: src.id,
+        unitId: orUnit.id,
+        role: "doctor",
+        isBookable: true,
+      },
+    ] as any);
+
+    // 3b. If the activating surgeon is a parent-surgeon (users.is_praxis=true), also
+    //     bind every child doctor (users.parent_surgeon_id = activating user) to
+    //     the new praxis hospital's OR unit as 'doctor' (bookable). Children of
+    //     non-praxis users return nothing and this is a no-op for them.
+    const childDoctors = await tx
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.parentSurgeonId, input.surgeonUserId));
+    if (childDoctors.length > 0) {
+      await tx.insert(userHospitalRoles).values(
+        childDoctors.map((child) => ({
+          userId: child.id,
+          hospitalId: src.id,
+          unitId: orUnit.id,
+          role: "doctor",
+          isBookable: true,
+        })) as any,
+      );
+    }
 
     // 4. Auto-pair with the originating destination clinic
     const [pair] = await tx.insert(referralPartnerships).values({

@@ -7,6 +7,8 @@ import { surgeries, users, userHospitalRoles, hospitals, surgeryRooms } from "@s
 import { eq, and } from "drizzle-orm";
 import logger from "../logger";
 import { provisionSourceHospital, backfillReferralHistory, cancelPendingReferral } from "../storage/praxisMode";
+import { requireSurgeonSession } from "./surgeonPortal";
+import { getHospitalByExternalSurgeryToken } from "../storage/surgeonPortal";
 
 export const praxisModeRouter = Router();
 
@@ -28,19 +30,52 @@ praxisModeRouter.post("/api/surgeries/:id/acknowledge-reschedule", async (req: a
 });
 
 // ========== PRAXIS ACTIVATION (Task 12) ==========
-// POST /api/surgeon-portal/praxis/activate
+// POST /api/surgeon-portal/:token/praxis/activate
 // Provisions a praxis source hospital for the authenticated surgeon,
 // auto-pairs it with the originating destination clinic, creates a logical
 // surgery room, backfills referral history, and sets the surgeon's password.
+//
+// Auth: gated by the surgeon-portal cookie session (requireSurgeonSession).
+// The middleware sets req.surgeonEmail; the :token URL param resolves to the
+// originating destination hospital via getHospitalByExternalSurgeryToken.
+// In NODE_ENV=test, req.user + x-test-* headers also work (bypass).
 
-praxisModeRouter.post("/api/surgeon-portal/praxis/activate", async (req: any, res: Response) => {
-  // Auth context: prefer surgeonPortalSession; fallback to req.user (test mode); else 401
-  const ctx = req.surgeonPortalSession
-    ? { userId: req.surgeonPortalSession.userId, clinicId: req.surgeonPortalSession.hospitalId }
-    : req.user
-      ? { userId: req.user.id, clinicId: req.user.activeHospitalId }
-      : null;
-  if (!ctx?.userId || !ctx?.clinicId) return res.status(401).json({ error: "not authenticated" });
+praxisModeRouter.post(
+  "/api/surgeon-portal/:token/praxis/activate",
+  async (req: any, res: Response, next: any) => {
+    // Test-mode bypass: allow direct req.user injection without portal cookie
+    if (process.env.NODE_ENV === "test" && req.user?.id) return next();
+    return requireSurgeonSession(req, res, next);
+  },
+  async (req: any, res: Response) => {
+  // Resolve surgeon (user) + originating clinic from the portal session + token
+  let userId: string | undefined;
+  let clinicId: string | undefined;
+
+  if (process.env.NODE_ENV === "test" && req.user?.id) {
+    userId = req.user.id;
+    clinicId = req.user.activeHospitalId;
+  } else {
+    const surgeonEmail = req.surgeonEmail as string | undefined;
+    const token = req.params.token as string;
+    if (!surgeonEmail || !token) {
+      return res.status(401).json({ error: "not authenticated" });
+    }
+
+    // Look up the user by email
+    const [user] = await db.select({ id: users.id }).from(users).where(eq(users.email, surgeonEmail));
+    if (!user) return res.status(404).json({ error: "user not found for portal session" });
+    userId = user.id;
+
+    // Look up the originating clinic by portal token
+    const clinic = await getHospitalByExternalSurgeryToken(token);
+    if (!clinic) return res.status(404).json({ error: "clinic not found for portal token" });
+    clinicId = clinic.id;
+  }
+
+  if (!userId || !clinicId) return res.status(401).json({ error: "not authenticated" });
+  // Locals for the rest of the handler keep the original variable name
+  const ctx = { userId, clinicId };
 
   // Reject if surgeon already owns a source hospital (tenant_type='praxis')
   const existing = await db

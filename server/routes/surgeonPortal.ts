@@ -44,7 +44,7 @@ const MAX_REASON_LENGTH = 2000;
  * The surgeon portal uses hospital-wide tokens (not per-person),
  * so the session stores the authenticated surgeon's email.
  */
-async function requireSurgeonSession(req: Request, res: Response, next: any) {
+export async function requireSurgeonSession(req: Request, res: Response, next: any) {
   try {
     const { token } = req.params;
     const sessionToken = req.cookies?.portal_session;

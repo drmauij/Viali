@@ -45,7 +45,7 @@ afterAll(async () => {
   await pool.end();
 });
 
-describe("POST /api/surgeon-portal/praxis/activate", () => {
+describe("POST /api/surgeon-portal/:token/praxis/activate", () => {
   it("provisions source hospital + auto-pairs + creates logical room + returns new hospital id", async () => {
     const [dest] = await db.insert(hospitals).values({ name: `D ${Date.now()}`, tenantType: "clinic" } as any).returning();
     created.hospitals.push(dest.id);
@@ -53,7 +53,7 @@ describe("POST /api/surgeon-portal/praxis/activate", () => {
     created.users.push(surgeon.id);
 
     const res = await request(app)
-      .post("/api/surgeon-portal/praxis/activate")
+      .post("/api/surgeon-portal/test-token/praxis/activate")
       .set("x-test-user-id", surgeon.id)
       .set("x-test-hospital-id", dest.id)
       .send({ sourceName: "Praxis Mueller", password: "Test1234!" });
@@ -81,14 +81,14 @@ describe("POST /api/surgeon-portal/praxis/activate", () => {
     created.users.push(surgeon.id);
 
     const first = await request(app)
-      .post("/api/surgeon-portal/praxis/activate")
+      .post("/api/surgeon-portal/test-token/praxis/activate")
       .set("x-test-user-id", surgeon.id).set("x-test-hospital-id", dest.id)
       .send({ sourceName: "First", password: "Test1234!" });
     expect(first.status).toBe(200);
     created.hospitals.push(first.body.sourceHospitalId);
 
     const second = await request(app)
-      .post("/api/surgeon-portal/praxis/activate")
+      .post("/api/surgeon-portal/test-token/praxis/activate")
       .set("x-test-user-id", surgeon.id).set("x-test-hospital-id", dest.id)
       .send({ sourceName: "Second", password: "Test1234!" });
     expect(second.status).toBe(409);

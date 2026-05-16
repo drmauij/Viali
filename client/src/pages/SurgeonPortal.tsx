@@ -51,6 +51,7 @@ import {
   CheckCircle2,
   LogOut,
   Download,
+  Sparkles,
 } from "lucide-react";
 import {
   startOfMonth,
@@ -219,6 +220,11 @@ const translations: Record<string, Record<string, string>> = {
     "myData.save": "Speichern",
     "myData.saveSuccess": "Profil aktualisiert",
     "myData.saveFailed": "Aktualisierung fehlgeschlagen",
+    // Praxis activation banner
+    praxisActivationBannerTitle: "Aktivieren Sie Ihre eigene Praxis auf Viali",
+    praxisActivationBannerDescription:
+      "Verwalten Sie Ihre eigene Patientendatenbank, einen Kalender und Sprechstunden. Ihre bisherigen OP-Anfragen werden automatisch in Ihre neue Praxis-Instanz importiert.",
+    praxisActivationBannerCta: "Jetzt aktivieren",
   },
   en: {
     // Gate
@@ -360,6 +366,11 @@ const translations: Record<string, Record<string, string>> = {
     "myData.save": "Save changes",
     "myData.saveSuccess": "Profile updated",
     "myData.saveFailed": "Update failed",
+    // Praxis activation banner
+    praxisActivationBannerTitle: "Activate your own praxis on Viali",
+    praxisActivationBannerDescription:
+      "Manage your own patient database, calendar, and consultations. Your historical surgery requests will be imported automatically into your new praxis instance.",
+    praxisActivationBannerCta: "Activate now",
   },
 };
 
@@ -1544,21 +1555,39 @@ function SurgeonPortalContent({ token }: { token: string }) {
         <TabsContent value="newRequest" className="mt-0">
           <div className="max-w-2xl mx-auto px-4 py-6">
             {!me?.isPraxis && (
-              <div className="rounded-lg border-2 border-indigo-200 bg-indigo-50 p-4 mb-4 dark:bg-indigo-950/30 dark:border-indigo-800">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-semibold text-sm">Activate your praxis on Viali</div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Manage your own patient database, calendar, and consultations. Your historical surgery requests will be imported automatically.
-                    </p>
+              <div
+                className="rounded-xl border border-indigo-500/40 bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-5 mb-6 shadow-lg ring-1 ring-indigo-300/30"
+                data-testid="banner-praxis-activation"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <Sparkles className="h-6 w-6 shrink-0 mt-0.5 text-indigo-100" />
+                    <div>
+                      <div className="font-semibold text-base">
+                        {tFn("praxisActivationBannerTitle")}
+                      </div>
+                      <p className="text-sm text-indigo-100 mt-1 leading-relaxed">
+                        {tFn("praxisActivationBannerDescription")}
+                      </p>
+                    </div>
                   </div>
-                  <Button size="sm" onClick={() => setPraxisActivationOpen(true)} data-testid="button-open-praxis-activation">
-                    Activate
+                  <Button
+                    size="lg"
+                    variant="secondary"
+                    className="shrink-0 bg-white text-indigo-700 hover:bg-indigo-50 font-semibold shadow-md"
+                    onClick={() => setPraxisActivationOpen(true)}
+                    data-testid="button-open-praxis-activation"
+                  >
+                    {tFn("praxisActivationBannerCta")}
                   </Button>
                 </div>
               </div>
             )}
-            <PraxisActivationModal open={praxisActivationOpen} onClose={() => setPraxisActivationOpen(false)} />
+            <PraxisActivationModal
+              open={praxisActivationOpen}
+              onClose={() => setPraxisActivationOpen(false)}
+              token={token}
+            />
             {progressState && !submittedSummary && (
               <div ref={progressInFlowRef} className="mb-3">
                 <ProgressHeader
