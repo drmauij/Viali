@@ -50,6 +50,7 @@ import contractTemplatesRouter from "./contractTemplates";
 import contractInstancesRouter from "./contractInstances";
 import { enforceIdleTimeout } from "../auth/idleTimeout";
 import { praxisModeRouter } from "./praxisMode";
+import { referralPartnershipsRouter } from "./referralPartnerships";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -84,6 +85,7 @@ export function registerDomainRoutes(app: Express) {
   app.use(billingRouter);
   app.use(externalSurgeryRouter);
   app.use(praxisModeRouter);
+  app.use(referralPartnershipsRouter);
   app.use(controlledRouter);
   app.use(worklogRouter);
   app.use(notesRouter);
