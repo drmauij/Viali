@@ -61,6 +61,21 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 
+// Returns the period key (YYYY-MM-DD for day, ISO Monday-start week 'YYYY-MM-DD'
+// for week, 'YYYY-MM' for month).
+function periodKey(dateStr: string, grain: "week" | "month" | "day"): string {
+  if (grain === "day") return dateStr;
+  const d = new Date(dateStr + "T00:00:00Z");
+  if (grain === "month") {
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  }
+  // week: Monday-anchored. JS getUTCDay: 0=Sun..6=Sat. We want 0=Mon..6=Sun.
+  const isoDow = (d.getUTCDay() + 6) % 7;
+  const monday = new Date(d);
+  monday.setUTCDate(d.getUTCDate() - isoDow);
+  return monday.toISOString().slice(0, 10);
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const REFERRAL_COLORS: Record<string, string> = {
@@ -247,6 +262,8 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
   // ── Drill-down state ───────────────────────────────────────────────────────
   const [selectedReferralSource, setSelectedReferralSource] = useState<string | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<string | null>(null);
+  type Grain = "week" | "month" | "day";
+  const [grain, setGrain] = useState<Grain>("week");
 
   // ── Edit dialog state ──────────────────────────────────────────────────────
   const [editingReferral, setEditingReferral] = useState<ReferralEvent | null>(null);
@@ -437,6 +454,51 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
     if (!referralData || daysInRange <= 0) return null;
     return referralData.totalReferrals / daysInRange;
   }, [referralData, daysInRange]);
+
+  const periodSeries = useMemo(() => {
+    if (!referralDaily?.rows.length) return [];
+    const sources = referralDaily.sources;
+
+    // Roll up daily rows into period buckets.
+    const buckets = new Map<string, { period: string; bySource: Record<string, number>; total: number }>();
+    for (const row of referralDaily.rows) {
+      const key = periodKey(row.date, grain);
+      let b = buckets.get(key);
+      if (!b) {
+        b = { period: key, bySource: {}, total: 0 };
+        buckets.set(key, b);
+      }
+      for (const src of sources) {
+        const v = row.bySource[src] ?? 0;
+        if (v) b.bySource[src] = (b.bySource[src] ?? 0) + v;
+      }
+      b.total += row.total;
+    }
+    const orderedKeys = [...buckets.keys()].sort();
+
+    // For each bucket, project bySource into top-level keys (Recharts needs flat shape)
+    // and compute `focused` for the selected source (or null if nothing selected).
+    const flat = orderedKeys.map((k) => {
+      const b = buckets.get(k)!;
+      const flatRow: Record<string, number | string | null> = { period: b.period, total: b.total };
+      for (const src of sources) flatRow[src] = b.bySource[src] ?? 0;
+      flatRow.focused = selectedReferralSource ? (b.bySource[selectedReferralSource] ?? 0) : null;
+      return flatRow;
+    });
+
+    // Trailing 7-period moving average of `focused`. Only meaningful when a source is selected.
+    if (selectedReferralSource) {
+      for (let i = 0; i < flat.length; i++) {
+        const start = Math.max(0, i - 6);
+        const window = flat.slice(start, i + 1);
+        const sum = window.reduce((s, r) => s + (r.focused as number), 0);
+        flat[i]!.ma7 = sum / window.length;
+      }
+    } else {
+      for (const r of flat) r.ma7 = null;
+    }
+    return flat;
+  }, [referralDaily, grain, selectedReferralSource]);
 
   const referralLineData = useMemo(() => {
     if (!referralTimeseries?.length) return [];
