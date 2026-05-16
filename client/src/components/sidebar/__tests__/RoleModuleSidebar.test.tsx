@@ -158,3 +158,32 @@ describe("RoleModuleSidebar navigation", () => {
     expect(onNavigate).toHaveBeenCalledWith(sampleHospitals[2], expect.stringContaining("/surgery"));
   });
 });
+
+describe("RoleModuleSidebar mobile overlay", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    Object.defineProperty(window, "innerWidth", { value: 500, writable: true });
+  });
+
+  it("closes itself after a selection on mobile", () => {
+    const onNavigate = vi.fn();
+    render(
+      <RoleModuleSidebar
+        hospitals={[...sampleHospitals]}
+        activeHospital={sampleHospitals[1]}
+        activeRoute="/clinic"
+        onNavigate={onNavigate}
+        onSwitchHospital={vi.fn()}
+      />,
+      { wrapper: Wrapper },
+    );
+    // Mobile defaults to hidden; tap the handle to open
+    fireEvent.click(screen.getByLabelText(/show sidebar/i));
+    expect(screen.getByTestId("sidebar-state").textContent).toBe("full");
+    // Click a module row
+    const btn = screen.getAllByRole("button", { name: /Clinic/i })[0];
+    fireEvent.click(btn);
+    expect(onNavigate).toHaveBeenCalled();
+    expect(screen.getByTestId("sidebar-state").textContent).toBe("hidden");
+  });
+});

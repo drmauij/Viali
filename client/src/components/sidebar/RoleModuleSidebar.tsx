@@ -131,9 +131,28 @@ export function RoleModuleSidebar({
     });
   }
 
+  function isMobile(): boolean {
+    return typeof window !== "undefined" && window.innerWidth < 768;
+  }
+
+  const handleSelect = (h: SidebarHospital, route: string) => {
+    onNavigate(h, route);
+    if (isMobile()) setState("hidden");
+  };
+
   return (
     <>
       <span data-testid="sidebar-state" className="sr-only">{state}</span>
+      {state === "hidden" && (
+        <button
+          type="button"
+          aria-label={t("sidebar.showSidebar")}
+          onClick={() => setState("full")}
+          className="fixed left-0 top-1/2 z-20 flex h-12 w-3 -translate-y-1/2 items-center justify-center rounded-r bg-sidebar text-muted-foreground"
+        >
+          <ChevronsRight className="h-3 w-3" />
+        </button>
+      )}
     <Sidebar
       collapsible={state === "rail" ? "icon" : state === "hidden" ? "offcanvas" : "none"}
       data-testid="role-module-sidebar"
@@ -143,19 +162,10 @@ export function RoleModuleSidebar({
           groups={railGroups}
           quickLinkIcons={quickLinkIcons}
           activeRoute={activeRoute}
-          onSelect={(h, icon) => onNavigate(h, icon.route)}
+          onSelect={(h, icon) => handleSelect(h, icon.route)}
           onExpand={() => setState("full")}
         />
-      ) : state === "hidden" ? (
-        <button
-          type="button"
-          aria-label={t("sidebar.showSidebar")}
-          onClick={() => setState("full")}
-          className="fixed left-0 top-1/2 z-20 flex h-12 w-3 -translate-y-1/2 items-center justify-center rounded-r bg-sidebar text-muted-foreground"
-        >
-          <ChevronsRight className="h-3 w-3" />
-        </button>
-      ) : (
+      ) : state === "hidden" ? null : (
         <>
           <SidebarHeader className="flex flex-row items-center gap-2 px-3 py-2">
             <button
@@ -191,7 +201,7 @@ export function RoleModuleSidebar({
                   hospital={g.hospital}
                   rows={g.rows}
                   activeRoute={activeRoute}
-                  onSelect={(h, row) => onNavigate(h, row.route)}
+                  onSelect={(h, row) => handleSelect(h, row.route)}
                   singleRoleMode={singleRole}
                 />
               </div>
