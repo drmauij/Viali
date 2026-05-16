@@ -21,7 +21,9 @@ import { db } from "../db";
 import logger from "../logger";
 import { getClinicClosuresInRange } from "../storage/clinicClosures";
 import { findFuzzyPatientMatches } from "../services/patientDeduplication";
-import { acceptReferralAndImport } from "../storage/praxisMode";
+import { acceptReferralAndImport, pushReferralStatus } from "../storage/praxisMode";
+import { externalSurgeryRequests } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -1151,6 +1153,56 @@ router.post('/api/external-surgery-requests/:id/accept', isAuthenticated, requir
   } catch (err: any) {
     logger.error("[ExternalSurgery] Error accepting referral:", err);
     return res.status(500).json({ error: err.message ?? "accept failed" });
+  }
+});
+
+// ========== CROSS-TENANT REFERRAL REJECT + CANCEL (Task 8) ==========
+
+router.post('/api/external-surgery-requests/:id/reject', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const ctx = process.env.NODE_ENV === "test" && req.headers["x-test-hospital-id"]
+      ? { hospitalId: String(req.headers["x-test-hospital-id"]), userId: String(req.headers["x-test-user-id"]) }
+      : { hospitalId: req.user?.activeHospitalId, userId: req.user?.id };
+    const reason = String(req.body?.reason ?? "").trim();
+    if (!reason) return res.status(400).json({ error: "reason required" });
+
+    await db.update(externalSurgeryRequests)
+      .set({ status: "declined", declineReason: reason } as any)
+      .where(eq(externalSurgeryRequests.id, req.params.id));
+
+    await pushReferralStatus({
+      externalRequestId: req.params.id,
+      newStatus: "rejected_external",
+      note: reason,
+      byUserId: ctx.userId,
+      byHospitalId: ctx.hospitalId,
+    });
+    return res.json({ ok: true });
+  } catch (err: any) {
+    logger.error("[ExternalSurgery] Error rejecting referral:", err);
+    return res.status(500).json({ error: err.message ?? "reject failed" });
+  }
+});
+
+router.post('/api/external-surgery-requests/:id/cancel', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const ctx = process.env.NODE_ENV === "test" && req.headers["x-test-hospital-id"]
+      ? { hospitalId: String(req.headers["x-test-hospital-id"]), userId: String(req.headers["x-test-user-id"]) }
+      : { hospitalId: req.user?.activeHospitalId, userId: req.user?.id };
+    const reason = String(req.body?.reason ?? "").trim();
+    if (!reason) return res.status(400).json({ error: "reason required" });
+
+    await pushReferralStatus({
+      externalRequestId: req.params.id,
+      newStatus: "cancelled_external",
+      note: reason,
+      byUserId: ctx.userId,
+      byHospitalId: ctx.hospitalId,
+    });
+    return res.json({ ok: true });
+  } catch (err: any) {
+    logger.error("[ExternalSurgery] Error cancelling referral:", err);
+    return res.status(500).json({ error: err.message ?? "cancel failed" });
   }
 });
 

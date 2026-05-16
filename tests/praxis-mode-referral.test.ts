@@ -16,6 +16,7 @@ import {
 } from "@shared/schema";
 import { eq, inArray } from "drizzle-orm";
 import { provisionSourceHospital } from "../server/storage/praxisMode";
+import { praxisModeRouter } from "../server/routes/praxisMode";
 
 // Pass-through auth and surgery-plan access guard so test requests are not
 // rejected by role/unit checks that aren't relevant to the referral logic.
@@ -92,9 +93,29 @@ function buildExternalSurgeryApp() {
     next();
   });
   app.use(externalSurgeryRouter);
+  app.use(praxisModeRouter);
   return app;
 }
 const externalSurgeryApp = buildExternalSurgeryApp();
+
+// Combined app used by reject/cancel/acknowledge tests — needs both
+// surgeriesRouter (for POST /api/anesthesia/surgeries) and the external +
+// praxisMode routers.
+function buildCombinedApp() {
+  const app = express();
+  app.use(express.json());
+  app.use((req: any, _res: any, next: any) => {
+    const userId = String(req.headers["x-test-user-id"] ?? "");
+    const hospitalId = String(req.headers["x-test-hospital-id"] ?? "");
+    req.user = { id: userId, activeHospitalId: hospitalId };
+    next();
+  });
+  app.use(surgeriesRouter);
+  app.use(externalSurgeryRouter);
+  app.use(praxisModeRouter);
+  return app;
+}
+const combinedApp = buildCombinedApp();
 
 async function setup() {
   const ts = Date.now();
@@ -323,5 +344,77 @@ describe("destination-side accept of source-sourced request", () => {
     const [srcSurg] = await db.select().from(surgeries).where(eq(surgeries.id, submit.body.id));
     expect(srcSurg.referralStatus).toBe("confirmed_external");
     expect(srcSurg.plannedDate).toBeTruthy();
+  });
+});
+
+describe("destination reject/cancel + acknowledge-reschedule", () => {
+  async function submitAndGetIds() {
+    const { dest, surgeon, sourceHospitalId, room, patient } = await setup();
+    const submit = await request(combinedApp)
+      .post("/api/anesthesia/surgeries")
+      .set("x-test-user-id", surgeon.id).set("x-test-hospital-id", sourceHospitalId)
+      .send({
+        hospitalId: sourceHospitalId,
+        patientId: patient.id, surgeryRoomId: room.id,
+        plannedDate: new Date(Date.now() + 7*24*3600*1000).toISOString(),
+        plannedSurgery: "Septo", consentGiven: true,
+      });
+    created.surgeries.push(submit.body.id);
+    const externalRequestId = (await db.select().from(surgeries).where(eq(surgeries.id, submit.body.id)))[0].externalRequestId!;
+    created.requests.push(externalRequestId);
+    const [adminUser] = await db.insert(users).values({ email: `adm-${Date.now()}@t.local`, firstName: "A", lastName: "A" }).returning();
+    created.users.push(adminUser.id);
+    const [destUnit] = await db.select().from(units).where(eq(units.hospitalId, dest.id));
+    await db.insert(userHospitalRoles).values({ userId: adminUser.id, hospitalId: dest.id, unitId: destUnit.id, role: "admin" } as any);
+    return { destId: dest.id, adminUser, externalRequestId, sourceSurgeryId: submit.body.id };
+  }
+
+  it("destination reject sets source surgery to rejected_external with reason", async () => {
+    const { destId, adminUser, externalRequestId, sourceSurgeryId } = await submitAndGetIds();
+    const res = await request(combinedApp)
+      .post(`/api/external-surgery-requests/${externalRequestId}/reject`)
+      .set("x-test-user-id", adminUser.id).set("x-test-hospital-id", destId)
+      .send({ reason: "Surgery type outside our scope" });
+    expect(res.status).toBe(200);
+
+    const [src] = await db.select().from(surgeries).where(eq(surgeries.id, sourceSurgeryId));
+    expect(src.referralStatus).toBe("rejected_external");
+    expect((src as any).referralNote).toBe("Surgery type outside our scope");
+  });
+
+  it("destination cancel-after-accept sets source surgery to cancelled_external", async () => {
+    const { destId, adminUser, externalRequestId, sourceSurgeryId } = await submitAndGetIds();
+    await request(combinedApp).post(`/api/external-surgery-requests/${externalRequestId}/accept`)
+      .set("x-test-user-id", adminUser.id).set("x-test-hospital-id", destId).send({});
+
+    const res = await request(combinedApp)
+      .post(`/api/external-surgery-requests/${externalRequestId}/cancel`)
+      .set("x-test-user-id", adminUser.id).set("x-test-hospital-id", destId)
+      .send({ reason: "Equipment failure" });
+    expect(res.status).toBe(200);
+
+    const [src] = await db.select().from(surgeries).where(eq(surgeries.id, sourceSurgeryId));
+    expect(src.referralStatus).toBe("cancelled_external");
+    expect((src as any).referralNote).toBe("Equipment failure");
+  });
+
+  it("source acknowledge-reschedule sets reschedule_acknowledged_at", async () => {
+    const { destId, adminUser, externalRequestId, sourceSurgeryId } = await submitAndGetIds();
+    await request(combinedApp).post(`/api/external-surgery-requests/${externalRequestId}/accept`)
+      .set("x-test-user-id", adminUser.id).set("x-test-hospital-id", destId).send({});
+    // Manually set a reschedule
+    await db.update(surgeries)
+      .set({ lastClinicRescheduleAt: new Date(), rescheduleAcknowledgedAt: null } as any)
+      .where(eq(surgeries.id, sourceSurgeryId));
+
+    const surgeonHospital = (await db.select().from(surgeries).where(eq(surgeries.id, sourceSurgeryId)))[0].hospitalId;
+    const res = await request(combinedApp)
+      .post(`/api/surgeries/${sourceSurgeryId}/acknowledge-reschedule`)
+      .set("x-test-hospital-id", surgeonHospital)
+      .send({});
+    expect(res.status).toBe(200);
+
+    const [src] = await db.select().from(surgeries).where(eq(surgeries.id, sourceSurgeryId));
+    expect(src.rescheduleAcknowledgedAt).toBeTruthy();
   });
 });

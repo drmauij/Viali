@@ -49,6 +49,7 @@ import brandingRouter from "./branding";
 import contractTemplatesRouter from "./contractTemplates";
 import contractInstancesRouter from "./contractInstances";
 import { enforceIdleTimeout } from "../auth/idleTimeout";
+import { praxisModeRouter } from "./praxisMode";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -82,6 +83,7 @@ export function registerDomainRoutes(app: Express) {
   app.use(camerasRouter);
   app.use(billingRouter);
   app.use(externalSurgeryRouter);
+  app.use(praxisModeRouter);
   app.use(controlledRouter);
   app.use(worklogRouter);
   app.use(notesRouter);
