@@ -8874,6 +8874,7 @@
     "collapseTooltip": "Collapse sidebar",
     "expandTooltip": "Expand sidebar",
     "showSidebar": "Show sidebar",
+    "toggleState": "Toggle sidebar",
     "downloadPoster": "Download QR poster",
     "copyLink": "Copy link",
     "openInNewTab": "Open in new tab",

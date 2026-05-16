@@ -34,6 +34,7 @@ interface Props {
   groups: RailGroup[];
   quickLinkIcons: RailQuickLink[];
   activeRoute: string;
+  activeHospital: HospitalRef;
   onSelect: (h: HospitalRef, icon: RailIcon) => void;
   onExpand: () => void;
 }
@@ -62,15 +63,27 @@ export function SidebarIconRail({
   groups,
   quickLinkIcons,
   activeRoute,
+  activeHospital,
   onSelect,
   onExpand,
 }: Props) {
   const { t } = useTranslation();
   return (
     <div
-      className="flex h-full w-12 flex-col items-center gap-1 overflow-y-auto bg-sidebar py-2 [&::-webkit-scrollbar]:hidden"
+      className="flex h-full w-12 flex-col items-center gap-1 overflow-y-auto bg-sidebar py-2 pb-20 [&::-webkit-scrollbar]:hidden"
       style={{ scrollbarWidth: "none" }}
     >
+      {/* Hospital avatar — click opens TopBar hospital picker */}
+      <button
+        type="button"
+        onClick={() => document.dispatchEvent(new CustomEvent("topbar-open-hospital-picker"))}
+        title={activeHospital.name}
+        aria-label={activeHospital.name}
+        className="mb-1 flex h-8 w-8 items-center justify-center rounded-md bg-primary text-[10px] font-semibold text-primary-foreground hover:opacity-90 transition-opacity shrink-0"
+      >
+        {activeHospital.name.slice(0, 2).toUpperCase()}
+      </button>
+      <div data-rail-separator className="mb-1 h-px w-6 bg-border" aria-hidden />
       {groups.map((group, gIdx) => (
         <div key={`${group.hospital.unitId}-${group.hospital.role}`} className="contents">
           {gIdx > 0 && (
@@ -90,7 +103,7 @@ export function SidebarIconRail({
                 onClick={() => onSelect(group.hospital, icon)}
                 title={`${group.hospital.unitName} · ${group.hospital.role} → ${icon.label}`}
                 aria-label={`${group.hospital.unitName} · ${group.hospital.role} → ${icon.label}`}
-                className={`relative flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent data-[active=true]:bg-sidebar-accent before:absolute before:-left-[3px] before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-r-sm ${unitRailBeforeClass(group.hospital.unitType)}`}
+                className={`relative flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent data-[active=true]:bg-sidebar-accent data-[active=true]:ring-1 data-[active=true]:ring-sidebar-accent-foreground/20 data-[active=true]:text-sidebar-accent-foreground before:absolute before:-left-[3px] before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-r-sm ${unitRailBeforeClass(group.hospital.unitType)}`}
               >
                 {MODULE_ICON[icon.id] ?? <span className="text-xs">·</span>}
                 {icon.badge !== undefined && icon.badge > 0 && (

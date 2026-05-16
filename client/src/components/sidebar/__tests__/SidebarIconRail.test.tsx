@@ -3,9 +3,18 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SidebarIconRail, type RailGroup } from "../SidebarIconRail";
 
+const activeHospital = {
+  id: "h1",
+  name: "Viali Demo",
+  unitId: "u1",
+  unitName: "Anesthesia",
+  unitType: "anesthesia" as const,
+  role: "admin",
+};
+
 const groups: RailGroup[] = [
   {
-    hospital: { id: "h1", unitId: "u1", unitName: "Anesthesia", unitType: "anesthesia", role: "admin", name: "Viali Demo" },
+    hospital: activeHospital,
     icons: [
       { id: "anesthesia", label: "Records", route: "/anesthesia/op" },
       { id: "inventory", label: "Inventory", route: "/anesthesia/inventory" },
@@ -26,11 +35,13 @@ describe("SidebarIconRail", () => {
         groups={groups}
         quickLinkIcons={[]}
         activeRoute="/anesthesia/op"
+        activeHospital={activeHospital}
         onSelect={vi.fn()}
         onExpand={vi.fn()}
       />,
     );
-    expect(screen.getAllByRole("button")).toHaveLength(3 + 1); // 3 modules + expand
+    // 1 hospital avatar + 3 module icons + 1 expand button = 5
+    expect(screen.getAllByRole("button")).toHaveLength(5);
   });
 
   it("applies the anesthesia tag class to anesthesia rows", () => {
@@ -39,6 +50,7 @@ describe("SidebarIconRail", () => {
         groups={groups}
         quickLinkIcons={[]}
         activeRoute="/anesthesia/op"
+        activeHospital={activeHospital}
         onSelect={vi.fn()}
         onExpand={vi.fn()}
       />,
@@ -53,11 +65,13 @@ describe("SidebarIconRail", () => {
         groups={groups}
         quickLinkIcons={[]}
         activeRoute="/anesthesia/op"
+        activeHospital={activeHospital}
         onSelect={vi.fn()}
         onExpand={vi.fn()}
       />,
     );
-    expect(container.querySelectorAll("[data-rail-separator]")).toHaveLength(1);
+    // 1 avatar separator + 1 between-groups separator = 2
+    expect(container.querySelectorAll("[data-rail-separator]")).toHaveLength(2);
   });
 
   it("marks the active icon", () => {
@@ -66,6 +80,7 @@ describe("SidebarIconRail", () => {
         groups={groups}
         quickLinkIcons={[]}
         activeRoute="/anesthesia/op"
+        activeHospital={activeHospital}
         onSelect={vi.fn()}
         onExpand={vi.fn()}
       />,
@@ -82,6 +97,7 @@ describe("SidebarIconRail", () => {
         groups={groups}
         quickLinkIcons={[]}
         activeRoute="/anesthesia/op"
+        activeHospital={activeHospital}
         onSelect={onSelect}
         onExpand={vi.fn()}
       />,
@@ -97,6 +113,7 @@ describe("SidebarIconRail", () => {
         groups={groups}
         quickLinkIcons={[]}
         activeRoute="/anesthesia/op"
+        activeHospital={activeHospital}
         onSelect={vi.fn()}
         onExpand={onExpand}
       />,
@@ -113,10 +130,27 @@ describe("SidebarIconRail", () => {
           { id: "questionnaire", label: "Questionnaire", url: "https://example.test/q/x" },
         ]}
         activeRoute="/anesthesia/op"
+        activeHospital={activeHospital}
         onSelect={vi.fn()}
         onExpand={vi.fn()}
       />,
     );
     expect(screen.getByRole("link", { name: /Questionnaire/i })).toBeInTheDocument();
+  });
+
+  it("renders the hospital avatar at the top with hospital name initials", () => {
+    render(
+      <SidebarIconRail
+        groups={groups}
+        quickLinkIcons={[]}
+        activeRoute="/anesthesia/op"
+        activeHospital={activeHospital}
+        onSelect={vi.fn()}
+        onExpand={vi.fn()}
+      />,
+    );
+    // Avatar button shows first two letters of hospital name
+    expect(screen.getByRole("button", { name: "Viali Demo" })).toBeInTheDocument();
+    expect(screen.getByText("VI")).toBeInTheDocument();
   });
 });

@@ -95,6 +95,19 @@ export function RoleModuleSidebar({
     }
   }, [state]);
 
+  // Listen for TopBar toggle-sidebar-state events: full → rail → hidden → full
+  useEffect(() => {
+    const handler = () => {
+      setState(prev => {
+        if (prev === "full") return "rail";
+        if (prev === "rail") return "hidden";
+        return "full";
+      });
+    };
+    document.addEventListener("toggle-sidebar-state", handler);
+    return () => document.removeEventListener("toggle-sidebar-state", handler);
+  }, []);
+
   const ordered = useMemo(
     () => orderGroups(hospitals, activeHospital),
     [hospitals, activeHospital],
@@ -159,6 +172,7 @@ export function RoleModuleSidebar({
           groups={railGroups}
           quickLinkIcons={quickLinkIcons}
           activeRoute={activeRoute}
+          activeHospital={activeHospital}
           onSelect={(h, icon) => handleSelect(h, icon.route)}
           onExpand={() => setState("full")}
         />

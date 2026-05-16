@@ -8891,6 +8891,7 @@
     "collapseTooltip": "Seitenleiste einklappen",
     "expandTooltip": "Seitenleiste ausklappen",
     "showSidebar": "Seitenleiste anzeigen",
+    "toggleState": "Seitenleiste umschalten",
     "downloadPoster": "QR-Poster herunterladen",
     "copyLink": "Link kopieren",
     "openInNewTab": "In neuem Tab öffnen",
