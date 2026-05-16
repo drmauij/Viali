@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { eq, and } from "drizzle-orm";
 import { db } from "../db";
-import { hospitals, units, userHospitalRoles, referralPartnerships, externalSurgeryRequests, surgeries, patients, surgeryRooms } from "@shared/schema";
+import { hospitals, units, userHospitalRoles, referralPartnerships, externalSurgeryRequests, surgeries, patients, surgeryRooms, users as usersTable } from "@shared/schema";
 
 export const PRAXIS_ADDON_DEFAULTS = {
   addonClinic: true,
@@ -313,4 +313,170 @@ export async function backfillReferralHistory(input: {
   }
 
   return { surgeriesCreated, patientsCreated, destinationsPaired };
+}
+
+// ---------------------------------------------------------------------------
+// Cross-tenant referral creation (Task 6: clinic-linked room hook)
+// ---------------------------------------------------------------------------
+
+export interface AvailabilityWindow {
+  start: Date;
+  end: Date;
+  roomId: string;
+  reason: "booked" | "closed" | "maintenance";
+}
+
+export async function getDestinationAvailability(
+  destinationHospitalId: string,
+  from: Date,
+  to: Date,
+): Promise<AvailabilityWindow[]> {
+  const rows = await db
+    .select({ id: surgeries.id, start: surgeries.plannedDate, roomId: surgeries.surgeryRoomId })
+    .from(surgeries)
+    .where(eq(surgeries.hospitalId, destinationHospitalId));
+
+  // Treat each existing surgery as a 60-minute busy block
+  return rows
+    .filter((r) => r.start && new Date(r.start as any) <= to)
+    .map((r) => ({
+      start: new Date(r.start as any),
+      end: new Date(new Date(r.start as any).getTime() + 60 * 60 * 1000),
+      roomId: r.roomId ?? "",
+      reason: "booked" as const,
+    }))
+    .filter((w) => w.end >= from);
+}
+
+export async function checkSlotIsFree(
+  destinationHospitalId: string,
+  slotStart: Date,
+  slotEnd: Date,
+): Promise<boolean> {
+  const windows = await getDestinationAvailability(destinationHospitalId, slotStart, slotEnd);
+  return !windows.some((w) => w.start < slotEnd && w.end > slotStart);
+}
+
+export interface CreateReferralInput {
+  sourceHospitalId: string;
+  surgeonUserId: string;
+  surgery: any; // Full source-side surgery row (already inserted)
+  destinationHospitalId: string;
+  patientId: string | null;
+  consentGiven: boolean;
+}
+
+export interface CreateReferralResult {
+  externalRequestId: string;
+}
+
+export async function createCrossTenantReferral(
+  input: CreateReferralInput,
+): Promise<CreateReferralResult> {
+  if (!input.consentGiven) throw new Error("consent required");
+
+  // Verify active partnership
+  const [pair] = await db
+    .select()
+    .from(referralPartnerships)
+    .where(
+      and(
+        eq(referralPartnerships.sourceHospitalId, input.sourceHospitalId),
+        eq(referralPartnerships.destinationHospitalId, input.destinationHospitalId),
+        eq(referralPartnerships.status, "active"),
+      ),
+    );
+  if (!pair) throw new Error("destination not paired");
+
+  // Race-safe slot check
+  const start = new Date(input.surgery.plannedDate);
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  if (!(await checkSlotIsFree(input.destinationHospitalId, start, end))) {
+    throw new Error("slot_taken");
+  }
+
+  // Build patient snapshot
+  let demographics: any = {};
+  if (input.patientId) {
+    const [pt] = await db.select().from(patients).where(eq(patients.id, input.patientId));
+    if (pt) {
+      demographics = {
+        firstName: pt.firstName,
+        lastName: (pt as any).surname ?? (pt as any).lastName,
+        birthday: pt.birthday,
+        sex: pt.sex,
+        email: pt.email,
+        phone: pt.phone,
+        street: (pt as any).street,
+        postalCode: (pt as any).postalCode,
+        city: (pt as any).city,
+      };
+    }
+  }
+  const snapshot = {
+    demographics,
+    intake: {},
+    ambulant_eligibility: input.surgery.ambulantQuickCheck ?? null,
+    consents: {
+      given: true,
+      scope: "surgery_referral",
+      at: new Date().toISOString(),
+      userId: input.surgeonUserId,
+    },
+    shared_at: new Date().toISOString(),
+  };
+
+  // Get surgeon details for NOT NULL required fields
+  const [surgeon] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, input.surgeonUserId));
+
+  const wishedDate = new Date(input.surgery.plannedDate).toISOString().split("T")[0];
+  const wishedMinutes = start.getUTCHours() * 60 + start.getUTCMinutes();
+
+  const [req] = await db
+    .insert(externalSurgeryRequests)
+    .values({
+      hospitalId: input.destinationHospitalId,
+      surgeonId: input.surgeonUserId,
+      surgeonFirstName: surgeon?.firstName ?? "Source",
+      surgeonLastName: surgeon?.lastName ?? "Surgeon",
+      surgeonEmail: surgeon?.email ?? "",
+      surgeonPhone: (surgeon as any)?.phone ?? "",
+      sourceHospitalId: input.sourceHospitalId,
+      sourceSurgeryId: input.surgery.id,
+      patientSnapshot: snapshot,
+      patientFirstName: demographics.firstName,
+      patientLastName: demographics.lastName,
+      patientBirthday: demographics.birthday,
+      patientEmail: demographics.email,
+      patientPhone: demographics.phone,
+      patientStreet: demographics.street,
+      patientPostalCode: demographics.postalCode,
+      patientCity: demographics.city,
+      surgeryName: input.surgery.plannedSurgery,
+      chopCode: input.surgery.chopCode,
+      surgerySide: input.surgery.surgerySide,
+      antibioseProphylaxe: input.surgery.antibioseProphylaxe ?? false,
+      surgeryDurationMinutes: 60,
+      withAnesthesia: !(input.surgery.noPreOpRequired ?? false),
+      anesthesiaNotes: input.surgery.anesthesiaNotes,
+      surgeryNotes: input.surgery.notes,
+      diagnosis: input.surgery.diagnosis,
+      coverageType: input.surgery.coverageType,
+      stayType: input.surgery.stayType,
+      surgeryRiskClass: input.surgery.surgeryRiskClass,
+      wishedDate,
+      wishedTimeFrom: wishedMinutes,
+      wishedTimeTo: wishedMinutes,
+      patientPosition: input.surgery.patientPosition,
+      leftArmPosition: input.surgery.leftArmPosition,
+      rightArmPosition: input.surgery.rightArmPosition,
+      isReservationOnly: !input.patientId,
+      status: "pending",
+    } as any)
+    .returning();
+
+  return { externalRequestId: req.id };
 }

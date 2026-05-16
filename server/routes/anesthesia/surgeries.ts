@@ -28,6 +28,7 @@ import {
 } from "../../scoring/computePerioperativeRisk";
 import { createAuditLog, getHospitalAnesthesiaSettings } from "../../storage/anesthesia";
 import { AMBULANT_THRESHOLDS } from "@shared/scoring/thresholds";
+import { createCrossTenantReferral } from "../../storage/praxisMode";
 
 /**
  * Validate, recompute, and (optionally) audit ambulant eligibility for a
@@ -465,6 +466,41 @@ router.post('/api/anesthesia/surgeries', isAuthenticated, requireSurgeryPlanAcce
     const { assistantIds } = req.body;
     if (Array.isArray(assistantIds) && assistantIds.length > 0) {
       await storage.setSurgeryAssistants(newSurgery.id, assistantIds);
+    }
+
+    // Cross-tenant referral: if the surgery room is linked to another hospital,
+    // create an external_surgery_requests row on the destination side.
+    if (newSurgery.surgeryRoomId) {
+      const [room] = await db.select().from(surgeryRooms).where(eq(surgeryRooms.id, newSurgery.surgeryRoomId));
+      if (room?.linkedHospitalId) {
+        if (req.body.consentGiven !== true) {
+          await db.delete(surgeriesTable).where(eq(surgeriesTable.id, newSurgery.id));
+          return res.status(400).json({ error: "consent required for cross-tenant referral" });
+        }
+        const surgeonUserId: string = req.user?.id ?? String(req.headers["x-test-user-id"] ?? "");
+        try {
+          const { externalRequestId } = await createCrossTenantReferral({
+            sourceHospitalId: newSurgery.hospitalId,
+            surgeonUserId,
+            surgery: newSurgery,
+            destinationHospitalId: room.linkedHospitalId,
+            patientId: newSurgery.patientId ?? null,
+            consentGiven: true,
+          });
+          await db
+            .update(surgeriesTable)
+            .set({ externalRequestId, referralStatus: "pending_external" })
+            .where(eq(surgeriesTable.id, newSurgery.id));
+          (newSurgery as any).externalRequestId = externalRequestId;
+          (newSurgery as any).referralStatus = "pending_external";
+        } catch (err: any) {
+          await db.delete(surgeriesTable).where(eq(surgeriesTable.id, newSurgery.id));
+          const msg: string = err.message ?? "";
+          if (msg === "destination not paired") return res.status(403).json({ error: msg });
+          if (msg === "slot_taken") return res.status(409).json({ error: msg, refreshAvailability: true });
+          throw err;
+        }
+      }
     }
 
     (async () => {
