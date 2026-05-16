@@ -1048,7 +1048,7 @@ export default function SettingsPage() {
                       onClick={() => {
                         localStorage.removeItem("praxis-tour-completed");
                         localStorage.setItem("praxis-tour-step", "0");
-                        window.location.href = "/anesthesia/op";
+                        window.location.href = "/surgery/op";
                       }}
                       data-testid="button-replay-praxis-tour"
                     >

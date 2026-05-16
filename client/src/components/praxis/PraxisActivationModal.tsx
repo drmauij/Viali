@@ -33,7 +33,7 @@ export function PraxisActivationModal({ open, onClose }: Props) {
     },
     onSuccess: () => {
       toast({ title: "Praxis activated", description: "Redirecting to your calendar..." });
-      window.location.href = "/anesthesia/op";
+      window.location.href = "/surgery/op";
     },
     onError: (err: any) => {
       toast({ title: err.message ?? "Activation failed", variant: "destructive" });
