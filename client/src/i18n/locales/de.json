@@ -7271,7 +7271,7 @@
       "notePlaceholder": "Zusätzlicher klinischer Kontext",
       "subtype": "Typ",
       "taskTitlePlaceholder": "z.B. Oberkörper 30°, Redon links axillär, Nüchtern 2h",
-      "startAt": "Beginn um",
+      "startAt": "Beginn",
       "startAtImmediate": "Sofort",
       "bedrest": "Bettruhe",
       "assisted": "Assistiert",
@@ -7345,7 +7345,6 @@
       "durationH": "Laufzeit (h)",
       "additives": "Zusätze",
       "additivesPlaceholder": "z.B. 20mEq KCl",
-      "startAt": "Beginn",
       "startAtPlaceholder": "z.B. sofort, postop",
       "condition": "Bedingung",
       "labPanel": "Parameter (kommagetrennt)",
@@ -8883,5 +8882,17 @@
   "popover": {
     "preliminaryNote": "Vorläufig — basierend auf dem Patientenfragebogen (anästhesiologische Prä-OP-Beurteilung noch ausstehend)",
     "ageSuppressedNote": "Alter ≥ 75 — Anhebung unterdrückt (kleiner Eingriff)"
+  },
+  "sidebar": {
+    "groupLabel": "Gruppe",
+    "quickLinksSection": "Schnelllinks",
+    "shareSubtitle": "teilen / kopieren",
+    "switchHospital": "Klinik wechseln",
+    "collapseTooltip": "Seitenleiste einklappen",
+    "expandTooltip": "Seitenleiste ausklappen",
+    "showSidebar": "Seitenleiste anzeigen",
+    "downloadPoster": "QR-Poster herunterladen",
+    "copyLink": "Link kopieren",
+    "openInNewTab": "In neuem Tab öffnen"
   }
 }

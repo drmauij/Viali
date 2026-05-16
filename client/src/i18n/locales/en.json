@@ -509,7 +509,7 @@
   "quickLinks": {
     "title": "Quick Links",
     "description": "Share these links externally with patients or workers",
-    "clinicQuestionnaire": "Patient Questionnaire",
+    "clinicQuestionnaire": "Clinic Questionnaire",
     "contractForm": "Worker Contract Form",
     "copyLink": "Copy link",
     "copied": "Link Copied",
@@ -519,7 +519,7 @@
     "worklogs": "Work Time Logs",
     "worklogsAnesthesia": "Work Time Logs (Anesthesia)",
     "worklogsSurgery": "Work Time Logs (Surgery)",
-    "externalSurgery": "External Surgery Reservation"
+    "externalSurgery": "OP-Terminreservierung"
   },
   "worklogs": {
     "title": "Work Time Logs",
@@ -7170,7 +7170,7 @@
       "notePlaceholder": "Additional clinical context",
       "subtype": "Type",
       "taskTitlePlaceholder": "e.g. Head up 30°, Redon left axilla, NPO 2h",
-      "startAt": "Start at",
+      "startAt": "Start",
       "startAtImmediate": "Immediately",
       "bedrest": "Bed rest",
       "assisted": "Assisted",
@@ -7244,7 +7244,6 @@
       "durationH": "Duration (h)",
       "additives": "Additives",
       "additivesPlaceholder": "e.g. 20mEq KCl",
-      "startAt": "Start",
       "startAtPlaceholder": "e.g. immediately, postop",
       "condition": "Condition",
       "labPanel": "Parameters (comma-separated)",
@@ -8866,5 +8865,17 @@
   "popover": {
     "preliminaryNote": "Preliminary — based on patient questionnaire (no anesthesia pre-op assessment yet)",
     "ageSuppressedNote": "Age ≥ 75 bump suppressed (minor surgery)"
+  },
+  "sidebar": {
+    "groupLabel": "Group",
+    "quickLinksSection": "Quick Links",
+    "shareSubtitle": "share / copy",
+    "switchHospital": "Switch hospital",
+    "collapseTooltip": "Collapse sidebar",
+    "expandTooltip": "Expand sidebar",
+    "showSidebar": "Show sidebar",
+    "downloadPoster": "Download QR poster",
+    "copyLink": "Copy link",
+    "openInNewTab": "Open in new tab"
   }
 }
