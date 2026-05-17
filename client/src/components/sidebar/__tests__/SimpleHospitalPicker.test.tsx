@@ -2,10 +2,8 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SimpleHospitalPicker } from "../SimpleHospitalPicker";
-import type { SidebarHospital } from "../RoleModuleSidebar";
+import type { SidebarHospital } from "../buildRows";
 
-// SimpleHospitalPicker doesn't use SidebarProvider, but we stub matchMedia for
-// any transitive hook that might call it.
 beforeAll(() => {
   if (typeof window.matchMedia === "undefined") {
     Object.defineProperty(window, "matchMedia", {
@@ -38,41 +36,18 @@ const baseFields = {
   isPlatformOperator: false,
 };
 
-// Two distinct hospitals, each with multiple unit-role entries
 const hospitals: SidebarHospital[] = [
-  {
-    ...baseFields,
-    id: "h1",
-    name: "Alpha Clinic",
-    unitId: "h1-anes",
-    unitName: "Anesthesia",
-    unitType: "anesthesia",
-    role: "admin",
-  },
-  {
-    ...baseFields,
-    id: "h1",
-    name: "Alpha Clinic",
-    unitId: "h1-clinic",
-    unitName: "Clinic",
-    unitType: "clinic",
-    role: "doctor",
-  },
-  {
-    ...baseFields,
-    id: "h2",
-    name: "Beta Hospital",
-    unitId: "h2-or",
-    unitName: "OR",
-    unitType: "or",
-    role: "admin",
-  },
+  // Hospital h1 with three unit/role entries — Clinics tab should still render ONE row.
+  { ...baseFields, id: "h1", name: "Alpha Clinic", unitId: "h1-anes", unitName: "Anesthesia", unitType: "anesthesia", role: "admin" },
+  { ...baseFields, id: "h1", name: "Alpha Clinic", unitId: "h1-clinic", unitName: "Clinic", unitType: "clinic", role: "doctor" },
+  { ...baseFields, id: "h1", name: "Alpha Clinic", unitId: "h1-or", unitName: "OR", unitType: "or", role: "doctor" },
+  { ...baseFields, id: "h2", name: "Beta Hospital", unitId: "h2-or", unitName: "OR", unitType: "or", role: "admin" },
 ];
 
 const activeHospital = hospitals[0];
 
 describe("SimpleHospitalPicker", () => {
-  it("renders one section per distinct hospital", () => {
+  it("renders one row per distinct hospital, no unit-role detail", () => {
     render(
       <SimpleHospitalPicker
         hospitals={hospitals}
@@ -80,11 +55,15 @@ describe("SimpleHospitalPicker", () => {
         onSelect={vi.fn()}
       />,
     );
-    expect(screen.getByTestId("hospital-section-h1")).toBeInTheDocument();
-    expect(screen.getByTestId("hospital-section-h2")).toBeInTheDocument();
+    expect(screen.getByTestId("hospital-row-h1")).toBeInTheDocument();
+    expect(screen.getByTestId("hospital-row-h2")).toBeInTheDocument();
+    // No per-unit-role rows
+    expect(screen.queryByText("Anesthesia · admin")).not.toBeInTheDocument();
+    expect(screen.queryByText("Clinic · doctor")).not.toBeInTheDocument();
+    expect(screen.queryByText("OR · admin")).not.toBeInTheDocument();
   });
 
-  it("each section contains one row per unit-role, no module rows", () => {
+  it("rows display only the hospital name", () => {
     render(
       <SimpleHospitalPicker
         hospitals={hospitals}
@@ -92,17 +71,11 @@ describe("SimpleHospitalPicker", () => {
         onSelect={vi.fn()}
       />,
     );
-    // h1 should have two unit-role rows
-    expect(screen.getByTestId("unit-role-row-h1-anes-admin")).toBeInTheDocument();
-    expect(screen.getByTestId("unit-role-row-h1-clinic-doctor")).toBeInTheDocument();
-    // h2 should have one unit-role row
-    expect(screen.getByTestId("unit-role-row-h2-or-admin")).toBeInTheDocument();
-    // No module-level rows like "Anesthesia Records" or "Inventory"
-    expect(screen.queryByText("Anesthesia Records")).not.toBeInTheDocument();
-    expect(screen.queryByText("Inventory & Services")).not.toBeInTheDocument();
+    expect(screen.getByText("Alpha Clinic")).toBeInTheDocument();
+    expect(screen.getByText("Beta Hospital")).toBeInTheDocument();
   });
 
-  it("clicking a row calls onSelect with the hospital and a route string", () => {
+  it("clicking a row calls onSelect with the highest-privilege entry for that hospital", () => {
     const onSelect = vi.fn();
     render(
       <SimpleHospitalPicker
@@ -111,25 +84,25 @@ describe("SimpleHospitalPicker", () => {
         onSelect={onSelect}
       />,
     );
-    fireEvent.click(screen.getByTestId("unit-role-row-h2-or-admin"));
+    fireEvent.click(screen.getByTestId("hospital-row-h1"));
     expect(onSelect).toHaveBeenCalledTimes(1);
     const [calledHospital, calledRoute] = onSelect.mock.calls[0];
-    expect(calledHospital.id).toBe("h2");
-    expect(calledHospital.unitId).toBe("h2-or");
+    expect(calledHospital.id).toBe("h1");
+    // h1 has roles: admin (anes), doctor (clinic), doctor (or). Highest priv = admin.
+    expect(calledHospital.role).toBe("admin");
     expect(typeof calledRoute).toBe("string");
     expect(calledRoute.length).toBeGreaterThan(0);
   });
 
-  it("rows display unitName · role text", () => {
+  it("active hospital row is visually highlighted", () => {
     render(
       <SimpleHospitalPicker
         hospitals={hospitals}
-        activeHospital={activeHospital}
+        activeHospital={hospitals[3]} // h2
         onSelect={vi.fn()}
       />,
     );
-    expect(screen.getByText("Anesthesia · admin")).toBeInTheDocument();
-    expect(screen.getByText("Clinic · doctor")).toBeInTheDocument();
-    expect(screen.getByText("OR · admin")).toBeInTheDocument();
+    const activeRow = screen.getByTestId("hospital-row-h2");
+    expect(activeRow.className).toMatch(/bg-accent/);
   });
 });

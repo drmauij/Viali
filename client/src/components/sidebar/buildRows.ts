@@ -227,7 +227,7 @@ export interface RoleSlice {
 export interface SidebarUnitGroup {
   /** Representative hospital row for the unit (highest-priority role). */
   hospital: SidebarHospital;
-  /** Role slices for this (hospitalId, unitId), sorted by privilege priority. */
+  /** Role slices for this (hospitalId, unitType), sorted by privilege priority. */
   roles: RoleSlice[];
 }
 
@@ -235,10 +235,13 @@ export function groupByUnit(
   hospitals: SidebarHospital[],
   t: ReturnType<typeof import("react-i18next").useTranslation>["t"],
 ): SidebarUnitGroup[] {
-  // Bucket by (hospitalId, unitId)
+  // Bucket by (hospitalId, unitType) — collapses multiple distinct units of
+  // the same type (e.g., three "Anesthesia" units in one hospital created over
+  // time) into a single card. Each role slice retains its own hospital row so
+  // navigation lands in the specific unit the user clicked.
   const buckets = new Map<string, SidebarHospital[]>();
   for (const h of hospitals) {
-    const key = `${h.id}-${h.unitId}`;
+    const key = `${h.id}-${h.unitType}`;
     const arr = buckets.get(key) ?? [];
     arr.push(h);
     buckets.set(key, arr);
