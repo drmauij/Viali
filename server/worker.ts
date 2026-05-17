@@ -943,7 +943,10 @@ async function processNextScheduledJob(): Promise<boolean> {
       } else if (job.jobType === 'appointment_reminder') {
         await processAppointmentReminder(job);
       } else if (job.jobType === 'morning_appointment_reminder') {
-        await processMorningAppointmentReminder(job);
+        // Disabled — morning-of reminder removed; only the day-before
+        // reminder is kept. Drain in-flight jobs as a no-op so we don't
+        // spam patients with leftover queued sends after deploy.
+        return true;
       } else if (job.jobType === 'monthly_billing') {
         await processMonthlyBilling(job);
       }
@@ -3105,7 +3108,10 @@ async function workerLoop() {
         await scheduleCalcomSyncJobs();
         await schedulePreSurgeryReminderJobs();
         await scheduleAppointmentReminderJobs();
-        await scheduleMorningReminderJobs();
+        // Morning-of reminder disabled — kept only the day-before reminder.
+        // Re-enable by uncommenting the next line + the dispatcher branch
+        // in workerLoop (around line 945).
+        // await scheduleMorningReminderJobs();
         await scheduleMonthlyBillingJobs();
         lastScheduledJobCheck = Date.now();
       }
