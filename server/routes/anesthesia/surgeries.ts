@@ -13,8 +13,9 @@ import {
   surgeries as surgeriesTable,
   surgeryRooms,
   surgeonActionRequests,
+  hospitals as hospitalsTable,
 } from "@shared/schema";
-import { eq, ilike, or, and, desc } from "drizzle-orm";
+import { eq, ilike, or, and, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { requireWriteAccess, requireStrictHospitalAccess, requireSurgeryPlanAccess, userHasPermission } from "../../utils";
 import logger from "../../logger";
@@ -341,6 +342,40 @@ router.get('/api/anesthesia/surgeries', isAuthenticated, requireStrictHospitalAc
       storage.getQuestionnaireStatusBySurgeryIds(surgeryIds, surgeryPatientMap),
     ]);
 
+    // Cross-tenant batch lookups — only meaningful when surgeries have externalRequestId set.
+    const sourceExtReqIds = Array.from(new Set(surgeries.map(s => s.externalRequestId).filter(Boolean) as string[]));
+    const extReqByExtId = new Map<string, { destSurgeryId: string | null; destToken: string | null }>();
+    const pendingByDestSurgeryId = new Map<string, any>();
+    if (sourceExtReqIds.length > 0) {
+      const extReqRows = await db
+        .select({
+          id: externalSurgeryRequests.id,
+          destSurgeryId: externalSurgeryRequests.surgeryId,
+          destToken: hospitalsTable.externalSurgeryToken,
+        })
+        .from(externalSurgeryRequests)
+        .innerJoin(hospitalsTable, eq(externalSurgeryRequests.hospitalId, hospitalsTable.id))
+        .where(inArray(externalSurgeryRequests.id, sourceExtReqIds));
+      for (const r of extReqRows) {
+        extReqByExtId.set(r.id, { destSurgeryId: r.destSurgeryId, destToken: r.destToken });
+      }
+      const destSurgeryIds = extReqRows.map(r => r.destSurgeryId).filter(Boolean) as string[];
+      if (destSurgeryIds.length > 0) {
+        const pendingRows = await db
+          .select()
+          .from(surgeonActionRequests)
+          .where(and(
+            inArray(surgeonActionRequests.surgeryId, destSurgeryIds),
+            eq(surgeonActionRequests.status, "pending"),
+          ))
+          .orderBy(desc(surgeonActionRequests.createdAt));
+        // Most-recent-first; map keyed by destSurgeryId picks up the first one we see.
+        for (const p of pendingRows) {
+          if (!pendingByDestSurgeryId.has(p.surgeryId)) pendingByDestSurgeryId.set(p.surgeryId, p);
+        }
+      }
+    }
+
     const enrichedSurgeries = surgeries.map(surgery => {
       const anesthesiaRecord = recordsMap.get(surgery.id);
       const preOpStatus = preOpStatusMap.get(surgery.id);
@@ -361,6 +396,16 @@ router.get('/api/anesthesia/surgeries', isAuthenticated, requireStrictHospitalAc
         preOpAssessmentPostOpICU: preOpStatus?.postOpICU || null,
         preOpAssessmentCave: preOpStatus?.cave || null,
         questionnaireStatus,
+        pendingActionRequest: (() => {
+          if (!surgery.externalRequestId) return null;
+          const ext = extReqByExtId.get(surgery.externalRequestId);
+          if (!ext?.destSurgeryId) return null;
+          return pendingByDestSurgeryId.get(ext.destSurgeryId) ?? null;
+        })(),
+        destinationPortalToken: (() => {
+          if (!surgery.externalRequestId) return null;
+          return extReqByExtId.get(surgery.externalRequestId)?.destToken ?? null;
+        })(),
       };
     });
 
@@ -426,18 +471,53 @@ router.get('/api/anesthesia/surgeries/:id', isAuthenticated, async (req: any, re
       }
     }
 
-    // Reverse lookup: find external surgery request linked to this surgery
+    // External request reverse lookup — supports BOTH destination-side rows
+    // (surgery.id matches ext_req.surgeryId) and praxis source rows (surgery
+    // has externalRequestId pointing to ext_req).
     let externalSurgeryRequestId: string | null = null;
-    const [extReq] = await db
-      .select({ id: externalSurgeryRequests.id })
-      .from(externalSurgeryRequests)
-      .where(eq(externalSurgeryRequests.surgeryId, id))
-      .limit(1);
-    if (extReq) {
-      externalSurgeryRequestId = extReq.id;
+    let pendingActionRequest: any = null;
+    let destinationPortalToken: string | null = null;
+
+    // Praxis source path — surgery.externalRequestId set.
+    if (surgery.externalRequestId) {
+      const [extReq] = await db
+        .select({
+          id: externalSurgeryRequests.id,
+          destSurgeryId: externalSurgeryRequests.surgeryId,
+          destHospitalId: externalSurgeryRequests.hospitalId,
+          destToken: hospitalsTable.externalSurgeryToken,
+        })
+        .from(externalSurgeryRequests)
+        .innerJoin(hospitalsTable, eq(externalSurgeryRequests.hospitalId, hospitalsTable.id))
+        .where(eq(externalSurgeryRequests.id, surgery.externalRequestId))
+        .limit(1);
+      if (extReq) {
+        externalSurgeryRequestId = extReq.id;
+        destinationPortalToken = extReq.destToken ?? null;
+        if (extReq.destSurgeryId) {
+          const [pending] = await db
+            .select()
+            .from(surgeonActionRequests)
+            .where(and(
+              eq(surgeonActionRequests.surgeryId, extReq.destSurgeryId),
+              eq(surgeonActionRequests.status, "pending"),
+            ))
+            .orderBy(desc(surgeonActionRequests.createdAt))
+            .limit(1);
+          if (pending) pendingActionRequest = pending;
+        }
+      }
+    } else {
+      // Destination side — surgery.id matches ext_req.surgeryId.
+      const [extReq] = await db
+        .select({ id: externalSurgeryRequests.id })
+        .from(externalSurgeryRequests)
+        .where(eq(externalSurgeryRequests.surgeryId, id))
+        .limit(1);
+      if (extReq) externalSurgeryRequestId = extReq.id;
     }
 
-    res.json({ ...surgery, surgeonPhone, externalSurgeryRequestId });
+    res.json({ ...surgery, surgeonPhone, externalSurgeryRequestId, pendingActionRequest, destinationPortalToken });
   } catch (error) {
     logger.error("Error fetching surgery:", error);
     res.status(500).json({ message: "Failed to fetch surgery" });
