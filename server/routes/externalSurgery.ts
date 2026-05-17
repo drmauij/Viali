@@ -21,7 +21,7 @@ import { db } from "../db";
 import logger from "../logger";
 import { getClinicClosuresInRange } from "../storage/clinicClosures";
 import { findFuzzyPatientMatches } from "../services/patientDeduplication";
-import { acceptReferralAndImport, pushReferralStatus } from "../storage/praxisMode";
+import { acceptReferralAndImport, pushReferralStatus, applyAcceptedActionToSource } from "../storage/praxisMode";
 import { externalSurgeryRequests } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
@@ -985,6 +985,25 @@ router.post('/api/hospitals/:hospitalId/surgeon-action-requests/:reqId/accept', 
             status: 'planned',
             isSuspended: false,
           });
+        }
+      }
+
+      // Phase A sync-back — if this surgery is a cross-tenant referral with
+      // a source praxis surgery, propagate the accepted action back so the
+      // praxis mirror reflects the new state. No-op for legacy portal flows
+      // (no source surgery to sync).
+      const surgery = await storage.getSurgery(actionRequest.surgeryId);
+      if (surgery?.externalRequestId) {
+        const [extReq] = await db
+          .select()
+          .from(externalSurgeryRequests)
+          .where(eq(externalSurgeryRequests.id, surgery.externalRequestId))
+          .limit(1);
+        if (extReq) {
+          await applyAcceptedActionToSource(
+            { ...actionRequest, status: "accepted", respondedBy: userId, respondedAt: new Date() } as any,
+            extReq,
+          );
         }
       }
 
