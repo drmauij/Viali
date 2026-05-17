@@ -51,6 +51,14 @@ describe("provisionSourceHospital", () => {
     const [src] = await db.select().from(hospitals).where(eq(hospitals.id, result.sourceHospitalId));
     expect(src.tenantType).toBe("praxis");
     expect(src.name).toBe("Praxis Mueller");
+    // Beta-era contract: praxis instances land on the free license, no
+    // trial start. Bypasses the default 15-day "test" trial so beta users
+    // aren't surprised by a trial-ending notice mid-pilot.
+    expect(src.licenseType).toBe("free");
+    expect(src.trialStartDate).toBeNull();
+    // Provisioning surgeon is pinned as the creator so the activation gate
+    // can read the FK directly and hide the banner on re-login.
+    expect(src.createdByUserId).toBe(surgeon.id);
 
     const roles = await db.select().from(userHospitalRoles)
       .where(eq(userHospitalRoles.hospitalId, result.sourceHospitalId));

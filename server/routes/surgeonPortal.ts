@@ -2,13 +2,14 @@ import { Router, type Request, type Response } from "express";
 import logger from "../logger";
 import { storage } from "../storage";
 import { db } from "../db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import {
   users,
+  hospitals,
   externalSurgeryRequests,
   insertExternalSurgeryRequestSchema,
 } from "@shared/schema";
@@ -630,9 +631,12 @@ router.post(
 
 /**
  * GET /api/surgeon-portal/:token/me
- * Returns the authenticated surgeon's basic profile (id, name, email, isPraxis).
- * Used by the in-portal surgery-request form to know whether to show the
- * "Operating surgeon" picker (for praxes) and to resolve the default surgeonId.
+ * Returns the authenticated surgeon's basic profile (id, name, email, isPraxis,
+ * praxisHospitalId). Used by the in-portal surgery-request form to know whether
+ * to show the "Operating surgeon" picker (for praxes), resolve the default
+ * surgeonId, and gate the "Activate your practice on Viali" banner — when
+ * praxisHospitalId is non-null the banner is hidden, since the user already
+ * provisioned their praxis.
  */
 router.get(
   "/api/surgeon-portal/:token/me",
@@ -646,6 +650,21 @@ router.get(
         .where(sql`LOWER(${users.email}) = ${email}`)
         .limit(1);
       if (!u) return res.status(404).json({ message: "Not found" });
+
+      // Praxis hospital lookup — definitive answer via the dedicated FK
+      // (set by provisionSourceHospital). Returns the id of the user's
+      // praxis if one exists; null otherwise.
+      const [praxis] = await db
+        .select({ id: hospitals.id })
+        .from(hospitals)
+        .where(
+          and(
+            eq(hospitals.tenantType, "praxis"),
+            eq(hospitals.createdByUserId, u.id),
+          ),
+        )
+        .limit(1);
+
       res.json({
         id: u.id,
         firstName: u.firstName,
@@ -653,6 +672,7 @@ router.get(
         email: u.email,
         phone: u.phone,
         isPraxis: u.isPraxis,
+        praxisHospitalId: praxis?.id ?? null,
       });
     } catch (error) {
       logger.error("Error in /me:", error);

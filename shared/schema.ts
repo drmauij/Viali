@@ -107,6 +107,12 @@ export const hospitals = pgTable("hospitals", {
   localAuthEnabled: boolean("local_auth_enabled").default(true),
   licenseType: varchar("license_type", { enum: ["free", "basic", "test"] }).default("test").notNull(),
   trialStartDate: timestamp("trial_start_date"), // When trial started (for "test" license type)
+  // Nullable: only populated for hospitals created by an in-app self-service
+  // flow (e.g. praxis activation from the surgeon portal). Legacy hospitals
+  // provisioned manually or by admins stay NULL. Used by the praxis
+  // activation gate so a surgeon who already provisioned theirs no longer
+  // sees the "Activate" banner.
+  createdByUserId: varchar("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
   // Stripe billing fields
   stripeCustomerId: varchar("stripe_customer_id"),
   stripePaymentMethodId: varchar("stripe_payment_method_id"),

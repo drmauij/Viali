@@ -1118,6 +1118,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
     email: string | null;
     phone: string | null;
     isPraxis: boolean;
+    praxisHospitalId: string | null;
   }>({
     queryKey: [`/api/surgeon-portal/${token}/me`],
   });
@@ -1497,26 +1498,31 @@ function SurgeonPortalContent({ token }: { token: string }) {
       {/* Compact praxis-activation strip — only shown after the surgeon
           dismisses the in-tab banner. Lives above the header so the
           activation entry-point is reachable from every tab. */}
-      {!me?.isPraxis && praxisBannerDismissed && (
-        <div
-          className="border-b border-indigo-500/40 bg-gradient-to-r from-indigo-600 to-purple-700 text-white"
+      {!me?.isPraxis && !me?.praxisHospitalId && praxisBannerDismissed && (
+        // Whole strip is one big click target — tapping anywhere on it
+        // opens the activation modal, not just the right-side pill. The
+        // pill stays as a visual affordance (same gradient, white bg) so
+        // users still see something "button-shaped" to aim for.
+        <button
+          type="button"
+          onClick={() => setPraxisActivationOpen(true)}
+          aria-label={tFn("praxisActivationBannerTitle")}
+          className="block w-full border-b border-indigo-500/40 bg-gradient-to-r from-indigo-600 to-purple-700 text-white transition-opacity hover:opacity-90"
           data-testid="strip-praxis-activation"
         >
           <div className="max-w-2xl mx-auto flex items-center gap-2 px-4 py-1.5 text-xs">
             <Sparkles className="h-3.5 w-3.5 shrink-0 text-indigo-100" aria-hidden />
-            <span className="flex-1 truncate text-indigo-50">
+            <span className="flex-1 truncate text-left text-indigo-50">
               {tFn("praxisActivationBannerTitle")}
             </span>
-            <button
-              type="button"
-              onClick={() => setPraxisActivationOpen(true)}
-              className="shrink-0 rounded-full bg-white px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-50 transition-colors"
+            <span
+              className="shrink-0 rounded-full bg-white px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700"
               data-testid="button-open-praxis-activation-strip"
             >
               {tFn("praxisActivationBannerCta")}
-            </button>
+            </span>
           </div>
-        </div>
+        </button>
       )}
 
       {/* Header */}
@@ -1613,7 +1619,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
 
         <TabsContent value="newRequest" className="mt-0">
           <div className="max-w-2xl mx-auto px-4 py-6">
-            {!me?.isPraxis && !praxisBannerDismissed && (
+            {!me?.isPraxis && !me?.praxisHospitalId && !praxisBannerDismissed && (
               <div
                 className="relative rounded-xl border border-indigo-500/40 bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-5 mb-6 shadow-lg ring-1 ring-indigo-300/30"
                 data-testid="banner-praxis-activation"
@@ -1662,11 +1668,6 @@ function SurgeonPortalContent({ token }: { token: string }) {
                 </div>
               </div>
             )}
-            <PraxisActivationModal
-              open={praxisActivationOpen}
-              onClose={() => setPraxisActivationOpen(false)}
-              token={token}
-            />
             {progressState && !submittedSummary && (
               <div ref={progressInFlowRef} className="mb-3">
                 <ProgressHeader
@@ -2010,6 +2011,16 @@ function SurgeonPortalContent({ token }: { token: string }) {
       </div>
         </TabsContent>
       </Tabs>
+
+      {/* Praxis activation modal — mounted at the top level so the compact
+          strip + the in-tab banner can both open it regardless of which tab
+          is active. Previously lived inside the newRequest TabsContent and
+          was unmounted on the Calendar tab, breaking the strip's CTA. */}
+      <PraxisActivationModal
+        open={praxisActivationOpen}
+        onClose={() => setPraxisActivationOpen(false)}
+        token={token}
+      />
 
       {/* Action dialog */}
       {actionDialog.surgery && (

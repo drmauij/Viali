@@ -77,7 +77,18 @@ praxisModeRouter.post(
   // Locals for the rest of the handler keep the original variable name
   const ctx = { userId, clinicId };
 
-  // Reject if surgeon already owns a source hospital (tenant_type='praxis')
+  // Reject if surgeon already provisioned a praxis. Primary signal is the
+  // created_by_user_id FK on hospitals (definitive — survives role rotation).
+  // Falls back to the userHospitalRoles join for legacy rows provisioned
+  // before the FK existed; once those backfill, the fallback can be dropped.
+  const [createdByMe] = await db
+    .select({ id: hospitals.id })
+    .from(hospitals)
+    .where(and(eq(hospitals.tenantType, "praxis"), eq(hospitals.createdByUserId, ctx.userId)))
+    .limit(1);
+  if (createdByMe) {
+    return res.status(409).json({ error: "source hospital already exists", sourceHospitalId: createdByMe.id });
+  }
   const existing = await db
     .select({ hId: userHospitalRoles.hospitalId, tt: hospitals.tenantType })
     .from(userHospitalRoles)

@@ -36,12 +36,25 @@ export interface ProvisionSourceResult {
 
 export async function provisionSourceHospital(input: ProvisionSourceInput): Promise<ProvisionSourceResult> {
   return await db.transaction(async (tx) => {
-    // 1. Create the praxis hospital
+    // 1. Create the praxis hospital.
+    // Praxis activation is a beta feature — every newly provisioned praxis
+    // starts on the `free` license while we stabilise the flow. Bypasses the
+    // default 15-day "test" trial that fresh hospitals normally land on so
+    // the user isn't surprised by a trial-ending notice during beta.
+    // Revisit (move back to "test" / introduce explicit Stripe wiring) when
+    // the beta banner / acceptance copy in PraxisActivationModal is removed.
     const [src] = await tx.insert(hospitals).values({
       name: input.sourceName,
       tenantType: "praxis",
       address: input.profile?.address,
       timezone: input.profile?.timezone ?? "Europe/Zurich",
+      licenseType: "free",
+      trialStartDate: null,
+      // Pin the provisioning surgeon as the creator. The activation gate
+      // reads this column to decide whether to show the "Activate" banner;
+      // having a dedicated FK keeps the answer correct even if the
+      // surgeon's role rows are later transferred / revoked.
+      createdByUserId: input.surgeonUserId,
       ...PRAXIS_ADDON_DEFAULTS,
     } as any).returning();
 
