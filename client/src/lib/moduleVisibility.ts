@@ -70,7 +70,12 @@ export function getVisibleModules(access: HospitalAccess): ModuleId[] {
   if (access.unitType === "business") {
     mods.push("business");
   }
-  if (access.unitType === "logistic" && access.addons.logistics) {
+  // Logistic main link follows the role/unit, not the legacy addons.logistics
+  // flag — same "no addon gates by default" rule already applied to surgery
+  // and clinic above. Without this fix, a user with a logistic unit role on
+  // a hospital where the billing addon is off would see the Logistik card
+  // render empty (no clickable rows).
+  if (access.unitType === "logistic") {
     mods.push("logistic");
   }
 

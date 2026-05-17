@@ -92,19 +92,24 @@ describe("getVisibleModules", () => {
     ).toEqual(["anesthesia", "inventory"]);
   });
 
-  it("logistic/admin sees logistic + administration when logistics addon enabled", () => {
+  it("logistic/admin sees logistic + administration regardless of addons.logistics flag", () => {
+    // Logistic main link follows the role/unit, not the legacy billing flag
+    // (same rule as surgery and clinic above).
     expect(getVisibleModules(access({ unitType: "logistic" }))).toEqual([
       "logistic",
       "administration",
     ]);
-  });
-
-  it("logistic/admin without logistics addon yields administration only", () => {
     expect(
       getVisibleModules(
         access({ unitType: "logistic", addons: { ...allAddons, logistics: false } }),
       ),
-    ).toEqual(["administration"]);
+    ).toEqual(["logistic", "administration"]);
+  });
+
+  it("logistic/staff (non-admin) sees logistic only, no administration", () => {
+    expect(
+      getVisibleModules(access({ unitType: "logistic", role: "staff" })),
+    ).toEqual(["logistic"]);
   });
 
   it("platform operator sees Platform module across any unit", () => {
