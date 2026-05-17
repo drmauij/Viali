@@ -1170,6 +1170,13 @@ function SurgeonPortalContent({ token }: { token: string }) {
   // keep separate dismissal preferences. When dismissed, a thin always-visible
   // strip sits above the page header so the activation entry-point is never
   // lost.
+  // Praxis activation banner temporarily hidden — feature still in beta-test
+  // and needs more validation before pushing surgeons toward it. Flip this
+  // back to true to re-enable the in-tab banner + the compact strip above
+  // the header. The PraxisActivationModal itself remains mounted so the
+  // server endpoint and i18n keys keep being exercised by anything that
+  // opens it programmatically (e.g. future deep-links).
+  const PRAXIS_ACTIVATION_BANNER_ENABLED = false;
   const praxisBannerDismissKey = `praxis-banner-dismissed:${token}`;
   const [praxisBannerDismissed, setPraxisBannerDismissed] = useState<boolean>(
     () => typeof window !== "undefined" && localStorage.getItem(praxisBannerDismissKey) === "1",
@@ -1498,7 +1505,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
       {/* Compact praxis-activation strip — only shown after the surgeon
           dismisses the in-tab banner. Lives above the header so the
           activation entry-point is reachable from every tab. */}
-      {!me?.isPraxis && !me?.praxisHospitalId && praxisBannerDismissed && (
+      {PRAXIS_ACTIVATION_BANNER_ENABLED && !me?.isPraxis && !me?.praxisHospitalId && praxisBannerDismissed && (
         // Whole strip is one big click target — tapping anywhere on it
         // opens the activation modal, not just the right-side pill. The
         // pill stays as a visual affordance (same gradient, white bg) so
@@ -1619,7 +1626,7 @@ function SurgeonPortalContent({ token }: { token: string }) {
 
         <TabsContent value="newRequest" className="mt-0">
           <div className="max-w-2xl mx-auto px-4 py-6">
-            {!me?.isPraxis && !me?.praxisHospitalId && !praxisBannerDismissed && (
+            {PRAXIS_ACTIVATION_BANNER_ENABLED && !me?.isPraxis && !me?.praxisHospitalId && !praxisBannerDismissed && (
               <div
                 className="relative rounded-xl border border-indigo-500/40 bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-5 mb-6 shadow-lg ring-1 ring-indigo-300/30"
                 data-testid="banner-praxis-activation"
