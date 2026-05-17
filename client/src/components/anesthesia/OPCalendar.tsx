@@ -90,6 +90,8 @@ interface CalendarEvent {
   hasAmbulantOverride?: boolean;
   riskGrade?: 'green' | 'orange' | 'red' | null;
   perioperativeRisk?: PerioperativeRiskResult | null;
+  referralStatus?: string | null;
+  pendingActionType?: "cancellation" | "reschedule" | "suspension" | null;
 }
 
 type CalendarResource = {
@@ -682,6 +684,8 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         hasAmbulantOverride: Boolean(surgery.ambulantOverrideReason),
         riskGrade: (surgery as any).riskGrade ?? null,
         perioperativeRisk: (surgery as any).perioperativeRisk ?? null,
+        referralStatus: (surgery as any).referralStatus ?? null,
+        pendingActionType: (surgery as any).pendingActionRequest?.type ?? null,
       };
     });
     // surgeonFilter included so events are rebuilt with fresh isOwnSurgery/isOtherSurgery flags.
@@ -1452,6 +1456,21 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
             title={qDot.label}
             data-testid={`questionnaire-dot-${event.surgeryId}`}
           />
+        )}
+        {event.pendingActionType && !isRoomBlockEvt && !isSlotReservationEvt && (
+          <div
+            className="absolute top-1 left-1 inline-flex items-center gap-0.5 rounded bg-amber-500/90 px-1 py-0.5 text-[8px] font-bold text-white shadow-sm"
+            title={
+              event.pendingActionType === "cancellation"
+                ? t('praxis.pending.cancellation', 'Cancellation requested')
+                : event.pendingActionType === "suspension"
+                  ? t('praxis.pending.suspension', 'Suspension requested')
+                  : t('praxis.pending.reschedule', 'Reschedule requested')
+            }
+            data-testid={`pending-${event.pendingActionType}-${event.surgeryId}`}
+          >
+            ⏳
+          </div>
         )}
         {isRoomBlockEvt ? (
           <>
