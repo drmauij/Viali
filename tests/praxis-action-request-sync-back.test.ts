@@ -12,7 +12,7 @@ import {
   units,
 } from "@shared/schema";
 import { eq, inArray } from "drizzle-orm";
-import { applyAcceptedActionToSource } from "../server/storage/praxisMode";
+import { applyAcceptedActionToSource, applyRefusedActionToSource } from "../server/storage/praxisMode";
 
 // Pass-through auth and access guards so test requests are not rejected by
 // role/unit checks unrelated to the sync-back logic under test.
@@ -169,6 +169,45 @@ describe("applyAcceptedActionToSource", () => {
     const fakeActionReq = { type: "cancellation", surgeonEmail: "x@y.com", reason: "x" } as any;
     await expect(applyAcceptedActionToSource(fakeActionReq, legacyExtReq)).resolves.toBeUndefined();
   });
+
+  it("refusal records a request_refused entry in source surgery's rescheduleHistory", async () => {
+    const [surgeon] = await db.insert(users).values({ email: `rf-${Date.now()}@t.local`, firstName: "S", lastName: "S" }).returning();
+    created.users.push(surgeon.id);
+    const [src] = await db.insert(hospitals).values({ name: `Src ${Date.now()}-rf`, tenantType: "praxis" } as any).returning();
+    const [dest] = await db.insert(hospitals).values({ name: `Dest ${Date.now()}-rf` } as any).returning();
+    created.hospitals.push(src.id, dest.id);
+    const [srcSurgery] = await db.insert(surgeries).values({
+      hospitalId: src.id, plannedDate: new Date("2027-06-01T08:00:00Z"),
+      referralStatus: "confirmed_external", surgeonId: surgeon.id,
+    } as any).returning();
+    const [extReq] = await db.insert(externalSurgeryRequests).values({
+      hospitalId: dest.id, sourceHospitalId: src.id, sourceSurgeryId: srcSurgery.id,
+      surgeonId: surgeon.id, surgeonFirstName: "S", surgeonLastName: "S", surgeonEmail: surgeon.email!, surgeonPhone: "",
+      surgeryName: "Test", surgeryDurationMinutes: 60, wishedDate: "2027-06-01", wishedTimeFrom: 480, status: "scheduled",
+    } as any).returning();
+    const [actionReq] = await db.insert(surgeonActionRequests).values({
+      hospitalId: dest.id, surgeryId: srcSurgery.id, surgeonEmail: surgeon.email!,
+      type: "cancellation", reason: "no longer needed",
+      status: "refused", responseNote: "clinic disagrees, surgery is critical",
+    }).returning();
+
+    await applyRefusedActionToSource(actionReq, extReq);
+
+    const [updated] = await db.select().from(surgeries).where(eq(surgeries.id, srcSurgery.id));
+    expect(updated.referralStatus).toBe("confirmed_external"); // unchanged
+    const history = (updated as any).rescheduleHistory as Array<{ type: string; request_type?: string; reason?: string | null }>;
+    expect(Array.isArray(history)).toBe(true);
+    const refusal = history.find(h => h.type === "request_refused");
+    expect(refusal).toBeDefined();
+    expect(refusal?.request_type).toBe("cancellation");
+    expect(refusal?.reason).toBe("clinic disagrees, surgery is critical");
+  });
+
+  it("applyRefusedActionToSource no-ops when externalRequest has no sourceSurgeryId", async () => {
+    const legacy = { id: "x", sourceSurgeryId: null, hospitalId: "h" } as any;
+    const fake = { type: "reschedule", responseNote: "no" } as any;
+    await expect(applyRefusedActionToSource(fake, legacy)).resolves.toBeUndefined();
+  });
 });
 
 describe("POST /accept syncs back to source surgery", () => {
@@ -292,5 +331,122 @@ describe("POST /accept syncs back to source surgery", () => {
     const [srcUpdated] = await db.select().from(surgeries).where(eq(surgeries.id, srcSurgery.id));
     expect(srcUpdated.referralStatus).toBe("cancelled_external");
     expect(srcUpdated.isArchived).toBe(true);
+  });
+
+  it("refusing a cancellation journals a request_refused entry on the source surgery", async () => {
+    const [operator] = await db
+      .insert(users)
+      .values({ email: `op-rf-${Date.now()}@t.local`, firstName: "O", lastName: "P" })
+      .returning();
+    created.users.push(operator.id);
+    const [surgeon] = await db
+      .insert(users)
+      .values({ email: `sg-rf-${Date.now()}@t.local`, firstName: "S", lastName: "G" })
+      .returning();
+    created.users.push(surgeon.id);
+
+    const [praxis] = await db
+      .insert(hospitals)
+      .values({ name: `Praxis-rf ${Date.now()}`, tenantType: "praxis" } as any)
+      .returning();
+    const [dest] = await db
+      .insert(hospitals)
+      .values({ name: `Dest-rf ${Date.now()}` } as any)
+      .returning();
+    created.hospitals.push(praxis.id, dest.id);
+
+    const [destUnit] = await db
+      .insert(units)
+      .values({ hospitalId: dest.id, name: "OR", type: "OR", isClinicModule: true } as any)
+      .returning();
+    await db.insert(userHospitalRoles).values({
+      userId: operator.id,
+      hospitalId: dest.id,
+      unitId: destUnit.id,
+      role: "admin",
+      isBookable: true,
+      canPlanOps: true,
+    } as any);
+
+    const [srcSurgery] = await db
+      .insert(surgeries)
+      .values({
+        hospitalId: praxis.id,
+        plannedDate: new Date("2027-09-01T08:00:00Z"),
+        referralStatus: "confirmed_external",
+        surgeonId: surgeon.id,
+      } as any)
+      .returning();
+
+    const [destSurgery] = await db
+      .insert(surgeries)
+      .values({
+        hospitalId: dest.id,
+        plannedDate: new Date("2027-09-01T08:00:00Z"),
+        surgeonId: surgeon.id,
+      } as any)
+      .returning();
+
+    const [extReq] = await db
+      .insert(externalSurgeryRequests)
+      .values({
+        hospitalId: dest.id,
+        sourceHospitalId: praxis.id,
+        sourceSurgeryId: srcSurgery.id,
+        surgeryId: destSurgery.id,
+        surgeonId: surgeon.id,
+        surgeonFirstName: "S",
+        surgeonLastName: "G",
+        surgeonEmail: surgeon.email!,
+        surgeonPhone: "",
+        surgeryName: "Test",
+        surgeryDurationMinutes: 60,
+        wishedDate: "2027-09-01",
+        wishedTimeFrom: 480,
+        status: "scheduled",
+      } as any)
+      .returning();
+
+    await db
+      .update(surgeries)
+      .set({ externalRequestId: extReq.id } as any)
+      .where(eq(surgeries.id, destSurgery.id));
+
+    const [actionReq] = await db
+      .insert(surgeonActionRequests)
+      .values({
+        hospitalId: dest.id,
+        surgeryId: destSurgery.id,
+        surgeonEmail: surgeon.email!,
+        type: "cancellation",
+        reason: "no longer needed",
+        status: "pending",
+      })
+      .returning();
+
+    const resp = await request(externalSurgeryApp)
+      .post(`/api/hospitals/${dest.id}/surgeon-action-requests/${actionReq.id}/refuse`)
+      .set("x-test-user-id", operator.id)
+      .set("x-test-hospital-id", dest.id)
+      .send({ responseNote: "clinic disagrees, surgery is critical" });
+    expect(resp.status).toBe(200);
+
+    // Destination action_request marked refused with responseNote.
+    const [updatedReq] = await db
+      .select()
+      .from(surgeonActionRequests)
+      .where(eq(surgeonActionRequests.id, actionReq.id));
+    expect(updatedReq.status).toBe("refused");
+    expect(updatedReq.responseNote).toBe("clinic disagrees, surgery is critical");
+
+    // Source praxis surgery: status unchanged, journal entry appended.
+    const [srcUpdated] = await db.select().from(surgeries).where(eq(surgeries.id, srcSurgery.id));
+    expect(srcUpdated.referralStatus).toBe("confirmed_external");
+    const history = (srcUpdated as any).rescheduleHistory as Array<{ type: string; request_type?: string; reason?: string | null }>;
+    expect(Array.isArray(history)).toBe(true);
+    const refusal = history.find(h => h.type === "request_refused");
+    expect(refusal).toBeDefined();
+    expect(refusal?.request_type).toBe("cancellation");
+    expect(refusal?.reason).toBe("clinic disagrees, surgery is critical");
   });
 });

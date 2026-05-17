@@ -780,6 +780,38 @@ export async function applyAcceptedActionToSource(
   }
 }
 
+/**
+ * Sync a refused surgeon_action_request back to the source praxis surgery
+ * as a journal entry so the surgeon sees the refusal reason without
+ * checking email. rescheduleHistory is the existing JSON journal column
+ * for cross-tenant state changes — this extends it with a request_refused
+ * entry. The source surgery's status/dates are NOT changed.
+ *
+ * No-op when externalRequest has no sourceSurgeryId (legacy portal flow).
+ */
+export async function applyRefusedActionToSource(
+  actionRequest: SurgeonActionRequest,
+  externalRequest: ExternalSurgeryRequest,
+): Promise<void> {
+  if (!externalRequest.sourceSurgeryId) return;
+  const [src] = await db.select().from(surgeries).where(eq(surgeries.id, externalRequest.sourceSurgeryId));
+  if (!src) return;
+  const history = Array.isArray((src as any).rescheduleHistory)
+    ? [...((src as any).rescheduleHistory as unknown[])]
+    : [];
+  history.push({
+    type: "request_refused",
+    request_type: actionRequest.type,
+    reason: actionRequest.responseNote ?? null,
+    at: new Date().toISOString(),
+    by_hospital_id: externalRequest.hospitalId,
+  });
+  await db
+    .update(surgeries)
+    .set({ rescheduleHistory: history } as any)
+    .where(eq(surgeries.id, externalRequest.sourceSurgeryId));
+}
+
 // ---------------------------------------------------------------------------
 // Task 21: source-side cancel pending referral
 // ---------------------------------------------------------------------------

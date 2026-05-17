@@ -21,7 +21,7 @@ import { db } from "../db";
 import logger from "../logger";
 import { getClinicClosuresInRange } from "../storage/clinicClosures";
 import { findFuzzyPatientMatches } from "../services/patientDeduplication";
-import { acceptReferralAndImport, pushReferralStatus, applyAcceptedActionToSource } from "../storage/praxisMode";
+import { acceptReferralAndImport, pushReferralStatus, applyAcceptedActionToSource, applyRefusedActionToSource } from "../storage/praxisMode";
 import { externalSurgeryRequests } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
@@ -1090,6 +1090,27 @@ router.post('/api/hospitals/:hospitalId/surgeon-action-requests/:reqId/refuse', 
       respondedBy: userId,
       respondedAt: new Date(),
     });
+
+    // Phase A sync-back — journal refusal onto the praxis source surgery (no-op
+    // for legacy portal flow where the surgery has no externalRequestId).
+    try {
+      const surgery = await storage.getSurgery(actionRequest.surgeryId);
+      if (surgery?.externalRequestId) {
+        const [extReq] = await db
+          .select()
+          .from(externalSurgeryRequests)
+          .where(eq(externalSurgeryRequests.id, surgery.externalRequestId))
+          .limit(1);
+        if (extReq) {
+          await applyRefusedActionToSource(
+            { ...actionRequest, status: "refused", responseNote: responseNote || null, respondedBy: userId, respondedAt: new Date() } as any,
+            extReq,
+          );
+        }
+      }
+    } catch (err) {
+      logger.error("[SurgeonActionRequest] sync-back on refuse failed", err);
+    }
 
     res.json({ success: true });
 
