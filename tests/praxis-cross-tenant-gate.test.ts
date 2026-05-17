@@ -280,6 +280,52 @@ describe("PATCH /api/anesthesia/surgeries/:id — cross-tenant gate", () => {
     expect(pending.reason).toBe("earlier slot available");
   });
 
+  it("archive on confirmed_external → 202 AUTO_FILED cancellation", async () => {
+    const [surgeon] = await db.insert(users).values({ email: `arch-${Date.now()}@t.local`, firstName: "A", lastName: "S" }).returning();
+    cleanup.users.push(surgeon.id);
+    const [praxis] = await db.insert(hospitals).values({ name: `Praxis-arch ${Date.now()}`, tenantType: "praxis" } as any).returning();
+    const [dest] = await db.insert(hospitals).values({ name: `Dest-arch ${Date.now()}` } as any).returning();
+    cleanup.hospitals.push(praxis.id, dest.id);
+    const [orUnit] = await db.insert(units).values({ hospitalId: praxis.id, name: "OR", type: "OR" } as any).returning();
+    await db.insert(userHospitalRoles).values({
+      userId: surgeon.id, hospitalId: praxis.id, unitId: orUnit.id, role: "admin", isBookable: true, canPlanOps: true,
+    } as any);
+    const [src] = await db.insert(surgeries).values({
+      hospitalId: praxis.id,
+      plannedDate: new Date("2027-07-01T08:00:00Z"),
+      actualEndTime: new Date("2027-07-01T09:00:00Z"),
+      referralStatus: "confirmed_external",
+      status: "planned",
+      surgeonId: surgeon.id,
+      plannedSurgery: "Test",
+    } as any).returning();
+    const [destSurg] = await db.insert(surgeries).values({
+      hospitalId: dest.id, plannedDate: new Date("2027-07-01T08:00:00Z"), surgeonId: surgeon.id,
+    } as any).returning();
+    const [extReq] = await db.insert(externalSurgeryRequests).values({
+      hospitalId: dest.id, sourceHospitalId: praxis.id, sourceSurgeryId: src.id, surgeryId: destSurg.id,
+      surgeonId: surgeon.id, surgeonFirstName: "A", surgeonLastName: "S", surgeonEmail: surgeon.email!, surgeonPhone: "",
+      surgeryName: "Test", wishedDate: "2027-07-01", wishedTimeFrom: 480, status: "scheduled",
+      surgeryDurationMinutes: 60,
+    } as any).returning();
+    await db.update(surgeries).set({ externalRequestId: extReq.id } as any).where(eq(surgeries.id, src.id));
+
+    const resp = await request(integrationApp)
+      .post(`/api/anesthesia/surgeries/${src.id}/archive`)
+      .set("x-test-user-id", surgeon.id)
+      .send({ crossTenantReason: "patient withdrew consent" });
+    expect(resp.status).toBe(202);
+    expect(resp.body.code).toBe("AUTO_FILED");
+    expect(resp.body.actionType).toBe("cancellation");
+
+    const [unchanged] = await db.select().from(surgeries).where(eq(surgeries.id, src.id));
+    expect(unchanged.isArchived).toBe(false);
+    const [actionReq] = await db.select().from(surgeonActionRequests).where(eq(surgeonActionRequests.id, resp.body.actionRequestId));
+    expect(actionReq.type).toBe("cancellation");
+    expect(actionReq.reason).toBe("patient withdrew consent");
+    expect(actionReq.status).toBe("pending");
+  });
+
   it("non-gated field on confirmed_external → 409 SOURCE_SURGERY_PARTIAL_LOCKDOWN", async () => {
     const [surgeon] = await db.insert(users).values({ email: `lock-${Date.now()}@t.local`, firstName: "L", lastName: "S" }).returning();
     cleanup.users.push(surgeon.id);

@@ -685,6 +685,47 @@ router.post('/api/anesthesia/surgeries/:id/archive', isAuthenticated, requireWri
       return res.status(403).json({ message: "Insufficient permissions to archive surgeries" });
     }
 
+    // Praxis cross-tenant gate — for confirmed_external source surgeries,
+    // archive routes through the destination's action_request approval flow.
+    if (surgery.referralStatus === "confirmed_external") {
+      const reasonRaw = typeof req.body?.crossTenantReason === "string" ? req.body.crossTenantReason : null;
+      const [pending] = await db
+        .select({ id: surgeonActionRequests.id })
+        .from(surgeonActionRequests)
+        .where(and(
+          eq(surgeonActionRequests.surgeryId, surgery.id),
+          eq(surgeonActionRequests.status, "pending"),
+        ))
+        .limit(1);
+      const gateResult = evaluateCrossTenantGate(
+        surgery,
+        { intent: "archive", payload: {}, reason: reasonRaw, actorId: userId },
+        { hasPendingActionRequest: !!pending },
+      );
+      if (gateResult.kind === "reject") return res.status(gateResult.status).json(gateResult.body);
+      if (gateResult.kind === "auto_file") {
+        if (!surgery.externalRequestId) {
+          return res.status(500).json({ code: "INTERNAL_NO_EXTERNAL_REQUEST", message: "missing external request link" });
+        }
+        const [extReq] = await db
+          .select({ hospitalId: externalSurgeryRequests.hospitalId, surgeryId: externalSurgeryRequests.surgeryId })
+          .from(externalSurgeryRequests)
+          .where(eq(externalSurgeryRequests.id, surgery.externalRequestId))
+          .limit(1);
+        if (!extReq) return res.status(500).json({ code: "INTERNAL_NO_EXTERNAL_REQUEST", message: "external request missing" });
+        const surgeonUser = await storage.getUser(userId);
+        const [actionReq] = await db.insert(surgeonActionRequests).values({
+          hospitalId: extReq.hospitalId,
+          surgeryId: extReq.surgeryId ?? surgery.id,
+          surgeonEmail: surgeonUser?.email ?? "",
+          type: gateResult.actionType,
+          reason: gateResult.reason,
+          status: "pending",
+        } as any).returning();
+        return res.status(202).json({ code: "AUTO_FILED", actionRequestId: actionReq.id, actionType: gateResult.actionType });
+      }
+    }
+
     const archivedSurgery = await storage.archiveSurgery(id, userId);
     
     if (archivedSurgery.calcomBusyBlockUid) {
