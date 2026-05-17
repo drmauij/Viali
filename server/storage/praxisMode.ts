@@ -1,7 +1,8 @@
 import crypto from "crypto";
-import { eq, and, count, desc } from "drizzle-orm";
+import { eq, and, count, desc, sql } from "drizzle-orm";
 import { db } from "../db";
 import { hospitals, units, userHospitalRoles, referralPartnerships, externalSurgeryRequests, surgeries, patients, surgeryRooms, users as usersTable, patientQuestionnaireLinks, patientQuestionnaireResponses } from "@shared/schema";
+import type { ExternalSurgeryRequest, SurgeonActionRequest } from "@shared/schema";
 import { dispatchRescheduleAlert, dispatchCancelAfterAcceptAlert } from "../services/referralAlerts";
 
 export const PRAXIS_ADDON_DEFAULTS = {
@@ -693,6 +694,89 @@ export async function pushReferralStatus(input: {
       reason: input.note ?? null,
       destinationHospitalId: input.byHospitalId ?? "",
     }).catch(err => console.error("[pushReferralStatus] cancel-after-accept alert dispatch failed", err));
+  }
+}
+
+/**
+ * Sync an accepted surgeon_action_request back to the source praxis surgery
+ * (if one exists). Idempotent — safe to call multiple times. No-op when the
+ * external_surgery_request has no sourceSurgeryId (legacy portal flow with
+ * no praxis mirror).
+ *
+ * Mapping:
+ *   cancellation → source.referralStatus='cancelled_external', isArchived,
+ *                  archivedAt, archivedBy (the surgeon who filed the request)
+ *   reschedule   → source.plannedDate = proposed date+time, append to
+ *                  rescheduleHistory, set lastClinicRescheduleAt so the
+ *                  source-side ack badge fires.
+ *   suspension   → source.isSuspended=true, suspendedAt, suspendedBy,
+ *                  suspendedReason. referralStatus stays confirmed_external
+ *                  (suspension is reversible).
+ */
+export async function applyAcceptedActionToSource(
+  actionRequest: SurgeonActionRequest,
+  externalRequest: ExternalSurgeryRequest,
+): Promise<void> {
+  if (!externalRequest.sourceSurgeryId) return;
+
+  const [surgeonUser] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(sql`LOWER(${usersTable.email}) = ${actionRequest.surgeonEmail.toLowerCase()}`)
+    .limit(1);
+  const byUserId = surgeonUser?.id ?? null;
+  const byHospitalId = externalRequest.hospitalId;
+
+  if (actionRequest.type === "cancellation") {
+    await pushReferralStatus({
+      externalRequestId: externalRequest.id,
+      newStatus: "cancelled_external",
+      note: actionRequest.reason,
+      byUserId,
+      byHospitalId,
+    });
+    await db
+      .update(surgeries)
+      .set({
+        isArchived: true,
+        archivedAt: new Date(),
+        archivedBy: byUserId,
+      } as any)
+      .where(eq(surgeries.id, externalRequest.sourceSurgeryId));
+    return;
+  }
+
+  if (actionRequest.type === "suspension") {
+    await db
+      .update(surgeries)
+      .set({
+        isSuspended: true,
+        suspendedAt: new Date(),
+        suspendedBy: byUserId,
+        suspendedReason: actionRequest.reason,
+      } as any)
+      .where(eq(surgeries.id, externalRequest.sourceSurgeryId));
+    return;
+  }
+
+  if (actionRequest.type === "reschedule" && actionRequest.proposedDate) {
+    const [year, month, day] = actionRequest.proposedDate.split("-").map(Number);
+    let hour = 12;
+    let min = 0;
+    if (actionRequest.proposedTimeFrom != null) {
+      hour = Math.floor(actionRequest.proposedTimeFrom / 60);
+      min = actionRequest.proposedTimeFrom % 60;
+    }
+    const newStart = new Date(Date.UTC(year, month - 1, day, hour, min));
+    await pushReferralStatus({
+      externalRequestId: externalRequest.id,
+      newStatus: "confirmed_external",
+      confirmedDate: newStart,
+      note: actionRequest.reason,
+      isReschedule: true,
+      byUserId,
+      byHospitalId,
+    });
   }
 }
 
