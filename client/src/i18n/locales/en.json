@@ -83,6 +83,7 @@
     "none": "None",
     "unknown": "Unknown",
     "noBirthday": "No birthday",
+    "noReason": "no reason given",
     "selectUnit": "Select unit...",
     "currentUnit": "Current Unit",
     "accessDenied": "Access denied",
@@ -8889,6 +8890,26 @@
   "popover": {
     "preliminaryNote": "Preliminary — based on patient questionnaire (no anesthesia pre-op assessment yet)",
     "ageSuppressedNote": "Age ≥ 75 bump suppressed (minor surgery)"
+  },
+  "praxis": {
+    "managedByDestination": {
+      "title": "Managed by destination clinic",
+      "subtitle": "Date, duration, suspension, and cancellation require destination clinic approval. Other fields are locked."
+    },
+    "pending": {
+      "cancellation": "Cancellation requested",
+      "reschedule": "Reschedule requested",
+      "suspension": "Suspension requested"
+    },
+    "pendingApprovalTitle": "Request sent for approval",
+    "pendingApprovalDescription": "The destination clinic must approve this change before it takes effect.",
+    "pendingSuspension": "Suspension awaiting destination clinic approval.",
+    "pendingCancellation": "Cancellation awaiting destination clinic approval.",
+    "reasonForChange": "Reason for change",
+    "reasonPlaceholder": "Why does this date or duration need to change?",
+    "reasonRequiredToast": "Date, time, and reason are required to request a reschedule.",
+    "refusalInline": "Last {{type}} request refused: {{reason}}",
+    "downloadSummary": "Download Surgery Summary"
   },
   "praxisActivation": {
     "modal": {

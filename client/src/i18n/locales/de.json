@@ -165,6 +165,7 @@
     "none": "Keine",
     "unknown": "Unbekannt",
     "noBirthday": "Kein Geburtsdatum",
+    "noReason": "kein Grund angegeben",
     "selectUnit": "Abteilung auswählen...",
     "currentUnit": "Aktuelle Abteilung",
     "accessDenied": "Zugriff verweigert",
@@ -8906,6 +8907,26 @@
   "popover": {
     "preliminaryNote": "Vorläufig — basierend auf dem Patientenfragebogen (anästhesiologische Prä-OP-Beurteilung noch ausstehend)",
     "ageSuppressedNote": "Alter ≥ 75 — Anhebung unterdrückt (kleiner Eingriff)"
+  },
+  "praxis": {
+    "managedByDestination": {
+      "title": "Verwaltet von der Zielklinik",
+      "subtitle": "Datum, Dauer, Aussetzung und Stornierung erfordern die Genehmigung der Zielklinik. Andere Felder sind gesperrt."
+    },
+    "pending": {
+      "cancellation": "Stornierung angefragt",
+      "reschedule": "Verschiebung angefragt",
+      "suspension": "Aussetzung angefragt"
+    },
+    "pendingApprovalTitle": "Anfrage zur Genehmigung gesendet",
+    "pendingApprovalDescription": "Die Zielklinik muss diese Änderung genehmigen, bevor sie wirksam wird.",
+    "pendingSuspension": "Aussetzung wartet auf Genehmigung der Zielklinik.",
+    "pendingCancellation": "Stornierung wartet auf Genehmigung der Zielklinik.",
+    "reasonForChange": "Grund für die Änderung",
+    "reasonPlaceholder": "Warum muss dieses Datum oder diese Dauer geändert werden?",
+    "reasonRequiredToast": "Datum, Uhrzeit und Begründung sind erforderlich, um eine Verschiebung anzufragen.",
+    "refusalInline": "Letzte {{type}}-Anfrage abgelehnt: {{reason}}",
+    "downloadSummary": "OP-Zusammenfassung herunterladen"
   },
   "praxisActivation": {
     "modal": {
