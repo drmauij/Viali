@@ -153,9 +153,7 @@ export default function CostAnalytics() {
         </Select>
       </div>
 
-      {/* Critical alerts live inside the Pipeline tab, not here — keeps the
-          top of the dashboard clean and avoids duplicating the red banner. */}
-      <WhatChangedPanel hospitalId={hospitalId} excludeCritical />
+      <WhatChangedPanel hospitalId={hospitalId} />
 
       <Tabs defaultValue="money" className="w-full">
         <div className="overflow-x-auto scrollbar-hide">
@@ -233,10 +231,6 @@ export default function CostAnalytics() {
           <p className="text-sm text-muted-foreground">
             {t("business.bands.pipelineHint", "Are bookings healthy? Future revenue, referral sources, and ad performance — the inputs to the funnel.")}
           </p>
-
-          {/* Pipeline-side critical alerts repeated inline so a booking
-              dip is visible while looking at the actual referrals data. */}
-          <WhatChangedPanel hospitalId={hospitalId} onlyCritical />
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <KpiCard

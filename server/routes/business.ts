@@ -3926,6 +3926,10 @@ router.get('/api/business/:hospitalId/insights', isAuthenticated, isBusinessMana
 router.get('/api/business/:hospitalId/inventory-by-unit', isAuthenticated, isBusinessManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
+    // Multiple snapshots can exist for the same (unit_id, snapshot_date) —
+    // there's no unique constraint and the worker can write more than once
+    // per day. Use DISTINCT ON to grab exactly one row per unit (newest
+    // snapshot, breaking ties by created_at) so each unit appears only once.
     const rows = await db.execute<{
       unit_id: string;
       unit_name: string | null;
@@ -3934,23 +3938,22 @@ router.get('/api/business/:hospitalId/inventory-by-unit', isAuthenticated, isBus
       item_count: string;
       snapshot_date: string;
     }>(sql`
-      WITH latest AS (
-        SELECT unit_id, MAX(snapshot_date) AS snapshot_date
-        FROM inventory_snapshots
-        WHERE hospital_id = ${hospitalId}
-        GROUP BY unit_id
-      )
-      SELECT inv.unit_id,
-             u.name  AS unit_name,
-             u.type  AS unit_type,
-             inv.total_value::text  AS total_value,
-             inv.item_count::text   AS item_count,
-             inv.snapshot_date::text AS snapshot_date
-      FROM inventory_snapshots inv
-      JOIN latest l ON l.unit_id = inv.unit_id AND l.snapshot_date = inv.snapshot_date
-      LEFT JOIN units u ON u.id = inv.unit_id
-      WHERE inv.hospital_id = ${hospitalId}
-      ORDER BY CAST(inv.total_value AS numeric) DESC NULLS LAST
+      SELECT *
+      FROM (
+        SELECT DISTINCT ON (inv.unit_id)
+               inv.unit_id,
+               u.name AS unit_name,
+               u.type AS unit_type,
+               inv.total_value::text AS total_value,
+               inv.item_count::text AS item_count,
+               inv.snapshot_date::text AS snapshot_date
+        FROM inventory_snapshots inv
+        LEFT JOIN units u ON u.id = inv.unit_id
+        WHERE inv.hospital_id = ${hospitalId}
+        ORDER BY inv.unit_id, inv.snapshot_date DESC, inv.created_at DESC NULLS LAST
+      ) latest_per_unit
+      WHERE CAST(total_value AS numeric) > 0
+      ORDER BY CAST(total_value AS numeric) DESC
     `);
 
     const units = (rows.rows as any[]).map(r => ({
