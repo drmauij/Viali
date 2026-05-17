@@ -9,7 +9,14 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useState, useEffect, useMemo } from "react";
-import { Loader2, Archive, Save, Eye, ClipboardList, FileEdit, StickyNote, Plus, Pencil, Trash2, ListTodo, Check, ChevronsUpDown, Ban, RotateCcw, ChevronDown } from "lucide-react";
+import { Loader2, Archive, Save, Eye, ClipboardList, FileEdit, StickyNote, Plus, Pencil, Trash2, ListTodo, Check, ChevronsUpDown, Ban, RotateCcw, ChevronDown, Download } from "lucide-react";
+import {
+  isCrossTenantSource,
+  hasPendingCrossTenantAction,
+  latestRefusal,
+  buildDestinationSummaryUrl,
+  type CrossTenantSurgery,
+} from "@/lib/praxisCrossTenant";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -44,6 +51,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const canPlanOps = isAdmin || activeHospital?.canPlanOps === true;
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);
   const [suspendReason, setSuspendReason] = useState("");
+  const [crossTenantReason, setCrossTenantReason] = useState("");
   const [activeTab, setActiveTab] = useState("details");
   const [newNoteContent, setNewNoteContent] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -85,6 +93,12 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     queryKey: [`/api/anesthesia/surgeries/${surgeryId}`],
     enabled: !!surgeryId,
   });
+
+  const crossTenant = isCrossTenantSource(surgery as CrossTenantSurgery | null);
+  const pendingAction = (surgery as CrossTenantSurgery | null)?.pendingActionRequest ?? null;
+  const refusal = latestRefusal(surgery as CrossTenantSurgery | null);
+  const destinationToken = (surgery as any)?.destinationPortalToken ?? null;
+  const ctPending = hasPendingCrossTenantAction(surgery as CrossTenantSurgery | null);
 
   // Saving state (replaces updateMutation.isPending in the UI)
   const [isSaving, setIsSaving] = useState(false);
@@ -312,19 +326,27 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     body.ambulantQuickCheck = surgeryRiskClass ? ambulantEligibility : null;
     body.ambulantOverrideReason = ambulantOverrideReason;
 
+    if (crossTenant) {
+      body.crossTenantReason = crossTenantReason.trim();
+    }
+
     return { body };
   }
 
   async function performPatch(body: Record<string, unknown>) {
     const response = await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, body);
-    return response.json();
+    if (response.status === 202) {
+      const json = await response.json();
+      return { kind: "auto_filed" as const, json };
+    }
+    return { kind: "updated" as const, json: await response.json() };
   }
 
   async function runSave() {
     setIsSaving(true);
     try {
       const { body } = buildPayload();
-      await performPatch(body);
+      const result = await performPatch(body);
       queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
@@ -339,10 +361,17 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
           }
         });
       }
-      toast({
-        title: t('anesthesia.editSurgery.surgeryUpdated'),
-        description: t('anesthesia.editSurgery.surgeryUpdatedDescription'),
-      });
+      if (result.kind === "auto_filed") {
+        toast({
+          title: t('praxis.pendingApprovalTitle', 'Request sent for approval'),
+          description: t('praxis.pendingApprovalDescription', 'The destination clinic must approve this change before it takes effect.'),
+        });
+      } else {
+        toast({
+          title: t('anesthesia.editSurgery.surgeryUpdated'),
+          description: t('anesthesia.editSurgery.surgeryUpdatedDescription'),
+        });
+      }
       onClose();
     } catch {
       toast({
@@ -383,10 +412,13 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   // Archive mutation
   const archiveMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/anesthesia/surgeries/${surgeryId}/archive`);
-      return response.json();
+      const body = crossTenant ? { crossTenantReason: crossTenantReason.trim() } : undefined;
+      const response = await apiRequest("POST", `/api/anesthesia/surgeries/${surgeryId}/archive`, body);
+      const status = response.status;
+      const json = await response.json();
+      return { status, json };
     },
-    onSuccess: () => {
+    onSuccess: ({ status }) => {
       queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
@@ -401,10 +433,17 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
           }
         });
       }
-      toast({
-        title: t('anesthesia.editSurgery.surgeryArchived', 'Surgery archived'),
-        description: t('anesthesia.editSurgery.surgeryArchivedDescription', 'Surgery has been moved to archive'),
-      });
+      if (status === 202) {
+        toast({
+          title: t('praxis.pendingApprovalTitle', 'Request sent for approval'),
+          description: t('praxis.pendingCancellation', 'Cancellation awaiting destination clinic approval.'),
+        });
+      } else {
+        toast({
+          title: t('anesthesia.editSurgery.surgeryArchived', 'Surgery archived'),
+          description: t('anesthesia.editSurgery.surgeryArchivedDescription', 'Surgery has been moved to archive'),
+        });
+      }
       onClose();
     },
     onError: () => {
@@ -417,11 +456,13 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   });
 
   const suspendMutation = useMutation({
-    mutationFn: async (data: { isSuspended: boolean; suspendedReason: string | null }) => {
+    mutationFn: async (data: { isSuspended: boolean; suspendedReason: string | null; crossTenantReason?: string }) => {
       const response = await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, data);
-      return response.json();
+      const status = response.status;
+      const json = await response.json();
+      return { status, json };
     },
-    onSuccess: () => {
+    onSuccess: ({ status }) => {
       queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
@@ -436,14 +477,21 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
           }
         });
       }
-      toast({
-        title: surgery?.isSuspended
-          ? t('anesthesia.editSurgery.suspendReactivated', 'Surgery reactivated')
-          : t('anesthesia.editSurgery.suspendSuspended', 'Surgery suspended'),
-        description: surgery?.isSuspended
-          ? t('anesthesia.editSurgery.suspendReactivatedDescription', 'The surgery has been reactivated successfully.')
-          : t('anesthesia.editSurgery.suspendSuspendedDescription', 'The surgery has been marked as suspended.'),
-      });
+      if (status === 202) {
+        toast({
+          title: t('praxis.pendingApprovalTitle', 'Request sent for approval'),
+          description: t('praxis.pendingSuspension', 'Suspension awaiting destination clinic approval.'),
+        });
+      } else {
+        toast({
+          title: surgery?.isSuspended
+            ? t('anesthesia.editSurgery.suspendReactivated', 'Surgery reactivated')
+            : t('anesthesia.editSurgery.suspendSuspended', 'Surgery suspended'),
+          description: surgery?.isSuspended
+            ? t('anesthesia.editSurgery.suspendReactivatedDescription', 'The surgery has been reactivated successfully.')
+            : t('anesthesia.editSurgery.suspendSuspendedDescription', 'The surgery has been marked as suspended.'),
+        });
+      }
       setShowSuspendDialog(false);
       setSuspendReason("");
       onClose();
@@ -459,6 +507,18 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
 
   const handleUpdate = () => {
     const isSlotReservation = !surgery?.patientId && !selectedPatientId;
+    if (crossTenant) {
+      if (!surgeryDate || !startTime || !crossTenantReason.trim()) {
+        toast({
+          title: t('common.missingInformation'),
+          description: t('praxis.reasonRequiredToast', 'Date, time, and reason are required to request a reschedule.'),
+          variant: "destructive",
+        });
+        return;
+      }
+      runSave();
+      return;
+    }
     if (!surgeryDate || !startTime || !surgeryRoomId || (!isSlotReservation && !plannedSurgery)) {
       toast({
         title: t('common.missingInformation'),
@@ -574,6 +634,60 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     )}
                   </div>
                 )}
+                {/* Cross-tenant managed banner */}
+                {crossTenant && (
+                  <div className="bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 rounded-lg p-4 space-y-2" data-testid="banner-cross-tenant">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-violet-900 dark:text-violet-100 text-sm">
+                          {t('praxis.managedByDestination.title', 'Managed by destination clinic')}
+                        </p>
+                        <p className="text-xs text-violet-700 dark:text-violet-300 mt-1">
+                          {t('praxis.managedByDestination.subtitle', 'Date, duration, suspension, and cancellation require destination clinic approval. Other fields are locked.')}
+                        </p>
+                      </div>
+                      {destinationToken && (
+                        <a
+                          href={buildDestinationSummaryUrl(destinationToken, (surgery as any).id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 inline-flex items-center gap-1.5 rounded-md border border-violet-300 dark:border-violet-700 bg-white dark:bg-violet-900 px-3 py-1.5 text-xs font-medium text-violet-700 dark:text-violet-200 hover:bg-violet-100 dark:hover:bg-violet-800"
+                          data-testid="link-destination-summary"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          {t('praxis.downloadSummary', 'Download Surgery Summary')}
+                        </a>
+                      )}
+                    </div>
+                    {pendingAction && (
+                      <div className="rounded-md bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 px-3 py-2 text-xs text-amber-900 dark:text-amber-200" data-testid="banner-pending-action">
+                        <span className="font-semibold">
+                          {pendingAction.type === "cancellation" && t('praxis.pending.cancellation', 'Cancellation requested')}
+                          {pendingAction.type === "suspension" && t('praxis.pending.suspension', 'Suspension requested')}
+                          {pendingAction.type === "reschedule" && t('praxis.pending.reschedule', 'Reschedule requested')}
+                        </span>
+                        {pendingAction.type === "reschedule" && pendingAction.proposedDate && (
+                          <span className="ml-1 opacity-80">
+                            {' '}→ {pendingAction.proposedDate}
+                            {pendingAction.proposedTimeFrom != null ? ` ${String(Math.floor(pendingAction.proposedTimeFrom / 60)).padStart(2, '0')}:${String(pendingAction.proposedTimeFrom % 60).padStart(2, '0')}` : ''}
+                          </span>
+                        )}
+                        {pendingAction.reason && (
+                          <span className="block mt-0.5 italic opacity-80">{pendingAction.reason}</span>
+                        )}
+                      </div>
+                    )}
+                    {!pendingAction && refusal && (
+                      <div className="rounded-md bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 px-3 py-2 text-xs text-rose-900 dark:text-rose-200" data-testid="banner-last-refusal">
+                        {t('praxis.refusalInline', {
+                          defaultValue: 'Last {{type}} request refused: {{reason}}',
+                          type: refusal.request_type,
+                          reason: refusal.reason ?? t('common.noReason', 'no reason given'),
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {/* Patient Information (Read-only) or Slot Reserved banner */}
                 {!surgery?.patientId ? (
                   <div className="space-y-2">
@@ -669,63 +783,119 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 </div>
               ) : null}
 
-              {/* Shared Surgery Form Fields */}
-              <SurgeryFormFields
-                surgeryRoomId={surgeryRoomId}
-                surgeryDate={surgeryDate}
-                startTime={startTime}
-                duration={duration}
-                plannedSurgery={plannedSurgery}
-                selectedChopCode={selectedChopCode}
-                surgeonId={surgeonId}
-                notes={notes}
-                diagnosis={diagnosis}
-                coverageType={coverageType}
-                stayType={stayType}
-                implantDetails={implantDetails}
-                surgerySide={surgerySide}
-                noPreOpRequired={noPreOpRequired}
-                antibioseProphylaxe={antibioseProphylaxe}
-                patientPosition={patientPosition}
-                leftArmPosition={leftArmPosition}
-                rightArmPosition={rightArmPosition}
-                onSurgeryRoomIdChange={setSurgeryRoomId}
-                onSurgeryDateChange={setSurgeryDate}
-                onStartTimeChange={setStartTime}
-                onDurationChange={setDuration}
-                onPlannedSurgeryChange={setPlannedSurgery}
-                onSelectedChopCodeChange={setSelectedChopCode}
-                onSurgeonIdChange={setSurgeonId}
-                onNotesChange={setNotes}
-                onDiagnosisChange={setDiagnosis}
-                onCoverageTypeChange={setCoverageType}
-                onStayTypeChange={setStayType}
-                onImplantDetailsChange={setImplantDetails}
-                onSurgerySideChange={(v) => setSurgerySide(v as typeof surgerySide)}
-                onNoPreOpRequiredChange={setNoPreOpRequired}
-                onAntibioseProphylaxeChange={setAntibioseProphylaxe}
-                onPatientPositionChange={(v) => setPatientPosition(v as typeof patientPosition)}
-                onLeftArmPositionChange={(v) => setLeftArmPosition(v as typeof leftArmPosition)}
-                onRightArmPositionChange={(v) => setRightArmPosition(v as typeof rightArmPosition)}
-                surgeryRooms={surgeryRooms}
-                surgeons={surgeons}
-                hospitalId={surgery?.hospitalId || ""}
-                isSlotReservation={isSlotReservation}
-                isRoomBlock={isRoomBlock}
-                assistantIds={assistantIds}
-                onAssistantIdsChange={setAssistantIds}
-                disabled={!canWrite}
-                testIdPrefix="edit-"
-                ambulantEligibilityEnabled
-                surgeryRiskClass={surgeryRiskClass}
-                onSurgeryRiskClassChange={setSurgeryRiskClass}
-                patientAgeYears={patientAgeYears}
-                patientBmi={patientBmi}
-                patientSex={patientSex}
-                hasAmbulantOverride={Boolean(ambulantOverrideReason)}
-                onRequestAmbulantOverride={() => setAmbulantOverrideOpen(true)}
-                onSwitchToOvernight={() => setStayType('overnight')}
-              />
+              {/* Shared Surgery Form Fields — replaced with stripped-down form when cross-tenant */}
+              {crossTenant ? (
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="ct-date">{t('anesthesia.editSurgery.plannedDate', 'Planned date')}</Label>
+                    <Input
+                      id="ct-date"
+                      type="date"
+                      value={surgeryDate}
+                      onChange={(e) => setSurgeryDate(e.target.value)}
+                      disabled={ctPending}
+                      data-testid="input-ct-date"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="ct-time">{t('anesthesia.editSurgery.startTime', 'Start time')}</Label>
+                      <Input
+                        id="ct-time"
+                        type="time"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                        disabled={ctPending}
+                        data-testid="input-ct-time"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="ct-duration">{t('anesthesia.editSurgery.durationMin', 'Duration (min)')}</Label>
+                      <Input
+                        id="ct-duration"
+                        type="number"
+                        min={15}
+                        step={15}
+                        value={duration}
+                        onChange={(e) => setDuration(parseInt(e.target.value, 10) || 0)}
+                        disabled={ctPending}
+                        data-testid="input-ct-duration"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="ct-reason">
+                      {t('praxis.reasonForChange', 'Reason for change')} <span className="text-rose-500">*</span>
+                    </Label>
+                    <Textarea
+                      id="ct-reason"
+                      value={crossTenantReason}
+                      onChange={(e) => setCrossTenantReason(e.target.value)}
+                      placeholder={t('praxis.reasonPlaceholder', 'Why does this date or duration need to change?') as string}
+                      rows={3}
+                      disabled={ctPending}
+                      data-testid="input-ct-reason"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <SurgeryFormFields
+                  surgeryRoomId={surgeryRoomId}
+                  surgeryDate={surgeryDate}
+                  startTime={startTime}
+                  duration={duration}
+                  plannedSurgery={plannedSurgery}
+                  selectedChopCode={selectedChopCode}
+                  surgeonId={surgeonId}
+                  notes={notes}
+                  diagnosis={diagnosis}
+                  coverageType={coverageType}
+                  stayType={stayType}
+                  implantDetails={implantDetails}
+                  surgerySide={surgerySide}
+                  noPreOpRequired={noPreOpRequired}
+                  antibioseProphylaxe={antibioseProphylaxe}
+                  patientPosition={patientPosition}
+                  leftArmPosition={leftArmPosition}
+                  rightArmPosition={rightArmPosition}
+                  onSurgeryRoomIdChange={setSurgeryRoomId}
+                  onSurgeryDateChange={setSurgeryDate}
+                  onStartTimeChange={setStartTime}
+                  onDurationChange={setDuration}
+                  onPlannedSurgeryChange={setPlannedSurgery}
+                  onSelectedChopCodeChange={setSelectedChopCode}
+                  onSurgeonIdChange={setSurgeonId}
+                  onNotesChange={setNotes}
+                  onDiagnosisChange={setDiagnosis}
+                  onCoverageTypeChange={setCoverageType}
+                  onStayTypeChange={setStayType}
+                  onImplantDetailsChange={setImplantDetails}
+                  onSurgerySideChange={(v) => setSurgerySide(v as typeof surgerySide)}
+                  onNoPreOpRequiredChange={setNoPreOpRequired}
+                  onAntibioseProphylaxeChange={setAntibioseProphylaxe}
+                  onPatientPositionChange={(v) => setPatientPosition(v as typeof patientPosition)}
+                  onLeftArmPositionChange={(v) => setLeftArmPosition(v as typeof leftArmPosition)}
+                  onRightArmPositionChange={(v) => setRightArmPosition(v as typeof rightArmPosition)}
+                  surgeryRooms={surgeryRooms}
+                  surgeons={surgeons}
+                  hospitalId={surgery?.hospitalId || ""}
+                  isSlotReservation={isSlotReservation}
+                  isRoomBlock={isRoomBlock}
+                  assistantIds={assistantIds}
+                  onAssistantIdsChange={setAssistantIds}
+                  disabled={!canWrite}
+                  testIdPrefix="edit-"
+                  ambulantEligibilityEnabled
+                  surgeryRiskClass={surgeryRiskClass}
+                  onSurgeryRiskClassChange={setSurgeryRiskClass}
+                  patientAgeYears={patientAgeYears}
+                  patientBmi={patientBmi}
+                  patientSex={patientSex}
+                  hasAmbulantOverride={Boolean(ambulantOverrideReason)}
+                  onRequestAmbulantOverride={() => setAmbulantOverrideOpen(true)}
+                  onSwitchToOvernight={() => setStayType('overnight')}
+                />
+              )}
 
               <AmbulantOverrideModal
                 open={ambulantOverrideOpen}
@@ -945,6 +1115,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                       ) : (
                         <DropdownMenuItem
                           onClick={() => setShowSuspendDialog(true)}
+                          disabled={ctPending || suspendMutation.isPending}
                           className="text-amber-700 dark:text-amber-400 focus:text-amber-700 dark:focus:text-amber-400"
                           data-testid="menu-suspend-surgery"
                         >
@@ -955,7 +1126,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                       {canPlanOps && (
                         <DropdownMenuItem
                           onClick={handleArchive}
-                          disabled={archiveMutation.isPending}
+                          disabled={archiveMutation.isPending || ctPending}
                           data-testid="menu-archive-surgery"
                         >
                           <Archive className="mr-2 h-4 w-4" />
@@ -1007,7 +1178,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     </Button>
                     <Button
                       onClick={handleUpdate}
-                      disabled={isSaving || archiveMutation.isPending || ambulantBlocked}
+                      disabled={isSaving || archiveMutation.isPending || ambulantBlocked || ctPending}
                       title={ambulantBlocked ? t('ambulantEligibility.save.blockedTooltip', 'Risk check red — override required or plan as overnight') : undefined}
                       data-testid="button-update-surgery"
                       className="w-full sm:w-auto"
@@ -1052,7 +1223,21 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
               <strong>{t('anesthesia.editSurgery.typeArchiveToConfirm', 'Type ARCHIVE to confirm:')}</strong>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="px-6 pb-2">
+          <div className="px-6 pb-2 space-y-3">
+            {crossTenant && (
+              <div>
+                <Label htmlFor="ct-archive-reason">
+                  {t('praxis.reasonForChange', 'Reason for change')} <span className="text-rose-500">*</span>
+                </Label>
+                <Textarea
+                  id="ct-archive-reason"
+                  value={crossTenantReason}
+                  onChange={(e) => setCrossTenantReason(e.target.value)}
+                  rows={2}
+                  data-testid="input-ct-archive-reason"
+                />
+              </div>
+            )}
             <Input
               value={archiveConfirmText}
               onChange={(e) => setArchiveConfirmText(e.target.value)}
@@ -1065,7 +1250,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
             <AlertDialogCancel data-testid="button-cancel-archive">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmArchive}
-              disabled={archiveConfirmText !== "ARCHIVE"}
+              disabled={archiveConfirmText !== "ARCHIVE" || (crossTenant && !crossTenantReason.trim())}
               data-testid="button-confirm-archive"
             >
               {t('anesthesia.editSurgery.archiveSurgery', 'Archive')}
@@ -1103,8 +1288,18 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-suspend">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => suspendMutation.mutate({ isSuspended: true, suspendedReason: suspendReason || null })}
-              disabled={suspendMutation.isPending}
+              onClick={() => {
+                if (crossTenant) {
+                  suspendMutation.mutate({
+                    isSuspended: true,
+                    suspendedReason: suspendReason || null,
+                    crossTenantReason: suspendReason,
+                  });
+                } else {
+                  suspendMutation.mutate({ isSuspended: true, suspendedReason: suspendReason || null });
+                }
+              }}
+              disabled={suspendMutation.isPending || (crossTenant && !suspendReason.trim())}
               className="bg-amber-600 hover:bg-amber-700 text-white"
               data-testid="button-confirm-suspend"
             >
