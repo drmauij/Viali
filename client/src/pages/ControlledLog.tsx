@@ -10,6 +10,11 @@ import { apiRequest } from "@/lib/queryClient";
 import { formatDate, formatDateTime, formatTime } from "@/lib/dateUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  QuantityModeInput,
+  computeResultingAmount,
+  type QuantityMode,
+} from "@/components/inputs/QuantityModeInput";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -112,6 +117,10 @@ export default function ControlledLog() {
   const [showManualAdjustmentModal, setShowManualAdjustmentModal] = useState(false);
   const [adjustmentItemId, setAdjustmentItemId] = useState("");
   const [adjustmentNewUnits, setAdjustmentNewUnits] = useState("");
+  // How the operator wants to interpret the entered amount: replace the
+  // current stock outright (set), add to it (add), or subtract from it
+  // (subtract). Default = set, preserving the old behaviour.
+  const [adjustmentMode, setAdjustmentMode] = useState<QuantityMode>("set");
   const [adjustmentNotes, setAdjustmentNotes] = useState("");
   const [adjustmentSignature, setAdjustmentSignature] = useState("");
   const [adjustmentAttachmentPhoto, setAdjustmentAttachmentPhoto] = useState("");
@@ -406,10 +415,30 @@ export default function ControlledLog() {
   const resetAdjustmentForm = () => {
     setAdjustmentItemId("");
     setAdjustmentNewUnits("");
+    setAdjustmentMode("set");
     setAdjustmentNotes("");
     setAdjustmentSignature("");
     setAdjustmentAttachmentPhoto("");
   };
+
+  // Resolve the selected controlled item's current stock so the
+  // QuantityModeInput can apply Add/Subtract deltas against it and the
+  // submit handler can compute the absolute resulting amount.
+  const adjustmentItem = useMemo(
+    () => controlledItems.find(i => i.id === adjustmentItemId),
+    [controlledItems, adjustmentItemId],
+  );
+  const adjustmentItemCurrentValue = useMemo(() => {
+    if (!adjustmentItem) return 0;
+    const normalizedUnit = adjustmentItem.unit.toLowerCase();
+    const isControlledPack = adjustmentItem.controlled && normalizedUnit === "pack";
+    return isControlledPack
+      ? (adjustmentItem.currentUnits || 0)
+      : (adjustmentItem.stockLevel?.qtyOnHand || 0);
+  }, [adjustmentItem]);
+  const adjustmentItemUnitLabel = adjustmentItem
+    ? (adjustmentItem.controlled && adjustmentItem.unit.toLowerCase() === "pack" ? "ampules" : "units")
+    : "";
 
   const handleOpenAdministrationModal = () => {
     setSelectedDrugs(controlledItems.map(item => {
@@ -627,8 +656,8 @@ export default function ControlledLog() {
       return;
     }
 
-    const newUnitsValue = parseFloat(adjustmentNewUnits);
-    if (isNaN(newUnitsValue) || newUnitsValue < 0) {
+    const raw = parseFloat(adjustmentNewUnits);
+    if (isNaN(raw) || raw < 0) {
       toast({
         title: "Invalid Units",
         description: "Please enter a valid positive number for units.",
@@ -636,6 +665,13 @@ export default function ControlledLog() {
       });
       return;
     }
+    // computeResultingAmount handles all three modes (set/add/subtract) and
+    // clamps subtract at 0 so the audit row never records a negative.
+    const newUnitsValue = computeResultingAmount(
+      adjustmentItemCurrentValue,
+      adjustmentMode,
+      adjustmentNewUnits,
+    );
 
     adjustmentMutation.mutate({
       itemId: adjustmentItemId,
@@ -1758,16 +1794,28 @@ export default function ControlledLog() {
                 <Label htmlFor="adjustment-new-units" className="block text-sm font-medium mb-2">
                   New Units Value
                 </Label>
-                <Input
-                  id="adjustment-new-units"
-                  type="number"
-                  placeholder="Enter new units..."
-                  value={adjustmentNewUnits}
-                  onChange={(e) => setAdjustmentNewUnits(e.target.value)}
+                <QuantityModeInput
+                  referenceValue={adjustmentItemCurrentValue}
+                  mode={adjustmentMode}
+                  onModeChange={setAdjustmentMode}
+                  inputValue={adjustmentNewUnits}
+                  onInputChange={setAdjustmentNewUnits}
+                  inputId="adjustment-new-units"
+                  placeholder="Enter units..."
+                  unit={adjustmentItemUnitLabel}
                   min="0"
                   step="0.01"
-                  data-testid="adjustment-new-units-input"
+                  testIdPrefix="adjustment-new-units"
                 />
+                {adjustmentItem && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {adjustmentMode === "set"
+                      ? `Enter the new total ${adjustmentItemUnitLabel} on hand.`
+                      : adjustmentMode === "add"
+                      ? `Number of ${adjustmentItemUnitLabel} to add to the current count.`
+                      : `Number of ${adjustmentItemUnitLabel} to subtract from the current count.`}
+                  </p>
+                )}
               </div>
 
               <div>

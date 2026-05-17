@@ -80,6 +80,12 @@
     "paymentRequired": "Zahlung erforderlich",
     "setupPaymentMethodFirst": "Bitte richten Sie eine Zahlungsmethode unter Admin > Abrechnung ein, bevor Sie neue Anästhesie-Protokolle erstellen."
   },
+  "quantityMode": {
+    "set": "Setzen",
+    "add": "Hinzufügen",
+    "subtract": "Abziehen",
+    "current": "Aktuell"
+  },
   "common": {
     "name": "Name",
     "more": "Mehr",

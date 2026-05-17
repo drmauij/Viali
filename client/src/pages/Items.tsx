@@ -1,10 +1,15 @@
-import { useMemo, useEffect, useCallback } from "react";
+import { useMemo, useEffect, useCallback, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { formatCurrency, formatDate } from "@/lib/dateUtils";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
+import {
+  QuantityModeInput,
+  computeResultingAmount,
+  type QuantityMode,
+} from "@/components/inputs/QuantityModeInput";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -385,6 +390,66 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     }
   }, [editFormData.trackExactQuantity, editFormData.packSize, editFormData.currentUnits]);
 
+  // Edit-mode quantity adjustment: lets the user pick Set/Add/Subtract
+  // instead of having to mentally compute the new total. editFormData.
+  // currentUnits stays as the absolute resulting value (consumed by the
+  // auto-actualStock effect + submit), updated reactively from these
+  // three pieces of UI state.
+  const [editAdjustMode, setEditAdjustMode] = useState<QuantityMode>("set");
+  const [editAdjustInput, setEditAdjustInput] = useState("0");
+  const [editOriginalCurrentUnits, setEditOriginalCurrentUnits] = useState(0);
+  useEffect(() => {
+    const resulting = computeResultingAmount(
+      editOriginalCurrentUnits,
+      editAdjustMode,
+      editAdjustInput,
+    );
+    setEditFormData(prev =>
+      prev.currentUnits === String(resulting)
+        ? prev
+        : { ...prev, currentUnits: String(resulting) },
+    );
+  }, [editAdjustMode, editAdjustInput, editOriginalCurrentUnits, setEditFormData]);
+
+  // Same pattern for the Actual Stock field — needed when the item is
+  // tracked as a Single unit (Pack mode's actualStock is auto-calculated
+  // from currentUnits, so the QuantityModeInput would conflict with the
+  // auto-stock effect). Only the absolute resulting value lands in
+  // editFormData.actualStock.
+  const [editActualAdjustMode, setEditActualAdjustMode] = useState<QuantityMode>("set");
+  const [editActualAdjustInput, setEditActualAdjustInput] = useState("0");
+  const [editOriginalActualStock, setEditOriginalActualStock] = useState(0);
+  useEffect(() => {
+    if (editFormData.trackExactQuantity) return; // Auto-calculated path owns actualStock here.
+    const resulting = computeResultingAmount(
+      editOriginalActualStock,
+      editActualAdjustMode,
+      editActualAdjustInput,
+    );
+    setEditFormData(prev =>
+      prev.actualStock === String(resulting)
+        ? prev
+        : { ...prev, actualStock: String(resulting) },
+    );
+  }, [
+    editActualAdjustMode,
+    editActualAdjustInput,
+    editOriginalActualStock,
+    editFormData.trackExactQuantity,
+    setEditFormData,
+  ]);
+
+  // Single-unit items don't have a Pack Size + Current Units block, so a
+  // lingering trackExactQuantity flag from a previous Pack selection leaves
+  // the user with an auto-calculated Actual Stock and no way to change it.
+  // Switching to Single forces the flag off so Actual Stock becomes editable
+  // again.
+  useEffect(() => {
+    if (selectedUnit === "Single unit" && editFormData.trackExactQuantity) {
+      setEditFormData(prev => ({ ...prev, trackExactQuantity: false }));
+    }
+  }, [selectedUnit, editFormData.trackExactQuantity, setEditFormData]);
+
   // Auto-enable trackExactQuantity for controlled packed items in Add Item form
   useEffect(() => {
     if (formData.controlled && selectedUnit === "Pack" && !formData.trackExactQuantity) {
@@ -497,6 +562,19 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
 
   const handleEditItem = useCallback(async (item: ItemWithStock) => {
     setSelectedItem(item);
+    // Capture the original quantity as the reference point for Add/Subtract
+    // deltas. Mode resets to "set" with the input pre-populated to the
+    // current value — preserves the prior UX for users who want to overwrite
+    // and gives a one-click path to Add/Subtract for users who want to apply
+    // a delta.
+    const original = item.currentUnits || 0;
+    setEditOriginalCurrentUnits(original);
+    setEditAdjustMode("set");
+    setEditAdjustInput(String(original));
+    const originalActual = item.stockLevel?.qtyOnHand || 0;
+    setEditOriginalActualStock(originalActual);
+    setEditActualAdjustMode("set");
+    setEditActualAdjustInput(String(originalActual));
     setEditFormData({
       name: item.name,
       description: item.description || "",
@@ -3113,28 +3191,54 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                       <span className="ml-2 text-xs text-orange-600 dark:text-orange-400 font-normal">(Controlled - use Controller tab)</span>
                     )}
                   </Label>
-                  <Input 
-                    ref={editCurrentUnitsInputRef}
-                    id="edit-currentUnits" 
-                    name="currentUnits" 
-                    type="number" 
-                    min="0"
-                    value={editFormData.currentUnits}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, currentUnits: e.target.value }))}
-                    onFocus={handleNumberInputFocus}
-                    data-testid="input-edit-current-units" 
-                    required
-                    disabled={!canWrite || editFormData.controlled}
-                    readOnly={!canWrite || editFormData.controlled}
-                    className={(!canWrite || editFormData.controlled) ? "bg-muted cursor-not-allowed" : ""}
-                  />
+                  {editFormData.controlled || !canWrite ? (
+                    // Controlled items must be adjusted via the Controller tab,
+                    // and read-only viewers see the bare value — keep the plain
+                    // disabled input in both cases.
+                    <Input
+                      ref={editCurrentUnitsInputRef}
+                      id="edit-currentUnits"
+                      name="currentUnits"
+                      type="number"
+                      min="0"
+                      value={editFormData.currentUnits}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, currentUnits: e.target.value }))}
+                      onFocus={handleNumberInputFocus}
+                      data-testid="input-edit-current-units"
+                      required
+                      disabled
+                      readOnly
+                      className="bg-muted cursor-not-allowed"
+                    />
+                  ) : (
+                    <QuantityModeInput
+                      referenceValue={editOriginalCurrentUnits}
+                      mode={editAdjustMode}
+                      onModeChange={setEditAdjustMode}
+                      inputValue={editAdjustInput}
+                      onInputChange={setEditAdjustInput}
+                      inputId="edit-currentUnits"
+                      inputName="currentUnits"
+                      inputRef={editCurrentUnitsInputRef}
+                      onFocus={handleNumberInputFocus}
+                      min="0"
+                      required
+                      testIdPrefix="input-edit-current-units"
+                    />
+                  )}
                   {editFormData.controlled ? (
                     <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
                       <i className="fas fa-lock mr-1"></i>
                       Controlled substance quantities must be adjusted via the Controller tab with proper logging
                     </p>
                   ) : (
-                    <p className="text-xs text-muted-foreground mt-1">{t('items.currentUnitsHelp')}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {editAdjustMode === "set"
+                        ? t('items.currentUnitsHelp')
+                        : editAdjustMode === "add"
+                        ? t('items.currentUnitsAddHelp', 'Number of individual units to add to the current count.')
+                        : t('items.currentUnitsSubtractHelp', 'Number of individual units to subtract from the current count.')}
+                    </p>
                   )}
                 </div>
               </div>
@@ -3161,20 +3265,45 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                       <span className="ml-2 text-xs text-muted-foreground font-normal">(Auto-calculated)</span>
                     )}
                   </Label>
-                  <Input 
-                    ref={editActualStockInputRef}
-                    id="edit-actualStock" 
-                    name="actualStock" 
-                    type="number" 
-                    min="0"
-                    value={editFormData.actualStock}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, actualStock: e.target.value }))}
-                    onFocus={handleNumberInputFocus}
-                    data-testid="input-edit-actual-stock"
-                    className="mt-2 text-lg font-medium"
-                    disabled={!canWrite || editFormData.trackExactQuantity}
-                    readOnly={!canWrite || editFormData.trackExactQuantity}
-                  />
+                  {(!canWrite || editFormData.trackExactQuantity) ? (
+                    <Input
+                      ref={editActualStockInputRef}
+                      id="edit-actualStock"
+                      name="actualStock"
+                      type="number"
+                      min="0"
+                      value={editFormData.actualStock}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, actualStock: e.target.value }))}
+                      onFocus={handleNumberInputFocus}
+                      data-testid="input-edit-actual-stock"
+                      className="mt-2 text-lg font-medium"
+                      disabled
+                      readOnly
+                    />
+                  ) : (
+                    <div className="mt-2">
+                      <QuantityModeInput
+                        referenceValue={editOriginalActualStock}
+                        mode={editActualAdjustMode}
+                        onModeChange={setEditActualAdjustMode}
+                        inputValue={editActualAdjustInput}
+                        onInputChange={setEditActualAdjustInput}
+                        inputId="edit-actualStock"
+                        inputName="actualStock"
+                        inputRef={editActualStockInputRef}
+                        onFocus={handleNumberInputFocus}
+                        min="0"
+                        testIdPrefix="input-edit-actual-stock"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {editActualAdjustMode === "set"
+                          ? t('items.actualStockSetHelp', 'Enter the new total stock on hand.')
+                          : editActualAdjustMode === "add"
+                          ? t('items.actualStockAddHelp', 'Number of units to add to the current stock.')
+                          : t('items.actualStockSubtractHelp', 'Number of units to subtract from the current stock.')}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

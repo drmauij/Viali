@@ -1,4 +1,10 @@
 {
+  "quantityMode": {
+    "set": "Set",
+    "add": "Add",
+    "subtract": "Subtract",
+    "current": "Current"
+  },
   "common": {
     "name": "Name",
     "more": "More",
