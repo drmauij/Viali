@@ -3088,18 +3088,13 @@ router.get('/api/business/:hospitalId/treatments-summary', isAuthenticated, isBu
 router.get('/api/business/:hospitalId/surgeries-summary', isAuthenticated, isBusinessManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const rangeDays = parseInt((req.query.range as string)?.replace('d', '') || '30', 10);
-    const start = new Date();
-    start.setDate(start.getDate() - rangeDays);
-    const startIso = start.toISOString();
+    const { resolveRange } = await import('./business/rangeUtils');
+    const bounds = resolveRange(req.query.range as string);
 
     // "Planned" KPIs are strictly forward-looking (planned_date >= today) and
     // intentionally NOT bounded by `range`. The dashboard's range selector is
-    // for backward-looking comparison ("how much did we earn in the last N
-    // days"); it should not change how many future surgeries are scheduled.
-    // Previously planned was filtered by `planned_date >= startIso` which
-    // inflated the count whenever range widened, since older never-paid
-    // surgeries leaked into "planned".
+    // for backward-looking comparison; it should not change how many future
+    // surgeries are scheduled.
     const totalsRow = await db.execute<{
       count_planned: string;
       count_converted: string;
@@ -3108,9 +3103,9 @@ router.get('/api/business/:hospitalId/surgeries-summary', isAuthenticated, isBus
     }>(sql`
       SELECT
         COUNT(*) FILTER (WHERE s.planned_date >= NOW()) AS count_planned,
-        COUNT(*) FILTER (WHERE s.payment_date IS NOT NULL AND s.payment_date >= ${startIso}::date) AS count_converted,
+        COUNT(*) FILTER (WHERE s.payment_date IS NOT NULL AND s.payment_date >= ${bounds.startDate}::date AND s.payment_date < ${bounds.endDate}::date) AS count_converted,
         COALESCE(SUM(CAST(s.price AS numeric)) FILTER (WHERE s.planned_date >= NOW()), 0) AS revenue_planned,
-        COALESCE(SUM(CAST(s.price AS numeric)) FILTER (WHERE s.payment_date IS NOT NULL AND s.payment_date >= ${startIso}::date), 0) AS revenue_won
+        COALESCE(SUM(CAST(s.price AS numeric)) FILTER (WHERE s.payment_date IS NOT NULL AND s.payment_date >= ${bounds.startDate}::date AND s.payment_date < ${bounds.endDate}::date), 0) AS revenue_won
       FROM surgeries s
       WHERE s.hospital_id = ${hospitalId}
         AND s.is_archived = false
@@ -3125,7 +3120,8 @@ router.get('/api/business/:hospitalId/surgeries-summary', isAuthenticated, isBus
       WHERE s.hospital_id = ${hospitalId}
         AND s.is_archived = false
         AND s.payment_date IS NOT NULL
-        AND s.payment_date >= ${startIso}::date
+        AND s.payment_date >= ${bounds.startDate}::date
+        AND s.payment_date < ${bounds.endDate}::date
       GROUP BY s.payment_date
       ORDER BY s.payment_date ASC
     `);
@@ -3178,10 +3174,12 @@ router.get('/api/business/:hospitalId/top-procedures-by-margin', isAuthenticated
 router.get('/api/business/:hospitalId/providers-performance', isAuthenticated, isBusinessManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const rangeDays = parseInt((req.query.range as string)?.replace('d', '') || '30', 10);
-    const start = new Date();
-    start.setDate(start.getDate() - rangeDays);
-    const startIso = start.toISOString();
+    const { resolveRange } = await import('./business/rangeUtils');
+    const bounds = resolveRange(req.query.range as string);
+    const startIso = bounds.startIso;
+    const endIso = bounds.endIso;
+    const startDate = bounds.startDate;
+    const endDate = bounds.endDate;
 
     // Per-provider treatments: count + revenue from treatments + treatment_lines
     const treatmentRows = await db.execute<{
@@ -3202,6 +3200,7 @@ router.get('/api/business/:hospitalId/providers-performance', isAuthenticated, i
       LEFT JOIN users u ON u.id = t.provider_id
       WHERE t.hospital_id = ${hospitalId}
         AND t.performed_at >= ${startIso}
+        AND t.performed_at < ${endIso}
         AND t.status IN ('signed', 'invoiced')
         AND t.provider_id IS NOT NULL
       GROUP BY t.provider_id, u.first_name, u.last_name
@@ -3224,16 +3223,19 @@ router.get('/api/business/:hospitalId/providers-performance', isAuthenticated, i
         s.surgeon_id AS provider_id,
         u.first_name,
         u.last_name,
-        COUNT(*) FILTER (WHERE s.planned_date >= ${startIso}) AS surgeries_planned,
-        COUNT(*) FILTER (WHERE s.payment_date IS NOT NULL AND s.payment_date >= ${startIso}::date) AS surgeries_converted,
-        COALESCE(SUM(CAST(s.price AS numeric)) FILTER (WHERE s.planned_date >= ${startIso}), 0) AS revenue_planned,
-        COALESCE(SUM(CAST(s.price AS numeric)) FILTER (WHERE s.payment_date IS NOT NULL AND s.payment_date >= ${startIso}::date), 0) AS revenue_won
+        COUNT(*) FILTER (WHERE s.planned_date >= ${startIso} AND s.planned_date < ${endIso}) AS surgeries_planned,
+        COUNT(*) FILTER (WHERE s.payment_date IS NOT NULL AND s.payment_date >= ${startDate}::date AND s.payment_date < ${endDate}::date) AS surgeries_converted,
+        COALESCE(SUM(CAST(s.price AS numeric)) FILTER (WHERE s.planned_date >= ${startIso} AND s.planned_date < ${endIso}), 0) AS revenue_planned,
+        COALESCE(SUM(CAST(s.price AS numeric)) FILTER (WHERE s.payment_date IS NOT NULL AND s.payment_date >= ${startDate}::date AND s.payment_date < ${endDate}::date), 0) AS revenue_won
       FROM surgeries s
       LEFT JOIN users u ON u.id = s.surgeon_id
       WHERE s.hospital_id = ${hospitalId}
         AND s.is_archived = false
         AND s.surgeon_id IS NOT NULL
-        AND (s.planned_date >= ${startIso} OR (s.payment_date IS NOT NULL AND s.payment_date >= ${startIso}::date))
+        AND (
+          (s.planned_date >= ${startIso} AND s.planned_date < ${endIso})
+          OR (s.payment_date IS NOT NULL AND s.payment_date >= ${startDate}::date AND s.payment_date < ${endDate}::date)
+        )
       GROUP BY s.surgeon_id, u.first_name, u.last_name
     `);
 
@@ -3301,10 +3303,8 @@ router.get('/api/business/:hospitalId/providers-performance', isAuthenticated, i
 router.get('/api/business/:hospitalId/funnel-snapshot', isAuthenticated, isBusinessManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const rangeDays = parseInt((req.query.range as string)?.replace('d', '') || '30', 10);
-    const start = new Date();
-    start.setDate(start.getDate() - rangeDays);
-    const startIso = start.toISOString();
+    const { resolveRange } = await import('./business/rangeUtils');
+    const bounds = resolveRange(req.query.range as string);
 
     // Leads + contacted + booked in one query
     const leadsRow = await db.execute<{
@@ -3320,7 +3320,8 @@ router.get('/api/business/:hospitalId/funnel-snapshot', isAuthenticated, isBusin
         COUNT(*) FILTER (WHERE l.appointment_id IS NOT NULL) AS booked
       FROM leads l
       WHERE l.hospital_id = ${hospitalId}
-        AND l.created_at >= ${startIso}
+        AND l.created_at >= ${bounds.startIso}
+        AND l.created_at < ${bounds.endIso}
     `);
 
     // First-visit = leads whose appointment actually resolved (completed or confirmed)
@@ -3329,7 +3330,8 @@ router.get('/api/business/:hospitalId/funnel-snapshot', isAuthenticated, isBusin
       FROM leads l
       JOIN clinic_appointments ca ON ca.id = l.appointment_id
       WHERE l.hospital_id = ${hospitalId}
-        AND l.created_at >= ${startIso}
+        AND l.created_at >= ${bounds.startIso}
+        AND l.created_at < ${bounds.endIso}
         AND ca.status IN ('completed', 'confirmed')
     `);
 
@@ -3348,6 +3350,882 @@ router.get('/api/business/:hospitalId/funnel-snapshot', isAuthenticated, isBusin
   } catch (error) {
     logger.error("Error fetching funnel snapshot:", error);
     res.status(500).json({ message: "Failed to fetch funnel snapshot" });
+  }
+});
+
+// Referrals grouped by source for the selected range. This is the primary
+// "where did patients come from" signal on the dashboard — referral_events is
+// captured at booking time and carries the normalized source enum, whereas
+// raw leads (ad form submissions) have collapsed in quality and conversion.
+router.get('/api/business/:hospitalId/referrals-by-source', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { resolveRange } = await import('./business/rangeUtils');
+    const bounds = resolveRange(req.query.range as string);
+    const rows = await db.execute<{
+      source: string;
+      referrals: string;
+      completed: string;
+      paid: string;
+    }>(sql`
+      SELECT re.source,
+             COUNT(*) AS referrals,
+             -- Attended: appointment exists and is completed/confirmed.
+             -- Operational signal — did the patient show up?
+             COUNT(*) FILTER (
+               WHERE re.appointment_id IS NOT NULL
+                 AND (
+                   re.appointment_final_status IN ('completed', 'confirmed')
+                   OR EXISTS (
+                     SELECT 1 FROM clinic_appointments ca
+                     WHERE ca.id = re.appointment_id
+                       AND ca.status IN ('completed', 'confirmed')
+                   )
+                 )
+             ) AS completed,
+             -- Paid: referred patient has a paid surgery on or after the
+             -- referral date. Money signal — did this referral produce
+             -- revenue? Heuristic, since we have no direct FK from referral
+             -- to surgery; bounded by the referral date so a previously-paid
+             -- patient doesn't get re-attributed to a new referral.
+             COUNT(*) FILTER (
+               WHERE EXISTS (
+                 SELECT 1 FROM surgeries s
+                 WHERE s.patient_id = re.patient_id
+                   AND s.hospital_id = re.hospital_id
+                   AND s.is_archived = false
+                   AND s.payment_date IS NOT NULL
+                   AND s.payment_date >= re.created_at::date
+               )
+             ) AS paid
+      FROM referral_events re
+      WHERE re.hospital_id = ${hospitalId}
+        AND re.created_at >= ${bounds.startIso}
+        AND re.created_at < ${bounds.endIso}
+      GROUP BY re.source
+      ORDER BY COUNT(*) DESC
+    `);
+
+    res.json({
+      sources: (rows.rows as any[]).map(r => {
+        const referrals = parseInt(r.referrals || '0', 10);
+        const completed = parseInt(r.completed || '0', 10);
+        const paid = parseInt(r.paid || '0', 10);
+        return {
+          source: r.source as string,
+          referrals,
+          completed,
+          paid,
+          conversionPct: referrals > 0 ? Number(((completed / referrals) * 100).toFixed(1)) : 0,
+          conversionPaidPct: referrals > 0 ? Number(((paid / referrals) * 100).toFixed(1)) : 0,
+        };
+      }),
+    });
+  } catch (error) {
+    logger.error("Error fetching referrals-by-source:", error);
+    res.status(500).json({ message: "Failed to fetch referrals by source" });
+  }
+});
+
+// Referrals over time, grouped by source. Powers the "Referral sources over
+// time" chart in the dashboard Pipeline tab. Granularity adapts to the
+// range: monthly bins for "all"/year filters, daily for legacy "Nd" so the
+// trend is meaningful at any zoom level.
+router.get('/api/business/:hospitalId/referrals-over-time', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { resolveRange } = await import('./business/rangeUtils');
+    const bounds = resolveRange(req.query.range as string);
+
+    // Monthly bins when the window spans more than ~60 days, daily otherwise.
+    const startMs = Date.parse(bounds.startIso);
+    const endMs = Date.parse(bounds.endIso);
+    const spanDays = Math.max(1, Math.round((endMs - startMs) / 86_400_000));
+    const useMonthly = bounds.isAll || bounds.isYear || spanDays > 60;
+    const truncFn = useMonthly ? sql`to_char(created_at, 'YYYY-MM')` : sql`to_char(created_at, 'YYYY-MM-DD')`;
+
+    const rows = await db.execute<{ period: string; source: string; count: string }>(sql`
+      SELECT ${truncFn} AS period,
+             source,
+             COUNT(*) AS count
+      FROM referral_events
+      WHERE hospital_id = ${hospitalId}
+        AND created_at >= ${bounds.startIso}
+        AND created_at < ${bounds.endIso}
+      GROUP BY ${truncFn}, source
+      ORDER BY ${truncFn}, source
+    `);
+
+    const byPeriod = (rows.rows as any[]).map(r => ({
+      period: r.period as string,
+      source: r.source as string,
+      count: parseInt(r.count || '0', 10),
+    }));
+
+    // Days in window. For "all"/very-wide ranges fall back to the actual data
+    // span (earliest → today) so avg-per-day doesn't get diluted by an
+    // arbitrary 1970-start bound.
+    let avgDays = spanDays;
+    if (bounds.isAll) {
+      const earliest = await db.execute<{ first: string | null; latest: string | null }>(sql`
+        SELECT MIN(created_at)::text AS first, MAX(created_at)::text AS latest
+        FROM referral_events
+        WHERE hospital_id = ${hospitalId}
+      `);
+      const first = (earliest.rows[0] as any)?.first;
+      const latest = (earliest.rows[0] as any)?.latest;
+      if (first && latest) {
+        const fMs = Date.parse(first);
+        const lMs = Date.parse(latest);
+        avgDays = Math.max(1, Math.round((lMs - fMs) / 86_400_000) + 1);
+      }
+    }
+    const total = byPeriod.reduce((sum, r) => sum + r.count, 0);
+    const avgPerDay = avgDays > 0 ? total / avgDays : 0;
+
+    // Prior-window average so the card can show a delta. We use a window of
+    // the same length immediately preceding the current one. Skipped for
+    // "all" — there is no meaningful prior side for an open-ended range.
+    let avgPerDayPrev: number | null = null;
+    if (!bounds.isAll) {
+      const priorEndIso = bounds.startIso;
+      const priorStartMs = startMs - (endMs - startMs);
+      const priorStartIso = new Date(priorStartMs).toISOString();
+      const priorRow = await db.execute<{ total: string }>(sql`
+        SELECT COUNT(*)::text AS total
+        FROM referral_events
+        WHERE hospital_id = ${hospitalId}
+          AND created_at >= ${priorStartIso}
+          AND created_at < ${priorEndIso}
+      `);
+      const priorTotal = parseInt((priorRow.rows[0] as any)?.total || '0', 10);
+      avgPerDayPrev = avgDays > 0 ? priorTotal / avgDays : null;
+    }
+
+    res.json({
+      granularity: useMonthly ? 'month' : 'day',
+      byPeriod,
+      total,
+      totalDays: avgDays,
+      avgPerDay,
+      avgPerDayPrev,
+    });
+  } catch (error) {
+    logger.error("Error fetching referrals-over-time:", error);
+    res.status(500).json({ message: "Failed to fetch referrals over time" });
+  }
+});
+
+// Drill-down: referral events for one source within range.
+router.get('/api/business/:hospitalId/referrals-detail', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const source = (req.query.source as string) || '';
+    if (!source) {
+      return res.status(400).json({ message: "source is required" });
+    }
+    const { resolveRange } = await import('./business/rangeUtils');
+    const bounds = resolveRange(req.query.range as string);
+    const limit = Math.min(parseInt((req.query.limit as string) || '100', 10), 500);
+
+    const rows = await db.execute<{
+      id: string;
+      created_at: string;
+      source_detail: string | null;
+      capture_method: string;
+      patient_first_name: string | null;
+      patient_last_name: string | null;
+      appointment_status: string | null;
+      appointment_final_status: string | null;
+      utm_source: string | null;
+      utm_campaign: string | null;
+    }>(sql`
+      SELECT re.id,
+             re.created_at,
+             re.source_detail,
+             re.capture_method,
+             p.first_name AS patient_first_name,
+             p.last_name  AS patient_last_name,
+             ca.status     AS appointment_status,
+             re.appointment_final_status,
+             re.utm_source,
+             re.utm_campaign
+      FROM referral_events re
+      LEFT JOIN patients p ON p.id = re.patient_id
+      LEFT JOIN clinic_appointments ca ON ca.id = re.appointment_id
+      WHERE re.hospital_id = ${hospitalId}
+        AND re.source = ${source}
+        AND re.created_at >= ${bounds.startIso}
+        AND re.created_at < ${bounds.endIso}
+      ORDER BY re.created_at DESC
+      LIMIT ${limit}
+    `);
+
+    res.json({
+      source,
+      referrals: (rows.rows as any[]).map(r => ({
+        id: r.id as string,
+        createdAt: r.created_at as string,
+        sourceDetail: r.source_detail as string | null,
+        captureMethod: r.capture_method as string,
+        patientName: [r.patient_first_name, r.patient_last_name].filter(Boolean).join(' ') || null,
+        appointmentStatus: (r.appointment_final_status ?? r.appointment_status) as string | null,
+        utmSource: r.utm_source as string | null,
+        utmCampaign: r.utm_campaign as string | null,
+      })),
+    });
+  } catch (error) {
+    logger.error("Error fetching referrals-detail:", error);
+    res.status(500).json({ message: "Failed to fetch referrals detail" });
+  }
+});
+
+// Leads grouped by referral source for the selected range. Used by the
+// /business Pipeline tab in place of the bare "Leads" funnel stage — direct
+// bookings will deflate raw lead counts, so the breakdown is more actionable
+// than the total alone.
+router.get('/api/business/:hospitalId/leads-by-source', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { resolveRange } = await import('./business/rangeUtils');
+    const bounds = resolveRange(req.query.range as string);
+    const rows = await db.execute<{
+      source: string;
+      leads: string;
+      booked: string;
+      first_visit: string;
+    }>(sql`
+      SELECT
+        COALESCE(NULLIF(TRIM(l.source), ''), 'unknown') AS source,
+        COUNT(*) AS leads,
+        COUNT(*) FILTER (WHERE l.appointment_id IS NOT NULL) AS booked,
+        COUNT(*) FILTER (
+          WHERE l.appointment_id IS NOT NULL
+            AND EXISTS (
+              SELECT 1 FROM clinic_appointments ca
+              WHERE ca.id = l.appointment_id
+                AND ca.status IN ('completed', 'confirmed')
+            )
+        ) AS first_visit
+      FROM leads l
+      WHERE l.hospital_id = ${hospitalId}
+        AND l.created_at >= ${bounds.startIso}
+        AND l.created_at < ${bounds.endIso}
+      GROUP BY COALESCE(NULLIF(TRIM(l.source), ''), 'unknown')
+      ORDER BY COUNT(*) DESC
+    `);
+
+    res.json({
+      sources: (rows.rows as any[]).map(r => {
+        const leads = parseInt(r.leads || '0', 10);
+        const booked = parseInt(r.booked || '0', 10);
+        const firstVisit = parseInt(r.first_visit || '0', 10);
+        return {
+          source: r.source as string,
+          leads,
+          booked,
+          firstVisit,
+          conversionPct: leads > 0 ? Number(((firstVisit / leads) * 100).toFixed(1)) : 0,
+        };
+      }),
+    });
+  } catch (error) {
+    logger.error("Error fetching leads-by-source:", error);
+    res.status(500).json({ message: "Failed to fetch leads by source" });
+  }
+});
+
+// Cash-flow by month — "booked" (surgeries scheduled in the month, by
+// planned_date) vs "paid" (surgeries with payment_date in the month). The gap
+// between the two lines is the collection lag, which is invisible elsewhere.
+router.get('/api/business/:hospitalId/cash-flow', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { resolveRange } = await import('./business/rangeUtils');
+    const bounds = resolveRange(req.query.range as string);
+
+    const rows = await db.execute<{ month: string; booked: string; paid: string }>(sql`
+      WITH months AS (
+        SELECT to_char(planned_date, 'YYYY-MM') AS month,
+               COALESCE(SUM(CAST(price AS numeric)), 0) AS booked,
+               0::numeric AS paid
+        FROM surgeries
+        WHERE hospital_id = ${hospitalId}
+          AND is_archived = false
+          AND planned_date IS NOT NULL
+          AND planned_date >= ${bounds.startIso}
+          AND planned_date < ${bounds.endIso}
+        GROUP BY to_char(planned_date, 'YYYY-MM')
+        UNION ALL
+        SELECT to_char(payment_date, 'YYYY-MM') AS month,
+               0::numeric AS booked,
+               COALESCE(SUM(CAST(price AS numeric)), 0) AS paid
+        FROM surgeries
+        WHERE hospital_id = ${hospitalId}
+          AND is_archived = false
+          AND payment_date IS NOT NULL
+          AND payment_date >= ${bounds.startDate}::date
+          AND payment_date < ${bounds.endDate}::date
+        GROUP BY to_char(payment_date, 'YYYY-MM')
+      )
+      SELECT month,
+             SUM(booked)::text AS booked,
+             SUM(paid)::text AS paid
+      FROM months
+      GROUP BY month
+      ORDER BY month
+    `);
+
+    res.json({
+      byMonth: (rows.rows as any[]).map(r => ({
+        month: r.month,
+        booked: parseFloat(r.booked || '0'),
+        paid: parseFloat(r.paid || '0'),
+      })),
+    });
+  } catch (error) {
+    logger.error("Error fetching cash-flow:", error);
+    res.status(500).json({ message: "Failed to fetch cash flow" });
+  }
+});
+
+// Auto-detected anomalies: 2-3 most material deltas between last 30 days and
+// the 30 days before that. Surfaced at the top of the dashboard so the
+// clinic owner doesn't have to hunt for what changed.
+router.get('/api/business/:hospitalId/insights', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+
+    const now = new Date();
+    const start = new Date(now); start.setDate(start.getDate() - 30);
+    const prevEnd = new Date(start);
+    const prevStart = new Date(start); prevStart.setDate(prevStart.getDate() - 30);
+
+    const curStartIso = start.toISOString();
+    const curEndIso = now.toISOString();
+    const prevStartIso = prevStart.toISOString();
+    const prevEndIso = prevEnd.toISOString();
+
+    // Revenue + margin deltas (current vs prior 30d) — reuse the money helpers.
+    const { computeMoneySummary } = await import('./business/moneyHelpers');
+    const [cur, prev] = await Promise.all([
+      computeMoneySummary(hospitalId, '30d'),
+      // For the prior window we use the prior-period margin only — we don't
+      // need byMonth on the prev side, just totals.
+      (async () => {
+        const surgeryRows = await db.execute<{ revenue: string; cost: string }>(sql`
+          SELECT COALESCE(SUM(CAST(s.price AS numeric)), 0) AS revenue, 0::numeric AS cost
+          FROM surgeries s
+          WHERE s.hospital_id = ${hospitalId} AND s.is_archived = false
+            AND s.payment_date IS NOT NULL
+            AND s.payment_date >= ${prevStart.toISOString().slice(0,10)}::date
+            AND s.payment_date < ${start.toISOString().slice(0,10)}::date
+        `);
+        const treatRows = await db.execute<{ revenue: string }>(sql`
+          SELECT COALESCE(SUM(CAST(tl.total AS numeric)), 0) AS revenue
+          FROM treatments t
+          LEFT JOIN treatment_lines tl ON tl.treatment_id = t.id
+          WHERE t.hospital_id = ${hospitalId}
+            AND t.status IN ('signed', 'invoiced')
+            AND t.performed_at >= ${prevStartIso}
+            AND t.performed_at < ${prevEndIso}
+        `);
+        const sr = parseFloat((surgeryRows.rows[0] as any)?.revenue || '0');
+        const tr = parseFloat((treatRows.rows[0] as any)?.revenue || '0');
+        return { revenue: { total: sr + tr } };
+      })(),
+    ]);
+
+    const insights: Array<{ id: string; severity: 'critical' | 'positive' | 'negative' | 'neutral'; message: string }> = [];
+
+    // 1) Revenue delta
+    const revCur = cur.revenue.total;
+    const revPrev = prev.revenue.total;
+    if (revPrev > 0) {
+      const pct = ((revCur - revPrev) / revPrev) * 100;
+      if (Math.abs(pct) >= 10) {
+        insights.push({
+          id: 'revenue',
+          severity: pct >= 0 ? 'positive' : 'negative',
+          message: `Revenue ${pct >= 0 ? 'up' : 'down'} ${Math.abs(pct).toFixed(0)}% vs the prior 30 days`,
+        });
+      }
+    }
+
+    // 2) Margin pp delta — temporarily disabled. With low-volume prior
+    // windows the percent-point swing reads as "+100pp" against essentially
+    // empty baselines, which makes the dashboard load with a noisy card.
+    // Re-enable once the volume floor is raised or the calc is gated on a
+    // minimum prior-period cost+revenue.
+
+    // 3) Top surgeon caseload swing
+    const surgeonRows = await db.execute<{
+      surgeon_id: string;
+      first_name: string | null;
+      last_name: string | null;
+      cur_cnt: string;
+      prev_cnt: string;
+    }>(sql`
+      SELECT s.surgeon_id,
+             u.first_name,
+             u.last_name,
+             COUNT(*) FILTER (WHERE s.payment_date >= ${start.toISOString().slice(0,10)}::date AND s.payment_date < ${now.toISOString().slice(0,10)}::date) AS cur_cnt,
+             COUNT(*) FILTER (WHERE s.payment_date >= ${prevStart.toISOString().slice(0,10)}::date AND s.payment_date < ${start.toISOString().slice(0,10)}::date) AS prev_cnt
+      FROM surgeries s
+      LEFT JOIN users u ON u.id = s.surgeon_id
+      WHERE s.hospital_id = ${hospitalId}
+        AND s.is_archived = false
+        AND s.surgeon_id IS NOT NULL
+        AND s.payment_date IS NOT NULL
+        AND s.payment_date >= ${prevStart.toISOString().slice(0,10)}::date
+        AND s.payment_date < ${now.toISOString().slice(0,10)}::date
+      GROUP BY s.surgeon_id, u.first_name, u.last_name
+    `);
+    let topSurgeonSwing: { name: string; cur: number; prev: number; pct: number } | null = null;
+    for (const r of surgeonRows.rows as any[]) {
+      const cur_cnt = parseInt(r.cur_cnt || '0', 10);
+      const prev_cnt = parseInt(r.prev_cnt || '0', 10);
+      if (prev_cnt < 3) continue; // ignore noise from low-volume providers
+      const pct = ((cur_cnt - prev_cnt) / prev_cnt) * 100;
+      if (Math.abs(pct) < 25) continue;
+      const name = [r.first_name, r.last_name].filter(Boolean).join(' ') || 'A surgeon';
+      if (!topSurgeonSwing || Math.abs(pct) > Math.abs(topSurgeonSwing.pct)) {
+        topSurgeonSwing = { name, cur: cur_cnt, prev: prev_cnt, pct };
+      }
+    }
+    if (topSurgeonSwing) {
+      insights.push({
+        id: 'surgeon',
+        severity: topSurgeonSwing.pct >= 0 ? 'positive' : 'negative',
+        message: `${topSurgeonSwing.name}'s caseload ${topSurgeonSwing.pct >= 0 ? 'up' : 'down'} ${Math.abs(topSurgeonSwing.pct).toFixed(0)}% (${topSurgeonSwing.cur} vs ${topSurgeonSwing.prev})`,
+      });
+    }
+
+    // Critical alerts: getting appointments is the user's #1 priority right
+    // now. Any meaningful decline in incoming referrals OR booked
+    // appointments needs to surface at the top of the panel, even with
+    // small absolute numbers.
+
+    // Total referrals delta — anything ≥10% drop fires as critical.
+    const refTotalsRow = await db.execute<{ cur_cnt: string; prev_cnt: string }>(sql`
+      SELECT
+        COUNT(*) FILTER (WHERE created_at >= ${curStartIso} AND created_at < ${curEndIso}) AS cur_cnt,
+        COUNT(*) FILTER (WHERE created_at >= ${prevStartIso} AND created_at < ${prevEndIso}) AS prev_cnt
+      FROM referral_events
+      WHERE hospital_id = ${hospitalId}
+        AND created_at >= ${prevStartIso}
+        AND created_at < ${curEndIso}
+    `);
+    const refCur = parseInt((refTotalsRow.rows[0] as any)?.cur_cnt || '0', 10);
+    const refPrev = parseInt((refTotalsRow.rows[0] as any)?.prev_cnt || '0', 10);
+    if (refPrev >= 3) {
+      const refPct = ((refCur - refPrev) / refPrev) * 100;
+      if (refPct <= -10) {
+        insights.push({
+          id: 'referrals-total',
+          severity: 'critical',
+          message: `Total referrals down ${Math.abs(refPct).toFixed(0)}% vs prior 30 days (${refCur} vs ${refPrev}) — getting new bookings is suffering`,
+        });
+      } else if (refPct >= 25) {
+        insights.push({
+          id: 'referrals-total',
+          severity: 'positive',
+          message: `Total referrals up ${refPct.toFixed(0)}% vs prior 30 days (${refCur} vs ${refPrev})`,
+        });
+      }
+    }
+
+    // Appointment count delta — count newly created appointments in each
+    // window (created_at as proxy for "scheduling activity"). A flat or
+    // dropping pipeline of NEW appointments is the leading indicator of
+    // future revenue.
+    const apptRow = await db.execute<{ cur_cnt: string; prev_cnt: string }>(sql`
+      SELECT
+        COUNT(*) FILTER (WHERE created_at >= ${curStartIso} AND created_at < ${curEndIso}) AS cur_cnt,
+        COUNT(*) FILTER (WHERE created_at >= ${prevStartIso} AND created_at < ${prevEndIso}) AS prev_cnt
+      FROM clinic_appointments
+      WHERE hospital_id = ${hospitalId}
+        AND created_at >= ${prevStartIso}
+        AND created_at < ${curEndIso}
+    `);
+    const apptCur = parseInt((apptRow.rows[0] as any)?.cur_cnt || '0', 10);
+    const apptPrev = parseInt((apptRow.rows[0] as any)?.prev_cnt || '0', 10);
+    if (apptPrev >= 3) {
+      const apptPct = ((apptCur - apptPrev) / apptPrev) * 100;
+      if (apptPct <= -10) {
+        insights.push({
+          id: 'appointments-total',
+          severity: 'critical',
+          message: `New appointments down ${Math.abs(apptPct).toFixed(0)}% vs prior 30 days (${apptCur} vs ${apptPrev}) — booking volume is sliding`,
+        });
+      } else if (apptPct >= 25) {
+        insights.push({
+          id: 'appointments-total',
+          severity: 'positive',
+          message: `New appointments up ${apptPct.toFixed(0)}% vs prior 30 days (${apptCur} vs ${apptPrev})`,
+        });
+      }
+    }
+
+    // 4) Top referral-source swing. We deliberately read referral_events
+    // here (not leads) — leads have become low-signal as ad-form traffic
+    // dropped in conversion; referral_events captures actual bookings
+    // attributed to a source, which is what the user steers on.
+    const sourceRows = await db.execute<{
+      source: string;
+      cur_cnt: string;
+      prev_cnt: string;
+    }>(sql`
+      SELECT source,
+             COUNT(*) FILTER (WHERE created_at >= ${curStartIso} AND created_at < ${curEndIso}) AS cur_cnt,
+             COUNT(*) FILTER (WHERE created_at >= ${prevStartIso} AND created_at < ${prevEndIso}) AS prev_cnt
+      FROM referral_events
+      WHERE hospital_id = ${hospitalId}
+        AND created_at >= ${prevStartIso}
+        AND created_at < ${curEndIso}
+      GROUP BY source
+    `);
+    let topSourceSwing: { source: string; cur: number; prev: number; pct: number } | null = null;
+    for (const r of sourceRows.rows as any[]) {
+      const cur_cnt = parseInt(r.cur_cnt || '0', 10);
+      const prev_cnt = parseInt(r.prev_cnt || '0', 10);
+      if (prev_cnt < 5) continue;
+      const pct = ((cur_cnt - prev_cnt) / prev_cnt) * 100;
+      if (Math.abs(pct) < 25) continue;
+      if (!topSourceSwing || Math.abs(pct) > Math.abs(topSourceSwing.pct)) {
+        topSourceSwing = { source: r.source, cur: cur_cnt, prev: prev_cnt, pct };
+      }
+    }
+    if (topSourceSwing) {
+      insights.push({
+        id: 'referrals',
+        severity: topSourceSwing.pct >= 0 ? 'positive' : 'negative',
+        message: `Referrals from ${topSourceSwing.source} ${topSourceSwing.pct >= 0 ? 'up' : 'down'} ${Math.abs(topSourceSwing.pct).toFixed(0)}% (${topSourceSwing.cur} vs ${topSourceSwing.prev})`,
+      });
+    }
+
+    // Show at most 4. Sort: critical first (always shown), then negative,
+    // then positive, then neutral. Critical alerts are the user's main
+    // signal that the booking pipeline is in trouble — never drop them.
+    const sevOrder: Record<string, number> = { critical: 0, negative: 1, positive: 2, neutral: 3 };
+    const ordered = insights
+      .sort((a, b) => sevOrder[a.severity] - sevOrder[b.severity])
+      .slice(0, 4);
+
+    res.json({ insights: ordered });
+  } catch (error) {
+    logger.error("Error computing insights:", error);
+    res.status(500).json({ message: "Failed to compute insights" });
+  }
+});
+
+// Inventory value broken down by unit. The /business dashboard inventory
+// card uses this in place of the older "items below threshold" view —
+// per-unit value is the business-relevant cut (re-introducing the layout
+// that existed before the 2026-Q1 dashboard rewrite).
+router.get('/api/business/:hospitalId/inventory-by-unit', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const rows = await db.execute<{
+      unit_id: string;
+      unit_name: string | null;
+      unit_type: string | null;
+      total_value: string;
+      item_count: string;
+      snapshot_date: string;
+    }>(sql`
+      WITH latest AS (
+        SELECT unit_id, MAX(snapshot_date) AS snapshot_date
+        FROM inventory_snapshots
+        WHERE hospital_id = ${hospitalId}
+        GROUP BY unit_id
+      )
+      SELECT inv.unit_id,
+             u.name  AS unit_name,
+             u.type  AS unit_type,
+             inv.total_value::text  AS total_value,
+             inv.item_count::text   AS item_count,
+             inv.snapshot_date::text AS snapshot_date
+      FROM inventory_snapshots inv
+      JOIN latest l ON l.unit_id = inv.unit_id AND l.snapshot_date = inv.snapshot_date
+      LEFT JOIN units u ON u.id = inv.unit_id
+      WHERE inv.hospital_id = ${hospitalId}
+      ORDER BY CAST(inv.total_value AS numeric) DESC NULLS LAST
+    `);
+
+    const units = (rows.rows as any[]).map(r => ({
+      unitId: r.unit_id as string,
+      unitName: (r.unit_name as string | null) ?? 'Unknown unit',
+      unitType: (r.unit_type as string | null) ?? null,
+      totalValue: parseFloat(r.total_value ?? '0'),
+      itemCount: parseInt(r.item_count ?? '0', 10),
+      snapshotDate: r.snapshot_date as string,
+    }));
+    const totalValue = units.reduce((sum, u) => sum + u.totalValue, 0);
+    res.json({ totalValue, units });
+  } catch (error) {
+    logger.error("Error fetching inventory-by-unit:", error);
+    res.status(500).json({ message: "Failed to fetch inventory by unit" });
+  }
+});
+
+// Per-item breakdown for one inventory unit — powers the drill-down popup
+// from the inventory card.
+router.get('/api/business/:hospitalId/inventory-unit-detail', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const unitId = (req.query.unitId as string) || '';
+    if (!unitId) return res.status(400).json({ message: "unitId is required" });
+    const limit = Math.min(parseInt((req.query.limit as string) || '200', 10), 1000);
+
+    const rows = await db.execute<{
+      id: string;
+      name: string;
+      qty: string;
+      unit_price: string | null;
+      total_value: string;
+    }>(sql`
+      WITH stock AS (
+        SELECT item_id, COALESCE(SUM(qty_on_hand), 0) AS qty
+        FROM stock_levels
+        WHERE unit_id = ${unitId}
+        GROUP BY item_id
+      ),
+      best_price AS (
+        SELECT DISTINCT ON (item_id) item_id, CAST(basispreis AS numeric) AS unit_price
+        FROM supplier_codes
+        ORDER BY item_id, is_preferred DESC, basispreis ASC NULLS LAST
+      )
+      SELECT i.id,
+             i.name,
+             COALESCE(s.qty, 0)::text AS qty,
+             bp.unit_price::text       AS unit_price,
+             (COALESCE(s.qty, 0) * COALESCE(bp.unit_price, 0) / GREATEST(COALESCE(i.pack_size, 1), 1))::text AS total_value
+      FROM items i
+      LEFT JOIN stock s ON s.item_id = i.id
+      LEFT JOIN best_price bp ON bp.item_id = i.id
+      WHERE i.hospital_id = ${hospitalId}
+        AND i.unit_id = ${unitId}
+        AND i.status = 'active'
+        AND COALESCE(i.is_service, false) = false
+      ORDER BY (COALESCE(s.qty, 0) * COALESCE(bp.unit_price, 0)) DESC NULLS LAST, i.name
+      LIMIT ${limit}
+    `);
+
+    res.json({
+      unitId,
+      items: (rows.rows as any[]).map(r => ({
+        id: r.id as string,
+        name: r.name as string,
+        qty: parseInt(r.qty ?? '0', 10),
+        unitPrice: r.unit_price == null ? null : parseFloat(r.unit_price),
+        totalValue: parseFloat(r.total_value ?? '0'),
+      })),
+    });
+  } catch (error) {
+    logger.error("Error fetching inventory-unit-detail:", error);
+    res.status(500).json({ message: "Failed to fetch inventory unit detail" });
+  }
+});
+
+// Promoted inventory card data — current value, low-stock count, and a sample
+// list of items below their min_threshold so the user knows what's running out.
+router.get('/api/business/:hospitalId/inventory-summary', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+
+    const totalsRow = await db.execute<{ total_value: string }>(sql`
+      SELECT COALESCE(SUM(CAST(total_value AS numeric)), 0)::text AS total_value
+      FROM inventory_snapshots
+      WHERE hospital_id = ${hospitalId}
+        AND snapshot_date = (
+          SELECT MAX(snapshot_date) FROM inventory_snapshots WHERE hospital_id = ${hospitalId}
+        )
+    `);
+    const totalValue = parseFloat((totalsRow.rows[0] as any)?.total_value || '0');
+
+    const lowRows = await db.execute<{
+      id: string;
+      name: string;
+      qty_on_hand: string;
+      min_threshold: string;
+    }>(sql`
+      SELECT i.id,
+             i.name,
+             COALESCE(SUM(sl.qty_on_hand), 0)::text AS qty_on_hand,
+             COALESCE(i.min_threshold, 0)::text AS min_threshold
+      FROM items i
+      LEFT JOIN stock_levels sl ON sl.item_id = i.id
+      WHERE i.hospital_id = ${hospitalId}
+        AND i.status = 'active'
+        AND COALESCE(i.is_service, false) = false
+        AND i.min_threshold IS NOT NULL
+        AND i.min_threshold > 0
+      GROUP BY i.id, i.name, i.min_threshold
+      HAVING COALESCE(SUM(sl.qty_on_hand), 0) <= COALESCE(i.min_threshold, 0)
+      ORDER BY (COALESCE(SUM(sl.qty_on_hand), 0)::float / NULLIF(i.min_threshold, 0)::float) ASC NULLS FIRST,
+               i.name ASC
+      LIMIT 10
+    `);
+
+    const lowStockItems = (lowRows.rows as any[]).map(r => ({
+      id: r.id as string,
+      name: r.name as string,
+      qtyOnHand: parseInt(r.qty_on_hand || '0', 10),
+      minThreshold: parseInt(r.min_threshold || '0', 10),
+    }));
+
+    const countRow = await db.execute<{ low_count: string }>(sql`
+      SELECT COUNT(*)::text AS low_count
+      FROM (
+        SELECT i.id
+        FROM items i
+        LEFT JOIN stock_levels sl ON sl.item_id = i.id
+        WHERE i.hospital_id = ${hospitalId}
+          AND i.status = 'active'
+          AND COALESCE(i.is_service, false) = false
+          AND i.min_threshold IS NOT NULL
+          AND i.min_threshold > 0
+        GROUP BY i.id, i.min_threshold
+        HAVING COALESCE(SUM(sl.qty_on_hand), 0) <= COALESCE(i.min_threshold, 0)
+      ) sub
+    `);
+    const lowStockCount = parseInt((countRow.rows[0] as any)?.low_count || '0', 10);
+
+    res.json({
+      totalValue,
+      lowStockCount,
+      lowStockItems,
+    });
+  } catch (error) {
+    logger.error("Error fetching inventory summary:", error);
+    res.status(500).json({ message: "Failed to fetch inventory summary" });
+  }
+});
+
+// Drill-down: list of surgeries paid in a specific month, for the trend
+// chart click-through. Limit + offset for paging.
+router.get('/api/business/:hospitalId/surgeries-in-month', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const month = (req.query.month as string) || '';
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      return res.status(400).json({ message: "month must be YYYY-MM" });
+    }
+    const limit = Math.min(parseInt((req.query.limit as string) || '50', 10), 200);
+    const [y, m] = month.split('-').map((n) => parseInt(n, 10));
+    const startDate = `${month}-01`;
+    const endDate = `${m === 12 ? y + 1 : y}-${String((m % 12) + 1).padStart(2, '0')}-01`;
+
+    const rows = await db.execute<{
+      id: string;
+      planned_surgery: string | null;
+      payment_date: string;
+      price: string | null;
+      surgeon_first_name: string | null;
+      surgeon_last_name: string | null;
+      patient_first_name: string | null;
+      patient_last_name: string | null;
+    }>(sql`
+      SELECT s.id,
+             s.planned_surgery,
+             s.payment_date,
+             s.price,
+             us.first_name AS surgeon_first_name,
+             us.last_name  AS surgeon_last_name,
+             p.first_name  AS patient_first_name,
+             p.last_name   AS patient_last_name
+      FROM surgeries s
+      LEFT JOIN users us ON us.id = s.surgeon_id
+      LEFT JOIN patients p ON p.id = s.patient_id
+      WHERE s.hospital_id = ${hospitalId}
+        AND s.is_archived = false
+        AND s.payment_date IS NOT NULL
+        AND s.payment_date >= ${startDate}::date
+        AND s.payment_date < ${endDate}::date
+      ORDER BY s.payment_date DESC, s.id
+      LIMIT ${limit}
+    `);
+
+    res.json({
+      month,
+      surgeries: (rows.rows as any[]).map(r => ({
+        id: r.id as string,
+        plannedSurgery: r.planned_surgery as string | null,
+        paymentDate: r.payment_date as string,
+        price: parseFloat(r.price ?? '0'),
+        surgeonName: [r.surgeon_first_name, r.surgeon_last_name].filter(Boolean).join(' ') || null,
+        patientName: [r.patient_first_name, r.patient_last_name].filter(Boolean).join(' ') || null,
+      })),
+    });
+  } catch (error) {
+    logger.error("Error fetching surgeries-in-month:", error);
+    res.status(500).json({ message: "Failed to fetch surgeries in month" });
+  }
+});
+
+// Drill-down: leads detail for a specific source within the dashboard range.
+router.get('/api/business/:hospitalId/leads-detail', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const source = (req.query.source as string) || '';
+    if (!source) {
+      return res.status(400).json({ message: "source is required" });
+    }
+    const { resolveRange } = await import('./business/rangeUtils');
+    const bounds = resolveRange(req.query.range as string);
+    const limit = Math.min(parseInt((req.query.limit as string) || '100', 10), 500);
+
+    const rows = await db.execute<{
+      id: string;
+      first_name: string;
+      last_name: string;
+      email: string | null;
+      phone: string | null;
+      operation: string | null;
+      status: string;
+      created_at: string;
+      appointment_id: string | null;
+      appointment_status: string | null;
+    }>(sql`
+      SELECT l.id,
+             l.first_name,
+             l.last_name,
+             l.email,
+             l.phone,
+             l.operation,
+             l.status,
+             l.created_at,
+             l.appointment_id,
+             ca.status AS appointment_status
+      FROM leads l
+      LEFT JOIN clinic_appointments ca ON ca.id = l.appointment_id
+      WHERE l.hospital_id = ${hospitalId}
+        AND COALESCE(NULLIF(TRIM(l.source), ''), 'unknown') = ${source}
+        AND l.created_at >= ${bounds.startIso}
+        AND l.created_at < ${bounds.endIso}
+      ORDER BY l.created_at DESC
+      LIMIT ${limit}
+    `);
+
+    res.json({
+      source,
+      leads: (rows.rows as any[]).map(r => ({
+        id: r.id as string,
+        firstName: r.first_name as string,
+        lastName: r.last_name as string,
+        email: r.email as string | null,
+        phone: r.phone as string | null,
+        operation: r.operation as string | null,
+        status: r.status as string,
+        createdAt: r.created_at as string,
+        appointmentId: r.appointment_id as string | null,
+        appointmentStatus: r.appointment_status as string | null,
+      })),
+    });
+  } catch (error) {
+    logger.error("Error fetching leads-detail:", error);
+    res.status(500).json({ message: "Failed to fetch leads detail" });
   }
 });
 

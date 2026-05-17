@@ -1,26 +1,50 @@
 import { db } from "../../db";
 import { sql } from "drizzle-orm";
+import { resolveRange } from "./rangeUtils";
+
+export interface MoneyMonthlyPoint {
+  month: string;          // YYYY-MM
+  revenue: number;
+  revenueSurgery: number; // mix component — surgery revenue only
+  revenueTreatment: number; // mix component — treatment revenue only
+  staffCost: number;
+  materialsCost: number;
+  cost: number;           // staffCost + materialsCost
+  margin: number;         // revenue - cost
+}
+
+// Prior-year overlay points are keyed by month-of-year ("01" .. "12") so the
+// chart can overlay them on the current year's months regardless of the prior
+// year's actual months present.
+export interface MoneyPriorPoint {
+  monthOfYear: string;    // 01..12
+  monthLabel: string;     // YYYY-MM of the prior data point (for tooltip)
+  revenue: number;
+  cost: number;
+  margin: number;
+}
 
 export interface MoneySummary {
   revenue: { surgery: number; treatment: number; total: number };
   cost:    { staff: number; materials: number; total: number };
   margin:  { value: number; percent: number; deltaPp_vs_prev: number };
-  byDay:   Array<{ date: string; revenue: number; staffCost: number; materialsCost: number }>;
-}
-
-function rangeToDays(range: string): number {
-  return parseInt(range.replace("d", ""), 10) || 30;
+  byMonth: MoneyMonthlyPoint[];
+  byMonthPrev?: MoneyPriorPoint[];   // Only populated when range is a year — used for YoY overlay
 }
 
 interface SurgeryAgg {
   revenue: number;
   staffCost: number;
   materialsCost: number;
-  byDay: Map<string, { revenue: number; staffCost: number; materialsCost: number }>;
+  byMonth: Map<string, { revenue: number; staffCost: number; materialsCost: number }>;
 }
 
-async function aggregateSurgeries(hospitalId: string, startIso: string, endIso?: string): Promise<SurgeryAgg> {
-  const upperBound = endIso ? sql`AND s.payment_date < ${endIso}::date` : sql``;
+function monthKey(dateLike: string | Date): string {
+  if (typeof dateLike === "string") return dateLike.slice(0, 7);
+  return dateLike.toISOString().slice(0, 7);
+}
+
+async function aggregateSurgeries(hospitalId: string, startIso: string, endIso: string): Promise<SurgeryAgg> {
   const rows = await db.execute<{
     payment_date: string;
     price: string | null;
@@ -84,25 +108,23 @@ async function aggregateSurgeries(hospitalId: string, startIso: string, endIso?:
       AND s.is_archived = false
       AND s.payment_date IS NOT NULL
       AND s.payment_date >= ${startIso}::date
-      ${upperBound}
+      AND s.payment_date < ${endIso}::date
   `);
 
-  const agg: SurgeryAgg = { revenue: 0, staffCost: 0, materialsCost: 0, byDay: new Map() };
+  const agg: SurgeryAgg = { revenue: 0, staffCost: 0, materialsCost: 0, byMonth: new Map() };
   for (const r of rows.rows as any[]) {
-    const date = typeof r.payment_date === "string"
-      ? r.payment_date.slice(0, 10)
-      : new Date(r.payment_date).toISOString().slice(0, 10);
+    const monthBucket = monthKey(r.payment_date);
     const revenue = parseFloat(r.price ?? "0");
     const staffCost = parseFloat(r.staff_cost ?? "0");
     const materialsCost = parseFloat(r.materials_cost ?? "0");
     agg.revenue += revenue;
     agg.staffCost += staffCost;
     agg.materialsCost += materialsCost;
-    const cur = agg.byDay.get(date) ?? { revenue: 0, staffCost: 0, materialsCost: 0 };
+    const cur = agg.byMonth.get(monthBucket) ?? { revenue: 0, staffCost: 0, materialsCost: 0 };
     cur.revenue += revenue;
     cur.staffCost += staffCost;
     cur.materialsCost += materialsCost;
-    agg.byDay.set(date, cur);
+    agg.byMonth.set(monthBucket, cur);
   }
   return agg;
 }
@@ -111,19 +133,10 @@ interface TreatmentAgg {
   revenue: number;
   staffCost: number;
   materialsCost: number;
-  byDay: Map<string, { revenue: number; staffCost: number; materialsCost: number }>;
+  byMonth: Map<string, { revenue: number; staffCost: number; materialsCost: number }>;
 }
 
-async function aggregateTreatments(hospitalId: string, startIso: string, endIso?: string): Promise<TreatmentAgg> {
-  // Per spec:
-  //   - Cost is attributed only when revenue is counted (status IN signed/invoiced).
-  //   - Staff cost: users.hourly_rate × duration_minutes/60.
-  //     Duration: clinic_appointments.duration_minutes when appointment_id is set,
-  //     fallback 30 min flat otherwise.
-  //   - Materials cost: SUM over treatment_lines with item_id set of
-  //     total × (preferred_supplier_basispreis / item.patient_price), when both are positive.
-  //     Items missing either price contribute 0 cost.
-  const upperBound = endIso ? sql`AND t.performed_at < ${endIso}` : sql``;
+async function aggregateTreatments(hospitalId: string, startIso: string, endIso: string): Promise<TreatmentAgg> {
   const rows = await db.execute<{
     performed_at: string;
     treatment_revenue: string;
@@ -142,7 +155,7 @@ async function aggregateTreatments(hospitalId: string, startIso: string, endIso?
       WHERE t.hospital_id = ${hospitalId}
         AND t.status IN ('signed', 'invoiced')
         AND t.performed_at >= ${startIso}
-        ${upperBound}
+        AND t.performed_at < ${endIso}
       GROUP BY t.id
     ),
     t_materials AS (
@@ -193,20 +206,20 @@ async function aggregateTreatments(hospitalId: string, startIso: string, endIso?
     LEFT JOIN t_materials tm ON tm.treatment_id = tr.id
   `);
 
-  const agg: TreatmentAgg = { revenue: 0, staffCost: 0, materialsCost: 0, byDay: new Map() };
+  const agg: TreatmentAgg = { revenue: 0, staffCost: 0, materialsCost: 0, byMonth: new Map() };
   for (const r of rows.rows as any[]) {
-    const date = new Date(r.performed_at).toISOString().slice(0, 10);
+    const monthBucket = monthKey(new Date(r.performed_at));
     const revenue = parseFloat(r.treatment_revenue ?? "0");
     const staffCost = parseFloat(r.staff_cost ?? "0");
     const materialsCost = parseFloat(r.materials_cost ?? "0");
     agg.revenue += revenue;
     agg.staffCost += staffCost;
     agg.materialsCost += materialsCost;
-    const cur = agg.byDay.get(date) ?? { revenue: 0, staffCost: 0, materialsCost: 0 };
+    const cur = agg.byMonth.get(monthBucket) ?? { revenue: 0, staffCost: 0, materialsCost: 0 };
     cur.revenue += revenue;
     cur.staffCost += staffCost;
     cur.materialsCost += materialsCost;
-    agg.byDay.set(date, cur);
+    agg.byMonth.set(monthBucket, cur);
   }
   return agg;
 }
@@ -224,34 +237,63 @@ async function aggregateForWindow(
   };
 }
 
+// Prior-period margin %. For year mode, this is the previous calendar year.
+// For legacy "Nd" mode, it's the N days immediately before the current window.
+// For "all" there is no meaningful prior — returns 0.
 export async function computePriorMarginPercent(
   hospitalId: string,
   range: string,
 ): Promise<number> {
-  const days = rangeToDays(range);
-  const priorEnd = new Date();
-  priorEnd.setDate(priorEnd.getDate() - days);
-  const priorStart = new Date(priorEnd);
-  priorStart.setDate(priorStart.getDate() - days);
+  const bounds = resolveRange(range);
+  if (!bounds.priorStartIso || !bounds.priorEndIso) return 0;
   const { revenue, cost } = await aggregateForWindow(
     hospitalId,
-    priorStart.toISOString(),
-    priorEnd.toISOString(),
+    bounds.priorStartIso,
+    bounds.priorEndIso,
   );
   if (revenue <= 0) return 0;
   return (revenue - cost) / revenue;
 }
 
-export async function computeMoneySummary(hospitalId: string, range: string): Promise<MoneySummary> {
-  const days = rangeToDays(range);
-  const start = new Date();
-  start.setDate(start.getDate() - days);
-  const startIso = start.toISOString();
+async function buildPriorYearOverlay(hospitalId: string, year: number): Promise<MoneyPriorPoint[]> {
+  const startIso = new Date(Date.UTC(year - 1, 0, 1)).toISOString();
+  const endIso = new Date(Date.UTC(year, 0, 1)).toISOString();
+  const [surgery, treatment] = await Promise.all([
+    aggregateSurgeries(hospitalId, startIso, endIso),
+    aggregateTreatments(hospitalId, startIso, endIso),
+  ]);
+  const merged = new Map<string, { revenue: number; staffCost: number; materialsCost: number }>();
+  for (const [m, v] of surgery.byMonth) merged.set(m, { ...v });
+  for (const [m, v] of treatment.byMonth) {
+    const cur = merged.get(m) ?? { revenue: 0, staffCost: 0, materialsCost: 0 };
+    merged.set(m, {
+      revenue: cur.revenue + v.revenue,
+      staffCost: cur.staffCost + v.staffCost,
+      materialsCost: cur.materialsCost + v.materialsCost,
+    });
+  }
+  return Array.from(merged.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([monthLabel, v]) => {
+      const cost = v.staffCost + v.materialsCost;
+      return {
+        monthOfYear: monthLabel.slice(5, 7),
+        monthLabel,
+        revenue: v.revenue,
+        cost,
+        margin: v.revenue - cost,
+      };
+    });
+}
 
-  const [surgery, treatment, priorMarginPercent] = await Promise.all([
-    aggregateSurgeries(hospitalId, startIso),
-    aggregateTreatments(hospitalId, startIso),
+export async function computeMoneySummary(hospitalId: string, range: string): Promise<MoneySummary> {
+  const bounds = resolveRange(range);
+
+  const [surgery, treatment, priorMarginPercent, byMonthPrev] = await Promise.all([
+    aggregateSurgeries(hospitalId, bounds.startIso, bounds.endIso),
+    aggregateTreatments(hospitalId, bounds.startIso, bounds.endIso),
     computePriorMarginPercent(hospitalId, range),
+    bounds.isYear && bounds.year ? buildPriorYearOverlay(hospitalId, bounds.year) : Promise.resolve(undefined),
   ]);
 
   const totalRevenue = surgery.revenue + treatment.revenue;
@@ -260,28 +302,52 @@ export async function computeMoneySummary(hospitalId: string, range: string): Pr
   const totalCost = totalStaff + totalMaterials;
   const marginValue = totalRevenue - totalCost;
   const marginPercent = totalRevenue > 0 ? marginValue / totalRevenue : 0;
-  const deltaPp_vs_prev = (marginPercent - priorMarginPercent) * 100;
+  const deltaPp_vs_prev = bounds.isAll ? 0 : (marginPercent - priorMarginPercent) * 100;
 
-  // Merge surgery + treatment byDay maps.
-  const merged = new Map<string, { revenue: number; staffCost: number; materialsCost: number }>();
-  for (const [date, v] of surgery.byDay) merged.set(date, { ...v });
-  for (const [date, v] of treatment.byDay) {
-    const cur = merged.get(date) ?? { revenue: 0, staffCost: 0, materialsCost: 0 };
-    merged.set(date, {
+  // Merge surgery + treatment byMonth maps, preserving the mix split so the
+  // revenue-mix card can render surgery vs treatment without another query.
+  const merged = new Map<string, { revenue: number; revenueSurgery: number; revenueTreatment: number; staffCost: number; materialsCost: number }>();
+  for (const [m, v] of surgery.byMonth) {
+    merged.set(m, {
+      revenue: v.revenue,
+      revenueSurgery: v.revenue,
+      revenueTreatment: 0,
+      staffCost: v.staffCost,
+      materialsCost: v.materialsCost,
+    });
+  }
+  for (const [m, v] of treatment.byMonth) {
+    const cur = merged.get(m) ?? { revenue: 0, revenueSurgery: 0, revenueTreatment: 0, staffCost: 0, materialsCost: 0 };
+    merged.set(m, {
       revenue: cur.revenue + v.revenue,
+      revenueSurgery: cur.revenueSurgery,
+      revenueTreatment: cur.revenueTreatment + v.revenue,
       staffCost: cur.staffCost + v.staffCost,
       materialsCost: cur.materialsCost + v.materialsCost,
     });
   }
 
-  const byDay = Array.from(merged.entries())
+  const byMonth: MoneyMonthlyPoint[] = Array.from(merged.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, v]) => ({ date, ...v }));
+    .map(([month, v]) => {
+      const cost = v.staffCost + v.materialsCost;
+      return {
+        month,
+        revenue: v.revenue,
+        revenueSurgery: v.revenueSurgery,
+        revenueTreatment: v.revenueTreatment,
+        staffCost: v.staffCost,
+        materialsCost: v.materialsCost,
+        cost,
+        margin: v.revenue - cost,
+      };
+    });
 
   return {
     revenue: { surgery: surgery.revenue, treatment: treatment.revenue, total: totalRevenue },
     cost:    { staff: totalStaff, materials: totalMaterials, total: totalCost },
     margin:  { value: marginValue, percent: marginPercent, deltaPp_vs_prev },
-    byDay,
+    byMonth,
+    byMonthPrev,
   };
 }

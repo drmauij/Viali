@@ -10,22 +10,24 @@ export interface TopProcedureRow {
   marginPercent: number;
 }
 
+// Top procedures table is intentionally NOT scoped to the dashboard range
+// filter — we always show the all-time, past-only picture so the "what makes
+// us money" answer doesn't keep flipping as the user changes the year picker.
+//
+// Filters:
+//   - payment_date is in the past (no future-paid surgeries)
+//   - total cost across instances > 0 (zero-cost rows are noise from
+//     surgeries that never had staff/material commits recorded)
 export async function computeTopProceduresByMargin(
   hospitalId: string,
-  range: string,
+  _range: string,
   limit: number,
 ): Promise<TopProcedureRow[]> {
-  const days = parseInt(range.replace("d", ""), 10) || 30;
-  const start = new Date();
-  start.setDate(start.getDate() - days);
-  const startIso = start.toISOString();
-
   const rows = await db.execute<{
     procedure: string;
     count: string;
     revenue: string;
-    staff_cost: string;
-    materials_cost: string;
+    cost: string;
   }>(sql`
     WITH staff AS (
       SELECT
@@ -85,7 +87,7 @@ export async function computeTopProceduresByMargin(
       WHERE s.hospital_id = ${hospitalId}
         AND s.is_archived = false
         AND s.payment_date IS NOT NULL
-        AND s.payment_date >= ${startIso}::date
+        AND s.payment_date <= CURRENT_DATE
         AND s.planned_surgery IS NOT NULL
         AND TRIM(s.planned_surgery) <> ''
     ),
@@ -100,18 +102,18 @@ export async function computeTopProceduresByMargin(
       cl.procedure,
       COUNT(*)::text AS count,
       SUM(br.revenue)::text AS revenue,
-      SUM(br.staff_cost + br.materials_cost)::text AS staff_cost,
-      '0'::text AS materials_cost
+      SUM(br.staff_cost + br.materials_cost)::text AS cost
     FROM base_rows br
     JOIN chosen_label cl ON cl.procedure_key = br.procedure_key
     GROUP BY br.procedure_key, cl.procedure
+    HAVING SUM(br.staff_cost + br.materials_cost) > 0
     ORDER BY (SUM(br.revenue) - SUM(br.staff_cost + br.materials_cost)) DESC
     LIMIT ${limit}
   `);
 
   return (rows.rows as any[]).map((r) => {
     const revenue = parseFloat(r.revenue ?? "0");
-    const cost = parseFloat(r.staff_cost ?? "0");
+    const cost = parseFloat(r.cost ?? "0");
     const margin = revenue - cost;
     const marginPercent = revenue > 0 ? margin / revenue : 0;
     return {

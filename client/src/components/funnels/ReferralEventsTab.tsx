@@ -667,17 +667,19 @@ export default function ReferralEventsTab({ scope, from, to }: Props) {
             )}
 
             <Tabs defaultValue="sources" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="sources">
-                  {t("business.referrals.sourceBreakdown")}
-                </TabsTrigger>
-                <TabsTrigger value="overTime">
-                  {t("business.referrals.progressOverTime")}
-                </TabsTrigger>
-                <TabsTrigger value="weekday">
-                  {t("business.referrals.weekdayPeaks", "Weekday peaks")}
-                </TabsTrigger>
-              </TabsList>
+              <div className="overflow-x-auto scrollbar-hide">
+                <TabsList className="inline-flex w-auto min-w-full">
+                  <TabsTrigger value="sources" className="whitespace-nowrap">
+                    {t("business.referrals.sourceBreakdown")}
+                  </TabsTrigger>
+                  <TabsTrigger value="overTime" className="whitespace-nowrap">
+                    {t("business.referrals.progressOverTime")}
+                  </TabsTrigger>
+                  <TabsTrigger value="weekday" className="whitespace-nowrap">
+                    {t("business.referrals.weekdayPeaks", "Weekday peaks")}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               <TabsContent value="sources" className="mt-4">
                 <div className="grid gap-4 md:grid-cols-2">

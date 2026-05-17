@@ -85,17 +85,19 @@ export function LeadsStatsCards({
 
   return (
     <Tabs defaultValue="overview" className="w-full">
-      <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="overview">
-          {t("business.leads.tabs.overview", "Overview")}
-        </TabsTrigger>
-        <TabsTrigger value="bySource">
-          {t("business.leads.charts.bySource", "Leads by source")}
-        </TabsTrigger>
-        <TabsTrigger value="overTime">
-          {t("business.leads.charts.overTime", "Leads over time")}
-        </TabsTrigger>
-      </TabsList>
+      <div className="overflow-x-auto scrollbar-hide">
+        <TabsList className="inline-flex w-auto min-w-full">
+          <TabsTrigger value="overview" className="whitespace-nowrap">
+            {t("business.leads.tabs.overview", "Overview")}
+          </TabsTrigger>
+          <TabsTrigger value="bySource" className="whitespace-nowrap">
+            {t("business.leads.charts.bySource", "Leads by source")}
+          </TabsTrigger>
+          <TabsTrigger value="overTime" className="whitespace-nowrap">
+            {t("business.leads.charts.overTime", "Leads over time")}
+          </TabsTrigger>
+        </TabsList>
+      </div>
 
       <TabsContent value="overview" className="mt-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
