@@ -12,6 +12,7 @@ import {
   patients,
   surgeries as surgeriesTable,
   surgeryRooms,
+  surgeonActionRequests,
 } from "@shared/schema";
 import { eq, ilike, or, and, desc } from "drizzle-orm";
 import { z } from "zod";
@@ -29,6 +30,7 @@ import {
 import { createAuditLog, getHospitalAnesthesiaSettings } from "../../storage/anesthesia";
 import { AMBULANT_THRESHOLDS } from "@shared/scoring/thresholds";
 import { createCrossTenantReferral } from "../../storage/praxisMode";
+import { evaluateCrossTenantGate } from "../../storage/praxisCrossTenantGate";
 
 /**
  * Validate, recompute, and (optionally) audit ambulant eligibility for a
@@ -539,6 +541,61 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
     
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Praxis cross-tenant gate — for confirmed_external source surgeries, route
+    // gated changes through the destination's action_request approval flow.
+    if (surgery.referralStatus === "confirmed_external") {
+      const reasonRaw = typeof req.body.crossTenantReason === "string" ? req.body.crossTenantReason : null;
+      const gatePayload: Record<string, unknown> = { ...req.body };
+      delete gatePayload.crossTenantReason;
+
+      const [pending] = await db
+        .select({ id: surgeonActionRequests.id })
+        .from(surgeonActionRequests)
+        .where(and(
+          eq(surgeonActionRequests.surgeryId, surgery.id),
+          eq(surgeonActionRequests.status, "pending"),
+        ))
+        .limit(1);
+
+      const gateResult = evaluateCrossTenantGate(
+        surgery,
+        { intent: "patch", payload: gatePayload, reason: reasonRaw, actorId: userId },
+        { hasPendingActionRequest: !!pending },
+      );
+      if (gateResult.kind === "reject") {
+        return res.status(gateResult.status).json(gateResult.body);
+      }
+      if (gateResult.kind === "auto_file") {
+        if (!surgery.externalRequestId) {
+          return res.status(500).json({ code: "INTERNAL_NO_EXTERNAL_REQUEST", message: "Confirmed external surgery without external request link" });
+        }
+        const [extReq] = await db
+          .select({ hospitalId: externalSurgeryRequests.hospitalId, surgeryId: externalSurgeryRequests.surgeryId })
+          .from(externalSurgeryRequests)
+          .where(eq(externalSurgeryRequests.id, surgery.externalRequestId))
+          .limit(1);
+        if (!extReq) {
+          return res.status(500).json({ code: "INTERNAL_NO_EXTERNAL_REQUEST", message: "External request row missing" });
+        }
+        const surgeonUser = await storage.getUser(userId);
+        const [actionReq] = await db.insert(surgeonActionRequests).values({
+          hospitalId: extReq.hospitalId,
+          surgeryId: extReq.surgeryId ?? surgery.id,
+          surgeonEmail: surgeonUser?.email ?? "",
+          type: gateResult.actionType,
+          reason: gateResult.reason,
+          proposedDate: gateResult.proposedDate ?? null,
+          proposedTimeFrom: gateResult.proposedTimeFrom ?? null,
+          proposedTimeTo: gateResult.proposedTimeTo ?? null,
+          status: "pending",
+        } as any).returning();
+        return res.status(202).json({ code: "AUTO_FILED", actionRequestId: actionReq.id, actionType: gateResult.actionType });
+      }
+      // gateResult.kind === "pass" → falls through (currently unreachable for
+      // confirmed_external by the evaluator's rules, kept here for future
+      // proofing if the predicate ever returns pass on empty payload).
     }
 
     const updateData = { ...req.body };
