@@ -8915,18 +8915,12 @@
     "tabs": {
       "modules": "Modules",
       "links": "Links",
-      "checklists": "Checklists",
       "clinics": "Clinics"
     },
     "systemSection": "System",
     "system": {
       "chain": "Chain",
       "platform": "Platform"
-    },
-    "checklists": {
-      "overdue": "overdue",
-      "totalPending": "{{count}} pending",
-      "open": "Open Checklists"
     },
     "module": {
       "anesthesia": "Anesthesia Records",
@@ -8937,6 +8931,11 @@
       "administration": "Administration",
       "logistic": "Logistics",
       "platform": "Platform"
+    },
+    "shortcut": {
+      "checklists": "Checklists",
+      "worklogs-anesthesia": "Worklogs",
+      "worklogs-surgery": "Worklogs"
     }
   }
 }

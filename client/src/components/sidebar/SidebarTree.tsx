@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { SidebarRoleGroup } from "./SidebarRoleGroup";
 import { SidebarQuickLinks } from "./SidebarQuickLinks";
 import { groupByUnit, type SidebarHospital } from "./buildRows";
+import { useSidebarAlerts } from "@/hooks/useSidebarAlerts";
 
 interface Props {
   hospitals: SidebarHospital[];
@@ -20,6 +21,11 @@ export function SidebarTree({
 }: Props) {
   const { t } = useTranslation();
   const groups = groupByUnit(hospitals, t);
+  const {
+    leadsByHospitalId,
+    surgeryAlertByHospitalId,
+    activeQuestionnaireAlert,
+  } = useSidebarAlerts(hospitals, activeHospital);
 
   return (
     <div className="flex flex-col">
@@ -38,6 +44,24 @@ export function SidebarTree({
             r.hospital.unitId === activeHospital.unitId &&
             r.hospital.role === activeHospital.role,
         );
+
+        // Card-level alert dot — sourced from the per-hospital fan-out so
+        // dots stay visible even when the user is currently signed into a
+        // different unit/hospital.
+        const hospitalId = group.hospital.id;
+        const unitType = group.hospital.unitType;
+        const isMatchingActive =
+          hospitalId === activeHospital.id &&
+          group.hospital.unitId === activeHospital.unitId;
+        const clinicLeadsAlert =
+          unitType === "clinic" && (leadsByHospitalId[hospitalId] ?? 0) > 0;
+        const clinicQuestionnaireAlertHere =
+          unitType === "clinic" && isMatchingActive && activeQuestionnaireAlert;
+        const surgeryRequestsAlert =
+          (unitType === "anesthesia" || unitType === "or") &&
+          (surgeryAlertByHospitalId[hospitalId] ?? 0) > 0;
+        const cardAlertDot =
+          clinicLeadsAlert || clinicQuestionnaireAlertHere || surgeryRequestsAlert;
 
         const chips =
           group.roles.length > 1
@@ -75,6 +99,7 @@ export function SidebarTree({
             activeRoute={activeRoute}
             isActiveGroup={isActiveGroup}
             onSelect={(host, row) => onSelect(host, row.route)}
+            cardAlertDot={cardAlertDot}
           />
         );
       })}

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { SidebarTree } from "../SidebarTree";
 
@@ -59,7 +60,16 @@ const hospitals = [
 ];
 
 function Wrapper({ children }: { children: React.ReactNode }) {
-  return <SidebarProvider>{children}</SidebarProvider>;
+  // Fresh QueryClient per render so badge/alert queries from one test don't
+  // bleed into the next. retry disabled + no refetch keeps tests synchronous.
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, refetchInterval: false } },
+  });
+  return (
+    <QueryClientProvider client={queryClient}>
+      <SidebarProvider>{children}</SidebarProvider>
+    </QueryClientProvider>
+  );
 }
 
 describe("SidebarTree", () => {

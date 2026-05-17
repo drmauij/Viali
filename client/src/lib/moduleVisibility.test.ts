@@ -137,15 +137,19 @@ describe("getInternalShortcuts", () => {
     expect(shortcuts.map(s => s.id)).toContain("worklogs-surgery");
   });
 
-  it("no worktime addon → no worklogs shortcut", () => {
+  it("worklogs row stays even when the legacy worktime addon is off", () => {
+    // The addon was the billing scaffold; we no longer gate on it (see the
+    // 'no addon gates by default' rule in CLAUDE memory).
     const shortcuts = getInternalShortcuts(
       access({ unitType: "anesthesia", addons: noAddons }),
     );
-    expect(shortcuts.map(s => s.id)).not.toContain("worklogs-anesthesia");
+    expect(shortcuts.map(s => s.id)).toContain("worklogs-anesthesia");
   });
 
-  it("checklists is no longer a per-role shortcut (moved to its own dropdown tab)", () => {
-    const shortcuts = getInternalShortcuts(access({ unitType: "anesthesia" }));
-    expect(shortcuts.find(s => (s.id as string) === "checklists")).toBeUndefined();
+  it("checklists is no longer a per-unit shortcut (rendered globally by the dropdown)", () => {
+    for (const ut of ["anesthesia", "or", "clinic", "business", "logistic"] as const) {
+      const shortcuts = getInternalShortcuts(access({ unitType: ut }));
+      expect(shortcuts.find(s => (s.id as string) === "checklists")).toBeUndefined();
+    }
   });
 });

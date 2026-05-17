@@ -14,6 +14,7 @@ import { useLocation } from "wouter";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { HospitalDropdownTabs } from "./sidebar/HospitalDropdownTabs";
 import type { SidebarHospital } from "./sidebar/buildRows";
+import { useSidebarAlerts } from "@/hooks/useSidebarAlerts";
 import { unitTagClass } from "@/lib/unitTagColors";
 import type { UnitType } from "@/lib/moduleVisibility";
 
@@ -104,6 +105,15 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
     [hospitals],
   );
 
+  // Single aggregate dot on the trigger surfaces cross-hospital alerts
+  // (new leads, open surgery requests, etc.) without the user having to
+  // open the dropdown. Queries are shared with the dropdown via React
+  // Query's cache so opening the dropdown doesn't refetch.
+  const { hasAnyAlert } = useSidebarAlerts(
+    (hospitals || []) as SidebarHospital[],
+    (activeHospital ?? null) as SidebarHospital | null,
+  );
+
   const { data: notifications = [] } = useQuery<Array<{ id: string }>>({
     queryKey: ['/api/chat', activeHospital?.id, 'notifications'],
     queryFn: async () => {
@@ -191,10 +201,17 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
           )}
           <div className="relative min-w-0" ref={hospitalDropdownRef}>
             <button
-              className="flex items-center gap-2 min-w-0"
+              className="relative flex items-center gap-2 min-w-0"
               onClick={() => setShowHospitalDropdown(!showHospitalDropdown)}
               data-testid="hospital-switcher"
             >
+              {hasAnyAlert && (
+                <span
+                  aria-hidden
+                  data-testid="topbar-alert-dot"
+                  className="absolute -left-1.5 -top-0.5 h-2 w-2 rounded-full bg-destructive"
+                />
+              )}
               <div className="min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="font-semibold text-foreground truncate">

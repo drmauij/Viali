@@ -8932,18 +8932,12 @@
     "tabs": {
       "modules": "Module",
       "links": "Links",
-      "checklists": "Checklisten",
       "clinics": "Kliniken"
     },
     "systemSection": "System",
     "system": {
       "chain": "Kette",
       "platform": "Plattform"
-    },
-    "checklists": {
-      "overdue": "überfällig",
-      "totalPending": "{{count}} ausstehend",
-      "open": "Checklisten öffnen"
     },
     "module": {
       "anesthesia": "Anästhesie",
@@ -8954,6 +8948,11 @@
       "administration": "Verwaltung",
       "logistic": "Logistik",
       "platform": "Plattform"
+    },
+    "shortcut": {
+      "checklists": "Checklisten",
+      "worklogs-anesthesia": "Arbeitszeiten",
+      "worklogs-surgery": "Arbeitszeiten"
     }
   }
 }

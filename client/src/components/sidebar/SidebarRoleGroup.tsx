@@ -54,6 +54,12 @@ interface Props {
    * context. Single-role sections leave this undefined.
    */
   chips?: RoleChip[];
+  /**
+   * Top-right corner indicator on the card itself — used for cross-cutting
+   * unit-level alerts that don't map to a single row (e.g. "new leads or
+   * unassociated questionnaires waiting" on a clinic card).
+   */
+  cardAlertDot?: boolean;
 }
 
 export function SidebarRoleGroup({
@@ -65,6 +71,7 @@ export function SidebarRoleGroup({
   onSelect,
   singleRoleMode = false,
   chips,
+  cardAlertDot,
 }: Props) {
   const tagBg = unitTagClass(hospital.unitType);
   const cardBg = unitCardClass(hospital.unitType);
@@ -120,10 +127,17 @@ export function SidebarRoleGroup({
             }
           : undefined
       }
-      className={`mx-2 my-1 overflow-hidden rounded-lg border border-border/40 ${cardBg} transition-colors ${
+      className={`relative mx-2 my-1 overflow-hidden rounded-lg border border-border/40 ${cardBg} transition-colors ${
         cardClickable ? "cursor-pointer hover:bg-accent/40" : ""
       } ${showCardActive ? "ring-1 ring-primary" : ""}`}
     >
+      {cardAlertDot && (
+        <span
+          data-testid="card-alert-dot"
+          aria-hidden
+          className="absolute right-2 top-2 h-2 w-2 rounded-full bg-destructive"
+        />
+      )}
       <div className="flex items-center gap-2 px-3 pt-2 pb-1">
         <span className={`h-4 w-1 shrink-0 rounded-sm ${tagBg}`} aria-hidden />
         <div className="min-w-0 flex-1">

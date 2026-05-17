@@ -26,6 +26,8 @@ export interface SidebarHospital {
   bookingToken?: string | null;
   isDefaultLogin?: boolean;
   isPlatformOperator?: boolean;
+  /** Per-role permission for op planning (Requests panel, scheduling). */
+  canPlanOps?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -176,7 +178,16 @@ export function buildRows(
     route: s.route,
     badge: s.badge,
   }));
-  const all = [...moduleRows, ...shortcutRows];
+  // Administration is always pinned to the bottom of the secondary list
+  // (after inventory and the shortcut rows like Checklists / Worklogs) so its
+  // position doesn't shuffle when shortcuts come and go.
+  const adminRow = moduleRows.find(r => r.id === "administration");
+  const modulesExceptAdmin = moduleRows.filter(r => r.id !== "administration");
+  const all = [
+    ...modulesExceptAdmin,
+    ...shortcutRows,
+    ...(adminRow ? [adminRow] : []),
+  ];
   const primaryId = primaryModuleFor(h.unitType);
   const primary = primaryId ? all.find(r => r.id === primaryId) : undefined;
   const rows = primary ? all.filter(r => r.id !== primary.id) : all;

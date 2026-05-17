@@ -93,12 +93,14 @@ export function getVisibleModules(access: HospitalAccess): ModuleId[] {
 export function getInternalShortcuts(access: HospitalAccess): Shortcut[] {
   const items: Shortcut[] = [];
 
-  if (access.addons.worktime) {
-    if (access.unitType === "anesthesia") {
-      items.push({ id: "worklogs-anesthesia", route: "/anesthesia/worklogs" });
-    } else if (access.unitType === "or") {
-      items.push({ id: "worklogs-surgery", route: "/surgery/worklogs" });
-    }
+  // Worklogs is a per-staff tracking surface relevant for clinical units.
+  // Previously gated behind the legacy `addons.worktime` flag; per the "no
+  // addon gates by default" rule (billing scaffold is legacy) the link is
+  // always shown for anesthesia + OR units.
+  if (access.unitType === "anesthesia") {
+    items.push({ id: "worklogs-anesthesia", route: "/anesthesia/worklogs" });
+  } else if (access.unitType === "or") {
+    items.push({ id: "worklogs-surgery", route: "/surgery/worklogs" });
   }
 
   return items;
