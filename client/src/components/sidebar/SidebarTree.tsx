@@ -20,7 +20,12 @@ export function SidebarTree({
   showQuickLinks = true,
 }: Props) {
   const { t } = useTranslation();
-  const groups = groupByUnit(hospitals, t);
+  // Scope the Modules tab to the currently-active hospital only. Switching
+  // hospital is the Clinics tab's job — otherwise this list aggregates units
+  // across every hospital the user belongs to and the user can't tell which
+  // hospital each card belongs to (the card only shows the unit name).
+  const currentHospitalRows = hospitals.filter(h => h.id === activeHospital.id);
+  const groups = groupByUnit(currentHospitalRows, t);
   const {
     leadsByHospitalId,
     surgeryAlertByHospitalId,

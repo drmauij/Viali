@@ -196,6 +196,45 @@ describe("SidebarTree", () => {
     expect(route).toBe("/anesthesia/op");
   });
 
+  it("filters cards to the active hospital — other hospitals' units don't render", () => {
+    // User belongs to two hospitals, each with their own Anesthesia unit.
+    // Modules tab should only show the active hospital's units; Clinics tab
+    // handles switching between hospitals.
+    const multiHospital = [
+      // Active hospital h1
+      {
+        ...hospitals[0],
+        id: "h1",
+        name: "Active Clinic",
+        unitId: "h1-anes",
+        unitName: "Anesthesia",
+        unitType: "anesthesia" as const,
+        role: "admin",
+      },
+      // Other hospital h2 — same unitType, must NOT render in Modules tab
+      {
+        ...hospitals[0],
+        id: "h2",
+        name: "Other Clinic",
+        unitId: "h2-anes",
+        unitName: "Anesthesia",
+        unitType: "anesthesia" as const,
+        role: "doctor",
+      },
+    ];
+    render(
+      <SidebarTree
+        hospitals={multiHospital}
+        activeHospital={multiHospital[0]} /* h1 */
+        activeRoute="/anesthesia/op"
+        onSelect={vi.fn()}
+      />,
+      { wrapper: Wrapper },
+    );
+    // Exactly one Anesthesia card (h1 only), not two.
+    expect(screen.getAllByTestId("unit-card")).toHaveLength(1);
+  });
+
   it("single-role unit renders the role inline under the unit name (no chip strip)", () => {
     render(
       <SidebarTree
