@@ -7145,6 +7145,57 @@ export const leadWebhookConfig = pgTable("lead_webhook_config", {
 
 export type LeadWebhookConfig = typeof leadWebhookConfig.$inferSelect;
 
+// ── Recovery Cases (no-show / cancellation follow-up) ────────────────────────
+
+export const recoveryCaseStatusEnum = pgEnum("recovery_case_status", [
+  "pending",
+  "to_verify",
+  "in_progress",
+  "rescheduled",
+  "closed_lost",
+  "closed_other",
+]);
+
+export const recoveryCaseTriggerEnum = pgEnum("recovery_case_trigger", [
+  "no_show",
+  "cancelled",
+]);
+
+export const recoveryCases = pgTable("recovery_cases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  appointmentId: varchar("appointment_id").notNull().references(() => clinicAppointments.id, { onDelete: 'cascade' }),
+  patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
+  trigger: recoveryCaseTriggerEnum("trigger").notNull(),
+  status: recoveryCaseStatusEnum("status").notNull().default("pending"),
+  rescheduledAppointmentId: varchar("rescheduled_appointment_id")
+    .references(() => clinicAppointments.id, { onDelete: 'set null' }),
+  closedReason: varchar("closed_reason"),
+  closedAt: timestamp("closed_at"),
+  closedBy: varchar("closed_by").references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("recovery_cases_hospital_status_created").on(table.hospitalId, table.status, table.createdAt),
+  uniqueIndex("recovery_cases_appointment_uidx").on(table.appointmentId),
+  index("recovery_cases_hospital_patient").on(table.hospitalId, table.patientId),
+]);
+
+export const recoveryCaseContacts = pgTable("recovery_case_contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  recoveryCaseId: varchar("recovery_case_id").notNull()
+    .references(() => recoveryCases.id, { onDelete: 'cascade' }),
+  outcome: leadContactOutcomeEnum("outcome").notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: varchar("created_by").notNull().references(() => users.id, { onDelete: 'cascade' }),
+}, (table) => [
+  index("recovery_case_contacts_case_created").on(table.recoveryCaseId, table.createdAt),
+]);
+
+export type RecoveryCase = typeof recoveryCases.$inferSelect;
+export type RecoveryCaseContact = typeof recoveryCaseContacts.$inferSelect;
+
 // ── Shifts ───────────────────────────────────────────────────────────────────
 
 export const shiftTypes = pgTable("shift_types", {

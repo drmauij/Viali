@@ -2,6 +2,7 @@ import { db } from "../db";
 import { eq, and, desc, asc, sql, lte, gte, inArray, isNull, or, getTableColumns } from "drizzle-orm";
 import { getClinicClosuresInRange } from "./clinicClosures";
 import { ensurePatientHospitalLink } from "../utils/patientHospitalLink";
+import { enqueueRecoveryCase, reconcileRecoveryCasesForPatient } from "../services/recoveryCases";
 import { alias } from "drizzle-orm/pg-core";
 import {
   users,
@@ -1071,6 +1072,15 @@ export async function createClinicAppointment(appointment: InsertClinicAppointme
       created.createdBy ?? null,
     );
   }
+  // Recovery follow-up: if the new appointment may serve as a rebook for an
+  // older no-show/cancel, flag any open recovery case for verification.
+  if (
+    created.appointmentType === 'external' &&
+    created.patientId &&
+    (created.status === 'scheduled' || created.status === 'confirmed')
+  ) {
+    await reconcileRecoveryCasesForPatient(created.patientId, created.id, db);
+  }
   return created;
 }
 
@@ -1080,6 +1090,19 @@ export async function updateClinicAppointment(id: string, updates: Partial<Clini
     .set({ ...updates, updatedAt: new Date() })
     .where(eq(clinicAppointments.id, id))
     .returning();
+  // Recovery follow-up triggers:
+  // - transitioning to no_show / cancelled → enqueue a case
+  // - transitioning to scheduled / confirmed (reactivation or initial set) →
+  //   reconcile any open cases the patient still has
+  if (updates.status === 'no_show' || updates.status === 'cancelled') {
+    await enqueueRecoveryCase(updated, updates.status, db);
+  } else if (
+    (updates.status === 'scheduled' || updates.status === 'confirmed') &&
+    updated.appointmentType === 'external' &&
+    updated.patientId
+  ) {
+    await reconcileRecoveryCasesForPatient(updated.patientId, updated.id, db);
+  }
   return updated;
 }
 

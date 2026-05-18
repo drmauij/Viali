@@ -1835,6 +1835,13 @@
       "when": 1781500000000,
       "tag": "0261_hospital_created_by",
       "breakpoints": true
+    },
+    {
+      "idx": 262,
+      "version": "7",
+      "when": 1781600000000,
+      "tag": "0262_recovery_cases",
+      "breakpoints": true
     }
   ]
 }
