@@ -6613,6 +6613,72 @@
       "needsTime": "Braucht Bedenkzeit"
     }
   },
+  "recovery": {
+    "title": "Rückgewinnung",
+    "subtitle": "Nachfass-Workflow für Nichterscheinen und Stornierungen ohne neue Buchung.",
+    "button": "Rückgewinnung",
+    "empty": "Keine offenen Rückgewinnungsfälle. Patienten, die nicht erscheinen oder absagen und keinen neuen Termin buchen, erscheinen hier.",
+    "loadFailed": "Rückgewinnungsfälle konnten nicht geladen werden.",
+    "openTotal": "{{open}} offen · {{total}} gesamt",
+    "column": {
+      "pending": "Offen",
+      "to_verify": "Zu prüfen",
+      "in_progress": "In Bearbeitung",
+      "rescheduled": "Umgebucht",
+      "closed_lost": "Geschlossen — Verloren",
+      "closed_other": "Geschlossen — Andere"
+    },
+    "status": {
+      "pending": "Offen",
+      "to_verify": "Prüfung erforderlich",
+      "in_progress": "In Bearbeitung",
+      "rescheduled": "Umgebucht",
+      "closed_lost": "Geschlossen — Verloren",
+      "closed_other": "Geschlossen — Andere"
+    },
+    "trigger": {
+      "no_show": "Nicht erschienen",
+      "cancelled": "Storniert"
+    },
+    "confidence": {
+      "high": "Wahrscheinlich neuer Termin",
+      "medium": "Möglicherweise neuer Termin",
+      "low": "Sorgfältig prüfen — anderer Service"
+    },
+    "card": {
+      "newAppointment": "Neuer Termin:",
+      "confirmRebook": "✓ Bestätigen",
+      "reopen": "↻ Wieder öffnen"
+    },
+    "drawer": {
+      "title": "Rückgewinnungsfall",
+      "phone": "Telefon",
+      "email": "E-Mail",
+      "originalAppointment": "Ursprünglicher Termin",
+      "status": "Status",
+      "cancellationReason": "Stornierungsgrund",
+      "logCall": "Anruf protokollieren",
+      "selectOutcome": "Ergebnis auswählen...",
+      "optionalNote": "Optionale Notiz...",
+      "logButton": "Protokollieren",
+      "contactHistory": "Kontaktverlauf",
+      "noContacts": "Noch keine Kontakte protokolliert.",
+      "markRescheduled": "Als umgebucht markieren",
+      "pickAppointment": "Neuen Termin auswählen:",
+      "noFuture": "Keine zukünftigen Termine für diesen Patienten gefunden.",
+      "cancel": "Abbrechen",
+      "closeLost": "Als Verloren schließen",
+      "closeOther": "Als Andere schließen",
+      "promptLostReason": "Grund für „Als Verloren schließen“:",
+      "promptOtherReason": "Grund für „Als Andere schließen“:"
+    },
+    "toast": {
+      "contactLogged": "Kontakt protokolliert",
+      "errorLogging": "Kontakt konnte nicht protokolliert werden",
+      "caseUpdated": "Fall aktualisiert",
+      "errorUpdating": "Fall konnte nicht aktualisiert werden"
+    }
+  },
   "clinical": {
     "accessDenied": "Zugriff verweigert",
     "accessDeniedDescription": "Dieses Dashboard ist nur für Ärzte und Manager der Anästhesieabteilung verfügbar.",

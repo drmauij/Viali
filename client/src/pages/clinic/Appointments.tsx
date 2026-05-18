@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { DateInput } from "@/components/ui/date-input";
 import { TimeInput } from "@/components/ui/time-input";
 import { Label } from "@/components/ui/label";
@@ -355,16 +356,23 @@ export default function ClinicAppointments() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => syncAbsencesMutation.mutate()}
-            disabled={syncAbsencesMutation.isPending}
-            data-testid="button-sync-absences"
-          >
-            <RefreshCw className={`h-4 w-4 mr-1 ${syncAbsencesMutation.isPending ? 'animate-spin' : ''}`} />
-            {t('appointments.syncAbsences', 'Sync Absences')}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => syncAbsencesMutation.mutate()}
+                  disabled={syncAbsencesMutation.isPending}
+                  data-testid="button-sync-absences"
+                  aria-label={t('appointments.syncAbsences', 'Sync Absences')}
+                >
+                  <RefreshCw className={`h-4 w-4 ${syncAbsencesMutation.isPending ? 'animate-spin' : ''}`} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('appointments.syncAbsences', 'Sync Absences')}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           {showLeads && (
             <Button
               variant={leadsPanelOpen ? "default" : "outline"}
@@ -377,7 +385,7 @@ export default function ClinicAppointments() {
               )}
             >
               <MessageSquare className="h-4 w-4 mr-1" />
-              Leads
+              {t('leads.title', 'Leads')}
               <LeadsBadge />
             </Button>
           )}
@@ -394,7 +402,7 @@ export default function ClinicAppointments() {
               data-testid="button-recovery"
             >
               <RefreshCw className="h-4 w-4 mr-1" />
-              Recovery
+              {t('recovery.button', 'Recovery')}
               <RecoveryBadge />
             </Button>
           )}

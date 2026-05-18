@@ -7171,10 +7171,10 @@ export const recoveryCases = pgTable("recovery_cases", {
   rescheduledAppointmentId: varchar("rescheduled_appointment_id")
     .references(() => clinicAppointments.id, { onDelete: 'set null' }),
   closedReason: varchar("closed_reason"),
-  closedAt: timestamp("closed_at"),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
   closedBy: varchar("closed_by").references(() => users.id, { onDelete: 'set null' }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   index("recovery_cases_hospital_status_created").on(table.hospitalId, table.status, table.createdAt),
   uniqueIndex("recovery_cases_appointment_uidx").on(table.appointmentId),
@@ -7187,7 +7187,7 @@ export const recoveryCaseContacts = pgTable("recovery_case_contacts", {
     .references(() => recoveryCases.id, { onDelete: 'cascade' }),
   outcome: leadContactOutcomeEnum("outcome").notNull(),
   note: text("note"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   createdBy: varchar("created_by").notNull().references(() => users.id, { onDelete: 'cascade' }),
 }, (table) => [
   index("recovery_case_contacts_case_created").on(table.recoveryCaseId, table.createdAt),

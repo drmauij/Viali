@@ -1,22 +1,27 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
-import { formatDate, formatTime } from '@/lib/dateUtils';
+import { de, enUS } from 'date-fns/locale';
+import { formatDate } from '@/lib/dateUtils';
 import { apiRequest } from '@/lib/queryClient';
 
 type ContactOutcome = 'reached' | 'no_answer' | 'wants_callback' | 'will_call_back' | 'needs_time';
 
-const OUTCOME_LABELS: Record<ContactOutcome, string> = {
-  reached: 'Reached',
-  no_answer: 'No answer',
-  wants_callback: 'Wants callback',
-  will_call_back: 'Will call back',
-  needs_time: 'Needs time',
-};
+const OUTCOME_OPTIONS: { value: ContactOutcome; i18nKey: string }[] = [
+  { value: 'reached',        i18nKey: 'leads.outcome.reached' },
+  { value: 'no_answer',      i18nKey: 'leads.outcome.noAnswer' },
+  { value: 'wants_callback', i18nKey: 'leads.outcome.wantsCallback' },
+  { value: 'will_call_back', i18nKey: 'leads.outcome.willCallBack' },
+  { value: 'needs_time',     i18nKey: 'leads.outcome.needsTime' },
+];
 
 interface FutureAppointment {
   id: string;
@@ -41,8 +46,12 @@ interface Props {
 }
 
 export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
+  const { t, i18n } = useTranslation();
+  const { toast } = useToast();
+  const dateLocale = i18n.language === 'de' ? de : enUS;
   const qc = useQueryClient();
   const [note, setNote] = useState('');
+  const [outcome, setOutcome] = useState<ContactOutcome | ''>('');
   const [showMarkResched, setShowMarkResched] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -61,7 +70,8 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
   };
 
   const logContact = useMutation({
-    mutationFn: async (outcome: ContactOutcome) => {
+    mutationFn: async () => {
+      if (!outcome) throw new Error('outcome required');
       const res = await apiRequest(
         'POST',
         `/api/business/${hospitalId}/recovery-cases/${caseId}/contacts`,
@@ -69,7 +79,15 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
       );
       return res.json();
     },
-    onSuccess: () => { setNote(''); invalidateAll(); },
+    onSuccess: () => {
+      setNote('');
+      setOutcome('');
+      toast({ title: t('recovery.toast.contactLogged', 'Contact logged') });
+      invalidateAll();
+    },
+    onError: () => {
+      toast({ title: t('recovery.toast.errorLogging', 'Failed to log contact'), variant: 'destructive' });
+    },
   });
 
   const closeCase = useMutation({
@@ -81,7 +99,14 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
       );
       return res.json();
     },
-    onSuccess: () => { onClose(); invalidateAll(); },
+    onSuccess: () => {
+      toast({ title: t('recovery.toast.caseUpdated', 'Case updated') });
+      onClose();
+      invalidateAll();
+    },
+    onError: () => {
+      toast({ title: t('recovery.toast.errorUpdating', 'Failed to update case'), variant: 'destructive' });
+    },
   });
 
   const markRescheduled = useMutation({
@@ -93,7 +118,14 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
       );
       return res.json();
     },
-    onSuccess: () => { onClose(); invalidateAll(); },
+    onSuccess: () => {
+      toast({ title: t('recovery.toast.caseUpdated', 'Case updated') });
+      onClose();
+      invalidateAll();
+    },
+    onError: () => {
+      toast({ title: t('recovery.toast.errorUpdating', 'Failed to update case'), variant: 'destructive' });
+    },
   });
 
   const { data: futureAppts = [] } = useQuery<FutureAppointment[]>({
@@ -114,18 +146,18 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Recovery case</SheetTitle>
+          <SheetTitle>{t('recovery.drawer.title', 'Recovery case')}</SheetTitle>
         </SheetHeader>
 
         {isLoading || !data ? (
-          <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
+          <p className="mt-4 text-sm text-muted-foreground">…</p>
         ) : (
           <div className="mt-4 space-y-6">
             <section className="space-y-1 text-sm">
               <p className="font-medium">{data.patientFirstName} {data.patientSurname}</p>
               {data.patientPhone && (
                 <p>
-                  <span className="text-muted-foreground">Phone: </span>
+                  <span className="text-muted-foreground">{t('recovery.drawer.phone', 'Phone')}: </span>
                   <a href={`tel:${data.patientPhone}`} className="text-primary underline">
                     {data.patientPhone}
                   </a>
@@ -133,66 +165,71 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
               )}
               {data.patientEmail && (
                 <p>
-                  <span className="text-muted-foreground">Email: </span>
+                  <span className="text-muted-foreground">{t('recovery.drawer.email', 'Email')}: </span>
                   <a href={`mailto:${data.patientEmail}`} className="text-primary underline">
                     {data.patientEmail}
                   </a>
                 </p>
               )}
               <p>
-                <span className="text-muted-foreground">Original appointment: </span>
-                {formatDate(data.appointmentDate)} · {formatTime(data.appointmentStartTime)}
+                <span className="text-muted-foreground">{t('recovery.drawer.originalAppointment', 'Original appointment')}: </span>
+                {formatDate(data.appointmentDate)} · {data.appointmentStartTime}
               </p>
               <p>
-                <span className="text-muted-foreground">Status: </span>
-                <Badge variant="outline">{data.status}</Badge>
+                <span className="text-muted-foreground">{t('recovery.drawer.status', 'Status')}: </span>
+                <Badge variant="outline">{String(t(`recovery.status.${data.status}`, data.status))}</Badge>
               </p>
               {data.appointmentCancellationReason && (
                 <p>
-                  <span className="text-muted-foreground">Cancellation reason: </span>
+                  <span className="text-muted-foreground">{t('recovery.drawer.cancellationReason', 'Cancellation reason')}: </span>
                   {data.appointmentCancellationReason}
                 </p>
               )}
             </section>
 
             {canLogContact && (
-              <section>
-                <h4 className="mb-2 text-sm font-medium">Log call</h4>
+              <section className="space-y-3 pt-2 border-t">
+                <Label className="text-xs text-muted-foreground">{t('recovery.drawer.logCall', 'Log call')}</Label>
+                <Select value={outcome} onValueChange={(v) => setOutcome(v as ContactOutcome)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('recovery.drawer.selectOutcome', 'Select outcome...')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {OUTCOME_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {t(o.i18nKey, o.value)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder="Optional note"
-                  className="mb-2"
+                  placeholder={t('recovery.drawer.optionalNote', 'Optional note...')}
                   rows={2}
                 />
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                  {(Object.keys(OUTCOME_LABELS) as ContactOutcome[]).map((o) => (
-                    <Button
-                      key={o}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => logContact.mutate(o)}
-                      disabled={logContact.isPending}
-                    >
-                      {OUTCOME_LABELS[o]}
-                    </Button>
-                  ))}
-                </div>
+                <Button
+                  onClick={() => logContact.mutate()}
+                  disabled={!outcome || logContact.isPending}
+                  className="w-full"
+                >
+                  {t('recovery.drawer.logButton', 'Log')}
+                </Button>
               </section>
             )}
 
             <section>
-              <h4 className="mb-2 text-sm font-medium">Contact history</h4>
+              <h4 className="mb-2 text-sm font-medium">{t('recovery.drawer.contactHistory', 'Contact history')}</h4>
               {(data.contacts ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">No contacts logged yet.</p>
+                <p className="text-sm text-muted-foreground">{t('recovery.drawer.noContacts', 'No contacts logged yet.')}</p>
               ) : (
                 <ul className="space-y-3">
                   {(data.contacts as ContactRow[]).map((c) => (
                     <li key={c.id} className="flex flex-col gap-1 rounded-md border border-border p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <Badge variant="secondary">{c.outcome.replace('_', ' ')}</Badge>
+                        <Badge variant="secondary">{t(`leads.outcome.${toLeadsOutcomeKey(c.outcome)}`, c.outcome.replace('_', ' '))}</Badge>
                         <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
+                          {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true, locale: dateLocale })}
                           {c.createdByName ? ` · ${c.createdByName}` : ''}
                         </span>
                       </div>
@@ -207,14 +244,14 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
               <section>
                 {!showMarkResched ? (
                   <Button variant="outline" className="w-full" onClick={() => setShowMarkResched(true)}>
-                    Mark Rescheduled
+                    {t('recovery.drawer.markRescheduled', 'Mark Rescheduled')}
                   </Button>
                 ) : (
                   <div className="rounded-md border border-border p-3 space-y-2">
-                    <p className="text-sm font-medium">Pick the new appointment:</p>
+                    <p className="text-sm font-medium">{t('recovery.drawer.pickAppointment', 'Pick the new appointment:')}</p>
                     {futureAppts.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
-                        No future appointments found for this patient.
+                        {t('recovery.drawer.noFuture', 'No future appointments found for this patient.')}
                       </p>
                     ) : (
                       <ul className="space-y-2">
@@ -226,7 +263,7 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
                               onClick={() => markRescheduled.mutate(a.id)}
                               disabled={markRescheduled.isPending}
                             >
-                              {formatDate(a.appointmentDate)} · {formatTime(a.startTime)}
+                              {formatDate(a.appointmentDate)} · {a.startTime}
                               {a.serviceName ? ` · ${a.serviceName}` : ''}
                             </Button>
                           </li>
@@ -234,7 +271,7 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
                       </ul>
                     )}
                     <Button size="sm" variant="ghost" onClick={() => setShowMarkResched(false)}>
-                      Cancel
+                      {t('recovery.drawer.cancel', 'Cancel')}
                     </Button>
                   </div>
                 )}
@@ -247,21 +284,21 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
                   variant="outline"
                   className="w-full"
                   onClick={() => {
-                    const reason = window.prompt('Reason for closing as Lost:') ?? '';
+                    const reason = window.prompt(t('recovery.drawer.promptLostReason', 'Reason for closing as Lost:')) ?? '';
                     if (reason) closeCase.mutate({ status: 'closed_lost', closedReason: reason });
                   }}
                 >
-                  Close as Lost
+                  {t('recovery.drawer.closeLost', 'Close as Lost')}
                 </Button>
                 <Button
                   variant="outline"
                   className="w-full"
                   onClick={() => {
-                    const reason = window.prompt('Reason for closing as Other:') ?? '';
+                    const reason = window.prompt(t('recovery.drawer.promptOtherReason', 'Reason for closing as Other:')) ?? '';
                     if (reason) closeCase.mutate({ status: 'closed_other', closedReason: reason });
                   }}
                 >
-                  Close as Other
+                  {t('recovery.drawer.closeOther', 'Close as Other')}
                 </Button>
               </section>
             )}
@@ -270,4 +307,15 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
       </SheetContent>
     </Sheet>
   );
+}
+
+function toLeadsOutcomeKey(outcome: string): string {
+  switch (outcome) {
+    case 'reached':         return 'reached';
+    case 'no_answer':       return 'noAnswer';
+    case 'wants_callback':  return 'wantsCallback';
+    case 'will_call_back':  return 'willCallBack';
+    case 'needs_time':      return 'needsTime';
+    default:                return outcome;
+  }
 }

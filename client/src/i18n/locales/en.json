@@ -6517,6 +6517,72 @@
       "needsTime": "Needs time"
     }
   },
+  "recovery": {
+    "title": "Recovery",
+    "subtitle": "Win-back follow-up for no-shows and cancellations that haven't rebooked.",
+    "button": "Recovery",
+    "empty": "No open recovery cases. Patients who no-show or cancel without rebooking will appear here.",
+    "loadFailed": "Failed to load recovery cases.",
+    "openTotal": "{{open}} open · {{total}} total",
+    "column": {
+      "pending": "Pending",
+      "to_verify": "To Verify",
+      "in_progress": "In Progress",
+      "rescheduled": "Rescheduled",
+      "closed_lost": "Closed — Lost",
+      "closed_other": "Closed — Other"
+    },
+    "status": {
+      "pending": "Pending",
+      "to_verify": "Needs verification",
+      "in_progress": "In progress",
+      "rescheduled": "Rescheduled",
+      "closed_lost": "Closed — lost",
+      "closed_other": "Closed — other"
+    },
+    "trigger": {
+      "no_show": "No-show",
+      "cancelled": "Cancelled"
+    },
+    "confidence": {
+      "high": "Likely rebook",
+      "medium": "Probable rebook",
+      "low": "Verify carefully — different service"
+    },
+    "card": {
+      "newAppointment": "New appointment:",
+      "confirmRebook": "✓ Confirm rebook",
+      "reopen": "↻ Re-open"
+    },
+    "drawer": {
+      "title": "Recovery case",
+      "phone": "Phone",
+      "email": "Email",
+      "originalAppointment": "Original appointment",
+      "status": "Status",
+      "cancellationReason": "Cancellation reason",
+      "logCall": "Log call",
+      "selectOutcome": "Select outcome...",
+      "optionalNote": "Optional note...",
+      "logButton": "Log",
+      "contactHistory": "Contact history",
+      "noContacts": "No contacts logged yet.",
+      "markRescheduled": "Mark Rescheduled",
+      "pickAppointment": "Pick the new appointment:",
+      "noFuture": "No future appointments found for this patient.",
+      "cancel": "Cancel",
+      "closeLost": "Close as Lost",
+      "closeOther": "Close as Other",
+      "promptLostReason": "Reason for closing as Lost:",
+      "promptOtherReason": "Reason for closing as Other:"
+    },
+    "toast": {
+      "contactLogged": "Contact logged",
+      "errorLogging": "Failed to log contact",
+      "caseUpdated": "Case updated",
+      "errorUpdating": "Failed to update case"
+    }
+  },
   "clinical": {
     "accessDenied": "Access Denied",
     "accessDeniedDescription": "This dashboard is only available for doctors and managers in the anesthesia department.",

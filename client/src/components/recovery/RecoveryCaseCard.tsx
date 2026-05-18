@@ -1,9 +1,11 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
+import { de, enUS } from 'date-fns/locale';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { apiRequest } from '@/lib/queryClient';
-import { formatDate, formatTime } from '@/lib/dateUtils';
+import { formatDate } from '@/lib/dateUtils';
 
 export type RecoveryStatus =
   | 'pending' | 'to_verify' | 'in_progress'
@@ -38,10 +40,10 @@ export interface RecoveryCaseRow {
   verifyConfidence?: 'high' | 'medium' | 'low';
 }
 
-const CONFIDENCE_STYLE: Record<'high' | 'medium' | 'low', { label: string; className: string }> = {
-  high:   { label: 'Likely rebook',                          className: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200' },
-  medium: { label: 'Probable rebook',                        className: 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200' },
-  low:    { label: 'Verify carefully — different service',   className: 'bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-200' },
+const CONFIDENCE_CLASS: Record<'high' | 'medium' | 'low', string> = {
+  high:   'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200',
+  medium: 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200',
+  low:    'bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-200',
 };
 
 interface Props {
@@ -51,6 +53,8 @@ interface Props {
 }
 
 export function RecoveryCaseCard({ row, hospitalId, onClick }: Props) {
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'de' ? de : enUS;
   const qc = useQueryClient();
   const verifyMutation = useMutation({
     mutationFn: async (newStatus: 'rescheduled' | 'pending') => {
@@ -70,6 +74,11 @@ export function RecoveryCaseCard({ row, hospitalId, onClick }: Props) {
   const isVerify = row.status === 'to_verify';
   const confidence = row.verifyConfidence;
 
+  // Maps the existing lead_contact_outcome enum to the same i18n keys leads uses.
+  const outcomeLabel = row.lastContactOutcome
+    ? t(`leads.outcome.${toLeadsOutcomeKey(row.lastContactOutcome)}`, row.lastContactOutcome.replace('_', ' '))
+    : null;
+
   return (
     <div className="w-full rounded-md border border-border bg-card p-3 text-left transition-colors">
       <button
@@ -80,32 +89,32 @@ export function RecoveryCaseCard({ row, hospitalId, onClick }: Props) {
         <div className="mb-2 flex items-center justify-between gap-2">
           <span className="font-medium">{row.patientFirstName} {row.patientSurname}</span>
           <Badge variant={row.trigger === 'no_show' ? 'destructive' : 'secondary'}>
-            {row.trigger === 'no_show' ? 'No-show' : 'Cancelled'}
+            {t(`recovery.trigger.${row.trigger}`, row.trigger)}
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground">
-          {formatDate(row.appointmentDate)} · {formatTime(row.appointmentStartTime)}
+          {formatDate(row.appointmentDate)} · {row.appointmentStartTime}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          {formatDistanceToNow(new Date(row.appointmentDate), { addSuffix: true })}
+          {formatDistanceToNow(new Date(row.appointmentDate), { addSuffix: true, locale: dateLocale })}
         </p>
 
         {isVerify && row.successor && confidence && (
           <div className="mt-3 rounded-md border border-dashed border-border p-2">
-            <p className="text-xs font-medium text-muted-foreground">New appointment:</p>
+            <p className="text-xs font-medium text-muted-foreground">{t('recovery.card.newAppointment', 'New appointment:')}</p>
             <p className="text-sm">
-              {formatDate(row.successor.appointmentDate)} · {formatTime(row.successor.startTime)}
+              {formatDate(row.successor.appointmentDate)} · {row.successor.startTime}
             </p>
-            <span className={`mt-2 inline-block rounded px-2 py-0.5 text-xs ${CONFIDENCE_STYLE[confidence].className}`}>
-              {CONFIDENCE_STYLE[confidence].label}
+            <span className={`mt-2 inline-block rounded px-2 py-0.5 text-xs ${CONFIDENCE_CLASS[confidence]}`}>
+              {t(`recovery.confidence.${confidence}`, confidence)}
             </span>
           </div>
         )}
 
-        {row.lastContactOutcome && (
+        {outcomeLabel && (
           <p className="mt-2 text-xs">
-            {row.lastContactOutcome.replace('_', ' ')}
-            {row.lastContactAt && ` · ${formatDistanceToNow(new Date(row.lastContactAt), { addSuffix: true })}`}
+            {outcomeLabel}
+            {row.lastContactAt && ` · ${formatDistanceToNow(new Date(row.lastContactAt), { addSuffix: true, locale: dateLocale })}`}
           </p>
         )}
       </button>
@@ -117,7 +126,7 @@ export function RecoveryCaseCard({ row, hospitalId, onClick }: Props) {
             onClick={(e) => { e.stopPropagation(); verifyMutation.mutate('rescheduled'); }}
             disabled={verifyMutation.isPending}
           >
-            ✓ Confirm rebook
+            {t('recovery.card.confirmRebook', '✓ Confirm rebook')}
           </Button>
           <Button
             size="sm"
@@ -125,10 +134,22 @@ export function RecoveryCaseCard({ row, hospitalId, onClick }: Props) {
             onClick={(e) => { e.stopPropagation(); verifyMutation.mutate('pending'); }}
             disabled={verifyMutation.isPending}
           >
-            ↻ Re-open
+            {t('recovery.card.reopen', '↻ Re-open')}
           </Button>
         </div>
       )}
     </div>
   );
+}
+
+// snake_case DB enum → camelCase i18n key (leads.outcome.*)
+function toLeadsOutcomeKey(outcome: string): string {
+  switch (outcome) {
+    case 'reached':         return 'reached';
+    case 'no_answer':       return 'noAnswer';
+    case 'wants_callback':  return 'wantsCallback';
+    case 'will_call_back':  return 'willCallBack';
+    case 'needs_time':      return 'needsTime';
+    default:                return outcome;
+  }
 }
