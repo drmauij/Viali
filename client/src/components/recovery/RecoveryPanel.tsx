@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { apiRequest } from '@/lib/queryClient';
 import { RecoveryCaseCard, type RecoveryCaseRow, type RecoveryStatus } from './RecoveryCaseCard';
 import { RecoveryCaseDrawer } from './RecoveryCaseDrawer';
@@ -59,48 +60,52 @@ export function RecoveryPanel({ hospitalId, compact = false }: Props) {
   // side-panel UX. Page (kanban) mode renders all 6 status columns side by side.
   if (compact) {
     return (
-      <div className="p-3">
-        <Tabs defaultValue="pending" className="space-y-3">
-          {/* h-auto + flex-wrap lets the tab strip break onto two rows on
-              narrow side-panel widths instead of clipping. Each trigger keeps
-              its full label + count visible. */}
-          <TabsList className="flex h-auto w-full flex-wrap gap-1 p-1">
+      <div className="flex h-full flex-col">
+        <Tabs defaultValue="pending" className="flex h-full flex-col">
+          {/* Fixed header — the tab strip — does NOT scroll. h-auto +
+              flex-wrap lets it break onto two rows on narrow widths
+              instead of clipping. */}
+          <div className="border-b border-border px-3 pt-3 pb-2">
+            <TabsList className="flex h-auto w-full flex-wrap gap-1 p-1">
+              {OPEN_STATUSES.map((s) => {
+                const count = data.filter((r) => r.status === s).length;
+                return (
+                  <TabsTrigger
+                    key={s}
+                    value={s}
+                    className="flex-1 whitespace-nowrap text-xs min-w-0"
+                  >
+                    {t(`recovery.column.${s}`, s)}
+                    {count > 0 && <span className="ml-1 text-muted-foreground">({count})</span>}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </div>
+          {/* ScrollArea (Radix) gives the same thin themed scrollbar the
+              leads panel uses, instead of the OS default. flex-1 makes it
+              consume remaining vertical space inside the panel. */}
+          <ScrollArea className="flex-1">
             {OPEN_STATUSES.map((s) => {
-              const count = data.filter((r) => r.status === s).length;
+              const rows = data.filter((r) => r.status === s);
               return (
-                <TabsTrigger
-                  key={s}
-                  value={s}
-                  className="flex-1 whitespace-nowrap text-xs min-w-0"
-                >
-                  {t(`recovery.column.${s}`, s)}
-                  {count > 0 && <span className="ml-1 text-muted-foreground">({count})</span>}
-                </TabsTrigger>
+                <TabsContent key={s} value={s} className="m-0 space-y-2 p-3">
+                  <p className="text-xs leading-snug text-muted-foreground">
+                    {t(`recovery.compactHelp.${s}`, '')}
+                  </p>
+                  {rows.length === 0 ? (
+                    <p className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                      {t(`recovery.compactEmpty.${s}`, 'No cases in this column.')}
+                    </p>
+                  ) : (
+                    rows.map((row) => (
+                      <RecoveryCaseCard key={row.id} row={row} hospitalId={hospitalId} onClick={setOpenCaseId} />
+                    ))
+                  )}
+                </TabsContent>
               );
             })}
-          </TabsList>
-          {OPEN_STATUSES.map((s) => {
-            const rows = data.filter((r) => r.status === s);
-            return (
-              <TabsContent key={s} value={s} className="space-y-2">
-                {/* Per-tab one-liner describing what populates this column. Shown
-                    whether the list is empty or full so the user always knows
-                    what to expect. */}
-                <p className="text-xs leading-snug text-muted-foreground">
-                  {t(`recovery.compactHelp.${s}`, '')}
-                </p>
-                {rows.length === 0 ? (
-                  <p className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-                    {t(`recovery.compactEmpty.${s}`, 'No cases in this column.')}
-                  </p>
-                ) : (
-                  rows.map((row) => (
-                    <RecoveryCaseCard key={row.id} row={row} hospitalId={hospitalId} onClick={setOpenCaseId} />
-                  ))
-                )}
-              </TabsContent>
-            );
-          })}
+          </ScrollArea>
         </Tabs>
 
         <RecoveryCaseDrawer

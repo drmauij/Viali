@@ -429,10 +429,13 @@ export default function ClinicAppointments() {
         </Sheet>
       )}
 
-      {/* Mobile: recovery panel as a Sheet (mirrors the leads sheet) */}
+      {/* Mobile: recovery panel as a Sheet (mirrors the leads sheet). The
+          panel manages its own internal scrolling via ScrollArea — keeping
+          overflow on the Sheet would render an additional OS-default
+          scrollbar. */}
       {isMobile && showLeads && (
         <Sheet open={recoveryPanelOpen} onOpenChange={setRecoveryPanelOpen}>
-          <SheetContent side="right" className="w-[85vw] max-w-sm overflow-y-auto p-0">
+          <SheetContent side="right" className="w-[85vw] max-w-sm p-0">
             {hospitalId && <RecoveryPanel hospitalId={hospitalId} compact />}
           </SheetContent>
         </Sheet>
@@ -473,7 +476,11 @@ export default function ClinicAppointments() {
                   by the panel itself. Mutual exclusion in toggle state means
                   exactly one of leads / recovery is rendered here. */}
               <div className="relative h-full w-full">
-                <div className="absolute inset-0 overflow-y-auto">
+                {/* No overflow on the wrapper — both LeadsPanel and the
+                    compact RecoveryPanel manage their own ScrollArea
+                    internally, so the themed Radix scrollbar shows up
+                    instead of the OS default. */}
+                <div className="absolute inset-0">
                   {leadsPanelOpen ? (
                     <LeadsPanel
                       mode="inline"
