@@ -6656,9 +6656,9 @@
       "in_progress": "Keine laufende Bearbeitung — Fälle erscheinen hier, sobald der erste Anruf protokolliert wird."
     },
     "compactHelp": {
-      "pending": "Warten auf den ersten Anruf. Fall öffnen und Kontakt protokollieren, um in 'In Bearbeitung' zu wechseln.",
-      "to_verify": "Patient hat bereits einen zukünftigen Termin. Umbuchung bestätigen oder den Fall wieder öffnen.",
-      "in_progress": "Bereits in Kontakt. Weiter dranbleiben, bis der Patient umbucht, absagt oder nicht mehr reagiert."
+      "pending": "Patienten, die nicht erscheinen oder absagen, erscheinen hier.",
+      "to_verify": "Patienten mit bereits gebuchtem zukünftigem Termin erscheinen hier.",
+      "in_progress": "Fälle, bei denen bereits Anrufe protokolliert wurden, erscheinen hier."
     },
     "drawer": {
       "title": "Rückgewinnungsfall",
