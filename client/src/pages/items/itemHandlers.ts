@@ -96,21 +96,35 @@ export function getEffectiveQty(item: ItemWithStock): number {
 }
 
 /**
+ * Quantity expressed in the same unit as `minThreshold`/`maxThreshold` (packs
+ * for tracked-pack items, units otherwise). Use this for threshold colour /
+ * running-low comparisons — `getEffectiveQty` returns units for trackExact
+ * items, which is wrong for pack-denominated thresholds.
+ */
+export function getQtyForThreshold(item: ItemWithStock): number {
+  if (item.trackExactQuantity) {
+    const packSize = item.packSize || 1;
+    return Math.ceil((item.currentUnits || 0) / packSize);
+  }
+  return item.stockLevel?.qtyOnHand || 0;
+}
+
+/**
  * Derive a stock-status label and colour for an item.
  */
 export function getStockStatus(
   item: ItemWithStock,
   t: any,
 ): { color: string; status: string } {
-  const currentQty = getEffectiveQty(item);
+  const qtyForThreshold = getQtyForThreshold(item);
   const minThreshold = item.minThreshold || 0;
 
   // Red for stockout (zero stock)
-  if (currentQty === 0) {
+  if (qtyForThreshold === 0) {
     return { color: "text-red-500", status: t('items.outOfStock') };
   }
   // Yellow for running low (below or at min threshold)
-  if (currentQty <= minThreshold) {
+  if (qtyForThreshold <= minThreshold) {
     return { color: "text-yellow-500", status: t('items.belowMin') };
   }
   // Green for enough stock
@@ -167,15 +181,15 @@ export function filterAndSortItems(
   // Apply category filter (threshold-based) - skip for archived filter
   if (activeFilter !== "all" && activeFilter !== "archived") {
     filtered = filtered.filter(item => {
-      const currentQty = getEffectiveQty(item);
+      const qtyForThreshold = getQtyForThreshold(item);
       const minThreshold = item.minThreshold || 0;
       switch (activeFilter) {
         case "runningLow":
           // Running low: stock > 0 but at or below min threshold
-          return currentQty > 0 && currentQty <= minThreshold;
+          return qtyForThreshold > 0 && qtyForThreshold <= minThreshold;
         case "stockout":
           // Stockout: zero stock
-          return currentQty === 0;
+          return qtyForThreshold === 0;
         default:
           return true;
       }
@@ -221,14 +235,14 @@ export function getFilterCounts(items: ItemWithStock[]): {
     all: activeItems.length,
     // Running low: stock > 0 but at or below min threshold
     runningLow: activeItems.filter(item => {
-      const currentQty = getEffectiveQty(item);
+      const qtyForThreshold = getQtyForThreshold(item);
       const minThreshold = item.minThreshold || 0;
-      return currentQty > 0 && currentQty <= minThreshold;
+      return qtyForThreshold > 0 && qtyForThreshold <= minThreshold;
     }).length,
     // Stockout: zero stock
     stockout: activeItems.filter(item => {
-      const currentQty = getEffectiveQty(item);
-      return currentQty === 0;
+      const qtyForThreshold = getQtyForThreshold(item);
+      return qtyForThreshold === 0;
     }).length,
     // Archived items count
     archived: archivedItems.length,
