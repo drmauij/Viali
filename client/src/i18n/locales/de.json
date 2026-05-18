@@ -6655,6 +6655,11 @@
       "to_verify": "Nichts zu prüfen — Fälle mit vermuteter Umbuchung erscheinen hier.",
       "in_progress": "Keine laufende Bearbeitung — Fälle erscheinen hier, sobald der erste Anruf protokolliert wird."
     },
+    "compactHelp": {
+      "pending": "Warten auf den ersten Anruf. Fall öffnen und Kontakt protokollieren, um in 'In Bearbeitung' zu wechseln.",
+      "to_verify": "Patient hat bereits einen zukünftigen Termin. Umbuchung bestätigen oder den Fall wieder öffnen.",
+      "in_progress": "Bereits in Kontakt. Weiter dranbleiben, bis der Patient umbucht, absagt oder nicht mehr reagiert."
+    },
     "drawer": {
       "title": "Rückgewinnungsfall",
       "phone": "Telefon",

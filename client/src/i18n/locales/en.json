@@ -6559,6 +6559,11 @@
       "to_verify": "Nothing to verify — cases the system suspects are a rebook will appear here.",
       "in_progress": "No active work — cases will land here once you log the first call."
     },
+    "compactHelp": {
+      "pending": "Waiting for the first call. Open a case and log a call to move it to In Progress.",
+      "to_verify": "Patient already has a future appointment. Confirm if it's a real rebook, or re-open the case.",
+      "in_progress": "Already in contact. Keep calling until the patient rebooks, declines, or stops responding."
+    },
     "drawer": {
       "title": "Recovery case",
       "phone": "Phone",

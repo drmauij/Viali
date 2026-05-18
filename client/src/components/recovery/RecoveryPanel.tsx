@@ -83,6 +83,12 @@ export function RecoveryPanel({ hospitalId, compact = false }: Props) {
             const rows = data.filter((r) => r.status === s);
             return (
               <TabsContent key={s} value={s} className="space-y-2">
+                {/* Per-tab one-liner describing what populates this column. Shown
+                    whether the list is empty or full so the user always knows
+                    what to expect. */}
+                <p className="text-xs leading-snug text-muted-foreground">
+                  {t(`recovery.compactHelp.${s}`, '')}
+                </p>
                 {rows.length === 0 ? (
                   <p className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
                     {t(`recovery.compactEmpty.${s}`, 'No cases in this column.')}
