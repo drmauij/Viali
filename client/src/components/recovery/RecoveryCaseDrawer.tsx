@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { formatDistanceToNow } from 'date-fns';
 import { formatDate, formatTime } from '@/lib/dateUtils';
+import { apiRequest } from '@/lib/queryClient';
 
 type ContactOutcome = 'reached' | 'no_answer' | 'wants_callback' | 'will_call_back' | 'needs_time';
 
@@ -47,8 +48,7 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
   const { data, isLoading } = useQuery({
     queryKey: ['recovery-case', hospitalId, caseId],
     queryFn: async () => {
-      const res = await fetch(`/api/business/${hospitalId}/recovery-cases/${caseId}`);
-      if (!res.ok) throw new Error('Failed');
+      const res = await apiRequest('GET', `/api/business/${hospitalId}/recovery-cases/${caseId}`);
       return res.json();
     },
     enabled: !!caseId,
@@ -62,12 +62,11 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
 
   const logContact = useMutation({
     mutationFn: async (outcome: ContactOutcome) => {
-      const res = await fetch(`/api/business/${hospitalId}/recovery-cases/${caseId}/contacts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ outcome, note: note.trim() || null }),
-      });
-      if (!res.ok) throw new Error('Failed');
+      const res = await apiRequest(
+        'POST',
+        `/api/business/${hospitalId}/recovery-cases/${caseId}/contacts`,
+        { outcome, note: note.trim() || null },
+      );
       return res.json();
     },
     onSuccess: () => { setNote(''); invalidateAll(); },
@@ -75,12 +74,11 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
 
   const closeCase = useMutation({
     mutationFn: async ({ status, closedReason }: { status: 'closed_lost' | 'closed_other'; closedReason: string }) => {
-      const res = await fetch(`/api/business/${hospitalId}/recovery-cases/${caseId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, closedReason }),
-      });
-      if (!res.ok) throw new Error('Failed');
+      const res = await apiRequest(
+        'PATCH',
+        `/api/business/${hospitalId}/recovery-cases/${caseId}/status`,
+        { status, closedReason },
+      );
       return res.json();
     },
     onSuccess: () => { onClose(); invalidateAll(); },
@@ -88,12 +86,11 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
 
   const markRescheduled = useMutation({
     mutationFn: async (rescheduledAppointmentId: string) => {
-      const res = await fetch(`/api/business/${hospitalId}/recovery-cases/${caseId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'rescheduled', rescheduledAppointmentId }),
-      });
-      if (!res.ok) throw new Error('Failed');
+      const res = await apiRequest(
+        'PATCH',
+        `/api/business/${hospitalId}/recovery-cases/${caseId}/status`,
+        { status: 'rescheduled', rescheduledAppointmentId },
+      );
       return res.json();
     },
     onSuccess: () => { onClose(); invalidateAll(); },
@@ -102,8 +99,7 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
   const { data: futureAppts = [] } = useQuery<FutureAppointment[]>({
     queryKey: ['patient-future-appointments', data?.patientId],
     queryFn: async () => {
-      const res = await fetch(`/api/business/${hospitalId}/patients/${data!.patientId}/future-appointments`);
-      if (!res.ok) throw new Error('Failed');
+      const res = await apiRequest('GET', `/api/business/${hospitalId}/patients/${data!.patientId}/future-appointments`);
       return res.json();
     },
     enabled: showMarkResched && !!data?.patientId,

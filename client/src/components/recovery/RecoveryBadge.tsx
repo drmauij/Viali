@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { apiRequest } from '@/lib/queryClient';
 
 interface RecoveryStats {
   pending: number;
@@ -34,8 +35,7 @@ export function RecoveryBadge() {
   const { data } = useQuery<RecoveryStats>({
     queryKey: ['recovery-cases-stats', hospitalId],
     queryFn: async () => {
-      const res = await fetch(`/api/business/${hospitalId}/recovery-cases-stats`);
-      if (!res.ok) throw new Error('Failed');
+      const res = await apiRequest('GET', `/api/business/${hospitalId}/recovery-cases-stats`);
       return res.json();
     },
     enabled: !!hospitalId,

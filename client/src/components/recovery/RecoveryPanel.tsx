@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { apiRequest } from '@/lib/queryClient';
 import { RecoveryCaseCard, type RecoveryCaseRow, type RecoveryStatus } from './RecoveryCaseCard';
 import { RecoveryCaseDrawer } from './RecoveryCaseDrawer';
 
@@ -33,8 +34,7 @@ export function RecoveryPanel({ hospitalId, compact = false }: Props) {
   const { data = [], isLoading, error } = useQuery<RecoveryCaseRow[]>({
     queryKey: ['recovery-cases', hospitalId],
     queryFn: async () => {
-      const res = await fetch(`/api/business/${hospitalId}/recovery-cases`);
-      if (!res.ok) throw new Error('Failed to load recovery cases');
+      const res = await apiRequest('GET', `/api/business/${hospitalId}/recovery-cases`);
       return res.json();
     },
   });

@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { formatDate, formatTime } from '@/lib/dateUtils';
 
 export type RecoveryStatus =
@@ -53,12 +54,11 @@ export function RecoveryCaseCard({ row, hospitalId, onClick }: Props) {
   const qc = useQueryClient();
   const verifyMutation = useMutation({
     mutationFn: async (newStatus: 'rescheduled' | 'pending') => {
-      const res = await fetch(`/api/business/${hospitalId}/recovery-cases/${row.id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (!res.ok) throw new Error('Failed');
+      const res = await apiRequest(
+        'PATCH',
+        `/api/business/${hospitalId}/recovery-cases/${row.id}/status`,
+        { status: newStatus },
+      );
       return res.json();
     },
     onSuccess: () => {
