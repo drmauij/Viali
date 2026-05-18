@@ -514,7 +514,7 @@ export default function ClinicAppointments() {
                 hospitalId={hospitalId}
                 compact
                 selectedCaseId={selectedRecoveryCase?.id ?? null}
-                onCaseTap={(c) => setSelectedRecoveryCase(prev => prev?.id === c.id ? null : c)}
+                onScheduleCase={(c) => setSelectedRecoveryCase(prev => prev?.id === c.id ? null : c)}
                 onBookForPatient={(p) => {
                   setBookingDefaults({
                     patientId: p.patientId,
@@ -581,7 +581,7 @@ export default function ClinicAppointments() {
                         hospitalId={hospitalId}
                         compact
                         selectedCaseId={selectedRecoveryCase?.id ?? null}
-                        onCaseTap={(c) => setSelectedRecoveryCase(prev => prev?.id === c.id ? null : c)}
+                        onScheduleCase={(c) => setSelectedRecoveryCase(prev => prev?.id === c.id ? null : c)}
                         onBookForPatient={(p) => {
                           setBookingDefaults({
                             patientId: p.patientId,

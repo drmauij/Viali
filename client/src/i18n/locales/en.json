@@ -6553,7 +6553,7 @@
       "newAppointment": "New appointment:",
       "confirmRebook": "✓ Confirm rebook",
       "reopen": "↻ Re-open",
-      "ariaTapToBook": "Tap to select for booking, then click a calendar slot. Double-click to open details."
+      "scheduleAppointment": "Schedule appointment"
     },
     "compactEmpty": {
       "pending": "Nothing waiting — patients who no-show or cancel will appear here.",

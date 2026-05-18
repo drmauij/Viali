@@ -23,7 +23,12 @@ interface Props {
    * Omit when the panel is used standalone (e.g., /business/recovery).
    */
   selectedCaseId?: string | null;
-  onCaseTap?: (row: RecoveryCaseRow) => void;
+  /**
+   * Fires when the user clicks the "Schedule appointment" button on a
+   * case card. Parent selects the case so the next calendar slot click
+   * opens BookingDialog with the patient pre-filled.
+   */
+  onScheduleCase?: (row: RecoveryCaseRow) => void;
   /**
    * Forwarded to RecoveryCaseDrawer's Book Appointment button. Receives
    * `{ patientId, patientName }` so the parent can open BookingDialog
@@ -41,7 +46,7 @@ const ALL_STATUSES: RecoveryStatus[] = [
 ];
 const OPEN_STATUSES: RecoveryStatus[] = ['pending', 'in_progress'];
 
-export function RecoveryPanel({ hospitalId, compact = false, selectedCaseId, onCaseTap, onBookForPatient }: Props) {
+export function RecoveryPanel({ hospitalId, compact = false, selectedCaseId, onScheduleCase, onBookForPatient }: Props) {
   const { t } = useTranslation();
   const [openCaseId, setOpenCaseId] = useState<string | null>(null);
 
@@ -122,7 +127,7 @@ export function RecoveryPanel({ hospitalId, compact = false, selectedCaseId, onC
                         row={row}
                         hospitalId={hospitalId}
                         onClick={setOpenCaseId}
-                        onTap={onCaseTap}
+                        onSchedule={onScheduleCase}
                         isSelected={selectedCaseId === row.id}
                       />
                     ))

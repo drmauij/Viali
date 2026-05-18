@@ -6649,7 +6649,7 @@
       "newAppointment": "Neuer Termin:",
       "confirmRebook": "✓ Bestätigen",
       "reopen": "↻ Wieder öffnen",
-      "ariaTapToBook": "Antippen, um auszuwählen, dann einen Kalenderslot anklicken. Doppelklick für Details."
+      "scheduleAppointment": "Termin planen"
     },
     "compactEmpty": {
       "pending": "Nichts offen — Patienten, die nicht erscheinen oder absagen, erscheinen hier.",
