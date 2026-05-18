@@ -61,11 +61,18 @@ export function RecoveryPanel({ hospitalId, compact = false }: Props) {
     return (
       <div className="p-3">
         <Tabs defaultValue="pending" className="space-y-3">
-          <TabsList className="w-full">
+          {/* h-auto + flex-wrap lets the tab strip break onto two rows on
+              narrow side-panel widths instead of clipping. Each trigger keeps
+              its full label + count visible. */}
+          <TabsList className="flex h-auto w-full flex-wrap gap-1 p-1">
             {OPEN_STATUSES.map((s) => {
               const count = data.filter((r) => r.status === s).length;
               return (
-                <TabsTrigger key={s} value={s} className="flex-1 text-xs">
+                <TabsTrigger
+                  key={s}
+                  value={s}
+                  className="flex-1 whitespace-nowrap text-xs min-w-0"
+                >
                   {t(`recovery.column.${s}`, s)}
                   {count > 0 && <span className="ml-1 text-muted-foreground">({count})</span>}
                 </TabsTrigger>
@@ -77,7 +84,9 @@ export function RecoveryPanel({ hospitalId, compact = false }: Props) {
             return (
               <TabsContent key={s} value={s} className="space-y-2">
                 {rows.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">—</p>
+                  <p className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                    {t(`recovery.compactEmpty.${s}`, 'No cases in this column.')}
+                  </p>
                 ) : (
                   rows.map((row) => (
                     <RecoveryCaseCard key={row.id} row={row} hospitalId={hospitalId} onClick={setOpenCaseId} />

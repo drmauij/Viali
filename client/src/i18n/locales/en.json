@@ -6554,6 +6554,11 @@
       "confirmRebook": "✓ Confirm rebook",
       "reopen": "↻ Re-open"
     },
+    "compactEmpty": {
+      "pending": "Nothing waiting — patients who no-show or cancel will appear here.",
+      "to_verify": "Nothing to verify — cases the system suspects are a rebook will appear here.",
+      "in_progress": "No active work — cases will land here once you log the first call."
+    },
     "drawer": {
       "title": "Recovery case",
       "phone": "Phone",

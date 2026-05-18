@@ -6650,6 +6650,11 @@
       "confirmRebook": "✓ Bestätigen",
       "reopen": "↻ Wieder öffnen"
     },
+    "compactEmpty": {
+      "pending": "Nichts offen — Patienten, die nicht erscheinen oder absagen, erscheinen hier.",
+      "to_verify": "Nichts zu prüfen — Fälle mit vermuteter Umbuchung erscheinen hier.",
+      "in_progress": "Keine laufende Bearbeitung — Fälle erscheinen hier, sobald der erste Anruf protokolliert wird."
+    },
     "drawer": {
       "title": "Rückgewinnungsfall",
       "phone": "Telefon",
