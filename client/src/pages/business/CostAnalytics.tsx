@@ -17,6 +17,7 @@ import ReferralsBySourceCard from "@/components/business/dashboard/ReferralsBySo
 import ReferralsDetailModal from "@/components/business/dashboard/ReferralsDetailModal";
 import MonthSurgeriesModal from "@/components/business/dashboard/MonthSurgeriesModal";
 import AdPerformanceCard from "@/components/business/dashboard/AdPerformanceCard";
+import SurgeryCostsCard from "@/components/business/dashboard/SurgeryCostsCard";
 import type { MoneySummary } from "@/components/business/dashboard/types";
 
 interface SurgeriesSummary {
@@ -41,10 +42,11 @@ interface KpiCardProps {
   label: string;
   value: string;
   hint?: React.ReactNode;
+  help?: string;
   emphasis?: "positive" | "negative";
 }
 
-function KpiCard({ label, value, hint, emphasis }: KpiCardProps) {
+function KpiCard({ label, value, hint, help, emphasis }: KpiCardProps) {
   const valueTone =
     emphasis === "positive"
       ? "text-emerald-600 dark:text-emerald-400"
@@ -53,10 +55,15 @@ function KpiCard({ label, value, hint, emphasis }: KpiCardProps) {
         : "";
   return (
     <Card>
-      <CardContent className="p-4">
+      <CardContent className="p-4 flex flex-col h-full">
         <div className="text-xs text-muted-foreground uppercase">{label}</div>
         <div className={`text-2xl font-bold ${valueTone}`}>{value}</div>
         {hint && <div className="text-xs text-muted-foreground mt-1">{hint}</div>}
+        {help && (
+          <div className="text-[10px] text-muted-foreground/60 mt-auto pt-2 leading-snug italic">
+            {help}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -161,6 +168,9 @@ export default function CostAnalytics() {
             <TabsTrigger value="money" data-testid="tab-money" className="whitespace-nowrap">
               {t("business.bands.moneyTitle", "Money")}
             </TabsTrigger>
+            <TabsTrigger value="costs" data-testid="tab-costs" className="whitespace-nowrap">
+              {t("business.bands.costsTitle", "Costs")}
+            </TabsTrigger>
             <TabsTrigger value="pipeline" data-testid="tab-pipeline" className="whitespace-nowrap">
               {t("business.bands.pipelineTitle", "Pipeline")}
             </TabsTrigger>
@@ -187,6 +197,10 @@ export default function CostAnalytics() {
                     v: formatCurrencyLocale(s.revenue.surgery),
                     t: formatCurrencyLocale(s.revenue.treatment),
                   })}
+                  help={t(
+                    "business.money.revenueHelp",
+                    "Money billed for completed surgeries and treatments in this period.",
+                  )}
                 />
                 <KpiCard
                   label={t("business.money.costs", "Costs")}
@@ -195,6 +209,10 @@ export default function CostAnalytics() {
                     a: staffPct.toFixed(0),
                     b: matPct.toFixed(0),
                   })}
+                  help={t(
+                    "business.money.costsHelp",
+                    "Staff hours and consumables used on completed cases.",
+                  )}
                 />
                 <KpiCard
                   label={t("business.money.margin", "Margin")}
@@ -206,11 +224,19 @@ export default function CostAnalytics() {
                       {Math.abs(marginPp).toFixed(1)} pp {t("business.money.vsPrev", "vs prev period")}
                     </span>
                   ) : undefined}
+                  help={t(
+                    "business.money.marginHelp",
+                    "What is left after subtracting costs from revenue.",
+                  )}
                 />
                 <KpiCard
                   label={t("business.money.marginPercent", "Margin %")}
                   value={`${(s.margin.percent * 100).toFixed(1)}%`}
                   hint={!isAllRange ? `${marginPp >= 0 ? "↑" : "↓"} ${Math.abs(marginPp).toFixed(1)} pp` : undefined}
+                  help={t(
+                    "business.money.marginPercentHelp",
+                    "Margin as a share of revenue.",
+                  )}
                 />
               </div>
 
@@ -226,18 +252,58 @@ export default function CostAnalytics() {
           )}
         </TabsContent>
 
+        {/* ─── Costs ───────────────────────────────────────────────── */}
+        <TabsContent value="costs" className="mt-6 space-y-6">
+          <p className="text-sm text-muted-foreground">
+            {t(
+              "business.bands.costsHint",
+              "Per-surgery cost detail — staff, anesthesia consumables, and surgery consumables. Click a row to see the full breakdown.",
+            )}
+          </p>
+          <SurgeryCostsCard hospitalId={hospitalId} range={range} />
+        </TabsContent>
+
         {/* ─── Pipeline ────────────────────────────────────────────── */}
         <TabsContent value="pipeline" className="mt-6 space-y-6">
           <p className="text-sm text-muted-foreground">
             {t("business.bands.pipelineHint", "Are bookings healthy? Future revenue, referral sources, and ad performance — the inputs to the funnel.")}
           </p>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiCard
-              label={t("business.pipeline.futureSurgeries", "Future surgeries")}
-              value={String(sg?.countPlanned ?? 0)}
-              hint={formatCurrencyLocale(sg?.revenuePlanned ?? 0)}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <Card className="lg:col-span-2">
+              <CardContent className="p-4 flex flex-col h-full">
+                <div className="text-xs text-muted-foreground uppercase">
+                  {t("business.pipeline.futurePipeline", "Future pipeline")}
+                </div>
+                <div className="mt-1 grid grid-cols-2 divide-x divide-border">
+                  <div className="pr-4">
+                    <div className="text-[11px] text-muted-foreground uppercase tracking-wide">
+                      {t("business.pipeline.surgeries", "Surgeries")}
+                    </div>
+                    <div className="text-2xl font-bold" data-testid="pipeline-future-count">
+                      {sg?.countPlanned ?? 0}
+                    </div>
+                  </div>
+                  <div className="pl-4">
+                    <div className="text-[11px] text-muted-foreground uppercase tracking-wide">
+                      {t("business.pipeline.plannedRevenue", "Planned revenue")}
+                    </div>
+                    <div
+                      className="text-2xl font-bold text-emerald-600 dark:text-emerald-400"
+                      data-testid="pipeline-planned-revenue"
+                    >
+                      {formatCurrencyLocale(sg?.revenuePlanned ?? 0)}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-[10px] text-muted-foreground/60 mt-auto pt-2 leading-snug italic">
+                  {t(
+                    "business.pipeline.futurePipelineHelp",
+                    "Booked surgeries still to come and the revenue they should bring in.",
+                  )}
+                </div>
+              </CardContent>
+            </Card>
             <KpiCard
               label={t("business.pipeline.totalReferrals", "Referrals in period")}
               value={String(referralsTotal)}
@@ -245,16 +311,28 @@ export default function CostAnalytics() {
                 a: referralsCompleted,
                 p: referralsPaid,
               })}
+              help={t(
+                "business.pipeline.totalReferralsHelp",
+                "New patient referrals received in this period, across all sources.",
+              )}
             />
             <KpiCard
               label={t("business.pipeline.paidConversion", "Paid conversion")}
               value={referralsTotal > 0 ? `${paidConversion.toFixed(0)}%` : "—"}
               emphasis={paidConversion >= 30 ? "positive" : undefined}
+              help={t(
+                "business.pipeline.paidConversionHelp",
+                "Share of referrals that have paid for a surgery.",
+              )}
             />
             <KpiCard
               label={t("business.pipeline.avgMargin", "Avg margin / surgery")}
               value={formatCurrencyLocale(avgMarginPerSurgery)}
               emphasis={avgMarginPerSurgery >= 0 ? "positive" : "negative"}
+              help={t(
+                "business.pipeline.avgMarginHelp",
+                "Average profit per completed surgery — revenue minus cost.",
+              )}
             />
           </div>
 

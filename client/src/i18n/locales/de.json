@@ -5498,6 +5498,8 @@
     "bands": {
       "moneyTitle": "Geld",
       "moneyHint": "Haben wir Geld verdient? Umsatz, Kosten und Marge für den gewählten Zeitraum.",
+      "costsTitle": "Kosten",
+      "costsHint": "Kostendetails pro Operation – Personal, Anästhesie-Verbrauch und OP-Verbrauch. Auf eine Zeile klicken für die vollständige Aufschlüsselung.",
       "pipelineTitle": "Pipeline",
       "pipelineHint": "Wie gesund sind die Buchungen? Zukünftiger Umsatz und woher die Leads kommen.",
       "leadershipTitle": "Führungsentscheidungen",
@@ -5589,7 +5591,11 @@
       "count": "Anzahl",
       "marginCol": "Marge",
       "inventoryOnHand": "Lagerbestand-Wert",
-      "noInventoryHistory": "Noch keine Lagerhistorie"
+      "noInventoryHistory": "Noch keine Lagerhistorie",
+      "revenueHelp": "In diesem Zeitraum für abgeschlossene Operationen und Behandlungen abgerechneter Betrag.",
+      "costsHelp": "Personalstunden und Verbrauchsmaterial für abgeschlossene Fälle.",
+      "marginHelp": "Was nach Abzug der Kosten vom Umsatz übrig bleibt.",
+      "marginPercentHelp": "Marge als Anteil am Umsatz."
     },
     "pipeline": {
       "helperText": "Wie gesund sind die Buchungen? Zukünftiger Umsatz, Verweisquellen und Anzeigen-Performance.",
@@ -5621,6 +5627,13 @@
       "bookedFromLeads": "{{n}} gebucht",
       "leadConversion": "Lead → Erster Termin",
       "avgMargin": "Ø Marge / OP",
+      "futurePipeline": "Zukünftige Pipeline",
+      "plannedRevenue": "Geplanter Umsatz",
+      "surgeries": "Operationen",
+      "futurePipelineHelp": "Bereits gebuchte Operationen und der Umsatz, den sie voraussichtlich bringen.",
+      "totalReferralsHelp": "In diesem Zeitraum erhaltene Patientenverweise aus allen Quellen.",
+      "paidConversionHelp": "Anteil der Verweise, die für eine Operation bezahlt haben.",
+      "avgMarginHelp": "Durchschnittlicher Gewinn pro abgeschlossener Operation – Umsatz minus Kosten.",
       "funnelTitle": "Trichter",
       "leadsBySourceTitle": "Leads nach Verweisquelle",
       "leadsBySourceDesc": "Woher neue Leads kommen und wie viele zu gebuchten Erstterminen wurden. Direktbuchungen zählen nicht als Leads.",
