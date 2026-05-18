@@ -3545,7 +3545,7 @@ router.get('/api/business/:hospitalId/referrals-detail', isAuthenticated, isBusi
              re.source_detail,
              re.capture_method,
              p.first_name AS patient_first_name,
-             p.last_name  AS patient_last_name,
+             p.surname    AS patient_last_name,
              ca.status     AS appointment_status,
              re.appointment_final_status,
              re.utm_source,

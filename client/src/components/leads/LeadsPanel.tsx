@@ -186,13 +186,51 @@ function buildLeadGreeting(
   return `${opening}${middle} ${tpl.question}`;
 }
 
+// All lead fields that count as "referral attribution" — used both for
+// the visible panel and the clipboard payload so the UI and the copy
+// stay in sync. Meta lead-ad webhooks deliver campaign/adset/ad IDs and
+// form IDs directly (no UTM params), so those count too.
+const LEAD_REFERRAL_FIELDS = [
+  "utmSource",
+  "utmMedium",
+  "utmCampaign",
+  "utmTerm",
+  "utmContent",
+  "campaignName",
+  "campaignId",
+  "adsetId",
+  "adId",
+  "metaFormId",
+  "metaLeadId",
+  "gclid",
+  "gbraid",
+  "wbraid",
+  "fbclid",
+  "msclkid",
+  "ttclid",
+  "igshid",
+  "li_fat_id",
+  "twclid",
+] as const satisfies readonly (keyof Lead)[];
+
+function leadHasReferralAttribution(lead: LeadWithSummary | Lead): boolean {
+  return LEAD_REFERRAL_FIELDS.some((f) => Boolean((lead as Record<string, unknown>)[f]));
+}
+
 function buildLeadReferralClipboardPayload(lead: LeadWithSummary | Lead): string {
   // Compact human-readable summary for the paste-confirmation dialog
   const summaryParts: string[] = [];
   if (lead.utmSource) summaryParts.push(lead.utmSource);
   if (lead.utmMedium) summaryParts.push(lead.utmMedium.toUpperCase());
   if (lead.utmCampaign) summaryParts.push(lead.utmCampaign);
+  else if (lead.campaignName) summaryParts.push(lead.campaignName);
   const summary = summaryParts.length > 0 ? summaryParts.join(" • ") : sourceLabel(lead.source);
+
+  const attribution: Record<string, unknown> = {};
+  for (const f of LEAD_REFERRAL_FIELDS) {
+    const v = (lead as Record<string, unknown>)[f];
+    if (v) attribution[f] = v;
+  }
 
   return JSON.stringify({
     __viali_payload_type: "lead_referral_v1",
@@ -202,6 +240,7 @@ function buildLeadReferralClipboardPayload(lead: LeadWithSummary | Lead): string
     lastName: lead.lastName,
     source: lead.source,
     summary,
+    attribution,
   });
 }
 
@@ -523,15 +562,21 @@ function ContactLogDialog({
                   {lead.utmTerm && <p>{t("leads.searchTerm", "Search term")}: {lead.utmTerm}</p>}
                   {lead.utmContent && <p>{t("leads.content", "Content")}: {lead.utmContent}</p>}
                   {lead.campaignName && <p>{t("leads.campaignName", "Campaign name")}: {lead.campaignName}</p>}
+                  {lead.campaignId && <p>{t("leads.campaignId", "Campaign ID")}: {lead.campaignId}</p>}
                   {lead.adsetId && <p>Ad set: {lead.adsetId}</p>}
                   {lead.adId && <p>Ad: {lead.adId}</p>}
+                  {lead.metaFormId && <p>{t("leads.metaFormId", "Meta form")}: {lead.metaFormId}</p>}
+                  {lead.metaLeadId && <p>{t("leads.metaLeadId", "Meta lead ID")}: {lead.metaLeadId}</p>}
                   {lead.gclid && <p>Google Click ID: {lead.gclid.slice(0, 12)}...</p>}
+                  {lead.gbraid && <p>Google gbraid: {lead.gbraid.slice(0, 12)}...</p>}
+                  {lead.wbraid && <p>Google wbraid: {lead.wbraid.slice(0, 12)}...</p>}
                   {lead.fbclid && <p>Facebook Click ID: {lead.fbclid.slice(0, 12)}...</p>}
                   {lead.msclkid && <p>Microsoft Click ID: {lead.msclkid.slice(0, 12)}...</p>}
                   {lead.ttclid && <p>TikTok Click ID: {lead.ttclid.slice(0, 12)}...</p>}
-                  {!lead.utmSource && !lead.utmMedium && !lead.utmCampaign && !lead.utmTerm &&
-                   !lead.utmContent && !lead.campaignName && !lead.adsetId && !lead.adId &&
-                   !lead.gclid && !lead.fbclid && !lead.msclkid && !lead.ttclid && (
+                  {lead.igshid && <p>Instagram Share ID: {lead.igshid.slice(0, 12)}...</p>}
+                  {lead.li_fat_id && <p>LinkedIn Click ID: {lead.li_fat_id.slice(0, 12)}...</p>}
+                  {lead.twclid && <p>X (Twitter) Click ID: {lead.twclid.slice(0, 12)}...</p>}
+                  {!leadHasReferralAttribution(lead) && (
                     <p className="italic">{t("leads.noReferralInfo", "No referral attribution captured")}</p>
                   )}
                 </div>
