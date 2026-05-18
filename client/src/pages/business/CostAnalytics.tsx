@@ -168,11 +168,11 @@ export default function CostAnalytics() {
             <TabsTrigger value="money" data-testid="tab-money" className="whitespace-nowrap">
               {t("business.bands.moneyTitle", "Money")}
             </TabsTrigger>
-            <TabsTrigger value="costs" data-testid="tab-costs" className="whitespace-nowrap">
-              {t("business.bands.costsTitle", "Costs")}
-            </TabsTrigger>
             <TabsTrigger value="pipeline" data-testid="tab-pipeline" className="whitespace-nowrap">
               {t("business.bands.pipelineTitle", "Pipeline")}
+            </TabsTrigger>
+            <TabsTrigger value="costs" data-testid="tab-costs" className="whitespace-nowrap">
+              {t("business.bands.costsTitle", "Costs")}
             </TabsTrigger>
           </TabsList>
         </div>
