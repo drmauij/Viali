@@ -5,9 +5,16 @@ import { RecoveryCaseDrawer } from './RecoveryCaseDrawer';
 
 interface Props {
   hospitalId: string;
+  /**
+   * compact = side-panel mode on /clinic Appointments: only open columns
+   * (pending / to_verify / in_progress), stacked vertically. The full
+   * 6-column kanban (with closed columns) renders only on the standalone
+   * /business/recovery page.
+   */
+  compact?: boolean;
 }
 
-const COLUMNS: { key: RecoveryStatus; label: string }[] = [
+const ALL_COLUMNS: { key: RecoveryStatus; label: string }[] = [
   { key: 'pending', label: 'Pending' },
   { key: 'to_verify', label: 'To Verify' },
   { key: 'in_progress', label: 'In Progress' },
@@ -16,7 +23,11 @@ const COLUMNS: { key: RecoveryStatus; label: string }[] = [
   { key: 'closed_other', label: 'Closed — Other' },
 ];
 
-export function RecoveryPanel({ hospitalId }: Props) {
+const OPEN_COLUMNS = ALL_COLUMNS.filter(c =>
+  c.key === 'pending' || c.key === 'to_verify' || c.key === 'in_progress'
+);
+
+export function RecoveryPanel({ hospitalId, compact = false }: Props) {
   const [openCaseId, setOpenCaseId] = useState<string | null>(null);
 
   const { data = [], isLoading, error } = useQuery<RecoveryCaseRow[]>({
@@ -35,28 +46,39 @@ export function RecoveryPanel({ hospitalId }: Props) {
     return <p className="text-sm text-destructive">Failed to load recovery cases.</p>;
   }
 
-  const grouped = COLUMNS.map((col) => ({
+  const columns = compact ? OPEN_COLUMNS : ALL_COLUMNS;
+  const grouped = columns.map((col) => ({
     ...col,
     rows: data.filter((r) => r.status === col.key),
   }));
-  const totalOpen = grouped
+  const totalOpen = ALL_COLUMNS
     .filter((c) => c.key === 'pending' || c.key === 'to_verify' || c.key === 'in_progress')
-    .reduce((acc, c) => acc + c.rows.length, 0);
+    .reduce((acc, c) => acc + data.filter((r) => r.status === c.key).length, 0);
 
-  if (data.length === 0) {
+  // Empty-state copy is the same in both modes — page hides if there are no
+  // cases at all; compact hides if there are no OPEN cases (closed cases are
+  // not shown here, so they shouldn't keep the panel populated).
+  const visibleCount = compact ? totalOpen : data.length;
+  if (visibleCount === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="p-4 text-sm text-muted-foreground">
         No open recovery cases. Patients who no-show or cancel without rebooking will appear here.
       </p>
     );
   }
 
+  const gridClass = compact
+    ? 'grid grid-cols-1 gap-3'
+    : 'grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-6';
+
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        {totalOpen} open · {data.length} total
-      </p>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-6">
+    <div className={compact ? 'space-y-3 p-3' : 'space-y-4'}>
+      {!compact && (
+        <p className="text-sm text-muted-foreground">
+          {totalOpen} open · {data.length} total
+        </p>
+      )}
+      <div className={gridClass}>
         {grouped.map((col) => (
           <div key={col.key} className="rounded-md border border-border bg-muted/40 p-3">
             <h2 className="mb-3 flex items-center justify-between text-sm font-medium">

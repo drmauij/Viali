@@ -48,6 +48,8 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { LeadsPanel, LeadsBadge, ScheduleLeadDialog } from "@/components/leads/LeadsPanel";
+import { RecoveryPanel } from "@/components/recovery/RecoveryPanel";
+import { RecoveryBadge } from "@/components/recovery/RecoveryBadge";
 import { draggedLead } from "@/components/leads/useLeadDrag";
 import type { Lead } from "@shared/schema";
 import ClinicCalendar from "@/components/clinic/ClinicCalendar";
@@ -84,7 +86,25 @@ export default function ClinicAppointments() {
     return params.get("leadId");
   }, []);
   const isMobile = useIsMobile();
-  const [leadsPanelOpen, setLeadsPanelOpen] = useState(!!urlLeadId);
+  const [leadsPanelOpen, setLeadsPanelOpenRaw] = useState(!!urlLeadId);
+  const [recoveryPanelOpen, setRecoveryPanelOpenRaw] = useState(false);
+  // Mutual exclusion: opening one closes the other so the right side of the
+  // calendar always holds at most one side panel. Keeps the calendar room
+  // when coordinator is working a no-show win-back call.
+  const setLeadsPanelOpen = (next: boolean | ((p: boolean) => boolean)) => {
+    setLeadsPanelOpenRaw(prev => {
+      const v = typeof next === 'function' ? next(prev) : next;
+      if (v) setRecoveryPanelOpenRaw(false);
+      return v;
+    });
+  };
+  const setRecoveryPanelOpen = (next: boolean | ((p: boolean) => boolean)) => {
+    setRecoveryPanelOpenRaw(prev => {
+      const v = typeof next === 'function' ? next(prev) : next;
+      if (v) setLeadsPanelOpenRaw(false);
+      return v;
+    });
+  };
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leadScheduleDialogOpen, setLeadScheduleDialogOpen] = useState(false);
   const [leadDropData, setLeadDropData] = useState<{ date: string; time: string; roomId?: string; providerId?: string } | null>(null);
@@ -361,6 +381,23 @@ export default function ClinicAppointments() {
               <LeadsBadge />
             </Button>
           )}
+          {showLeads && (
+            <Button
+              variant={recoveryPanelOpen ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRecoveryPanelOpen(p => !p)}
+              className={cn(
+                recoveryPanelOpen
+                  ? "bg-amber-600 hover:bg-amber-700 text-white"
+                  : "border-amber-500/70 text-amber-700 hover:bg-amber-50 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/40 dark:hover:text-amber-200"
+              )}
+              data-testid="button-recovery"
+            >
+              <RefreshCw className="h-4 w-4 mr-1" />
+              Recovery
+              <RecoveryBadge />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -384,8 +421,17 @@ export default function ClinicAppointments() {
         </Sheet>
       )}
 
+      {/* Mobile: recovery panel as a Sheet (mirrors the leads sheet) */}
+      {isMobile && showLeads && (
+        <Sheet open={recoveryPanelOpen} onOpenChange={setRecoveryPanelOpen}>
+          <SheetContent side="right" className="w-[85vw] max-w-sm overflow-y-auto p-0">
+            {hospitalId && <RecoveryPanel hospitalId={hospitalId} compact />}
+          </SheetContent>
+        </Sheet>
+      )}
+
       <div className="flex-1 min-h-0 overflow-hidden">
-        {leadsPanelOpen && showLeads && !isMobile ? (
+        {(leadsPanelOpen || recoveryPanelOpen) && showLeads && !isMobile ? (
           <ResizablePanelGroup direction="horizontal" className="h-full">
             <ResizablePanel defaultSize={75} minSize={60}>
               <ClinicCalendar
@@ -412,19 +458,24 @@ export default function ClinicAppointments() {
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize={25} minSize={18} maxSize={35}>
-              {/* Absolute-positioned wrapper: takes LeadsPanel out of flex
-                  alignment calc so its card list can't push the group
-                  taller than the calendar's natural height. The panel
-                  still fills the ResizablePanel via inset-0; ScrollArea
-                  inside LeadsPanel handles overflow. */}
+              {/* Absolute-positioned wrapper: takes the panel out of flex
+                  alignment calc so its card list can't push the group taller
+                  than the calendar's natural height. The panel still fills
+                  the ResizablePanel via inset-0; internal overflow handled
+                  by the panel itself. Mutual exclusion in toggle state means
+                  exactly one of leads / recovery is rendered here. */}
               <div className="relative h-full w-full">
-                <div className="absolute inset-0">
-                  <LeadsPanel
-                    mode="inline"
-                    selectedLeadId={selectedLead?.id ?? null}
-                    initialLeadId={urlLeadId}
-                    onLeadTap={(lead) => setSelectedLead(p => p?.id === lead?.id ? null : lead)}
-                  />
+                <div className="absolute inset-0 overflow-y-auto">
+                  {leadsPanelOpen ? (
+                    <LeadsPanel
+                      mode="inline"
+                      selectedLeadId={selectedLead?.id ?? null}
+                      initialLeadId={urlLeadId}
+                      onLeadTap={(lead) => setSelectedLead(p => p?.id === lead?.id ? null : lead)}
+                    />
+                  ) : (
+                    hospitalId && <RecoveryPanel hospitalId={hospitalId} compact />
+                  )}
                 </div>
               </div>
             </ResizablePanel>
