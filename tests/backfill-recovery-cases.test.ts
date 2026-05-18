@@ -101,7 +101,7 @@ describe('runBackfill', () => {
     expect(second.skipped).toBe(2);
   });
 
-  it('lands cancel-with-successor case directly in to_verify', async () => {
+  it('auto-closes cancel-with-successor case directly as rescheduled', async () => {
     await seedAppt({ status: 'cancelled', daysAgo: 30 });
     // Future scheduled appointment for the same patient (negative daysAgo)
     await seedAppt({ status: 'scheduled', daysAgo: -30 });
@@ -110,7 +110,7 @@ describe('runBackfill', () => {
 
     const rows = await db.select().from(recoveryCases).where(eq(recoveryCases.hospitalId, hospitalId));
     const cancelCase = rows.find(r => r.trigger === 'cancelled')!;
-    expect(cancelCase.status).toBe('to_verify');
+    expect(cancelCase.status).toBe('rescheduled');
     expect(cancelCase.rescheduledAppointmentId).toBeTruthy();
   });
 });

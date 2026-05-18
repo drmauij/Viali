@@ -118,7 +118,7 @@ describe('storage.updateClinicAppointment recovery hook', () => {
 });
 
 describe('storage.createClinicAppointment recovery hook', () => {
-  it('moves an open recovery case to to_verify when patient gets a new appointment', async () => {
+  it('auto-closes an open recovery case as rescheduled when patient gets a new appointment', async () => {
     const cancelled = await makeAppt({ status: 'scheduled', appointmentDate: '2026-05-01' });
     await updateClinicAppointment(cancelled.id, { status: 'cancelled' });
     // confirm pending first
@@ -129,7 +129,7 @@ describe('storage.createClinicAppointment recovery hook', () => {
     const next = await makeAppt({ status: 'scheduled', appointmentDate: '2026-06-15' });
 
     [row] = await db.select().from(recoveryCases).where(eq(recoveryCases.appointmentId, cancelled.id));
-    expect(row.status).toBe('to_verify');
+    expect(row.status).toBe('rescheduled');
     expect(row.rescheduledAppointmentId).toBe(next.id);
   });
 

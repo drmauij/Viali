@@ -4,10 +4,9 @@ import {
   recoveryCases, recoveryCaseContacts, clinicAppointments, clinicServices,
   patients, users,
 } from '@shared/schema';
-import { and, desc, eq, gte, lte, gt, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lte, ilike, inArray, or, sql } from 'drizzle-orm';
 import { isAuthenticated } from '../auth/google';
 import { isMarketingOrManager } from './leads';
-import { computeVerifyConfidence } from '../services/recoveryCases';
 import logger from '../logger';
 
 const router = Router();
@@ -18,11 +17,14 @@ const VALID_OUTCOMES = ['reached', 'no_answer', 'wants_callback', 'will_call_bac
 
 type RecoveryStatus = (typeof VALID_STATUSES)[number];
 
-// Allowed status transitions (mirrors design spec status table).
+// Allowed status transitions. The `to_verify` value still exists in the
+// enum for backward compatibility but is no longer reachable from any
+// other state — successor detection auto-closes the case as rescheduled
+// directly, bypassing the verification step entirely.
 const ALLOWED_TRANSITIONS: Record<RecoveryStatus, RecoveryStatus[]> = {
-  pending:      ['to_verify', 'rescheduled', 'closed_lost', 'closed_other'],
-  to_verify:    ['rescheduled', 'pending', 'closed_lost', 'closed_other'],
-  in_progress:  ['to_verify', 'rescheduled', 'closed_lost', 'closed_other'],
+  pending:      ['rescheduled', 'closed_lost', 'closed_other'],
+  to_verify:    ['rescheduled', 'pending', 'closed_lost', 'closed_other'], // legacy rows only
+  in_progress:  ['rescheduled', 'closed_lost', 'closed_other'],
   rescheduled:  ['pending'],
   closed_lost:  ['pending'],
   closed_other: ['pending'],
@@ -88,38 +90,7 @@ router.get(
         .orderBy(desc(recoveryCases.createdAt))
         .limit(200);
 
-      const verifyIds = rows
-        .filter(r => r.status === 'to_verify' && r.rescheduledAppointmentId)
-        .map(r => r.rescheduledAppointmentId!);
-      const successors = verifyIds.length
-        ? await db.select({
-            id: clinicAppointments.id,
-            appointmentDate: clinicAppointments.appointmentDate,
-            startTime: clinicAppointments.startTime,
-            serviceId: clinicAppointments.serviceId,
-            providerId: clinicAppointments.providerId,
-          }).from(clinicAppointments).where(inArray(clinicAppointments.id, verifyIds))
-        : [];
-      const successorById = new Map(successors.map(s => [s.id, s]));
-
-      const enriched = rows.map(r => {
-        if (r.status === 'to_verify' && r.rescheduledAppointmentId) {
-          const s = successorById.get(r.rescheduledAppointmentId);
-          if (s) {
-            return {
-              ...r,
-              successor: s,
-              verifyConfidence: computeVerifyConfidence(
-                { serviceId: r.appointmentServiceId, providerId: r.appointmentProviderId },
-                { serviceId: s.serviceId, providerId: s.providerId },
-              ),
-            };
-          }
-        }
-        return r;
-      });
-
-      return res.json(enriched);
+      return res.json(rows);
     } catch (err) {
       logger.error({ err }, 'Error listing recovery cases');
       return res.status(500).json({ error: 'Internal server error' });
@@ -205,26 +176,7 @@ router.get(
         .where(eq(recoveryCaseContacts.recoveryCaseId, caseId))
         .orderBy(desc(recoveryCaseContacts.createdAt));
 
-      let successor: any = null;
-      let verifyConfidence: 'high' | 'medium' | 'low' | null = null;
-      if (row.status === 'to_verify' && row.rescheduledAppointmentId) {
-        const [s] = await db.select({
-          id: clinicAppointments.id,
-          appointmentDate: clinicAppointments.appointmentDate,
-          startTime: clinicAppointments.startTime,
-          serviceId: clinicAppointments.serviceId,
-          providerId: clinicAppointments.providerId,
-        }).from(clinicAppointments).where(eq(clinicAppointments.id, row.rescheduledAppointmentId));
-        if (s) {
-          successor = s;
-          verifyConfidence = computeVerifyConfidence(
-            { serviceId: row.appointmentServiceId, providerId: row.appointmentProviderId },
-            { serviceId: s.serviceId, providerId: s.providerId },
-          );
-        }
-      }
-
-      return res.json({ ...row, contacts, successor, verifyConfidence });
+      return res.json({ ...row, contacts });
     } catch (err) {
       logger.error({ err }, 'Error fetching recovery case');
       return res.status(500).json({ error: 'Internal server error' });

@@ -126,26 +126,6 @@ describe('GET /api/business/:hospitalId/recovery-cases', () => {
     expect(res.body[0].status).toBe('pending');
   });
 
-  it('returns verifyConfidence on to_verify rows', async () => {
-    const original = await seedAppt({ status: 'no_show', appointmentDate: '2026-05-01', serviceId: null });
-    const successor = await seedAppt({ status: 'scheduled', appointmentDate: '2026-06-15', serviceId: null });
-    await db.insert(recoveryCases).values({
-      hospitalId, appointmentId: original.id, patientId,
-      trigger: 'no_show', status: 'to_verify',
-      rescheduledAppointmentId: successor.id,
-    } as any);
-
-    const res = await request(buildApp())
-      .get(`/api/business/${hospitalId}/recovery-cases?status=to_verify`)
-      .set('x-test-user', userId);
-    expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(1);
-    // Same provider, both serviceId null → service-equality false, provider match → medium
-    expect(res.body[0].verifyConfidence).toBe('medium');
-    expect(res.body[0].successor).toBeDefined();
-    expect(res.body[0].successor.id).toBe(successor.id);
-  });
-
   it('filters by patient name via q parameter', async () => {
     const appt = await seedAppt({ status: 'no_show', appointmentDate: '2026-05-01' });
     await db.insert(recoveryCases).values({
@@ -183,7 +163,7 @@ describe('GET /api/business/:hospitalId/recovery-cases-stats', () => {
     expect(res.body.pending).toBe(1);
     expect(res.body.in_progress).toBe(1);
     expect(res.body.rescheduled).toBe(1);
-    expect(res.body.open_total).toBe(2); // pending + to_verify + in_progress
+    expect(res.body.open_total).toBe(2); // pending + in_progress (to_verify is defunct)
   });
 });
 

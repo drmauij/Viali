@@ -54,7 +54,13 @@ export async function enqueueRecoveryCase(
     .limit(1);
 
   const successor = successors[0] ?? null;
-  const status = successor ? 'to_verify' : 'pending';
+
+  // If the patient already has a future appointment, we treat the case as
+  // already rescheduled — no coordinator review needed. closedBy is null
+  // (system close). If no successor, the case lands as 'pending' for the
+  // coordinator to work.
+  const status = successor ? 'rescheduled' : 'pending';
+  const closedAt = successor ? new Date() : null;
 
   await tx
     .insert(recoveryCases)
@@ -65,6 +71,7 @@ export async function enqueueRecoveryCase(
       trigger,
       status,
       rescheduledAppointmentId: successor?.id ?? null,
+      closedAt,
     })
     .onConflictDoNothing({ target: recoveryCases.appointmentId });
 }
@@ -97,12 +104,17 @@ export async function reconcileRecoveryCasesForPatient(
   const matching = openCases.filter(c => c.originalApptDate <= newAppt.appointmentDate);
   if (matching.length === 0) return;
 
+  // Auto-close open cases as rescheduled when the patient books a new
+  // appointment. System-initiated close (no closedBy) — coordinator can
+  // re-open from any closed state if it turns out to be a false positive.
+  const now = new Date();
   await tx
     .update(recoveryCases)
     .set({
-      status: 'to_verify',
+      status: 'rescheduled',
       rescheduledAppointmentId: newAppointmentId,
-      updatedAt: new Date(),
+      closedAt: now,
+      updatedAt: now,
     })
     .where(inArray(recoveryCases.id, matching.map(c => c.id)));
 }

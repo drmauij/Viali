@@ -92,15 +92,17 @@ describe('enqueueRecoveryCase', () => {
     expect(rows[0].rescheduledAppointmentId).toBeNull();
   });
 
-  it('creates a to_verify case when a future external appointment exists for the patient', async () => {
+  it('auto-closes the case as rescheduled when a future external appointment exists for the patient', async () => {
     const cancelled = await seedAppointment({ status: 'cancelled', appointmentDate: '2026-05-01' });
     const future = await seedAppointment({ status: 'scheduled', appointmentDate: '2026-06-15' });
 
     await enqueueRecoveryCase(cancelled as any, 'cancelled', db);
 
     const [row] = await db.select().from(recoveryCases).where(eq(recoveryCases.appointmentId, cancelled.id));
-    expect(row.status).toBe('to_verify');
+    expect(row.status).toBe('rescheduled');
     expect(row.rescheduledAppointmentId).toBe(future.id);
+    expect(row.closedAt).not.toBeNull();
+    expect(row.closedBy).toBeNull(); // system close, no user
   });
 
   it('is idempotent — calling twice does not create a duplicate', async () => {
@@ -144,7 +146,7 @@ describe('enqueueRecoveryCase', () => {
 });
 
 describe('reconcileRecoveryCasesForPatient', () => {
-  it('transitions pending cases to to_verify when a new appointment is created', async () => {
+  it('auto-closes pending cases as rescheduled when a new appointment is created', async () => {
     const original = await seedAppointment({ status: 'no_show', appointmentDate: '2026-05-01' });
     await enqueueRecoveryCase(original as any, 'no_show', db);
 
@@ -153,11 +155,12 @@ describe('reconcileRecoveryCasesForPatient', () => {
     await reconcileRecoveryCasesForPatient(patientId, newAppt.id, db);
 
     const [row] = await db.select().from(recoveryCases).where(eq(recoveryCases.appointmentId, original.id));
-    expect(row.status).toBe('to_verify');
+    expect(row.status).toBe('rescheduled');
     expect(row.rescheduledAppointmentId).toBe(newAppt.id);
+    expect(row.closedAt).not.toBeNull();
   });
 
-  it('transitions in_progress cases too', async () => {
+  it('auto-closes in_progress cases too', async () => {
     const original = await seedAppointment({ status: 'cancelled', appointmentDate: '2026-05-01' });
     await enqueueRecoveryCase(original as any, 'cancelled', db);
     await db.update(recoveryCases).set({ status: 'in_progress' }).where(eq(recoveryCases.appointmentId, original.id));
@@ -167,7 +170,7 @@ describe('reconcileRecoveryCasesForPatient', () => {
     await reconcileRecoveryCasesForPatient(patientId, newAppt.id, db);
 
     const [row] = await db.select().from(recoveryCases).where(eq(recoveryCases.appointmentId, original.id));
-    expect(row.status).toBe('to_verify');
+    expect(row.status).toBe('rescheduled');
   });
 
   it('does not touch already-closed cases', async () => {

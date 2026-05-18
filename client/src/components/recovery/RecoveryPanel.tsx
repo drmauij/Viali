@@ -18,10 +18,14 @@ interface Props {
   compact?: boolean;
 }
 
+// to_verify exists as a legacy enum value but is no longer surfaced — when a
+// patient is detected to have a future appointment, the case is auto-closed
+// to 'rescheduled' directly. The single review step that used to live here
+// added confusion without enough value.
 const ALL_STATUSES: RecoveryStatus[] = [
-  'pending', 'to_verify', 'in_progress', 'rescheduled', 'closed_lost', 'closed_other',
+  'pending', 'in_progress', 'rescheduled', 'closed_lost', 'closed_other',
 ];
-const OPEN_STATUSES: RecoveryStatus[] = ['pending', 'to_verify', 'in_progress'];
+const OPEN_STATUSES: RecoveryStatus[] = ['pending', 'in_progress'];
 
 export function RecoveryPanel({ hospitalId, compact = false }: Props) {
   const { t } = useTranslation();

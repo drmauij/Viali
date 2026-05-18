@@ -138,7 +138,7 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
   });
 
   const open = !!caseId;
-  const canLogContact = data ? ['pending', 'to_verify', 'in_progress'].includes(data.status) : false;
+  const canLogContact = data ? ['pending', 'in_progress'].includes(data.status) : false;
   const canClose = canLogContact;
   const canMarkRescheduled = data ? ['pending', 'in_progress'].includes(data.status) : false;
 
