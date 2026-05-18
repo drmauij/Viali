@@ -3032,8 +3032,14 @@ async function captureInventorySnapshots() {
           continue; // Already captured today
         }
         
-        // Get all items for this unit
-        const unitItems = await db.select().from(items).where(eq(items.unitId, unit.id));
+        // Get all items for this unit. Exclude service-only items (e.g.,
+        // sterilization fees) — they're tracked in the items table for
+        // surgery cost attribution but have no physical stock, so they would
+        // otherwise inflate Inventory-on-hand totals.
+        const unitItems = await db.select().from(items).where(and(
+          eq(items.unitId, unit.id),
+          or(eq(items.isService, false), isNull(items.isService))!,
+        ));
         
         let totalValue = 0;
         let itemCount = 0;
