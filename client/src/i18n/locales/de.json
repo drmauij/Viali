@@ -5818,6 +5818,8 @@
     "costs": {
       "title": "Kostenanalyse",
       "subtitle": "Detaillierte Analyse der OP-Kosten und Ausgabenmuster",
+      "downloadPdf": "PDF herunterladen",
+      "pdfDownloadFailed": "PDF-Download fehlgeschlagen",
       "totalSpending": "Gesamtausgaben",
       "thisMonth": "Dieser Monat",
       "ofTotal": "des Gesamten",

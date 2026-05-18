@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   Activity,
@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Clock,
   DollarSign,
+  Download,
   FileText,
   HelpCircle,
   Loader2,
@@ -38,7 +39,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatCurrencyLocale, formatDate, getCurrencySymbol } from "@/lib/dateUtils";
+import { generateSurgeryCostsPdf, type SurgeryCostsPdfData } from "@/lib/surgeryCostsPdf";
 
 interface SurgeryRow {
   id: string;
@@ -108,10 +112,40 @@ function formatDuration(minutes: number | null | undefined): string {
 
 export default function SurgeryCostsCard({ hospitalId, range }: Props) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const activeHospital = useActiveHospital();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
   const [showNurseHoursDialog, setShowNurseHoursDialog] = useState(false);
   const [anesthesiaNurseRate, setAnesthesiaNurseRate] = useState(100);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  async function fetchSurgeryDetails(surgeryId: string): Promise<SurgeryCostsPdfData> {
+    return queryClient.fetchQuery<SurgeryCostsPdfData>({
+      queryKey: [`/api/business/${hospitalId}/surgeries/${surgeryId}/costs`],
+    });
+  }
+
+  async function handleDownloadPdf(surgeryId: string, existing?: SurgeryCostsPdfData | null) {
+    try {
+      setDownloadingId(surgeryId);
+      const data = existing ?? (await fetchSurgeryDetails(surgeryId));
+      await generateSurgeryCostsPdf({
+        data,
+        hospitalName: activeHospital?.name,
+        t: (k, fb) => t(k, fb),
+      });
+    } catch (err) {
+      toast({
+        title: t("business.costs.pdfDownloadFailed", "Failed to download PDF"),
+        description: err instanceof Error ? err.message : undefined,
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   const { startDate, endDate } = rangeToDateBounds(range);
   const dateQs = [
@@ -408,12 +442,13 @@ export default function SurgeryCostsCard({ hospitalId, range }: Props) {
                     <TableHead className="text-right">{t("business.costs.costPerHour", "Cost/Hour")}</TableHead>
                     <TableHead className="text-right">{t("business.costs.paidCol", "Paid")}</TableHead>
                     <TableHead className="text-right">{t("business.costs.differenceCol", "Difference")}</TableHead>
+                    <TableHead className="w-12"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                         {t("business.costs.noSurgeriesFound", "No surgeries found")}
                       </TableCell>
                     </TableRow>
@@ -491,6 +526,32 @@ export default function SurgeryCostsCard({ hospitalId, range }: Props) {
                               {formatCurrency(surgery.difference ?? 0)}
                             </span>
                           </TableCell>
+                          <TableCell className="text-right pr-2">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDownloadPdf(surgery.id);
+                                  }}
+                                  disabled={downloadingId === surgery.id}
+                                  data-testid={`button-download-pdf-${surgery.id}`}
+                                  aria-label={t("business.costs.downloadPdf", "Download PDF")}
+                                >
+                                  {downloadingId === surgery.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Download className="h-4 w-4" />
+                                  )}
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{t("business.costs.downloadPdf", "Download PDF")}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TableCell>
                         </TableRow>
                       );
                     })
@@ -508,13 +569,35 @@ export default function SurgeryCostsCard({ hospitalId, range }: Props) {
           data-testid="dialog-surgery-cost-breakdown"
         >
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              {t("business.costs.costBreakdown", "Cost Breakdown")}
-            </DialogTitle>
-            <DialogDescription>
-              {detailQuery.data?.surgery?.surgeryName || t("common.loading", "Loading...")}
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-3 pr-8">
+              <div className="flex-1 min-w-0">
+                <DialogTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  {t("business.costs.costBreakdown", "Cost Breakdown")}
+                </DialogTitle>
+                <DialogDescription>
+                  {detailQuery.data?.surgery?.surgeryName || t("common.loading", "Loading...")}
+                </DialogDescription>
+              </div>
+              {detailQuery.data && (
+                <button
+                  type="button"
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm hover:bg-muted disabled:opacity-50"
+                  onClick={() =>
+                    detailQuery.data && handleDownloadPdf(detailQuery.data.surgery.id, detailQuery.data)
+                  }
+                  disabled={downloadingId === detailQuery.data.surgery.id}
+                  data-testid="button-download-pdf-dialog"
+                >
+                  {downloadingId === detailQuery.data.surgery.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  {t("business.costs.downloadPdf", "Download PDF")}
+                </button>
+              )}
+            </div>
           </DialogHeader>
 
           {detailQuery.isLoading ? (

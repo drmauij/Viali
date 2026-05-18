@@ -5722,6 +5722,8 @@
     "costs": {
       "title": "Cost Analytics",
       "subtitle": "Detailed analysis of surgical costs and spending patterns",
+      "downloadPdf": "Download PDF",
+      "pdfDownloadFailed": "Failed to download PDF",
       "totalSpending": "Total Spending",
       "thisMonth": "This month",
       "ofTotal": "of total",
