@@ -4443,6 +4443,102 @@ export async function rollbackInventoryCommit(
   return updated;
 }
 
+// Re-apply a previously rolled-back commit. Mirrors commitInventoryUsage's
+// stock-deduction side effects so the surgery state returns to its
+// pre-rollback shape — used by the "undo rollback" action when a user
+// clicked Rollback by mistake.
+export async function restoreInventoryCommit(
+  commitId: string,
+  userId: string
+): Promise<InventoryCommit> {
+  const commit = await getInventoryCommitById(commitId);
+  if (!commit) {
+    throw new Error("Commit not found");
+  }
+  if (!commit.rolledBackAt) {
+    throw new Error("Commit is not rolled back");
+  }
+
+  const commitItems = commit.items as Array<{
+    itemId: string;
+    quantity: number;
+    isControlled: boolean;
+  }>;
+
+  const itemIdsForRestore = commitItems.map((i) => i.itemId);
+  const itemsData = itemIdsForRestore.length > 0
+    ? await db.select().from(items).where(inArray(items.id, itemIdsForRestore))
+    : [];
+
+  for (const commitItem of commitItems) {
+    const itemData = itemsData.find((i) => i.id === commitItem.itemId);
+    if (itemData && !itemData.isService && (itemData.trackExactQuantity || itemData.unit === "Single unit")) {
+      let currentUnits: number;
+      let newUnits: number;
+
+      if (itemData.unit === "Single unit") {
+        const [stockLevel] = await db
+          .select()
+          .from(stockLevels)
+          .where(
+            and(
+              eq(stockLevels.itemId, commitItem.itemId),
+              eq(stockLevels.unitId, itemData.unitId)
+            )
+          )
+          .limit(1);
+
+        currentUnits = stockLevel?.qtyOnHand || 0;
+        newUnits = Math.max(0, currentUnits - commitItem.quantity);
+
+        await commitUsage({
+          hospitalId: itemData.hospitalId,
+          unitId: itemData.unitId,
+          entries: [{ itemId: commitItem.itemId, lotId: null, quantity: commitItem.quantity }],
+        });
+      } else {
+        currentUnits = parseInt(String(itemData.currentUnits || 0));
+        newUnits = Math.max(0, currentUnits - commitItem.quantity);
+
+        await db
+          .update(items)
+          .set({ currentUnits: newUnits })
+          .where(eq(items.id, commitItem.itemId));
+      }
+
+      if (commitItem.isControlled) {
+        await db.insert(activities).values({
+          itemId: commitItem.itemId,
+          unitId: itemData.unitId,
+          action: 'use',
+          delta: -commitItem.quantity,
+          movementType: 'OUT',
+          userId,
+          notes: `Restored rolled-back commit ${commitId}`,
+          controlledVerified: false,
+          signatures: commit.signature ? [commit.signature] : [],
+          patientId: commit.patientId,
+          metadata: { beforeQty: currentUnits, afterQty: newUnits },
+        } as any);
+      }
+    }
+  }
+
+  const [updated] = await db
+    .update(inventoryCommits)
+    .set({
+      rolledBackAt: null,
+      rolledBackBy: null,
+      rollbackReason: null,
+    })
+    .where(eq(inventoryCommits.id, commitId))
+    .returning();
+
+  await calculateInventoryUsage(commit.anesthesiaRecordId);
+
+  return updated;
+}
+
 // ========== AUDIT TRAIL ==========
 
 export async function getAuditTrail(recordType: string, recordId: string): Promise<AuditTrail[]> {

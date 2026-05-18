@@ -242,6 +242,35 @@ router.post('/api/anesthesia/inventory/commits/:commitId/rollback', isAuthentica
   }
 });
 
+// Undo a rollback: re-deduct stock and clear the rolled-back flag so the
+// surgery's committed items return to the active state. Mirrors the
+// access checks of the rollback endpoint.
+router.post('/api/anesthesia/inventory/commits/:commitId/restore', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { commitId } = req.params;
+    const userId = req.user.id;
+
+    const commit = await storage.getInventoryCommitById(commitId);
+    if (!commit) {
+      return res.status(404).json({ message: "Commit not found" });
+    }
+
+    if (commit.unitId) {
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasUnitAccess = hospitals.some(h => h.id === req.resolvedHospitalId && h.unitId === commit.unitId);
+      if (!hasUnitAccess) {
+        return res.status(403).json({ message: "Access denied: You can only restore commits from your own module/unit" });
+      }
+    }
+
+    const restoredCommit = await storage.restoreInventoryCommit(commitId, userId);
+    res.json(restoredCommit);
+  } catch (error) {
+    logger.error("Error restoring commit:", error);
+    res.status(500).json({ message: error instanceof Error ? error.message : "Failed to restore commit" });
+  }
+});
+
 // =====================================
 // Audit Trail Endpoint
 // =====================================

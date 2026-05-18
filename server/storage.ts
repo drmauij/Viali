@@ -685,6 +685,7 @@ export interface IStorage {
   getInventoryCommits(anesthesiaRecordId: string, unitId?: string | null): Promise<any[]>;
   getInventoryCommitById(commitId: string): Promise<any | null>;
   rollbackInventoryCommit(commitId: string, userId: string, reason: string): Promise<any>;
+  restoreInventoryCommit(commitId: string, userId: string): Promise<any>;
   
   // Audit Trail operations
   getAuditTrail(recordType: string, recordId: string): Promise<AuditTrail[]>;
@@ -1446,6 +1447,7 @@ export class DatabaseStorage implements IStorage {
   getInventoryCommits = anesthesiaStorage.getInventoryCommits;
   getInventoryCommitById = anesthesiaStorage.getInventoryCommitById;
   rollbackInventoryCommit = anesthesiaStorage.rollbackInventoryCommit;
+  restoreInventoryCommit = anesthesiaStorage.restoreInventoryCommit;
   getAuditTrail = anesthesiaStorage.getAuditTrail;
   createAuditLog = anesthesiaStorage.createAuditLog;
   getSurgeonChecklistTemplates = anesthesiaStorage.getSurgeonChecklistTemplates;

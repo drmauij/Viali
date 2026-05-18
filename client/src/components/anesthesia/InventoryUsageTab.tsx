@@ -14,6 +14,16 @@ import { SurgerySetsDialog } from "./dialogs/SurgerySetsDialog";
 import { UnifiedAnesthesiaSetsDialog } from "./dialogs/UnifiedAnesthesiaSetsDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { formatDate } from "@/lib/dateUtils";
 import type { Module } from "@/contexts/ModuleContext";
 
@@ -75,6 +85,8 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
   // State for tracking which commits are expanded to show details
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(() => new Set());
   const [showCreateSetFromCommits, setShowCreateSetFromCommits] = useState(false);
+  // Commit id pending rollback (when set, the confirmation dialog is open)
+  const [rollbackTargetId, setRollbackTargetId] = useState<string | null>(null);
 
   const isAdmin = activeHospital?.role === 'admin';
   const canConfigure = isAdmin || activeHospital?.canConfigure === true;
@@ -516,9 +528,52 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
   };
 
   const handleRollback = (commitId: string) => {
-    if (confirm(t('anesthesia.op.rollbackConfirm'))) {
-      rollbackMutation.mutate(commitId);
+    setRollbackTargetId(commitId);
+  };
+
+  const confirmRollback = () => {
+    if (rollbackTargetId) {
+      rollbackMutation.mutate(rollbackTargetId);
+      setRollbackTargetId(null);
     }
+  };
+
+  // Restore (undo rollback) mutation
+  const restoreMutation = useMutation({
+    mutationFn: async (commitId: string) => {
+      const response = await apiRequest('POST', `/api/anesthesia/inventory/commits/${commitId}/restore`, {});
+      return response.json();
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}/commits`] }),
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`] }),
+      ]);
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId, 'commits'] });
+      if (activeHospital?.id) {
+        queryClient.invalidateQueries({
+          predicate: (query) => {
+            const key = query.queryKey[0];
+            return typeof key === 'string' && key.startsWith(`/api/items/${activeHospital.id}`);
+          },
+        });
+      }
+      await apiRequest('POST', `/api/anesthesia/inventory/${anesthesiaRecordId}/calculate`);
+      refetchInventory();
+      toast({ title: t('anesthesia.op.restoreSuccess', 'Rollback undone — items restored') });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('anesthesia.op.restoreError', 'Failed to undo rollback'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleRestore = (commitId: string) => {
+    restoreMutation.mutate(commitId);
   };
 
   // Get folders with used items (auto-expand)
@@ -641,7 +696,7 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
                           </p>
                         </div>
                       </div>
-                      {!commit.rolledBackAt && (
+                      {!commit.rolledBackAt ? (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -654,6 +709,20 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
                         >
                           <Undo className="h-4 w-4 mr-1" />
                           {t('anesthesia.op.rollback')}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRestore(commit.id);
+                          }}
+                          disabled={restoreMutation.isPending}
+                          data-testid={`button-restore-${commit.id}`}
+                        >
+                          <RotateCcw className="h-4 w-4 mr-1" />
+                          {t('anesthesia.op.undoRollback', 'Undo rollback')}
                         </Button>
                       )}
                     </div>
@@ -926,6 +995,37 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
           initialInventoryItems={aggregatedCommittedItems}
         />
       )}
+
+      <AlertDialog
+        open={rollbackTargetId !== null}
+        onOpenChange={(open) => { if (!open) setRollbackTargetId(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('anesthesia.op.rollbackConfirmTitle', 'Roll back this commit?')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                'anesthesia.op.rollbackConfirmBody',
+                'Rolling back will return all committed items to stock and clear them from this surgery. If you proceed by mistake, you can use "Undo rollback" on the same entry to restore it.',
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-rollback-cancel">
+              {t('common.cancel', 'Cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRollback}
+              data-testid="button-rollback-confirm"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t('anesthesia.op.rollbackConfirmAction', 'Roll back')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
