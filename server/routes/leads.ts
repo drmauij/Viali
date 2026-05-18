@@ -590,7 +590,7 @@ router.get("/api/webhooks/conversions/:hospitalId", async (req, res) => {
 
 // --- Auth middleware ---
 
-async function isMarketingOrManager(req: any, res: Response, next: any) {
+export async function isMarketingOrManager(req: any, res: Response, next: any) {
   try {
     const userId = req.user.id;
     const { hospitalId } = req.params;
