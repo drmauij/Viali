@@ -23,14 +23,6 @@ const OUTCOME_OPTIONS: { value: ContactOutcome; i18nKey: string }[] = [
   { value: 'needs_time',     i18nKey: 'leads.outcome.needsTime' },
 ];
 
-interface FutureAppointment {
-  id: string;
-  appointmentDate: string;
-  startTime: string;
-  serviceId: string | null;
-  serviceName: string | null;
-}
-
 interface ContactRow {
   id: string;
   outcome: ContactOutcome;
@@ -43,16 +35,22 @@ interface Props {
   caseId: string | null;
   hospitalId: string;
   onClose: () => void;
+  /**
+   * Callback fired when the user clicks "Book appointment" inside the
+   * drawer. Receives `{ patientId, patientName }` so the parent can open
+   * the global BookingDialog with the patient pre-filled. Drawer closes
+   * after the callback so the booking dialog has the screen.
+   */
+  onBookForPatient?: (patient: { patientId: string; patientName: string }) => void;
 }
 
-export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
+export function RecoveryCaseDrawer({ caseId, hospitalId, onClose, onBookForPatient }: Props) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const dateLocale = i18n.language === 'de' ? de : enUS;
   const qc = useQueryClient();
   const [note, setNote] = useState('');
   const [outcome, setOutcome] = useState<ContactOutcome | ''>('');
-  const [showMarkResched, setShowMarkResched] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['recovery-case', hospitalId, caseId],
@@ -109,38 +107,24 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
     },
   });
 
-  const markRescheduled = useMutation({
-    mutationFn: async (rescheduledAppointmentId: string) => {
-      const res = await apiRequest(
-        'PATCH',
-        `/api/business/${hospitalId}/recovery-cases/${caseId}/status`,
-        { status: 'rescheduled', rescheduledAppointmentId },
-      );
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({ title: t('recovery.toast.caseUpdated', 'Case updated') });
-      onClose();
-      invalidateAll();
-    },
-    onError: () => {
-      toast({ title: t('recovery.toast.errorUpdating', 'Failed to update case'), variant: 'destructive' });
-    },
-  });
-
-  const { data: futureAppts = [] } = useQuery<FutureAppointment[]>({
-    queryKey: ['patient-future-appointments', data?.patientId],
-    queryFn: async () => {
-      const res = await apiRequest('GET', `/api/business/${hospitalId}/patients/${data!.patientId}/future-appointments`);
-      return res.json();
-    },
-    enabled: showMarkResched && !!data?.patientId,
-  });
+  // "Book appointment" path: close the drawer and hand off to the parent
+  // so the global BookingDialog opens with the patient pre-filled. After
+  // saving the appointment, the storage hook on createClinicAppointment
+  // runs reconcileRecoveryCasesForPatient which auto-closes this recovery
+  // case as 'rescheduled' — no separate API call needed here.
+  const bookAppointment = () => {
+    if (!data) return;
+    onBookForPatient?.({
+      patientId: data.patientId,
+      patientName: `${data.patientFirstName} ${data.patientSurname}`.trim(),
+    });
+    onClose();
+  };
 
   const open = !!caseId;
   const canLogContact = data ? ['pending', 'in_progress'].includes(data.status) : false;
   const canClose = canLogContact;
-  const canMarkRescheduled = data ? ['pending', 'in_progress'].includes(data.status) : false;
+  const canBookAppointment = data ? ['pending', 'in_progress'].includes(data.status) : false;
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -240,41 +224,19 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose }: Props) {
               )}
             </section>
 
-            {canMarkRescheduled && (
+            {canBookAppointment && (
               <section>
-                {!showMarkResched ? (
-                  <Button variant="outline" className="w-full" onClick={() => setShowMarkResched(true)}>
-                    {t('recovery.drawer.markRescheduled', 'Mark Rescheduled')}
-                  </Button>
-                ) : (
-                  <div className="rounded-md border border-border p-3 space-y-2">
-                    <p className="text-sm font-medium">{t('recovery.drawer.pickAppointment', 'Pick the new appointment:')}</p>
-                    {futureAppts.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        {t('recovery.drawer.noFuture', 'No future appointments found for this patient.')}
-                      </p>
-                    ) : (
-                      <ul className="space-y-2">
-                        {futureAppts.map((a) => (
-                          <li key={a.id}>
-                            <Button
-                              variant="ghost"
-                              className="w-full justify-start"
-                              onClick={() => markRescheduled.mutate(a.id)}
-                              disabled={markRescheduled.isPending}
-                            >
-                              {formatDate(a.appointmentDate)} · {a.startTime}
-                              {a.serviceName ? ` · ${a.serviceName}` : ''}
-                            </Button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <Button size="sm" variant="ghost" onClick={() => setShowMarkResched(false)}>
-                      {t('recovery.drawer.cancel', 'Cancel')}
-                    </Button>
-                  </div>
-                )}
+                <Button
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                  onClick={bookAppointment}
+                  disabled={!onBookForPatient}
+                  data-testid="button-recovery-book"
+                >
+                  {t('recovery.drawer.bookAppointment', 'Book appointment')}
+                </Button>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('recovery.drawer.bookAppointmentHint', 'Opens the booking dialog with the patient pre-filled. The case closes automatically once the new appointment is saved.')}
+                </p>
               </section>
             )}
 

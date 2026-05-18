@@ -6648,7 +6648,8 @@
     "card": {
       "newAppointment": "Neuer Termin:",
       "confirmRebook": "✓ Bestätigen",
-      "reopen": "↻ Wieder öffnen"
+      "reopen": "↻ Wieder öffnen",
+      "ariaTapToBook": "Antippen, um auszuwählen, dann einen Kalenderslot anklicken. Doppelklick für Details."
     },
     "compactEmpty": {
       "pending": "Nichts offen — Patienten, die nicht erscheinen oder absagen, erscheinen hier.",
@@ -6680,7 +6681,9 @@
       "closeLost": "Als Verloren schließen",
       "closeOther": "Als Andere schließen",
       "promptLostReason": "Grund für „Als Verloren schließen“:",
-      "promptOtherReason": "Grund für „Als Andere schließen“:"
+      "promptOtherReason": "Grund für „Als Andere schließen“:",
+      "bookAppointment": "Termin buchen",
+      "bookAppointmentHint": "Öffnet den Buchungsdialog mit vorausgefülltem Patienten. Der Fall wird automatisch geschlossen, sobald der neue Termin gespeichert ist."
     },
     "toast": {
       "contactLogged": "Kontakt protokolliert",
@@ -8063,6 +8066,7 @@
     "videoShort": "Video",
     "videoMeetingLink": "Meeting-Link",
     "syncAbsences": "Abwesenheiten synchronisieren",
+    "recoverySelectedHint": "Klicke auf einen Kalenderslot, um einen neuen Termin zu buchen für",
     "arrived": "Eingetroffen",
     "noShowConfirm": "Diesen Termin als No-Show markieren? Der Patient ist nicht erschienen.",
     "undoNoShow": "No-Show rückgängig",

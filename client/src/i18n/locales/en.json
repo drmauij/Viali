@@ -6552,7 +6552,8 @@
     "card": {
       "newAppointment": "New appointment:",
       "confirmRebook": "✓ Confirm rebook",
-      "reopen": "↻ Re-open"
+      "reopen": "↻ Re-open",
+      "ariaTapToBook": "Tap to select for booking, then click a calendar slot. Double-click to open details."
     },
     "compactEmpty": {
       "pending": "Nothing waiting — patients who no-show or cancel will appear here.",
@@ -6584,7 +6585,9 @@
       "closeLost": "Close as Lost",
       "closeOther": "Close as Other",
       "promptLostReason": "Reason for closing as Lost:",
-      "promptOtherReason": "Reason for closing as Other:"
+      "promptOtherReason": "Reason for closing as Other:",
+      "bookAppointment": "Book appointment",
+      "bookAppointmentHint": "Opens the booking dialog with the patient pre-filled. The case closes automatically once the new appointment is saved."
     },
     "toast": {
       "contactLogged": "Contact logged",
@@ -7962,6 +7965,7 @@
     "videoShort": "Video",
     "videoMeetingLink": "Meeting Link",
     "syncAbsences": "Sync Absences",
+    "recoverySelectedHint": "Click a calendar slot to book a new appointment for",
     "arrived": "Arrived",
     "noShowConfirm": "Mark this appointment as No-Show? The patient did not attend.",
     "undoNoShow": "Undo No-Show",

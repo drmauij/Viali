@@ -51,6 +51,8 @@ import { cn } from "@/lib/utils";
 import { LeadsPanel, LeadsBadge, ScheduleLeadDialog } from "@/components/leads/LeadsPanel";
 import { RecoveryPanel } from "@/components/recovery/RecoveryPanel";
 import { RecoveryBadge } from "@/components/recovery/RecoveryBadge";
+import type { RecoveryCaseRow } from "@/components/recovery/RecoveryCaseCard";
+import { draggedRecoveryCase, setDraggedRecoveryCase } from "@/components/recovery/useRecoveryDrag";
 import { draggedLead } from "@/components/leads/useLeadDrag";
 import type { Lead } from "@shared/schema";
 import ClinicCalendar from "@/components/clinic/ClinicCalendar";
@@ -109,6 +111,7 @@ export default function ClinicAppointments() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leadScheduleDialogOpen, setLeadScheduleDialogOpen] = useState(false);
   const [leadDropData, setLeadDropData] = useState<{ date: string; time: string; roomId?: string; providerId?: string } | null>(null);
+  const [selectedRecoveryCase, setSelectedRecoveryCase] = useState<RecoveryCaseRow | null>(null);
 
   // Clean up ?leadId= from URL after reading it
   useEffect(() => {
@@ -253,6 +256,25 @@ export default function ClinicAppointments() {
       setLeadScheduleDialogOpen(true);
       return;
     }
+    // If a recovery case is tap-selected, skip the booking-type selector and
+    // open BookingDialog directly with the patient pre-filled. Saving the
+    // appointment triggers the storage hook on createClinicAppointment ->
+    // reconcileRecoveryCasesForPatient, which auto-closes the recovery case
+    // as 'rescheduled' — no extra round-trip needed.
+    if (selectedRecoveryCase) {
+      const patientName = `${selectedRecoveryCase.patientFirstName} ${selectedRecoveryCase.patientSurname}`.trim();
+      setBookingDefaults({
+        providerId: data.providerId,
+        date: data.date,
+        endDate: data.endDate,
+        source: data.source,
+        patientId: selectedRecoveryCase.patientId,
+        patientName,
+      } as any);
+      setBookingDialogOpen(true);
+      setSelectedRecoveryCase(null);
+      return;
+    }
     setBookingDefaults(data);
     setBookingTypeSelectorOpen(true);
   };
@@ -274,6 +296,50 @@ export default function ClinicAppointments() {
     const end = new Date(start.getTime() + 60 * 60 * 1000); // 60 min preview
     return { start, end, title: `${draggedLead.firstName} ${draggedLead.lastName}` } as any;
   }, []);
+
+  // Recovery drag-and-drop: dropping a recovery case card onto a calendar
+  // slot opens BookingDialog with the patient pre-filled. Mirrors the lead
+  // drop flow but skips the conversion step (the patient already exists).
+  const handleRecoveryDropOnCalendar = useCallback((data: { start: Date; end: Date; resource?: string }) => {
+    if (!draggedRecoveryCase) return;
+    const c = draggedRecoveryCase;
+    const patientName = `${c.patientFirstName} ${c.patientSurname}`.trim();
+    setBookingDefaults({
+      providerId: data.resource,
+      date: data.start,
+      endDate: data.end,
+      patientId: c.patientId,
+      patientName,
+    } as any);
+    setBookingDialogOpen(true);
+    setDraggedRecoveryCase(null);
+    setSelectedRecoveryCase(null);
+  }, []);
+
+  const recoveryDragFromOutsideItem = useCallback(() => {
+    if (!draggedRecoveryCase) return null;
+    const start = new Date();
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    return {
+      start,
+      end,
+      title: `${draggedRecoveryCase.patientFirstName} ${draggedRecoveryCase.patientSurname}`,
+    } as any;
+  }, []);
+
+  // Single dispatcher passed to ClinicCalendar — picks the right handler
+  // based on which side panel is active. Leads and Recovery are mutually
+  // exclusive (one toggle closes the other) so at most one will fire.
+  const handleDropOnCalendar = useCallback((data: { start: Date; end: Date; resource?: string }) => {
+    if (draggedLead) return handleLeadDropOnCalendar(data);
+    if (draggedRecoveryCase) return handleRecoveryDropOnCalendar(data);
+  }, [handleLeadDropOnCalendar, handleRecoveryDropOnCalendar]);
+
+  const dragFromOutsideItem = useCallback(() => {
+    if (draggedLead) return leadDragFromOutsideItem();
+    if (draggedRecoveryCase) return recoveryDragFromOutsideItem();
+    return null;
+  }, [leadDragFromOutsideItem, recoveryDragFromOutsideItem]);
 
   const handleBookingTypeSelect = (type: BookingType) => {
     switch (type) {
@@ -415,6 +481,13 @@ export default function ClinicAppointments() {
         </div>
       )}
 
+      {selectedRecoveryCase && recoveryPanelOpen && (
+        <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border-b text-sm text-amber-800 dark:text-amber-300 animate-pulse">
+          {t('appointments.recoverySelectedHint', 'Click a calendar slot to book a new appointment for')}{' '}
+          <strong>{selectedRecoveryCase.patientFirstName} {selectedRecoveryCase.patientSurname}</strong>
+        </div>
+      )}
+
       {/* Mobile: leads panel as a Sheet */}
       {isMobile && showLeads && (
         <Sheet open={leadsPanelOpen} onOpenChange={setLeadsPanelOpen}>
@@ -436,7 +509,21 @@ export default function ClinicAppointments() {
       {isMobile && showLeads && (
         <Sheet open={recoveryPanelOpen} onOpenChange={setRecoveryPanelOpen}>
           <SheetContent side="right" className="w-[85vw] max-w-sm p-0">
-            {hospitalId && <RecoveryPanel hospitalId={hospitalId} compact />}
+            {hospitalId && (
+              <RecoveryPanel
+                hospitalId={hospitalId}
+                compact
+                selectedCaseId={selectedRecoveryCase?.id ?? null}
+                onCaseTap={(c) => setSelectedRecoveryCase(prev => prev?.id === c.id ? null : c)}
+                onBookForPatient={(p) => {
+                  setBookingDefaults({
+                    patientId: p.patientId,
+                    patientName: p.patientName,
+                  } as any);
+                  setBookingDialogOpen(true);
+                }}
+              />
+            )}
           </SheetContent>
         </Sheet>
       )}
@@ -452,8 +539,8 @@ export default function ClinicAppointments() {
                 onEventClick={handleEventClick}
                 onProviderClick={handleProviderClick}
                 onDragSelectRange={handleDragSelectRange}
-                onDropFromOutside={handleLeadDropOnCalendar}
-                dragFromOutsideItem={leadDragFromOutsideItem}
+                onDropFromOutside={handleDropOnCalendar}
+                dragFromOutsideItem={dragFromOutsideItem}
                 onSearchSelect={handleSearchSelect}
                 statusLegend={
                   <div className="flex flex-wrap gap-3 p-4 border-t bg-muted/30 text-sm">
@@ -489,7 +576,21 @@ export default function ClinicAppointments() {
                       onLeadTap={(lead) => setSelectedLead(p => p?.id === lead?.id ? null : lead)}
                     />
                   ) : (
-                    hospitalId && <RecoveryPanel hospitalId={hospitalId} compact />
+                    hospitalId && (
+                      <RecoveryPanel
+                        hospitalId={hospitalId}
+                        compact
+                        selectedCaseId={selectedRecoveryCase?.id ?? null}
+                        onCaseTap={(c) => setSelectedRecoveryCase(prev => prev?.id === c.id ? null : c)}
+                        onBookForPatient={(p) => {
+                          setBookingDefaults({
+                            patientId: p.patientId,
+                            patientName: p.patientName,
+                          } as any);
+                          setBookingDialogOpen(true);
+                        }}
+                      />
+                    )
                   )}
                 </div>
               </div>

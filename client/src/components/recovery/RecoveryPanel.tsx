@@ -11,11 +11,25 @@ interface Props {
   hospitalId: string;
   /**
    * compact = side-panel mode on /clinic Appointments: only open columns
-   * (pending / to_verify / in_progress), stacked vertically. The full
-   * 6-column kanban (with closed columns) renders only on the standalone
-   * /business/recovery page.
+   * (pending / in_progress), stacked vertically. The full kanban (with
+   * closed columns) renders only on the standalone /business/recovery
+   * page.
    */
   compact?: boolean;
+  /**
+   * Tap-to-select wiring for the calendar-book flow on Appointments. When
+   * the user taps a card, this row becomes the active selection; the next
+   * calendar slot click opens BookingDialog with the patient pre-filled.
+   * Omit when the panel is used standalone (e.g., /business/recovery).
+   */
+  selectedCaseId?: string | null;
+  onCaseTap?: (row: RecoveryCaseRow) => void;
+  /**
+   * Forwarded to RecoveryCaseDrawer's Book Appointment button. Receives
+   * `{ patientId, patientName }` so the parent can open BookingDialog
+   * pre-filled.
+   */
+  onBookForPatient?: (patient: { patientId: string; patientName: string }) => void;
 }
 
 // to_verify exists as a legacy enum value but is no longer surfaced — when a
@@ -27,7 +41,7 @@ const ALL_STATUSES: RecoveryStatus[] = [
 ];
 const OPEN_STATUSES: RecoveryStatus[] = ['pending', 'in_progress'];
 
-export function RecoveryPanel({ hospitalId, compact = false }: Props) {
+export function RecoveryPanel({ hospitalId, compact = false, selectedCaseId, onCaseTap, onBookForPatient }: Props) {
   const { t } = useTranslation();
   const [openCaseId, setOpenCaseId] = useState<string | null>(null);
 
@@ -103,7 +117,14 @@ export function RecoveryPanel({ hospitalId, compact = false }: Props) {
                     </p>
                   ) : (
                     rows.map((row) => (
-                      <RecoveryCaseCard key={row.id} row={row} hospitalId={hospitalId} onClick={setOpenCaseId} />
+                      <RecoveryCaseCard
+                        key={row.id}
+                        row={row}
+                        hospitalId={hospitalId}
+                        onClick={setOpenCaseId}
+                        onTap={onCaseTap}
+                        isSelected={selectedCaseId === row.id}
+                      />
                     ))
                   )}
                 </TabsContent>
@@ -116,6 +137,7 @@ export function RecoveryPanel({ hospitalId, compact = false }: Props) {
           caseId={openCaseId}
           hospitalId={hospitalId}
           onClose={() => setOpenCaseId(null)}
+          onBookForPatient={onBookForPatient}
         />
       </div>
     );
