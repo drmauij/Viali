@@ -33,6 +33,8 @@ interface Hospital {
   canChat?: boolean;
   canPlanOps?: boolean;
   canManageControlled?: boolean;
+  // Feature add-ons
+  addonPersonalstammblatt?: boolean;
 }
 
 function subscribe(callback: () => void) {

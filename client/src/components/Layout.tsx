@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import TopBar from "./TopBar";
 import BottomNav from "./BottomNav";
 import { BillingLock } from "./BillingLock";
+import { StammblattBanner } from "./StammblattBanner";
 import { CommandPaletteProvider } from "@/components/CommandPalette";
 import { useCardReaderBridge } from "@/hooks/useCardReaderBridge";
 import { isDemoMode, toggleDemoMode } from "@/utils/demoMode";
@@ -175,6 +176,7 @@ export default function Layout({ children }: LayoutProps) {
           activeHospital={activeHospital}
           onHospitalChange={handleHospitalChange}
         />
+        <StammblattBanner />
         <BillingLock>{children}</BillingLock>
         <BottomNav />
       </div>
