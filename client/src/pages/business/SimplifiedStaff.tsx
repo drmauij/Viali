@@ -58,12 +58,10 @@ import {
   Loader2,
   Eye,
   UserCheck,
-  X,
-  Send,
-  MailCheck,
 } from "lucide-react";
 import StaffTimeOffTab from "@/components/business/StaffTimeOffTab";
-import { StammblattStatusBadge, type StammblattStatus } from "@/components/stammblatt/StammblattStatusBadge";
+import StammblattTab from "@/components/stammblatt/StammblattTab";
+import type { StammblattStatus } from "@/components/stammblatt/StammblattStatusBadge";
 
 interface RoleInfo {
   role: string;
@@ -243,9 +241,6 @@ export default function SimplifiedStaff() {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   const [viewingStaff, setViewingStaff] = useState<StaffMember | null>(null);
-  const [onlyIncomplete, setOnlyIncomplete] = useState(false);
-  const [isBulkConfirmOpen, setIsBulkConfirmOpen] = useState(false);
-
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -340,37 +335,6 @@ export default function SimplifiedStaff() {
     },
   });
 
-  const inviteMutation = useMutation({
-    mutationFn: (userId: string) =>
-      apiRequest("POST", `/api/business/${activeHospital!.id}/staff/${userId}/stammblatt-invite`)
-        .then(r => r.json()),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/business/${activeHospital?.id}/staff`] });
-      toast({ title: "Einladung verschickt" });
-    },
-    onError: () => {
-      toast({ title: "Fehler beim Versenden", variant: "destructive" });
-    },
-  });
-
-  const bulkMutation = useMutation({
-    mutationFn: () =>
-      apiRequest("POST", `/api/business/${activeHospital!.id}/staff/stammblatt-invite/bulk`, { scope: 'all_incomplete' })
-        .then(r => r.json()),
-    onSuccess: (res: { sent: number; skipped: Array<{ userId: string; reason: string }> }) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/business/${activeHospital?.id}/staff`] });
-      toast({
-        title: `${res.sent} Einladungen verschickt`,
-        description: res.skipped.length > 0 ? `${res.skipped.length} übersprungen` : undefined,
-      });
-      setIsBulkConfirmOpen(false);
-    },
-    onError: () => {
-      toast({ title: "Fehler beim Massenversand", variant: "destructive" });
-      setIsBulkConfirmOpen(false);
-    },
-  });
-
   const resetForm = () => {
     setFormData({
       firstName: '',
@@ -445,19 +409,9 @@ export default function SimplifiedStaff() {
       const matchesSearch = name.includes(searchQuery.toLowerCase()) ||
                             roleLabels.some(label => label.includes(searchQuery.toLowerCase()));
       const matchesRole = roleFilter === "all" || staff.roles?.some(r => r.role === roleFilter);
-      const matchesIncomplete = !onlyIncomplete || staff.stammblatt?.status !== 'submitted';
-      return matchesSearch && matchesRole && matchesIncomplete;
+      return matchesSearch && matchesRole;
     });
-  }, [staffList, searchQuery, roleFilter, onlyIncomplete]);
-
-  const eligibleBulkCount = useMemo(() => {
-    return staffList.filter(s =>
-      s.stammblatt?.status !== 'submitted' &&
-      s.email &&
-      !s.email.endsWith('@staff.local') &&
-      !s.email.endsWith('@internal.local')
-    ).length;
-  }, [staffList]);
+  }, [staffList, searchQuery, roleFilter]);
 
   const uniqueRoles = useMemo(() => {
     const roles = new Set<string>();
@@ -503,6 +457,9 @@ export default function SimplifiedStaff() {
         <div className="overflow-x-auto scrollbar-hide">
           <TabsList className="inline-flex w-auto min-w-full">
             <TabsTrigger value="costs" className="whitespace-nowrap">{t('business.staff.staffCosts')}</TabsTrigger>
+            {stammblattEnabled && (
+              <TabsTrigger value="stammblatt" className="whitespace-nowrap">Personalstammblatt</TabsTrigger>
+            )}
             <TabsTrigger value="timeoff" className="whitespace-nowrap">
               {t('business.staff.timeOff')}
               {pendingTimeOffCount > 0 && (
@@ -584,26 +541,6 @@ export default function SimplifiedStaff() {
               </Button>
             </div>
           </div>
-          {stammblattEnabled && (
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <button
-                onClick={() => setOnlyIncomplete(v => !v)}
-                className={`px-3 py-1 rounded-full text-xs transition-colors ${onlyIncomplete ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-              >
-                Nur unvollständig anzeigen
-              </button>
-              <button
-                onClick={() => setIsBulkConfirmOpen(true)}
-                disabled={eligibleBulkCount === 0}
-                className="px-3 py-1 rounded-full text-xs bg-blue-100 text-blue-800 hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <span className="flex items-center gap-1">
-                  <Send className="h-3 w-3" />
-                  Alle einladen ({eligibleBulkCount})
-                </span>
-              </button>
-            </div>
-          )}
           <CardDescription>{t('business.staff.manageStaffDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -629,7 +566,6 @@ export default function SimplifiedStaff() {
                     <TableHead>{t('business.costs.role')}</TableHead>
                     <TableHead className="text-right">{t('business.staff.hourlyRate')}</TableHead>
                     <TableHead>{t('business.staff.staffTypeLabel')}</TableHead>
-                    {stammblattEnabled && <TableHead>Personalstammblatt</TableHead>}
                     <TableHead className="text-right">{t('business.staff.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -665,11 +601,6 @@ export default function SimplifiedStaff() {
                           {staff.staffType === 'internal' ? t('business.staff.internal') : t('business.staff.external')}
                         </span>
                       </TableCell>
-                      {stammblattEnabled && (
-                        <TableCell>
-                          <StammblattStatusBadge value={staff.stammblatt} />
-                        </TableCell>
-                      )}
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Tooltip>
@@ -702,52 +633,6 @@ export default function SimplifiedStaff() {
                               <p>{t('common.edit')}</p>
                             </TooltipContent>
                           </Tooltip>
-                          {stammblattEnabled && (() => {
-                            const sb = staff.stammblatt;
-                            const hasInvalidEmail = !staff.email || (staff.email.endsWith('@staff.local') || staff.email.endsWith('@internal.local'));
-                            if (sb.status === 'submitted') {
-                              return (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => handleViewDetails(staff)}
-                                      data-testid={`button-stammblatt-view-${staff.id}`}
-                                    >
-                                      <MailCheck className="h-4 w-4 text-green-600" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent><p>Stammblatt anzeigen</p></TooltipContent>
-                                </Tooltip>
-                              );
-                            }
-                            const label = sb.status === 'missing' ? "Einladung senden" : "Erneut senden";
-                            return (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      disabled={hasInvalidEmail || inviteMutation.isPending}
-                                      onClick={() => inviteMutation.mutate(staff.id)}
-                                      data-testid={`button-stammblatt-invite-${staff.id}`}
-                                    >
-                                      {inviteMutation.isPending ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                      ) : (
-                                        <Send className="h-4 w-4" />
-                                      )}
-                                    </Button>
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{hasInvalidEmail ? "Keine gültige E-Mail-Adresse hinterlegt" : label}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            );
-                          })()}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1012,32 +897,18 @@ export default function SimplifiedStaff() {
         staff={viewingStaff}
       />
 
-      {/* Bulk invite confirm dialog */}
-      {stammblattEnabled && (
-        <Dialog open={isBulkConfirmOpen} onOpenChange={setIsBulkConfirmOpen}>
-          <DialogContent className="sm:max-w-[400px]">
-            <DialogHeader>
-              <DialogTitle>Masseneinladung senden</DialogTitle>
-              <DialogDescription>
-                Es werden Einladungen an <strong>{eligibleBulkCount}</strong> Mitarbeitende ohne vollständiges Stammblatt versandt. Fortfahren?
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsBulkConfirmOpen(false)}>
-                Abbrechen
-              </Button>
-              <Button
-                onClick={() => bulkMutation.mutate()}
-                disabled={bulkMutation.isPending}
-              >
-                {bulkMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Jetzt senden
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
         </TabsContent>
+
+        {stammblattEnabled && (
+          <TabsContent value="stammblatt" className="mt-4">
+            <StammblattTab
+              hospitalId={activeHospital.id}
+              staffList={staffList}
+              isLoadingStaff={isLoading}
+              onViewStaffDetails={handleViewDetails}
+            />
+          </TabsContent>
+        )}
 
         <TabsContent value="timeoff" className="mt-4">
           <StaffTimeOffTab hospitalId={activeHospital.id} />
