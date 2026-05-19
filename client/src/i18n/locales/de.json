@@ -7872,6 +7872,9 @@
       "imageUploaded": "Bild hochgeladen",
       "permitImageSaved": "Bewilligungsbild erfolgreich gespeichert.",
       "permitImageError": "Bewilligungsbild konnte nicht hochgeladen werden.",
+      "completeBanner": "Personalstammblatt vollständig ausgefüllt — vielen Dank.",
+      "completenessAllFilled": "Alle Pflichtfelder ausgefüllt. ✓",
+      "completenessMissing": "{{count}} Felder fehlen noch — alle Felder sind erforderlich.",
       "sections": {
         "personal": "Personalien",
         "childBenefits": "Kinderzulagen",

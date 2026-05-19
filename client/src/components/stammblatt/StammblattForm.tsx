@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, CheckCircle, FileText, Camera, Upload, CreditCard, Baby, Car, User } from "lucide-react";
+import { Loader2, CheckCircle, FileText, Camera, Upload, CreditCard, Baby, Car, User, AlertCircle } from "lucide-react";
 import { DateInput } from "@/components/ui/date-input";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { CameraCapture } from "@/components/CameraCapture";
@@ -38,6 +38,44 @@ export type StammblattData = {
   hasOwnVehicle: boolean;
 };
 
+/** Client-side mirror of the server's checkStammblattCompleteness logic. */
+function computeCompleteness(data: StammblattData): { complete: boolean; missingCount: number } {
+  const missing: string[] = [];
+
+  const alwaysRequired: (keyof StammblattData)[] = [
+    "firstName", "lastName", "profession",
+    "address", "city", "zip",
+    "dateOfBirth", "maritalStatus", "nationality", "religion",
+    "mobile", "ahvNumber",
+    "bankName", "bankAddress", "bankAccount",
+  ];
+
+  for (const field of alwaysRequired) {
+    const v = data[field];
+    if (v === null || v === undefined || v === "") missing.push(field);
+  }
+
+  // Boolean flags — must be explicitly true or false
+  if (data.hasChildBenefits !== true && data.hasChildBenefits !== false) missing.push("hasChildBenefits");
+  if (data.hasResidencePermit !== true && data.hasResidencePermit !== false) missing.push("hasResidencePermit");
+  if (data.hasOwnVehicle !== true && data.hasOwnVehicle !== false) missing.push("hasOwnVehicle");
+
+  if (data.hasChildBenefits === true) {
+    if (!(data.numberOfChildren != null && data.numberOfChildren > 0)) missing.push("numberOfChildren");
+    if (!data.childBenefitsRecipient) missing.push("childBenefitsRecipient");
+    if (!data.childBenefitsRegistration) missing.push("childBenefitsRegistration");
+  }
+
+  if (data.hasResidencePermit === true) {
+    if (!data.residencePermitType) missing.push("residencePermitType");
+    if (!data.residencePermitValidUntil) missing.push("residencePermitValidUntil");
+    if (!data.residencePermitFrontImage) missing.push("residencePermitFrontImage");
+    if (!data.residencePermitBackImage) missing.push("residencePermitBackImage");
+  }
+
+  return { complete: missing.length === 0, missingCount: missing.length };
+}
+
 export interface StammblattFormProps {
   initialData: StammblattData;
   onSave: (data: StammblattData) => Promise<void>;
@@ -67,6 +105,8 @@ export function StammblattForm({
     front: null,
     back: null,
   });
+
+  const completeness = useMemo(() => computeCompleteness(data), [data]);
 
   const permitFrontInputRef = useRef<HTMLInputElement>(null);
   const permitBackInputRef = useRef<HTMLInputElement>(null);
@@ -152,6 +192,14 @@ export function StammblattForm({
 
   return (
     <>
+      {/* Vollständig-Banner */}
+      {completeness.complete && (
+        <div className="flex items-center gap-2 px-4 py-3 mb-4 rounded-md bg-green-50 border border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300">
+          <CheckCircle className="w-5 h-5 flex-shrink-0" />
+          <span className="text-sm font-medium">{t("externalWorklog.personalData.completeBanner")}</span>
+        </div>
+      )}
+
       <Card className="dark:bg-gray-800 dark:border-gray-700">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2 dark:text-gray-100">
@@ -176,7 +224,7 @@ export function StammblattForm({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.firstName")}</label>
+                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.firstName")} <span className="text-red-500">*</span></label>
                 <Input
                   value={data.firstName}
                   onChange={(e) => setData({ ...data, firstName: e.target.value })}
@@ -185,7 +233,7 @@ export function StammblattForm({
                 />
               </div>
               <div>
-                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.lastName")}</label>
+                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.lastName")} <span className="text-red-500">*</span></label>
                 <Input
                   value={data.lastName}
                   onChange={(e) => setData({ ...data, lastName: e.target.value })}
@@ -196,7 +244,7 @@ export function StammblattForm({
             </div>
 
             <div>
-              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.profession")}</label>
+              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.profession")} <span className="text-red-500">*</span></label>
               <Input
                 value={data.profession}
                 onChange={(e) => setData({ ...data, profession: e.target.value })}
@@ -208,7 +256,7 @@ export function StammblattForm({
 
             {/* Address Autocomplete */}
             <div>
-              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.address")}</label>
+              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.address")} <span className="text-red-500">*</span></label>
               <AddressAutocomplete
                 values={{
                   street: data.address,
@@ -229,7 +277,7 @@ export function StammblattForm({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.dateOfBirth")}</label>
+                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.dateOfBirth")} <span className="text-red-500">*</span></label>
                 <DateInput
                   value={data.dateOfBirth}
                   onChange={(v) => setData({ ...data, dateOfBirth: v })}
@@ -237,7 +285,7 @@ export function StammblattForm({
                 />
               </div>
               <div>
-                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.maritalStatus")}</label>
+                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.maritalStatus")} <span className="text-red-500">*</span></label>
                 <Select
                   value={data.maritalStatus}
                   onValueChange={(value) => setData({ ...data, maritalStatus: value })}
@@ -259,7 +307,7 @@ export function StammblattForm({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.nationality")}</label>
+                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.nationality")} <span className="text-red-500">*</span></label>
                 <Select
                   value={data.nationality}
                   onValueChange={(value) => setData({ ...data, nationality: value })}
@@ -278,7 +326,7 @@ export function StammblattForm({
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.religion")}</label>
+                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.religion")} <span className="text-red-500">*</span></label>
                 <Select
                   value={data.religion}
                   onValueChange={(value) => setData({ ...data, religion: value })}
@@ -298,7 +346,7 @@ export function StammblattForm({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.mobile")}</label>
+                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.mobile")} <span className="text-red-500">*</span></label>
                 <Input
                   type="tel"
                   value={data.mobile}
@@ -309,7 +357,7 @@ export function StammblattForm({
                 />
               </div>
               <div>
-                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.ahvNumber")}</label>
+                <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.ahvNumber")} <span className="text-red-500">*</span></label>
                 <Input
                   value={data.ahvNumber}
                   onChange={(e) => setData({ ...data, ahvNumber: e.target.value })}
@@ -329,7 +377,7 @@ export function StammblattForm({
             </h3>
 
             <div className="flex items-center gap-4">
-              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.hasChildBenefits")}</label>
+              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.hasChildBenefits")} <span className="text-red-500">*</span></label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -356,7 +404,7 @@ export function StammblattForm({
               <div className="space-y-4 pl-4 border-l-2 border-blue-200 dark:border-blue-800">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.numberOfChildren")}</label>
+                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.numberOfChildren")} <span className="text-red-500">*</span></label>
                     <Input
                       type="number"
                       min="0"
@@ -367,7 +415,7 @@ export function StammblattForm({
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.childBenefitsRecipient")}</label>
+                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.childBenefitsRecipient")} <span className="text-red-500">*</span></label>
                     <Input
                       value={data.childBenefitsRecipient}
                       onChange={(e) => setData({ ...data, childBenefitsRecipient: e.target.value })}
@@ -377,7 +425,7 @@ export function StammblattForm({
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.childBenefitsRegistration")}</label>
+                  <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.childBenefitsRegistration")} <span className="text-red-500">*</span></label>
                   <Input
                     value={data.childBenefitsRegistration}
                     onChange={(e) => setData({ ...data, childBenefitsRegistration: e.target.value })}
@@ -397,7 +445,7 @@ export function StammblattForm({
             </h3>
 
             <div className="flex items-center gap-4">
-              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.hasResidencePermit")}</label>
+              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.hasResidencePermit")} <span className="text-red-500">*</span></label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -424,7 +472,7 @@ export function StammblattForm({
               <div className="space-y-4 pl-4 border-l-2 border-blue-200 dark:border-blue-800">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.residencePermitType")}</label>
+                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.residencePermitType")} <span className="text-red-500">*</span></label>
                     <Select
                       value={data.residencePermitType}
                       onValueChange={(value) => setData({ ...data, residencePermitType: value })}
@@ -441,7 +489,7 @@ export function StammblattForm({
                     </Select>
                   </div>
                   <div>
-                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.residencePermitValidUntil")}</label>
+                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.residencePermitValidUntil")} <span className="text-red-500">*</span></label>
                     <DateInput
                       value={data.residencePermitValidUntil}
                       onChange={(v) => setData({ ...data, residencePermitValidUntil: v })}
@@ -456,7 +504,7 @@ export function StammblattForm({
 
                 {/* Permit Front Image */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.permitFront")}</label>
+                  <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.permitFront")} <span className="text-red-500">*</span></label>
                   <div className="flex gap-2">
                     <Button
                       type="button"
@@ -504,7 +552,7 @@ export function StammblattForm({
 
                 {/* Permit Back Image */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.permitBack")}</label>
+                  <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.permitBack")} <span className="text-red-500">*</span></label>
                   <div className="flex gap-2">
                     <Button
                       type="button"
@@ -561,7 +609,7 @@ export function StammblattForm({
             </h3>
 
             <div>
-              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.bankName")}</label>
+              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.bankName")} <span className="text-red-500">*</span></label>
               <Input
                 value={data.bankName}
                 onChange={(e) => setData({ ...data, bankName: e.target.value })}
@@ -572,7 +620,7 @@ export function StammblattForm({
             </div>
 
             <div>
-              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.bankAddress")}</label>
+              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.bankAddress")} <span className="text-red-500">*</span></label>
               <Input
                 value={data.bankAddress}
                 onChange={(e) => setData({ ...data, bankAddress: e.target.value })}
@@ -583,7 +631,7 @@ export function StammblattForm({
             </div>
 
             <div>
-              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.bankAccount")}</label>
+              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.bankAccount")} <span className="text-red-500">*</span></label>
               <Input
                 value={data.bankAccount}
                 onChange={(e) => setData({ ...data, bankAccount: e.target.value })}
@@ -602,7 +650,7 @@ export function StammblattForm({
             </h3>
 
             <div className="flex items-center gap-4">
-              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.hasOwnVehicle")}</label>
+              <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.hasOwnVehicle")} <span className="text-red-500">*</span></label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -625,6 +673,21 @@ export function StammblattForm({
               </div>
             </div>
           </div>
+
+          {/* Completeness footer */}
+          {completeness.complete ? (
+            <div className="flex items-center gap-2 px-4 py-3 rounded-md bg-green-50 border border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300">
+              <CheckCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm font-medium">{t("externalWorklog.personalData.completenessAllFilled")}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-4 py-3 rounded-md bg-red-50 border border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-700 dark:text-red-300">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm">
+                {t("externalWorklog.personalData.completenessMissing", { count: completeness.missingCount })}
+              </span>
+            </div>
+          )}
 
           <Button
             onClick={handleSave}

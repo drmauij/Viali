@@ -76,21 +76,68 @@ describe("GET /api/me/stammblatt", () => {
 });
 
 describe("PATCH /api/me/stammblatt", () => {
-  it("saves fields and sets submittedAt when required minimums met", async () => {
+  it("saves fields and sets submittedAt when all required fields are present", async () => {
     const res = await request(app)
       .patch("/api/me/stammblatt")
       .set("x-active-hospital-id", hospitalId)
       .send({
         firstName: "Me",
         lastName: "Self",
+        profession: "Anesthesia Nurse",
         dateOfBirth: "1980-01-01",
         address: "Bahnhofstr 1",
         city: "Zurich",
         zip: "8001",
+        maritalStatus: "single",
+        nationality: "CH",
+        religion: "none",
+        mobile: "+41 79 000 00 00",
         ahvNumber: "756.1111.1111.11",
+        bankName: "UBS AG",
+        bankAddress: "Bahnhofstrasse 1, Zurich",
         bankAccount: "CH00 9999",
+        hasChildBenefits: false,
+        hasResidencePermit: false,
+        hasOwnVehicle: false,
       });
     expect(res.status).toBe(200);
     expect(res.body.submittedAt).toBeTruthy();
+    expect(res.body.completeness).toBeDefined();
+    expect(res.body.completeness.complete).toBe(true);
+    expect(res.body.completeness.missing).toHaveLength(0);
+  });
+
+  it("does not set submittedAt when fields are partial, and completeness reports missing", async () => {
+    // Reset the link to a clean partial state
+    const getLinkRes = await request(app)
+      .get("/api/me/stammblatt")
+      .set("x-active-hospital-id", hospitalId);
+    const linkId = getLinkRes.body.id;
+    const { db: testDb } = await import("../server/db");
+    const { externalWorklogLinks: ewl } = await import("@shared/schema");
+    const { eq: eqFn } = await import("drizzle-orm");
+    // Clear all personal fields and submittedAt so the PATCH starts from scratch
+    await testDb.update(ewl).set({
+      firstName: null, lastName: null, profession: null,
+      address: null, city: null, zip: null, dateOfBirth: null,
+      maritalStatus: null, nationality: null, religion: null,
+      mobile: null, ahvNumber: null,
+      bankName: null, bankAddress: null, bankAccount: null,
+      hasChildBenefits: null, hasResidencePermit: null, hasOwnVehicle: null,
+      submittedAt: null,
+    } as any).where(eqFn(ewl.id, linkId));
+
+    const res = await request(app)
+      .patch("/api/me/stammblatt")
+      .set("x-active-hospital-id", hospitalId)
+      .send({
+        firstName: "Me",
+        lastName: "Self",
+        // Missing profession, maritalStatus, nationality, religion, mobile, bankName, bankAddress, booleans...
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.submittedAt).toBeFalsy();
+    expect(res.body.completeness.complete).toBe(false);
+    expect(res.body.completeness.missing.length).toBeGreaterThan(0);
   });
 });

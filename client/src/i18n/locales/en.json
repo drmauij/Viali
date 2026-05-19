@@ -7771,6 +7771,9 @@
       "imageUploaded": "Image uploaded",
       "permitImageSaved": "Permit image saved successfully.",
       "permitImageError": "Failed to upload permit image.",
+      "completeBanner": "Personal data form fully completed — thank you.",
+      "completenessAllFilled": "All required fields filled in. ✓",
+      "completenessMissing": "{{count}} fields still missing — all fields are required.",
       "sections": {
         "personal": "Personal Information",
         "childBenefits": "Child Benefits",

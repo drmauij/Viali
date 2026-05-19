@@ -14,16 +14,75 @@ export async function isPersonalstammblattEnabled(hospitalId: string): Promise<b
 
 const TOKEN_VALIDITY_DAYS = 30;
 
-const REQUIRED_FIELDS = [
-  "firstName",
-  "lastName",
-  "dateOfBirth",
-  "address",
-  "city",
-  "zip",
-  "ahvNumber",
-  "bankAccount",
-] as const satisfies readonly (keyof ExternalWorklogLink)[];
+export interface StammblattCompleteness {
+  complete: boolean;
+  /** Ordered list of missing field names */
+  missing: string[];
+}
+
+/** Pure completeness check — no DB access. Can be used server-side and mirrored client-side. */
+export function checkStammblattCompleteness(data: Partial<ExternalWorklogLink>): StammblattCompleteness {
+  const missing: string[] = [];
+
+  // Always-required string / date fields
+  const alwaysRequired: (keyof ExternalWorklogLink)[] = [
+    "firstName",
+    "lastName",
+    "profession",
+    "address",
+    "city",
+    "zip",
+    "dateOfBirth",
+    "maritalStatus",
+    "nationality",
+    "religion",
+    "mobile",
+    "ahvNumber",
+    "bankName",
+    "bankAddress",
+    "bankAccount",
+  ];
+
+  for (const field of alwaysRequired) {
+    const v = data[field];
+    if (v === null || v === undefined || v === "") {
+      missing.push(field);
+    }
+  }
+
+  // Boolean flags — must be explicitly true or false (null counts as missing)
+  const boolFlags: (keyof ExternalWorklogLink)[] = [
+    "hasChildBenefits",
+    "hasResidencePermit",
+    "hasOwnVehicle",
+  ];
+
+  for (const field of boolFlags) {
+    const v = data[field];
+    if (v !== true && v !== false) {
+      missing.push(field);
+    }
+  }
+
+  // Conditional: hasChildBenefits === true
+  if (data.hasChildBenefits === true) {
+    if (!(data.numberOfChildren != null && (data.numberOfChildren as number) > 0)) {
+      missing.push("numberOfChildren");
+    }
+    if (!data.childBenefitsRecipient) missing.push("childBenefitsRecipient");
+    if (!data.childBenefitsRegistration) missing.push("childBenefitsRegistration");
+  }
+
+  // Conditional: hasResidencePermit === true
+  if (data.hasResidencePermit === true) {
+    if (!data.residencePermitType) missing.push("residencePermitType");
+    if (!data.residencePermitValidUntil) missing.push("residencePermitValidUntil");
+    if (!data.residencePermitFrontImage) missing.push("residencePermitFrontImage");
+    if (!data.residencePermitBackImage) missing.push("residencePermitBackImage");
+  }
+
+  return { complete: missing.length === 0, missing };
+}
 
 function expiryFromNow(): Date {
   return new Date(Date.now() + TOKEN_VALIDITY_DAYS * 24 * 60 * 60 * 1000);
@@ -127,11 +186,8 @@ export async function markSubmittedIfComplete(
   if (!link) throw new Error(`Link ${linkId} not found`);
   if (link.submittedAt) return link;
 
-  const allPresent = REQUIRED_FIELDS.every((f) => {
-    const v = (link as any)[f];
-    return v !== null && v !== undefined && v !== "";
-  });
-  if (!allPresent) return link;
+  const { complete } = checkStammblattCompleteness(link);
+  if (!complete) return link;
 
   const [updated] = await db
     .update(externalWorklogLinks)

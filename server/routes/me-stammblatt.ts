@@ -8,6 +8,7 @@ import {
   ensureStammblattLink,
   isPersonalstammblattEnabled,
   markSubmittedIfComplete,
+  checkStammblattCompleteness,
 } from "../services/stammblatt";
 
 const router = Router();
@@ -37,7 +38,7 @@ router.get("/api/me/stammblatt", isAuthenticated, async (req: any, res) => {
     }
 
     const link = await ensureStammblattLink(userId, hospitalId);
-    res.json(link);
+    res.json({ ...link, completeness: checkStammblattCompleteness(link) });
   } catch (e) {
     logger.error("GET /api/me/stammblatt failed", e);
     res.status(500).json({ message: "Failed to load Stammblatt" });
@@ -106,7 +107,7 @@ router.patch("/api/me/stammblatt", isAuthenticated, async (req: any, res) => {
       .where(eq(externalWorklogLinks.id, link.id));
 
     const final = await markSubmittedIfComplete(link.id);
-    res.json(final);
+    res.json({ ...final, completeness: checkStammblattCompleteness(final) });
   } catch (e) {
     logger.error("PATCH /api/me/stammblatt failed", e);
     res.status(500).json({ message: "Failed to save Stammblatt" });

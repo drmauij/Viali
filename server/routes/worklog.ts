@@ -12,6 +12,7 @@ import crypto from "crypto";
 import logger from "../logger";
 import { searchUserByEmail } from "../storage/users";
 import { materializeRulesForDate } from "../utils/staffPool";
+import { checkStammblattCompleteness } from "../services/stammblatt";
 
 const router = Router();
 
@@ -46,6 +47,33 @@ router.get('/api/worklog/:token', async (req, res) => {
     // Get existing entries for this link
     const entries = await storage.getExternalWorklogEntriesByLink(link.id);
     
+    const personalData = {
+      firstName: link.firstName || '',
+      lastName: link.lastName || '',
+      profession: link.profession || '',
+      address: link.address || '',
+      city: link.city || '',
+      zip: link.zip || '',
+      dateOfBirth: link.dateOfBirth || '',
+      maritalStatus: link.maritalStatus || '',
+      nationality: link.nationality || '',
+      religion: link.religion || '',
+      mobile: link.mobile || '',
+      ahvNumber: link.ahvNumber || '',
+      hasChildBenefits: link.hasChildBenefits ?? null,
+      numberOfChildren: link.numberOfChildren || 0,
+      childBenefitsRecipient: link.childBenefitsRecipient || '',
+      childBenefitsRegistration: link.childBenefitsRegistration || '',
+      hasResidencePermit: link.hasResidencePermit ?? null,
+      residencePermitType: link.residencePermitType || '',
+      residencePermitValidUntil: link.residencePermitValidUntil || '',
+      residencePermitFrontImage: link.residencePermitFrontImage || '',
+      residencePermitBackImage: link.residencePermitBackImage || '',
+      bankName: link.bankName || '',
+      bankAddress: link.bankAddress || '',
+      bankAccount: link.bankAccount || '',
+      hasOwnVehicle: link.hasOwnVehicle ?? null,
+    };
     res.json({
       email: link.email,
       unitName: link.unit?.name ?? "",
@@ -55,33 +83,8 @@ router.get('/api/worklog/:token', async (req, res) => {
       hospitalId: link.hospitalId,
       personalDataOnly: link.personalDataOnly,
       entries,
-      personalData: {
-        firstName: link.firstName || '',
-        lastName: link.lastName || '',
-        profession: link.profession || '',
-        address: link.address || '',
-        city: link.city || '',
-        zip: link.zip || '',
-        dateOfBirth: link.dateOfBirth || '',
-        maritalStatus: link.maritalStatus || '',
-        nationality: link.nationality || '',
-        religion: link.religion || '',
-        mobile: link.mobile || '',
-        ahvNumber: link.ahvNumber || '',
-        hasChildBenefits: link.hasChildBenefits || false,
-        numberOfChildren: link.numberOfChildren || 0,
-        childBenefitsRecipient: link.childBenefitsRecipient || '',
-        childBenefitsRegistration: link.childBenefitsRegistration || '',
-        hasResidencePermit: link.hasResidencePermit || false,
-        residencePermitType: link.residencePermitType || '',
-        residencePermitValidUntil: link.residencePermitValidUntil || '',
-        residencePermitFrontImage: link.residencePermitFrontImage || '',
-        residencePermitBackImage: link.residencePermitBackImage || '',
-        bankName: link.bankName || '',
-        bankAddress: link.bankAddress || '',
-        bankAccount: link.bankAccount || '',
-        hasOwnVehicle: link.hasOwnVehicle || false,
-      },
+      personalData,
+      completeness: checkStammblattCompleteness(link),
     });
   } catch (error) {
     logger.error("Error fetching worklog link:", error);
@@ -112,38 +115,43 @@ router.patch('/api/worklog/:token/personal-data', async (req, res) => {
       bankName, bankAddress, bankAccount, hasOwnVehicle
     } = req.body;
     
-    await db.update(externalWorklogLinks)
-      .set({
-        firstName: firstName || null,
-        lastName: lastName || null,
-        profession: profession || null,
-        address: address || null,
-        city: city || null,
-        zip: zip || null,
-        dateOfBirth: dateOfBirth || null,
-        maritalStatus: maritalStatus || null,
-        nationality: nationality || null,
-        religion: religion || null,
-        mobile: mobile || null,
-        ahvNumber: ahvNumber || null,
-        hasChildBenefits: hasChildBenefits ?? null,
-        numberOfChildren: numberOfChildren ?? null,
-        childBenefitsRecipient: childBenefitsRecipient || null,
-        childBenefitsRegistration: childBenefitsRegistration || null,
-        hasResidencePermit: hasResidencePermit ?? null,
-        residencePermitType: residencePermitType || null,
-        residencePermitValidUntil: residencePermitValidUntil || null,
-        residencePermitFrontImage: residencePermitFrontImage || null,
-        residencePermitBackImage: residencePermitBackImage || null,
-        bankName: bankName || null,
-        bankAddress: bankAddress || null,
-        bankAccount: bankAccount || null,
-        hasOwnVehicle: hasOwnVehicle ?? null,
-        updatedAt: new Date(),
-      })
-      .where(eq(externalWorklogLinks.id, link.id));
-    
-    res.json({ success: true });
+    const patch = {
+      firstName: firstName || null,
+      lastName: lastName || null,
+      profession: profession || null,
+      address: address || null,
+      city: city || null,
+      zip: zip || null,
+      dateOfBirth: dateOfBirth || null,
+      maritalStatus: maritalStatus || null,
+      nationality: nationality || null,
+      religion: religion || null,
+      mobile: mobile || null,
+      ahvNumber: ahvNumber || null,
+      hasChildBenefits: hasChildBenefits ?? null,
+      numberOfChildren: numberOfChildren ?? null,
+      childBenefitsRecipient: childBenefitsRecipient || null,
+      childBenefitsRegistration: childBenefitsRegistration || null,
+      hasResidencePermit: hasResidencePermit ?? null,
+      residencePermitType: residencePermitType || null,
+      residencePermitValidUntil: residencePermitValidUntil || null,
+      residencePermitFrontImage: residencePermitFrontImage || null,
+      residencePermitBackImage: residencePermitBackImage || null,
+      bankName: bankName || null,
+      bankAddress: bankAddress || null,
+      bankAccount: bankAccount || null,
+      hasOwnVehicle: hasOwnVehicle ?? null,
+      updatedAt: new Date(),
+    };
+
+    const [updated] = await db.update(externalWorklogLinks)
+      .set(patch)
+      .where(eq(externalWorklogLinks.id, link.id))
+      .returning();
+
+    // Merge request patch onto updated link for completeness check (returning() gives the full row)
+    const completeness = checkStammblattCompleteness(updated);
+    res.json({ success: true, completeness });
   } catch (error) {
     logger.error("Error saving personal data:", error);
     res.status(500).json({ message: "Failed to save personal data" });
