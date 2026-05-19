@@ -584,10 +584,14 @@ router.post(
         try {
           let link = await ensureStammblattLink(uid, hospitalId);
           link = await rotateStammblattToken(link.id);
-          await sendStammblattInviteEmail(
+          const emailSent = await sendStammblattInviteEmail(
             u.email!, link.token, hosp?.name ?? "",
             (hosp?.defaultLanguage as 'de' | 'en') ?? 'de',
           );
+          if (!emailSent) {
+            skipped.push({ userId: uid, reason: "send_failed" });
+            continue;
+          }
           await db.update(externalWorklogLinks).set({
             inviteCount: link.inviteCount + 1,
             lastInvitedAt: new Date(),
@@ -633,12 +637,15 @@ router.post(
 
       const [hosp] = await db.select().from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
       const { sendStammblattInviteEmail } = await import("../email");
-      await sendStammblattInviteEmail(
+      const emailSent = await sendStammblattInviteEmail(
         user.email!,
         link.token,
         hosp?.name ?? "",
         (hosp?.defaultLanguage as 'de' | 'en') ?? 'de',
       );
+      if (!emailSent) {
+        return res.status(502).json({ message: "Email delivery failed" });
+      }
 
       const [updated] = await db.update(externalWorklogLinks)
         .set({
