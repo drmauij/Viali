@@ -171,6 +171,7 @@ export const hospitals = pgTable("hospitals", {
   addonLogistics: boolean("addon_logistics").default(false), // Centralized order management (+5 CHF/month)
   addonClinic: boolean("addon_clinic").default(false), // Clinic module with invoices & appointments (+10 CHF/month)
   addonPatientChat: boolean("addon_patient_chat").default(false), // 2-way patient chat via portal
+  addonPersonalstammblatt: boolean("addon_personalstammblatt").notNull().default(false), // Personalstammblatt for all staff (internal + external)
   addonAmbulantEligibility: boolean("addon_ambulant_eligibility").notNull().default(false), // Pre-op ambulant eligibility scoring (Caprini/STOP-BANG/RCRI/Apfel) + gate
   // Lead invitation email — when true, the public leads webhook sends an HTML invite to book on /book/:token
   autoSendLeadInvitationEmail: boolean("auto_send_lead_invitation_email").notNull().default(true),
@@ -5391,7 +5392,7 @@ export type InsertContractTemplate = typeof contractTemplates.$inferInsert;
 // External Worklog Links - Personalized links for external workers to submit time entries
 export const externalWorklogLinks = pgTable("external_worklog_links", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  unitId: varchar("unit_id").notNull().references(() => units.id, { onDelete: 'cascade' }),
+  unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
   
   email: varchar("email").notNull(),
@@ -5438,6 +5439,13 @@ export const externalWorklogLinks = pgTable("external_worklog_links", {
   // Mobilität (Mobility)
   hasOwnVehicle: boolean("has_own_vehicle"),
   
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }),
+  personalDataOnly: boolean("personal_data_only").notNull().default(false),
+  inviteCount: integer("invite_count").notNull().default(0),
+  lastInvitedAt: timestamp("last_invited_at"),
+  tokenExpiresAt: timestamp("token_expires_at"),
+  submittedAt: timestamp("submitted_at"),
+
   isActive: boolean("is_active").default(true).notNull(),
   lastAccessedAt: timestamp("last_accessed_at"),
   
@@ -5449,6 +5457,7 @@ export const externalWorklogLinks = pgTable("external_worklog_links", {
   index("idx_external_worklog_links_email").on(table.email),
   index("idx_external_worklog_links_token").on(table.token),
   unique("idx_external_worklog_links_hospital_email").on(table.hospitalId, table.email),
+  index("idx_external_worklog_links_user_hospital").on(table.userId, table.hospitalId),
 ]);
 
 export const insertExternalWorklogLinkSchema = createInsertSchema(externalWorklogLinks).omit({

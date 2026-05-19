@@ -224,7 +224,7 @@ router.post('/api/worklog/:token/entries', async (req, res) => {
     
     const entry = await storage.createExternalWorklogEntry({
       linkId: link.id,
-      unitId: link.unitId,
+      unitId: link.unitId!, // unit-scoped links always have unitId
       hospitalId: link.hospitalId,
       email: link.email,
       firstName,
@@ -534,7 +534,7 @@ router.post('/api/hospitals/:hospitalId/worklog/links/:linkId/send', isAuthentic
     }
     
     const { sendWorklogLinkEmail } = await import('../email');
-    const unit = await storage.getUnit(link.unitId);
+    const unit = link.unitId ? await storage.getUnit(link.unitId) : undefined;
     const hospital = await storage.getHospital(hospitalId);
     
     if (unit && hospital) {
