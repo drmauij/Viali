@@ -105,6 +105,7 @@ const ChainLocations = React.lazy(() => import("@/pages/chain/Locations"));
 const ChainTeam = React.lazy(() => import("@/pages/chain/Team"));
 const ContractTemplates = React.lazy(() => import("@/pages/business/ContractTemplates"));
 const RiskMethodology = React.lazy(() => import("@/pages/RiskMethodology"));
+const ProfileStammblatt = React.lazy(() => import("@/pages/profile/Stammblatt"));
 
 function PageLoader() {
   return (
@@ -346,6 +347,8 @@ function Router() {
                   to any authenticated staff member; opens in a new tab from the risk
                   popover and the admin Regional Preferences sub-tab. */}
               <Route path="/risk-methodology">{() => <ProtectedRoute><RiskMethodology /></ProtectedRoute>}</Route>
+              {/* Staff self-service: Personalstammblatt — any authenticated user */}
+              <Route path="/profile/stammblatt">{() => <ProtectedRoute><ProfileStammblatt /></ProtectedRoute>}</Route>
               {/* Surgery Module - requires surgery unit access */}
               <Route path="/surgery">{() => <ProtectedRoute requireSurgery><OpList /></ProtectedRoute>}</Route>
               <Route path="/surgery/appointments">{() => <ProtectedRoute requireSurgery><ClinicAppointments /></ProtectedRoute>}</Route>
