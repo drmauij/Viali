@@ -67,6 +67,7 @@ export async function rotateStammblattToken(
     .set({
       token: randomUUID(),
       tokenExpiresAt: expiryFromNow(),
+      isActive: true,
       updatedAt: new Date(),
     })
     .where(eq(externalWorklogLinks.id, linkId))
