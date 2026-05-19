@@ -59,10 +59,11 @@ import {
   Eye,
   UserCheck,
   X,
+  Send,
+  MailCheck,
 } from "lucide-react";
 import StaffTimeOffTab from "@/components/business/StaffTimeOffTab";
 import { StammblattStatusBadge, type StammblattStatus } from "@/components/stammblatt/StammblattStatusBadge";
-import { Send, MailCheck } from "lucide-react";
 
 interface RoleInfo {
   role: string;
