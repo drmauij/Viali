@@ -85,6 +85,10 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose, onBookForPatie
     },
     onError: () => {
       toast({ title: t('recovery.toast.errorLogging', 'Failed to log contact'), variant: 'destructive' });
+      // Case may have closed under us (e.g. reconcileRecoveryCasesForPatient
+      // fired from another tab/user). Refetch so the Log section hides and the
+      // user stops getting 400s — VIALI-QV/QW noise in Sentry.
+      invalidateAll();
     },
   });
 
@@ -122,9 +126,12 @@ export function RecoveryCaseDrawer({ caseId, hospitalId, onClose, onBookForPatie
   };
 
   const open = !!caseId;
-  const canLogContact = data ? ['pending', 'in_progress'].includes(data.status) : false;
+  // Mirrors the server-side allow-list in routes/recovery.ts so the Log button
+  // doesn't render for statuses the API will reject with 400.
+  const OPEN_STATUSES = ['pending', 'to_verify', 'in_progress'];
+  const canLogContact = data ? OPEN_STATUSES.includes(data.status) : false;
   const canClose = canLogContact;
-  const canBookAppointment = data ? ['pending', 'in_progress'].includes(data.status) : false;
+  const canBookAppointment = canLogContact;
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>

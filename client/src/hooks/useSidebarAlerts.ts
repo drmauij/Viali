@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useQuery, useQueries } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { SidebarHospital } from "@/components/sidebar/buildRows";
 
 const ADMIN_ROLES = new Set(["admin", "group_admin", "manager", "marketing"]);
@@ -10,11 +10,11 @@ function uniqueIds<T extends { id: string }>(rows: T[]): string[] {
 
 /**
  * Cross-hospital alert summary used by both the dropdown (per-card dots) and
- * the TopBar trigger (single aggregate dot). Endpoints with hospitalId in
- * the URL are fanned out via useQueries so dots reflect every hospital the
- * user has access to — not only the currently-active one. React Query
- * dedupes across the two consumers so each query runs once per refetch
- * interval regardless of how many components subscribe.
+ * the TopBar trigger (single aggregate dot). Each per-hospital count is
+ * fetched via a single bulk endpoint (`/api/<resource>-counts?hospitalIds=...`)
+ * — one HTTP call instead of an N+1 fan-out that Sentry kept flagging
+ * (VIALI-QQ). Server filters silently to hospitals the caller can read so
+ * inaccessible IDs don't 403 the whole batch.
  *
  * Questionnaire (`/api/questionnaire/unassociated/count`) scopes via the
  * X-Active-Hospital-Id header, so it stays on the active hospital only — a
@@ -58,23 +58,28 @@ export function useSidebarAlerts(
     [hospitals],
   );
 
-  const leadsQueries = useQueries({
-    queries: clinicAlertHospitalIds.map(id => ({
-      queryKey: [`/api/business/${id}/leads-count`],
-      refetchInterval: 60000,
-    })),
+  // Bulk endpoints replace per-hospital useQueries fan-outs that Sentry
+  // flagged as N+1s (VIALI-QQ) when the user can read several hospitals. IDs
+  // are sorted in the query key so the cache stays stable across renders
+  // regardless of how the source `hospitals` array is ordered. queryKey[0]
+  // doubles as the URL the default queryFn fetches.
+  const leadsCountsKey = [...clinicAlertHospitalIds].sort().join(",");
+  const surgeryCountsKey = [...surgeryAlertHospitalIds].sort().join(",");
+
+  const { data: leadsCountsData } = useQuery<{ counts: Record<string, number> }>({
+    queryKey: [`/api/leads-counts?hospitalIds=${leadsCountsKey}`],
+    enabled: clinicAlertHospitalIds.length > 0,
+    refetchInterval: 60000,
   });
-  const surgeryRequestsQueries = useQueries({
-    queries: surgeryAlertHospitalIds.map(id => ({
-      queryKey: [`/api/hospitals/${id}/external-surgery-requests/count`],
-      refetchInterval: 60000,
-    })),
+  const { data: surgeryRequestsData } = useQuery<{ counts: Record<string, number> }>({
+    queryKey: [`/api/external-surgery-requests-counts?hospitalIds=${surgeryCountsKey}`],
+    enabled: surgeryAlertHospitalIds.length > 0,
+    refetchInterval: 60000,
   });
-  const surgeonActionQueries = useQueries({
-    queries: surgeryAlertHospitalIds.map(id => ({
-      queryKey: [`/api/hospitals/${id}/surgeon-action-requests/count`],
-      refetchInterval: 60000,
-    })),
+  const { data: surgeonActionData } = useQuery<{ counts: Record<string, number> }>({
+    queryKey: [`/api/surgeon-action-requests-counts?hospitalIds=${surgeryCountsKey}`],
+    enabled: surgeryAlertHospitalIds.length > 0,
+    refetchInterval: 60000,
   });
 
   const clinicActive = activeHospital?.unitType === "clinic";
@@ -85,17 +90,14 @@ export function useSidebarAlerts(
   });
 
   const leadsByHospitalId: Record<string, number> = {};
-  clinicAlertHospitalIds.forEach((id, i) => {
-    leadsByHospitalId[id] =
-      (leadsQueries[i]?.data as { count?: number } | undefined)?.count ?? 0;
+  clinicAlertHospitalIds.forEach(id => {
+    leadsByHospitalId[id] = leadsCountsData?.counts?.[id] ?? 0;
   });
 
   const surgeryAlertByHospitalId: Record<string, number> = {};
-  surgeryAlertHospitalIds.forEach((id, i) => {
-    const reqs =
-      (surgeryRequestsQueries[i]?.data as { count?: number } | undefined)?.count ?? 0;
-    const acts =
-      (surgeonActionQueries[i]?.data as { count?: number } | undefined)?.count ?? 0;
+  surgeryAlertHospitalIds.forEach(id => {
+    const reqs = surgeryRequestsData?.counts?.[id] ?? 0;
+    const acts = surgeonActionData?.counts?.[id] ?? 0;
     surgeryAlertByHospitalId[id] = reqs + acts;
   });
 

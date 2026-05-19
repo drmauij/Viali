@@ -1118,6 +1118,70 @@ router.get(
   },
 );
 
+// 5b. Bulk badge counts across multiple hospitals — one query instead of
+// fanning out useQueries on the sidebar. Sentry flagged the fan-out as an N+1
+// (issue VIALI-QQ) when the user has admin/marketing access in several
+// hospitals. Access control is per-hospital: silently drops any requested IDs
+// the caller can't read instead of 403'ing the whole batch, so the sidebar
+// keeps rendering for the hospitals it can see.
+const LEADS_COUNT_ALLOWED_ROLES = new Set([
+  "admin",
+  "manager",
+  "marketing",
+  "nurse",
+  "group_admin",
+]);
+
+router.get(
+  "/api/leads-counts",
+  isAuthenticated,
+  async (req: any, res: Response) => {
+    try {
+      const raw: string = typeof req.query.hospitalIds === "string" ? req.query.hospitalIds : "";
+      const requested: string[] = Array.from(
+        new Set(
+          raw
+            .split(",")
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0),
+        ),
+      );
+      if (requested.length === 0) {
+        return res.json({ counts: {} });
+      }
+
+      const userHospitals = await storage.getUserHospitals(req.user.id);
+      const allowed = new Set(
+        userHospitals
+          .filter(h => LEADS_COUNT_ALLOWED_ROLES.has(h.role))
+          .map(h => h.id),
+      );
+      const scope = requested.filter(id => allowed.has(id));
+
+      const counts: Record<string, number> = {};
+      for (const id of scope) counts[id] = 0;
+      if (scope.length === 0) {
+        return res.json({ counts });
+      }
+
+      const rows = await db
+        .select({
+          hospitalId: leads.hospitalId,
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(leads)
+        .where(and(inArray(leads.hospitalId, scope), eq(leads.status, "new")))
+        .groupBy(leads.hospitalId);
+
+      for (const r of rows) counts[r.hospitalId] = Number(r.count);
+      return res.json({ counts });
+    } catch (err) {
+      logger.error({ err }, "Error fetching bulk leads counts");
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
 // 6. Aggregated marketing stats for the Leads tab
 router.get(
   "/api/business/:hospitalId/leads-stats",

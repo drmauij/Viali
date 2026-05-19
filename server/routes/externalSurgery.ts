@@ -22,8 +22,8 @@ import logger from "../logger";
 import { getClinicClosuresInRange } from "../storage/clinicClosures";
 import { findFuzzyPatientMatches } from "../services/patientDeduplication";
 import { acceptReferralAndImport, pushReferralStatus, applyAcceptedActionToSource, applyRefusedActionToSource } from "../storage/praxisMode";
-import { externalSurgeryRequests } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { externalSurgeryRequests, surgeonActionRequests } from "@shared/schema";
+import { eq, and, inArray, sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -263,19 +263,69 @@ router.get('/api/hospitals/:hospitalId/external-surgery-requests/count', isAuthe
   try {
     const { hospitalId } = req.params;
     const userId = req.user.id;
-    
+
     const activeUnitId = getActiveUnitIdFromRequest(req);
     const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!unitId) {
       return res.status(403).json({ message: "Access denied" });
     }
-    
+
     const count = await storage.getPendingExternalSurgeryRequestsCount(hospitalId);
-    
+
     res.json({ count });
   } catch (error) {
     logger.error("Error fetching pending count:", error);
     res.status(500).json({ message: "Failed to fetch count" });
+  }
+});
+
+// Bulk pending-count across multiple hospitals — single query alternative to
+// the sidebar's per-hospital useQueries fan-out (companion to leads-counts
+// for the surgery dot). Silently drops inaccessible IDs.
+router.get('/api/external-surgery-requests-counts', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const raw: string = typeof req.query.hospitalIds === "string" ? req.query.hospitalIds : "";
+    const requested: string[] = Array.from(
+      new Set(
+        raw
+          .split(",")
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0),
+      ),
+    );
+    if (requested.length === 0) {
+      return res.json({ counts: {} });
+    }
+
+    const userHospitals = await storage.getUserHospitals(req.user.id);
+    const allowed = new Set(userHospitals.map(h => h.id));
+    const scope = requested.filter(id => allowed.has(id));
+
+    const counts: Record<string, number> = {};
+    for (const id of scope) counts[id] = 0;
+    if (scope.length === 0) {
+      return res.json({ counts });
+    }
+
+    const rows = await db
+      .select({
+        hospitalId: externalSurgeryRequests.hospitalId,
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(externalSurgeryRequests)
+      .where(
+        and(
+          inArray(externalSurgeryRequests.hospitalId, scope),
+          eq(externalSurgeryRequests.status, 'pending'),
+        ),
+      )
+      .groupBy(externalSurgeryRequests.hospitalId);
+
+    for (const r of rows) counts[r.hospitalId] = Number(r.count);
+    return res.json({ counts });
+  } catch (error) {
+    logger.error("Error fetching bulk external-surgery-requests counts:", error);
+    res.status(500).json({ message: "Failed to fetch counts" });
   }
 });
 
@@ -929,6 +979,55 @@ router.get('/api/hospitals/:hospitalId/surgeon-action-requests/count', isAuthent
   } catch (error) {
     logger.error("Error fetching surgeon action requests count:", error);
     res.status(500).json({ message: "Failed to fetch count" });
+  }
+});
+
+// Bulk pending-count companion (sidebar fan-out de-N+1). Same access shape
+// as the external-surgery-requests bulk endpoint above.
+router.get('/api/surgeon-action-requests-counts', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const raw: string = typeof req.query.hospitalIds === "string" ? req.query.hospitalIds : "";
+    const requested: string[] = Array.from(
+      new Set(
+        raw
+          .split(",")
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0),
+      ),
+    );
+    if (requested.length === 0) {
+      return res.json({ counts: {} });
+    }
+
+    const userHospitals = await storage.getUserHospitals(req.user.id);
+    const allowed = new Set(userHospitals.map(h => h.id));
+    const scope = requested.filter(id => allowed.has(id));
+
+    const counts: Record<string, number> = {};
+    for (const id of scope) counts[id] = 0;
+    if (scope.length === 0) {
+      return res.json({ counts });
+    }
+
+    const rows = await db
+      .select({
+        hospitalId: surgeonActionRequests.hospitalId,
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(surgeonActionRequests)
+      .where(
+        and(
+          inArray(surgeonActionRequests.hospitalId, scope),
+          eq(surgeonActionRequests.status, 'pending'),
+        ),
+      )
+      .groupBy(surgeonActionRequests.hospitalId);
+
+    for (const r of rows) counts[r.hospitalId] = Number(r.count);
+    return res.json({ counts });
+  } catch (error) {
+    logger.error("Error fetching bulk surgeon-action-requests counts:", error);
+    res.status(500).json({ message: "Failed to fetch counts" });
   }
 });
 
