@@ -52,6 +52,7 @@ import contractInstancesRouter from "./contractInstances";
 import { enforceIdleTimeout } from "../auth/idleTimeout";
 import { praxisModeRouter } from "./praxisMode";
 import { referralPartnershipsRouter } from "./referralPartnerships";
+import meStammblattRouter from "./me-stammblatt";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -121,4 +122,6 @@ export function registerDomainRoutes(app: Express) {
   app.use(contractTemplatesRouter);
   // Contract instances: Path A (manager-created single-use token URLs).
   app.use(contractInstancesRouter);
+  // Self-fill Personalstammblatt: authenticated users edit their own record.
+  app.use(meStammblattRouter);
 }
