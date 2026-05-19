@@ -2428,7 +2428,13 @@
       "outpatientCare": "Ambulante Betreuung",
       "caregiverName": "Begleitperson",
       "caregiverPhone": "Telefon",
-      "questionnaireResponses": "Fragebogen-Antworten"
+      "questionnaireResponses": "Fragebogen-Antworten",
+      "noQuestionnaireResponses": "Noch keine Fragebogen-Antworten.",
+      "tabs": {
+        "assessment": "Befund",
+        "questionnaire": "Fragebogen",
+        "documents": "Dokumente"
+      }
     },
     "pacu": {
       "title": "Aufwachraum",

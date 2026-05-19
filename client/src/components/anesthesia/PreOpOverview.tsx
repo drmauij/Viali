@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, AlertCircle, ListTodo, Send } from "lucide-react";
 import { formatDateTime } from "@/lib/dateUtils";
 import { useCreateTodo } from "@/hooks/useCreateTodo";
@@ -570,6 +571,28 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
         </Card>
       )}
 
+      {/* Subtabs: keep Assessment / Questionnaire / Documents side-by-side
+         instead of stacked. Special Notes stays above the tabs so it's always
+         visible — it's the critical-flag block. */}
+      <Tabs defaultValue="assessment" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="assessment" data-testid="preop-subtab-assessment">
+            {t('anesthesia.preop.tabs.assessment', 'Assessment')}
+          </TabsTrigger>
+          <TabsTrigger value="questionnaire" data-testid="preop-subtab-questionnaire">
+            {t('anesthesia.preop.tabs.questionnaire', 'Questionnaire')}
+            {submittedLinks.length > 0 && (
+              <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-xs">
+                {submittedLinks.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="documents" data-testid="preop-subtab-documents">
+            {t('anesthesia.preop.tabs.documents', 'Documents')}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="assessment" className="space-y-4 mt-4">
       {/* General Data and Surgical Approval - 70/30 Split */}
       {(data.asa?.trim() || data.surgicalApproval?.trim()) && (
         <div className="grid grid-cols-1 md:grid-cols-10 gap-4">
@@ -804,36 +827,42 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
         </div>
       )}
 
-      {/* Questionnaire responses - visible alongside pre-op data */}
-      {submittedLinks.length > 0 && patientId && hospitalId && (
-        <div className="mt-6">
-          <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
-            {t('anesthesia.preop.questionnaireResponses', 'Questionnaire Responses')}
-          </h3>
-          <QuestionnaireTab
-            patientId={patientId}
-            hospitalId={hospitalId}
-            canWrite={false}
-            questionnaireLinks={questionnaireLinks}
-            onOpenSendDialog={() => setSendDialogOpen(true)}
-            patientRecord={patientName ? {
-              firstName: patientName.split(', ')[1],
-              surname: patientName.split(', ')[0],
-            } : undefined}
-          />
-        </div>
-      )}
+        </TabsContent>
 
-      {/* Patient Documents Section */}
-      {patientId && hospitalId && (
-        <PatientDocumentsSection
-          patientId={patientId}
-          hospitalId={hospitalId}
-          canWrite={canWrite}
-          variant="card"
-        />
-      )}
-      
+        <TabsContent value="questionnaire" className="mt-4">
+          {submittedLinks.length > 0 && patientId && hospitalId ? (
+            <QuestionnaireTab
+              patientId={patientId}
+              hospitalId={hospitalId}
+              canWrite={false}
+              questionnaireLinks={questionnaireLinks}
+              onOpenSendDialog={() => setSendDialogOpen(true)}
+              patientRecord={patientName ? {
+                firstName: patientName.split(', ')[1],
+                surname: patientName.split(', ')[0],
+              } : undefined}
+            />
+          ) : (
+            <Card className="border-gray-300 dark:border-gray-600">
+              <CardContent className="p-6 text-sm text-muted-foreground text-center">
+                {t('anesthesia.preop.noQuestionnaireResponses', 'No questionnaire responses yet.')}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-4">
+          {patientId && hospitalId && (
+            <PatientDocumentsSection
+              patientId={patientId}
+              hospitalId={hospitalId}
+              canWrite={canWrite}
+              variant="card"
+            />
+          )}
+        </TabsContent>
+      </Tabs>
+
       {/* Send Questionnaire Dialog */}
       {patientId && patientName && (
         <SendQuestionnaireDialog

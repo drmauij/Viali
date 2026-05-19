@@ -2347,7 +2347,13 @@
       "outpatientCare": "Outpatient Care",
       "caregiverName": "Caregiver",
       "caregiverPhone": "Phone",
-      "questionnaireResponses": "Questionnaire Responses"
+      "questionnaireResponses": "Questionnaire Responses",
+      "noQuestionnaireResponses": "No questionnaire responses yet.",
+      "tabs": {
+        "assessment": "Assessment",
+        "questionnaire": "Questionnaire",
+        "documents": "Documents"
+      }
     },
     "pacu": {
       "title": "Post-Anesthesia Care Unit",
