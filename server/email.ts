@@ -300,6 +300,61 @@ export async function sendWorklogLinkEmail(
   }
 }
 
+export async function sendStammblattInviteEmail(
+  toEmail: string,
+  token: string,
+  hospitalName: string,
+  language: 'de' | 'en' = 'de'
+): Promise<boolean> {
+  try {
+    const { client, fromEmail } = await getUncachableResendClient();
+
+    const baseUrl = getAppBaseUrl();
+    const stammblattLink = `${baseUrl}/worklog/${token}`;
+
+    const isGerman = language === 'de';
+    const subject = isGerman
+      ? `Personalstammblatt ausfüllen — ${hospitalName}`
+      : `Complete your personal data form — ${hospitalName}`;
+    const heading = isGerman ? 'Personalstammblatt' : 'Personal Data Form';
+    const body1 = isGerman
+      ? `Sie wurden gebeten, Ihr Personalstammblatt bei <strong>${hospitalName}</strong> auszufüllen. Bitte vervollständigen Sie Ihre persönlichen Angaben über den untenstehenden Link.`
+      : `You have been asked to complete your personal data form at <strong>${hospitalName}</strong>. Please fill in your details using the link below.`;
+    const body2 = isGerman
+      ? 'Der Link ist 30 Tage gültig. Bitte teilen Sie ihn nicht mit anderen Personen.'
+      : 'The link is valid for 30 days. Please do not share it with others.';
+    const buttonText = isGerman ? 'Personalstammblatt öffnen' : 'Open Personal Data Form';
+    const copyLink = isGerman ? 'Oder kopieren Sie diesen Link:' : 'Or copy this link:';
+
+    await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">${heading}</h2>
+          <p style="color: #666;">
+            ${body1}
+          </p>
+          <p style="color: #666;">
+            ${body2}
+          </p>
+          ${getEmailButton(stammblattLink, buttonText)}
+          <p style="color: #999; font-size: 12px;">
+            ${copyLink} <a href="${stammblattLink}" style="color: #2563eb;">${stammblattLink}</a>
+          </p>
+        </div>
+      `
+    });
+
+    logger.info(`[Email] Successfully sent Stammblatt invite to ${toEmail}`);
+    return true;
+  } catch (error) {
+    logger.error('[Email] Failed to send Stammblatt invite:', error);
+    return false;
+  }
+}
+
 // Send custom message to patient
 export async function sendCustomPatientEmail(toEmail: string, messageText: string, patientFirstName: string): Promise<boolean> {
   try {

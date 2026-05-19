@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Response, Request } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema, supplierCodes, surgeries, anesthesiaRecords, surgeryStaffEntries, inventoryCommits, items, providerTimeOff, patientQuestionnaireResponses, patientQuestionnaireLinks, referralEvents, patients, clinicAppointments, clinicServices } from "@shared/schema";
+import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema, supplierCodes, surgeries, anesthesiaRecords, surgeryStaffEntries, inventoryCommits, items, providerTimeOff, patientQuestionnaireResponses, patientQuestionnaireLinks, referralEvents, patients, clinicAppointments, clinicServices, externalWorklogLinks } from "@shared/schema";
 import { eq, and, inArray, ne, desc, gte, lte, isNull, isNotNull, sql } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { nanoid } from "nanoid";
@@ -95,6 +95,21 @@ async function isMarketingOrManager(req: any, res: Response, next: any) {
   } catch (error) {
     logger.error("Error checking marketing access:", error);
     res.status(500).json({ message: "Failed to verify access" });
+  }
+}
+
+// Middleware: gate routes behind the per-hospital Personalstammblatt addon flag.
+async function requirePersonalstammblattAddon(req: any, res: any, next: any) {
+  try {
+    const hospitalId = req.params.hospitalId;
+    if (!hospitalId) return res.status(400).json({ message: "hospitalId required" });
+    const [hosp] = await db.select({ flag: hospitals.addonPersonalstammblatt })
+      .from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
+    if (!hosp || !hosp.flag) return res.status(403).json({ message: "Addon disabled" });
+    next();
+  } catch (e) {
+    logger.error("addon gate error", e);
+    res.status(500).json({ message: "Addon check failed" });
   }
 }
 
@@ -480,6 +495,139 @@ router.patch('/api/business/:hospitalId/staff/:userId/type', isAuthenticated, is
     res.status(500).json({ message: "Failed to update staff type" });
   }
 });
+
+// Personalstammblatt — bulk invite (registered before single-invite to avoid :userId matching "stammblatt-invite")
+router.post(
+  '/api/business/:hospitalId/staff/stammblatt-invite/bulk',
+  isAuthenticated,
+  isBusinessManager,
+  requirePersonalstammblattAddon,
+  async (req, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const { userIds, scope } = req.body as { userIds?: string[]; scope?: 'all_incomplete' };
+      const { isValidStaffEmail } = await import("../services/stammblatt");
+
+      // Resolve target user ids
+      let targetIds: string[] = [];
+      if (Array.isArray(userIds) && userIds.length > 0) {
+        targetIds = userIds;
+      } else if (scope === 'all_incomplete') {
+        const rows = await storage.getHospitalUsers(hospitalId);
+        const userIdsSet = new Set<string>();
+        for (const u of rows) {
+          if (u.role === 'admin') continue;
+          userIdsSet.add(u.user.id);
+        }
+        // Exclude users whose stammblatt is already submitted
+        if (userIdsSet.size > 0) {
+          const links = await db.select().from(externalWorklogLinks)
+            .where(and(
+              eq(externalWorklogLinks.hospitalId, hospitalId),
+              inArray(externalWorklogLinks.userId, Array.from(userIdsSet)),
+            ));
+          for (const l of links) {
+            if (l.userId && l.submittedAt) userIdsSet.delete(l.userId);
+          }
+        }
+        targetIds = Array.from(userIdsSet);
+      } else {
+        return res.status(400).json({ message: "userIds or scope required" });
+      }
+
+      const skipped: Array<{ userId: string; reason: string }> = [];
+      let sent = 0;
+
+      const { ensureStammblattLink, rotateStammblattToken } =
+        await import("../services/stammblatt");
+      const { sendStammblattInviteEmail } = await import("../email");
+      const [hosp] = await db.select().from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
+
+      for (const uid of targetIds) {
+        const [u] = await db.select().from(users).where(eq(users.id, uid)).limit(1);
+        if (!u) { skipped.push({ userId: uid, reason: "not_found" }); continue; }
+        if (!isValidStaffEmail(u.email)) { skipped.push({ userId: uid, reason: "no_valid_email" }); continue; }
+
+        try {
+          let link = await ensureStammblattLink(uid, hospitalId);
+          link = await rotateStammblattToken(link.id);
+          await sendStammblattInviteEmail(
+            u.email!, link.token, hosp?.name ?? "",
+            (hosp?.defaultLanguage as 'de' | 'en') ?? 'de',
+          );
+          await db.update(externalWorklogLinks).set({
+            inviteCount: link.inviteCount + 1,
+            lastInvitedAt: new Date(),
+            email: u.email!,
+            updatedAt: new Date(),
+          }).where(eq(externalWorklogLinks.id, link.id));
+          sent++;
+        } catch (err) {
+          logger.error(`Bulk stammblatt invite failed for ${uid}`, err);
+          skipped.push({ userId: uid, reason: "send_failed" });
+        }
+      }
+
+      res.json({ sent, skipped });
+    } catch (e) {
+      logger.error("Bulk Stammblatt invite failed", e);
+      res.status(500).json({ message: "Bulk invite failed" });
+    }
+  }
+);
+
+// Personalstammblatt — single invite / resend
+router.post(
+  '/api/business/:hospitalId/staff/:userId/stammblatt-invite',
+  isAuthenticated,
+  isBusinessManager,
+  requirePersonalstammblattAddon,
+  async (req, res) => {
+    try {
+      const { hospitalId, userId } = req.params;
+      const { ensureStammblattLink, rotateStammblattToken, isValidStaffEmail } =
+        await import("../services/stammblatt");
+
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (!isValidStaffEmail(user.email)) {
+        return res.status(400).json({ message: "User has no valid email" });
+      }
+
+      let link = await ensureStammblattLink(userId, hospitalId);
+      // Always rotate token on send/resend
+      link = await rotateStammblattToken(link.id);
+
+      const [hosp] = await db.select().from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
+      const { sendStammblattInviteEmail } = await import("../email");
+      await sendStammblattInviteEmail(
+        user.email!,
+        link.token,
+        hosp?.name ?? "",
+        (hosp?.defaultLanguage as 'de' | 'en') ?? 'de',
+      );
+
+      const [updated] = await db.update(externalWorklogLinks)
+        .set({
+          inviteCount: link.inviteCount + 1,
+          lastInvitedAt: new Date(),
+          email: user.email!, // keep email in sync with user
+          updatedAt: new Date(),
+        })
+        .where(eq(externalWorklogLinks.id, link.id))
+        .returning();
+
+      res.json({
+        inviteCount: updated.inviteCount,
+        lastInvitedAt: updated.lastInvitedAt,
+        tokenExpiresAt: updated.tokenExpiresAt,
+      });
+    } catch (e) {
+      logger.error("Stammblatt invite failed", e);
+      res.status(500).json({ message: "Failed to send invite" });
+    }
+  }
+);
 
 // Get available units for staff assignment (non-admin units)
 router.get('/api/business/:hospitalId/units', isAuthenticated, isBusinessAccess, async (req, res) => {
