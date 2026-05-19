@@ -70,6 +70,7 @@ export default function SettingsPage() {
     hidePatientCancel: false,
     noShowFeeMessage: "" as string,
     addonPatientChat: false,
+    addonPersonalstammblatt: false,
     clinicKind: "mixed" as "aesthetic" | "surgical" | "mixed",
     currency: "CHF" as string,
     dateFormat: "european" as string,
@@ -185,6 +186,7 @@ export default function SettingsPage() {
         hidePatientCancel: fullHospitalData.hidePatientCancel ?? false,
         noShowFeeMessage: fullHospitalData.noShowFeeMessage || "",
         addonPatientChat: fullHospitalData.addonPatientChat ?? false,
+        addonPersonalstammblatt: fullHospitalData.addonPersonalstammblatt ?? false,
         clinicKind: (fullHospitalData.clinicKind ?? "mixed") as "aesthetic" | "surgical" | "mixed",
         currency: fullHospitalData.currency || "CHF",
         dateFormat: fullHospitalData.dateFormat || "european",
@@ -2177,6 +2179,25 @@ export default function SettingsPage() {
                   onCheckedChange={(checked) => {
                     setHospitalForm(prev => ({ ...prev, addonPatientChat: checked }));
                     updateHospitalMutation.mutate({ ...hospitalForm, addonPatientChat: checked });
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
+                <div className="flex-1">
+                  <Label className="text-sm font-medium">
+                    {t("admin.experimental.stammblatt.title", "Personalstammblatt für alle Mitarbeiter")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("admin.experimental.stammblatt.desc",
+                      "Aktiviert die HR-Funktion, mit der für alle Mitarbeiter (intern und extern) ein Personalstammblatt eingeholt werden kann.")}
+                  </p>
+                </div>
+                <Switch
+                  checked={hospitalForm.addonPersonalstammblatt ?? false}
+                  onCheckedChange={(checked) => {
+                    setHospitalForm(prev => ({ ...prev, addonPersonalstammblatt: checked }));
+                    updateHospitalMutation.mutate({ ...hospitalForm, addonPersonalstammblatt: checked });
                   }}
                 />
               </div>

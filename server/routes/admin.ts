@@ -36,6 +36,7 @@ const updateHospitalSchema = z.object({
   noShowFeeMessage: z.string().nullable().optional(),
   hidePatientCancel: z.boolean().optional(),
   addonPatientChat: z.boolean().optional(),
+  addonPersonalstammblatt: z.boolean().optional(),
   currency: z.enum(["CHF", "EUR", "USD"]).optional(),
   dateFormat: z.enum(["european", "american"]).optional(),
   hourFormat: z.enum(["24h", "12h"]).optional(),
