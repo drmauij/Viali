@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { formatDate } from "@/lib/dateUtils";
 
 export type StammblattStatus = {
   status: 'missing' | 'invited' | 'in_progress' | 'submitted';
@@ -27,7 +28,7 @@ export function StammblattStatusBadge({ value }: { value: StammblattStatus }) {
 
   const sub =
     status === 'submitted'
-      ? `am ${new Date(submittedAt!).toLocaleDateString('de-CH')}`
+      ? `am ${formatDate(submittedAt!)}`
       : inviteCount > 0
         ? `${inviteCount}× gesendet${lastInvitedAt ? ` · vor ${daysAgo(lastInvitedAt)}d` : ""}`
         : "";
