@@ -43,6 +43,9 @@ type PreOpAssessmentData = {
   psychIllnesses: Record<string, boolean>;
   skeletalIllnesses: Record<string, boolean>;
   neuroPsychSkeletalNotes: string;
+  coagulationIllnesses: Record<string, boolean>;
+  infectiousIllnesses: Record<string, boolean>;
+  coagulationInfectiousNotes: string;
   womanIssues: Record<string, boolean>;
   womanNotes: string;
   noxen: Record<string, boolean>;
@@ -299,6 +302,18 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
       color: "orange",
       items: getSelectedItems(data.skeletalIllnesses, illnessLabels),
       notes: data.neuroPsychSkeletalNotes,
+    },
+    {
+      title: t('anesthesia.preop.medHistory.coagulation', 'Coagulation'),
+      color: "red",
+      items: getSelectedItems(data.coagulationIllnesses, illnessLabels),
+      notes: data.coagulationInfectiousNotes,
+    },
+    {
+      title: t('anesthesia.preop.medHistory.infectious', 'Infectious'),
+      color: "red",
+      items: getSelectedItems(data.infectiousIllnesses, illnessLabels),
+      notes: null,
     },
     {
       title: t('anesthesia.preop.medHistory.gynecology', 'Gynecology'),

@@ -2375,6 +2375,8 @@
         "neurological": "Neurologisch",
         "psychiatry": "Psychiatrie",
         "skeletal": "Skelett",
+        "coagulation": "Gerinnung",
+        "infectious": "Infektioes",
         "gynecology": "Gynaekologie",
         "pediatric": "Paediatrie",
         "dependencies": "Abhaengigkeiten (Substanzen)"

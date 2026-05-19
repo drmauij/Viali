@@ -2294,6 +2294,8 @@
         "neurological": "Neurological",
         "psychiatry": "Psychiatry",
         "skeletal": "Skeletal",
+        "coagulation": "Coagulation",
+        "infectious": "Infectious",
         "gynecology": "Gynecology",
         "pediatric": "Pediatric",
         "dependencies": "Dependencies (Substances)"
