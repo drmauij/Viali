@@ -356,7 +356,7 @@ export default function SimplifiedStaff() {
     mutationFn: () =>
       apiRequest("POST", `/api/business/${activeHospital!.id}/staff/stammblatt-invite/bulk`, { scope: 'all_incomplete' })
         .then(r => r.json()),
-    onSuccess: (res: { sent: number; skipped: string[] }) => {
+    onSuccess: (res: { sent: number; skipped: Array<{ userId: string; reason: string }> }) => {
       queryClient.invalidateQueries({ queryKey: [`/api/business/${activeHospital?.id}/staff`] });
       toast({
         title: `${res.sent} Einladungen verschickt`,
