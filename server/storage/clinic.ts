@@ -2287,16 +2287,16 @@ export async function markSurgeryReminderSent(surgeryId: string): Promise<void> 
 
 // ========== EXTERNAL WORKLOG OPERATIONS ==========
 
-export async function getExternalWorklogLinkByToken(token: string): Promise<(ExternalWorklogLink & { unit: Unit; hospital: Hospital }) | undefined> {
+export async function getExternalWorklogLinkByToken(token: string): Promise<(ExternalWorklogLink & { unit: Unit | null; hospital: Hospital }) | undefined> {
   const [result] = await db
     .select()
     .from(externalWorklogLinks)
-    .innerJoin(units, eq(units.id, externalWorklogLinks.unitId))
+    .leftJoin(units, eq(units.id, externalWorklogLinks.unitId))
     .innerJoin(hospitals, eq(hospitals.id, externalWorklogLinks.hospitalId))
     .where(eq(externalWorklogLinks.token, token));
-  
+
   if (!result) return undefined;
-  
+
   return {
     ...result.external_worklog_links,
     unit: result.units,

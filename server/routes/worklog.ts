@@ -48,7 +48,7 @@ router.get('/api/worklog/:token', async (req, res) => {
     
     res.json({
       email: link.email,
-      unitName: link.unit.name,
+      unitName: link.unit?.name ?? "",
       hospitalName: link.hospital.name,
       linkId: link.id,
       unitId: link.unitId,
@@ -668,7 +668,7 @@ router.get('/api/worklog/:token/entries/:entryId', async (req, res) => {
     res.json({
       ...entry,
       hospitalName: link.hospital.name,
-      unitName: link.unit.name,
+      unitName: link.unit?.name ?? "",
     });
   } catch (error) {
     logger.error("Error fetching entry:", error);

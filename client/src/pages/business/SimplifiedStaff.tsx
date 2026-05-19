@@ -454,7 +454,8 @@ export default function SimplifiedStaff() {
     return staffList.filter(s =>
       s.stammblatt?.status !== 'submitted' &&
       s.email &&
-      !s.email.endsWith('@staff.local')
+      !s.email.endsWith('@staff.local') &&
+      !s.email.endsWith('@internal.local')
     ).length;
   }, [staffList]);
 
@@ -703,7 +704,7 @@ export default function SimplifiedStaff() {
                           </Tooltip>
                           {stammblattEnabled && (() => {
                             const sb = staff.stammblatt;
-                            const hasInvalidEmail = !staff.email || staff.email.endsWith('@staff.local');
+                            const hasInvalidEmail = !staff.email || (staff.email.endsWith('@staff.local') || staff.email.endsWith('@internal.local'));
                             if (sb.status === 'submitted') {
                               return (
                                 <Tooltip>

@@ -31,7 +31,8 @@ function expiryFromNow(): Date {
 
 export function isValidStaffEmail(email: string | null | undefined): boolean {
   if (!email) return false;
-  if (email.toLowerCase().endsWith("@staff.local")) return false;
+  const lower = email.toLowerCase();
+  if (lower.endsWith("@staff.local") || lower.endsWith("@internal.local")) return false;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
