@@ -197,6 +197,15 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
     (link: any) => link.status === 'submitted' && link.response
   );
 
+  // Mirror PatientDocumentsSection's query so we can show a count on the
+  // Documents tab trigger — the user shouldn't have to click in to find out
+  // whether anything is attached.
+  const { data: documentsList = [] } = useQuery<any[]>({
+    queryKey: [`/api/patients/${patientId}/documents`, patientId],
+    enabled: !!patientId && !!hospitalId,
+  });
+  const documentsCount = documentsList.length;
+
   const getSelectedItems = (record: Record<string, boolean>, labels: Record<string, string>) => {
     return Object.entries(record || {})
       .filter(([_, value]) => value)
@@ -440,6 +449,28 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
     data.surgicalApproval?.trim() ||
     data.specialNotes?.trim();
 
+  // Count of populated assessment sections, surfaced as a badge on the
+  // Assessment tab so the user can see at a glance whether anything is
+  // filled in (mirrors the badges on Questionnaire + Documents).
+  const assessmentSectionCount =
+    medicalSections.length +
+    [
+      data.specialNotes?.trim(),
+      data.asa?.trim() || data.surgicalApproval?.trim(),
+      allMedications.length > 0 || data.medicationsNotes?.trim(),
+      hasFunctionalCapacity,
+      hasPreviousSurgeries,
+      hasOutpatientCare,
+      data.mallampati?.trim() ||
+        data.mouthOpening?.trim() ||
+        data.dentition?.trim() ||
+        data.airwayDifficult?.trim() ||
+        data.airwayNotes?.trim(),
+      data.lastSolids?.trim() || data.lastClear?.trim(),
+      selectedAnesthesia.length > 0 || data.postOpICU || data.anesthesiaOther?.trim(),
+      selectedInstallations.length > 0 || data.installationsOther?.trim(),
+    ].filter(Boolean).length;
+
   // Default to whichever tab has actual content: if the assessment is empty
   // but a questionnaire was submitted, drop the user onto Questionnaire so
   // they don't see a blank Assessment tab first.
@@ -448,21 +479,6 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
 
   return (
     <div className="space-y-4 p-4">
-      {/* Header with Send Questionnaire Button */}
-      {addons.questionnaire && patientId && patientName && (
-        <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSendDialogOpen(true)}
-            title={t('common.patientCommunication', 'Contact')}
-            data-testid="button-send-questionnaire-preop"
-          >
-            <Send className="h-5 w-5 text-white" />
-          </Button>
-        </div>
-      )}
-      
       {/* Special Notes - Highlighted at top */}
       {data.specialNotes?.trim() && (
         <Card className="border-blue-500 dark:border-blue-700 group">
@@ -495,24 +511,65 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
 
       {/* Subtabs: keep Assessment / Questionnaire / Documents side-by-side
          instead of stacked. Special Notes stays above the tabs so it's always
-         visible — it's the critical-flag block. */}
+         visible — it's the critical-flag block. The "send questionnaire"
+         button sits to the right of the TabsList so it shares the row
+         instead of pushing the tabs down with an otherwise-empty header. */}
       <Tabs defaultValue={defaultTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="assessment" data-testid="preop-subtab-assessment">
-            {t('anesthesia.preop.tabs.assessment', 'Assessment')}
-          </TabsTrigger>
-          <TabsTrigger value="questionnaire" data-testid="preop-subtab-questionnaire">
-            {t('anesthesia.preop.tabs.questionnaire', 'Questionnaire')}
-            {submittedLinks.length > 0 && (
-              <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-xs">
-                {submittedLinks.length}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="documents" data-testid="preop-subtab-documents">
-            {t('anesthesia.preop.tabs.documents', 'Documents')}
-          </TabsTrigger>
-        </TabsList>
+        {/* Compact rounded-pill segmented control — visually distinct from
+           the case page's primary tab bar so it doesn't read as a second row
+           of nested tabs. Sits left, with the Contact action floated right
+           on the same line. */}
+        <div className="flex items-center justify-between gap-2">
+          <TabsList className="inline-flex h-9 gap-1 rounded-full bg-muted/40 p-1">
+            <TabsTrigger
+              value="assessment"
+              className="rounded-full px-4 py-1 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none"
+              data-testid="preop-subtab-assessment"
+            >
+              {t('anesthesia.preop.tabs.assessment', 'Assessment')}
+              {assessmentSectionCount > 0 && (
+                <span className="ml-2 rounded-full bg-foreground/10 px-1.5 py-0.5 text-xs data-[state=active]:bg-primary-foreground/20">
+                  {assessmentSectionCount}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="questionnaire"
+              className="rounded-full px-4 py-1 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none"
+              data-testid="preop-subtab-questionnaire"
+            >
+              {t('anesthesia.preop.tabs.questionnaire', 'Questionnaire')}
+              {submittedLinks.length > 0 && (
+                <span className="ml-2 rounded-full bg-foreground/10 px-1.5 py-0.5 text-xs">
+                  {submittedLinks.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="documents"
+              className="rounded-full px-4 py-1 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none"
+              data-testid="preop-subtab-documents"
+            >
+              {t('anesthesia.preop.tabs.documents', 'Documents')}
+              {documentsCount > 0 && (
+                <span className="ml-2 rounded-full bg-foreground/10 px-1.5 py-0.5 text-xs">
+                  {documentsCount}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+          {addons.questionnaire && patientId && patientName && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSendDialogOpen(true)}
+              title={t('common.patientCommunication', 'Contact')}
+              data-testid="button-send-questionnaire-preop"
+            >
+              <Send className="h-5 w-5" />
+            </Button>
+          )}
+        </div>
 
         <TabsContent value="assessment" className="space-y-4 mt-4">
       {!hasAnyData && (
