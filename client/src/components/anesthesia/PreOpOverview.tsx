@@ -22,6 +22,12 @@ type PreOpAssessmentData = {
   cave: string;
   asa: string;
   specialNotes: string;
+  metAbove4: boolean | null;
+  functionallyDependent: boolean | null;
+  previousSurgeries: string;
+  outpatientCaregiverFirstName: string;
+  outpatientCaregiverLastName: string;
+  outpatientCaregiverPhone: string;
   
   // Medications
   anticoagulationMeds: string[];
@@ -46,6 +52,10 @@ type PreOpAssessmentData = {
   coagulationIllnesses: Record<string, boolean>;
   infectiousIllnesses: Record<string, boolean>;
   coagulationInfectiousNotes: string;
+  anesthesiaHistoryIssues: Record<string, boolean>;
+  dentalIssues: Record<string, boolean>;
+  ponvTransfusionIssues: Record<string, boolean>;
+  anesthesiaSurgicalHistoryNotes: string;
   womanIssues: Record<string, boolean>;
   womanNotes: string;
   noxen: Record<string, boolean>;
@@ -333,6 +343,24 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
       items: getSelectedItems(data.noxen, illnessLabels),
       notes: data.noxenNotes,
     },
+    {
+      title: t('anesthesia.preop.medHistory.anesthesiaHistory', 'Anesthesia History'),
+      color: "purple",
+      items: getSelectedItems(data.anesthesiaHistoryIssues, illnessLabels),
+      notes: data.anesthesiaSurgicalHistoryNotes,
+    },
+    {
+      title: t('anesthesia.preop.medHistory.dental', 'Dental'),
+      color: "cyan",
+      items: getSelectedItems(data.dentalIssues, illnessLabels),
+      notes: null,
+    },
+    {
+      title: t('anesthesia.preop.medHistory.ponvTransfusion', 'PONV / Transfusion'),
+      color: "yellow",
+      items: getSelectedItems(data.ponvTransfusionIssues, illnessLabels),
+      notes: null,
+    },
   ].filter(section => section.items.length > 0 || section.notes?.trim());
 
   const allMedications = [
@@ -413,16 +441,36 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
       green: { border: "border-green-500 dark:border-green-700", text: "text-green-600 dark:text-green-400" },
       gray: { border: "border-gray-500 dark:border-gray-400", text: "text-gray-700 dark:text-gray-300" },
       purple: { border: "border-purple-500 dark:border-purple-700", text: "text-purple-600 dark:text-purple-400" },
+      cyan: { border: "border-cyan-500 dark:border-cyan-700", text: "text-cyan-600 dark:text-cyan-400" },
     };
     return colorMap[color] || { border: "", text: "" };
   };
 
+  const hasFunctionalCapacity =
+    data.metAbove4 !== null && data.metAbove4 !== undefined ||
+    data.functionallyDependent !== null && data.functionallyDependent !== undefined;
+  const hasPreviousSurgeries = !!data.previousSurgeries?.trim();
+  const hasOutpatientCare = !!(
+    data.outpatientCaregiverFirstName?.trim() ||
+    data.outpatientCaregiverLastName?.trim() ||
+    data.outpatientCaregiverPhone?.trim()
+  );
+  const outpatientCaregiverName = [
+    data.outpatientCaregiverFirstName?.trim(),
+    data.outpatientCaregiverLastName?.trim(),
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   // Check if we have any relevant data
-  const hasAnyData = 
+  const hasAnyData =
     data.asa?.trim() ||
     allMedications.length > 0 ||
     data.medicationsNotes?.trim() ||
     medicalSections.length > 0 ||
+    hasFunctionalCapacity ||
+    hasPreviousSurgeries ||
+    hasOutpatientCare ||
     data.mallampati?.trim() ||
     data.mouthOpening?.trim() ||
     data.dentition?.trim() ||
@@ -603,6 +651,76 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
           </Card>
         );
       })}
+
+      {/* Functional Capacity Section */}
+      {hasFunctionalCapacity && (
+        <Card className="border-gray-300 dark:border-gray-600">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">
+              {t('anesthesia.preop.functionalCapacity', 'Functional Capacity')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            {data.metAbove4 !== null && data.metAbove4 !== undefined && (
+              <div>
+                <span className="font-semibold">{t('anesthesia.preop.metAbove4', '≥ 4 METs')}:</span>{' '}
+                {data.metAbove4
+                  ? t('common.yes', 'Yes')
+                  : t('common.no', 'No')}
+              </div>
+            )}
+            {data.functionallyDependent !== null && data.functionallyDependent !== undefined && (
+              <div>
+                <span className="font-semibold">{t('anesthesia.preop.functionallyDependent', 'Functionally Dependent')}:</span>{' '}
+                {data.functionallyDependent
+                  ? t('common.yes', 'Yes')
+                  : t('common.no', 'No')}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Previous Surgeries Section */}
+      {hasPreviousSurgeries && (
+        <Card className="border-gray-300 dark:border-gray-600">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">
+              {t('anesthesia.preop.previousSurgeries', 'Previous Surgeries')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm whitespace-pre-wrap">{data.previousSurgeries}</div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Outpatient Care Section */}
+      {hasOutpatientCare && (
+        <Card className="border-cyan-500 dark:border-cyan-700">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-cyan-600 dark:text-cyan-400 text-base">
+              {t('anesthesia.preop.outpatientCare', 'Outpatient Care')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            {outpatientCaregiverName && (
+              <div>
+                <span className="font-semibold">{t('anesthesia.preop.caregiverName', 'Caregiver')}:</span>{' '}
+                {outpatientCaregiverName}
+              </div>
+            )}
+            {data.outpatientCaregiverPhone?.trim() && (
+              <div>
+                <span className="font-semibold">{t('anesthesia.preop.caregiverPhone', 'Phone')}:</span>{' '}
+                <a href={`tel:${data.outpatientCaregiverPhone}`} className="text-primary underline">
+                  {data.outpatientCaregiverPhone}
+                </a>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Airway Section */}
       {(data.mallampati?.trim() || data.mouthOpening?.trim() || data.dentition?.trim() || data.airwayDifficult?.trim() || data.airwayNotes?.trim()) && (

@@ -2379,7 +2379,10 @@
         "infectious": "Infektioes",
         "gynecology": "Gynaekologie",
         "pediatric": "Paediatrie",
-        "dependencies": "Abhaengigkeiten (Substanzen)"
+        "dependencies": "Abhaengigkeiten (Substanzen)",
+        "anesthesiaHistory": "Anaesthesie-Anamnese",
+        "dental": "Zahnstatus",
+        "ponvTransfusion": "PONV / Transfusion"
       },
       "techniques": {
         "tubus": "Endotrachealtubus",
@@ -2418,6 +2421,13 @@
       "airway": "Atemweg",
       "fasting": "Nuechternheit",
       "lastClear": "Letzte klare Fluessigkeit",
+      "functionalCapacity": "Belastbarkeit",
+      "metAbove4": "≥ 4 METs",
+      "functionallyDependent": "Funktionell abhaengig",
+      "previousSurgeries": "Vorausgegangene Operationen",
+      "outpatientCare": "Ambulante Betreuung",
+      "caregiverName": "Begleitperson",
+      "caregiverPhone": "Telefon",
       "questionnaireResponses": "Fragebogen-Antworten"
     },
     "pacu": {
