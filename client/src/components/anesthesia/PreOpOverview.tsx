@@ -478,7 +478,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
     !hasAnyData && submittedLinks.length > 0 ? "questionnaire" : "assessment";
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-4 px-4 pb-4 pt-1">
       {/* Special Notes - Highlighted at top */}
       {data.specialNotes?.trim() && (
         <Card className="border-blue-500 dark:border-blue-700 group">
