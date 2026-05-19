@@ -30,6 +30,7 @@ export async function ensureStammblattLink(
   userId: string,
   hospitalId: string,
 ): Promise<ExternalWorklogLink> {
+  // Primary lookup: exact userId match
   const existing = await db
     .select()
     .from(externalWorklogLinks)
@@ -43,6 +44,36 @@ export async function ensureStammblattLink(
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) throw new Error(`User ${userId} not found`);
   const email = user.email || `${userId}@staff.local`;
+
+  // Secondary lookup: same (email, hospitalId) — catches legacy external links
+  // that were created without a userId and could cause a unique-constraint collision.
+  const byEmail = await db
+    .select()
+    .from(externalWorklogLinks)
+    .where(and(
+      eq(externalWorklogLinks.email, email),
+      eq(externalWorklogLinks.hospitalId, hospitalId),
+    ))
+    .limit(1);
+
+  if (byEmail.length > 0) {
+    const row = byEmail[0];
+    if (!row.userId) {
+      // Adopt the legacy row by assigning this userId to it.
+      const [adopted] = await db
+        .update(externalWorklogLinks)
+        .set({ userId, updatedAt: new Date() })
+        .where(eq(externalWorklogLinks.id, row.id))
+        .returning();
+      return adopted;
+    }
+    if (row.userId !== userId) {
+      // Another user already owns this email at this hospital — surface as a 409.
+      throw new Error("STAMMBLATT_EMAIL_COLLISION");
+    }
+    // row.userId === userId (shouldn't happen after the first lookup, but safe)
+    return row;
+  }
 
   const [created] = await db
     .insert(externalWorklogLinks)

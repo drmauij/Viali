@@ -631,7 +631,15 @@ router.post(
         return res.status(400).json({ message: "User has no valid email" });
       }
 
-      let link = await ensureStammblattLink(userId, hospitalId);
+      let link;
+      try {
+        link = await ensureStammblattLink(userId, hospitalId);
+      } catch (e: any) {
+        if (e?.message === "STAMMBLATT_EMAIL_COLLISION") {
+          return res.status(409).json({ message: "Email already linked to another user — investigate manually" });
+        }
+        throw e;
+      }
       // Always rotate token on send/resend
       link = await rotateStammblattToken(link.id);
 
