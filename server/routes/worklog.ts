@@ -15,6 +15,10 @@ import { materializeRulesForDate } from "../utils/staffPool";
 
 const router = Router();
 
+function isExpired(link: { tokenExpiresAt?: Date | null }): boolean {
+  return !!link.tokenExpiresAt && link.tokenExpiresAt.getTime() < Date.now();
+}
+
 // Portal verification for all public worklog routes
 router.use('/api/worklog/:token', requirePortalVerification("worklog"));
 
@@ -31,7 +35,11 @@ router.get('/api/worklog/:token', async (req, res) => {
     if (!link.isActive) {
       return res.status(410).json({ message: "This link has been deactivated" });
     }
-    
+
+    if (isExpired(link)) {
+      return res.status(410).json({ message: "This link has expired" });
+    }
+
     // Update last accessed timestamp
     await storage.updateExternalWorklogLinkLastAccess(link.id);
     
@@ -85,11 +93,15 @@ router.patch('/api/worklog/:token/personal-data', async (req, res) => {
   try {
     const { token } = req.params;
     const link = await storage.getExternalWorklogLinkByToken(token);
-    
+
     if (!link || !link.isActive) {
       return res.status(404).json({ message: "Invalid or expired link" });
     }
-    
+
+    if (isExpired(link)) {
+      return res.status(410).json({ message: "This link has expired" });
+    }
+
     const { 
       firstName, lastName, profession, address, city, zip, dateOfBirth,
       maritalStatus, nationality, religion, mobile, ahvNumber,
@@ -142,11 +154,15 @@ router.post('/api/worklog/:token/permit-image-upload', async (req, res) => {
   try {
     const { token } = req.params;
     const link = await storage.getExternalWorklogLinkByToken(token);
-    
+
     if (!link || !link.isActive) {
       return res.status(404).json({ message: "Invalid or expired link" });
     }
-    
+
+    if (isExpired(link)) {
+      return res.status(410).json({ message: "This link has expired" });
+    }
+
     const { side, filename } = req.body;
     
     if (!side || !['front', 'back'].includes(side)) {
@@ -173,11 +189,15 @@ router.get('/api/worklog/:token/permit-image/:side', async (req, res) => {
   try {
     const { token, side } = req.params;
     const link = await storage.getExternalWorklogLinkByToken(token);
-    
+
     if (!link || !link.isActive) {
       return res.status(404).json({ message: "Invalid or expired link" });
     }
-    
+
+    if (isExpired(link)) {
+      return res.status(410).json({ message: "This link has expired" });
+    }
+
     if (!['front', 'back'].includes(side)) {
       return res.status(400).json({ message: "Invalid side specified. Must be 'front' or 'back'." });
     }
@@ -206,11 +226,15 @@ router.post('/api/worklog/:token/entries', async (req, res) => {
   try {
     const { token } = req.params;
     const link = await storage.getExternalWorklogLinkByToken(token);
-    
+
     if (!link || !link.isActive) {
       return res.status(404).json({ message: "Invalid or expired link" });
     }
-    
+
+    if (isExpired(link)) {
+      return res.status(410).json({ message: "This link has expired" });
+    }
+
     const { firstName, lastName, workDate, timeStart, timeEnd, pauseMinutes, activityType, workerSignature, notes } = req.body;
     
     const validActivityTypes = ["anesthesia_nurse", "op_nurse", "springer_nurse", "anesthesia_doctor", "other"];
@@ -625,9 +649,13 @@ router.get('/api/worklog/:token/entries/:entryId', async (req, res) => {
   try {
     const { token, entryId } = req.params;
     const link = await storage.getExternalWorklogLinkByToken(token);
-    
+
     if (!link || !link.isActive) {
       return res.status(404).json({ message: "Invalid or expired link" });
+    }
+
+    if (isExpired(link)) {
+      return res.status(410).json({ message: "This link has expired" });
     }
     
     const entry = await storage.getExternalWorklogEntry(entryId);
@@ -652,9 +680,13 @@ router.delete('/api/worklog/:token/entries/:entryId', async (req, res) => {
   try {
     const { token, entryId } = req.params;
     const link = await storage.getExternalWorklogLinkByToken(token);
-    
+
     if (!link || !link.isActive) {
       return res.status(404).json({ message: "Invalid or expired link" });
+    }
+
+    if (isExpired(link)) {
+      return res.status(410).json({ message: "This link has expired" });
     }
     
     const entry = await storage.getExternalWorklogEntry(entryId);
@@ -681,9 +713,13 @@ router.get('/api/worklog/:token/contracts', async (req, res) => {
   try {
     const { token } = req.params;
     const link = await storage.getExternalWorklogLinkByToken(token);
-    
+
     if (!link || !link.isActive) {
       return res.status(404).json({ message: "Invalid or expired link" });
+    }
+
+    if (isExpired(link)) {
+      return res.status(410).json({ message: "This link has expired" });
     }
     
     const contracts = await db.select({
@@ -723,6 +759,10 @@ router.get('/api/worklog/:token/planned-shifts', async (req, res) => {
 
     if (!link.isActive) {
       return res.status(410).json({ message: "This link has been deactivated" });
+    }
+
+    if (isExpired(link)) {
+      return res.status(410).json({ message: "This link has expired" });
     }
 
     // Validate month param (YYYY-MM)
