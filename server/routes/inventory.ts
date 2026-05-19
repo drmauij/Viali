@@ -684,8 +684,9 @@ router.patch('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (r
     // Anesthesia records resolve drugs via medication_configs.item_id; if the
     // item disappears from "active" inventory mid-case, the chart drops its
     // signature pad and stock isn't deducted — see the Fentanyl 2026-04-29
-    // incident. The user must decouple every config first (Anesthesia →
-    // Medications → remove or repoint the configuration), then archive.
+    // incident. Configurations are managed inline from the anesthesia
+    // record's medications panel (there is no standalone Settings page for
+    // them), so the user must remove the config from there first.
     if (req.body.status === "archived" && item.status !== "archived") {
       const attached = await db
         .select({
@@ -702,7 +703,7 @@ router.patch('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (r
             `"${item.name}" is still wired to ${attached.length} anesthesia medication configuration(s) and cannot be archived. ` +
             `Anesthesia records resolve drugs through these configurations — archiving would break every chart that still references them ` +
             `(signature pad missing, inventory no longer deducted). ` +
-            `Open Anesthesia → Settings → Medications, remove or repoint each configuration listed below, then archive the item.`,
+            `Open an anesthesia record, find this item in the medications panel, open its configuration dialog, and use Remove for each administration group listed below. Then archive the item.`,
           count: attached.length,
           configs: attached.map(a => ({
             id: a.id,

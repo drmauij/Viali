@@ -5460,10 +5460,14 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   {t('items.archiveBlocked.howToFix', 'To archive this item:')}
                 </p>
                 <ol className="list-decimal list-inside mt-1 space-y-1">
-                  <li>{t('items.archiveBlocked.step1', 'Open Anesthesia → Settings → Medications.')}</li>
-                  <li>{t('items.archiveBlocked.step2', 'For each configuration above, either delete it or repoint it to a different item.')}</li>
-                  <li>{t('items.archiveBlocked.step3', 'Return here and archive the item.')}</li>
+                  <li>{t('items.archiveBlocked.step1', 'Open any anesthesia record.')}</li>
+                  <li>{t('items.archiveBlocked.step2', 'In the Medications panel, find this item and open its configuration dialog.')}</li>
+                  <li>{t('items.archiveBlocked.step3', 'Use Remove for each administration group listed above.')}</li>
+                  <li>{t('items.archiveBlocked.step4', 'Return here and archive the item.')}</li>
                 </ol>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {t('items.archiveBlocked.note', 'There is no separate Settings page for these configurations — they’re edited inline from the anesthesia record.')}
+                </p>
               </div>
             </DialogDescription>
           </DialogHeader>
