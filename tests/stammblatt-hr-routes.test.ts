@@ -9,9 +9,10 @@ import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 // Hoist mocks — vi.mock is hoisted by Vitest so it runs before module resolution.
+const mockSendStammblattInviteEmail = vi.fn().mockResolvedValue(true);
 vi.mock("../server/email", async () => {
   const actual: any = await vi.importActual("../server/email");
-  return { ...actual, sendStammblattInviteEmail: vi.fn().mockResolvedValue(true) };
+  return { ...actual, sendStammblattInviteEmail: mockSendStammblattInviteEmail };
 });
 
 vi.mock("../server/auth/google", () => ({
@@ -107,5 +108,35 @@ describe("POST /api/business/:hospitalId/staff/:userId/stammblatt-invite", () =>
     expect(res.body.skipped.find((s: any) => s.userId === placeholderId)).toBeTruthy();
     await db.delete(userHospitalRoles).where(eq(userHospitalRoles.userId, placeholderId));
     await db.delete(users).where(eq(users.id, placeholderId));
+  });
+
+  it("returns 502 and does NOT increment inviteCount when email send fails", async () => {
+    // Create a fresh user so we know the starting inviteCount is 0.
+    const failUserId = `test-staff-fail-${randomUUID()}`;
+    await db.insert(users).values({
+      id: failUserId, email: "failuser@example.com", firstName: "F", lastName: "Ail",
+    } as any);
+    await db.insert(userHospitalRoles).values({
+      userId: failUserId, hospitalId, unitId, role: "surgeon",
+    } as any);
+
+    // Make the mock fail for this one call.
+    mockSendStammblattInviteEmail.mockResolvedValueOnce(false);
+
+    const res = await request(app).post(`/api/business/${hospitalId}/staff/${failUserId}/stammblatt-invite`);
+    expect(res.status).toBe(502);
+
+    // The link may or may not have been created (ensureStammblattLink runs), but
+    // inviteCount must not have been incremented.
+    const links = await db.select().from(externalWorklogLinks)
+      .where(eq(externalWorklogLinks.userId, failUserId));
+    for (const l of links) {
+      expect(l.inviteCount).toBe(0);
+    }
+
+    // Cleanup
+    await db.delete(externalWorklogLinks).where(eq(externalWorklogLinks.userId, failUserId));
+    await db.delete(userHospitalRoles).where(eq(userHospitalRoles.userId, failUserId));
+    await db.delete(users).where(eq(users.id, failUserId));
   });
 });
