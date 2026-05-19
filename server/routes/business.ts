@@ -103,9 +103,10 @@ async function requirePersonalstammblattAddon(req: any, res: any, next: any) {
   try {
     const hospitalId = req.params.hospitalId;
     if (!hospitalId) return res.status(400).json({ message: "hospitalId required" });
-    const [hosp] = await db.select({ flag: hospitals.addonPersonalstammblatt })
-      .from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
-    if (!hosp || !hosp.flag) return res.status(403).json({ message: "Addon disabled" });
+    const { isPersonalstammblattEnabled } = await import("../services/stammblatt");
+    if (!(await isPersonalstammblattEnabled(hospitalId))) {
+      return res.status(403).json({ message: "Addon disabled" });
+    }
     next();
   } catch (e) {
     logger.error("addon gate error", e);

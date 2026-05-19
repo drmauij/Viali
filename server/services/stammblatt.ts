@@ -1,7 +1,16 @@
 import { db } from "../db";
-import { externalWorklogLinks, users, type ExternalWorklogLink } from "@shared/schema";
+import { externalWorklogLinks, hospitals, users, type ExternalWorklogLink } from "@shared/schema";
 import { and, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
+
+export async function isPersonalstammblattEnabled(hospitalId: string): Promise<boolean> {
+  const [h] = await db
+    .select({ flag: hospitals.addonPersonalstammblatt })
+    .from(hospitals)
+    .where(eq(hospitals.id, hospitalId))
+    .limit(1);
+  return !!h?.flag;
+}
 
 const TOKEN_VALIDITY_DAYS = 30;
 

@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { db } from "../db";
-import { hospitals, externalWorklogLinks } from "@shared/schema";
+import { externalWorklogLinks } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { isAuthenticated } from "../auth/google";
 import logger from "../logger";
 import {
   ensureStammblattLink,
+  isPersonalstammblattEnabled,
   markSubmittedIfComplete,
 } from "../services/stammblatt";
 
@@ -16,15 +17,6 @@ function getActiveHospitalId(req: any): string | null {
   const header = req.headers["x-active-hospital-id"];
   if (typeof header === "string" && header.length > 0) return header;
   return null;
-}
-
-async function isAddonEnabled(hospitalId: string): Promise<boolean> {
-  const [h] = await db
-    .select({ flag: hospitals.addonPersonalstammblatt })
-    .from(hospitals)
-    .where(eq(hospitals.id, hospitalId))
-    .limit(1);
-  return !!h?.flag;
 }
 
 /**
@@ -40,7 +32,7 @@ router.get("/api/me/stammblatt", isAuthenticated, async (req: any, res) => {
     const hospitalId = getActiveHospitalId(req);
     if (!hospitalId) return res.status(400).json({ message: "Active hospital required (X-Active-Hospital-Id header)" });
 
-    if (!(await isAddonEnabled(hospitalId))) {
+    if (!(await isPersonalstammblattEnabled(hospitalId))) {
       return res.status(403).json({ message: "Personalstammblatt addon not enabled for this hospital" });
     }
 
@@ -65,7 +57,7 @@ router.patch("/api/me/stammblatt", isAuthenticated, async (req: any, res) => {
     const hospitalId = getActiveHospitalId(req);
     if (!hospitalId) return res.status(400).json({ message: "Active hospital required (X-Active-Hospital-Id header)" });
 
-    if (!(await isAddonEnabled(hospitalId))) {
+    if (!(await isPersonalstammblattEnabled(hospitalId))) {
       return res.status(403).json({ message: "Personalstammblatt addon not enabled for this hospital" });
     }
 
