@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,19 +13,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import SignaturePad from "@/components/SignaturePad";
-import { Loader2, CheckCircle, AlertCircle, Clock, Building2, FileText, Download, Plus, History, Trash2, Globe, Sun, Moon, FileSignature, User, FileBarChart, ChevronRight, ChevronLeft, Check, Camera, Upload, CreditCard, Baby, Car, CalendarDays } from "lucide-react";
+import { Loader2, AlertCircle, Clock, Building2, FileText, Download, Plus, History, Trash2, Globe, Sun, Moon, FileSignature, User, FileBarChart, ChevronRight, ChevronLeft, Check, CalendarDays } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { formatDate, formatDateTime } from "@/lib/dateUtils";
-import { DateInput } from "@/components/ui/date-input";
-import AddressAutocomplete from "@/components/AddressAutocomplete";
-import { CameraCapture } from "@/components/CameraCapture";
 import PlanningCalendar from "@/components/PlanningCalendar";
 import WorklogEntryDialog from "@/components/WorklogEntryDialog";
 import PortalVerificationGate from "@/components/PortalVerificationGate";
+import { StammblattForm, type StammblattData } from "@/components/stammblatt/StammblattForm";
 
 interface WorklogEntry {
   id: string;
@@ -68,33 +65,8 @@ interface WorklogLinkInfo {
   entries: WorklogEntry[];
 }
 
-interface PersonalData {
-  firstName: string;
-  lastName: string;
-  profession: string;
-  address: string;
-  city: string;
-  zip: string;
-  dateOfBirth: string;
-  maritalStatus: string;
-  nationality: string;
-  religion: string;
-  mobile: string;
-  ahvNumber: string;
-  hasChildBenefits: boolean;
-  numberOfChildren: number;
-  childBenefitsRecipient: string;
-  childBenefitsRegistration: string;
-  hasResidencePermit: boolean;
-  residencePermitType: string;
-  residencePermitValidUntil: string;
-  residencePermitFrontImage: string;
-  residencePermitBackImage: string;
-  bankName: string;
-  bankAddress: string;
-  bankAccount: string;
-  hasOwnVehicle: boolean;
-}
+// PersonalData shape is now StammblattData — imported from StammblattForm
+type PersonalData = StammblattData;
 
 // Shared utility — see client/src/lib/worktimeUtils.ts
 import { calculateWorkHours } from "@/lib/worktimeUtils";
@@ -142,7 +114,6 @@ function ExternalWorklogContent({ token }: { token: string }) {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSavingPersonal, setIsSavingPersonal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWorklogDialog, setShowWorklogDialog] = useState(false);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
@@ -154,11 +125,6 @@ function ExternalWorklogContent({ token }: { token: string }) {
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [includePersonalData, setIncludePersonalData] = useState(true);
-  const [showCameraCapture, setShowCameraCapture] = useState<'front' | 'back' | null>(null);
-  const [uploadingPermitImage, setUploadingPermitImage] = useState<'front' | 'back' | null>(null);
-  const [permitImageUrls, setPermitImageUrls] = useState<{ front: string | null; back: string | null }>({ front: null, back: null });
-  const permitFrontInputRef = useRef<HTMLInputElement>(null);
-  const permitBackInputRef = useRef<HTMLInputElement>(null);
 
   const currentLang = i18n.language;
   const dateLocale = currentLang === "de" ? de : enUS;
@@ -415,119 +381,63 @@ function ExternalWorklogContent({ token }: { token: string }) {
     setShowSignaturePad(false);
   };
 
-  const handleSavePersonalData = async () => {
-    setIsSavingPersonal(true);
-    try {
-      const res = await fetch(`/api/worklog/${token}/personal-data`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(personalData),
-      });
-      
-      if (!res.ok) {
-        throw new Error("Failed to save");
-      }
-      
-      toast({
-        title: t("common.saved"),
-        description: t("externalWorklog.personalData.saveSuccess"),
-      });
-    } catch (err) {
-      toast({
-        title: t("externalWorklog.errorTitle"),
-        description: t("externalWorklog.personalData.saveError"),
-        variant: "destructive",
-      });
-    } finally {
-      setIsSavingPersonal(false);
-    }
+  // Called by StammblattForm — saves personal data and updates local state
+  // (local state is still needed by the PDF report generator and the worklog name prefill)
+  const handleSavePersonalData = async (data: StammblattData) => {
+    const res = await fetch(`/api/worklog/${token}/personal-data`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error("Failed to save");
+    setPersonalData(data);
   };
 
-  const uploadPermitImage = async (side: 'front' | 'back', file: File | Blob) => {
-    setUploadingPermitImage(side);
-    try {
-      const getUrlRes = await fetch(`/api/worklog/${token}/permit-image-upload`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ side, filename: `permit-${side}.jpg` }),
-      });
-      
-      if (!getUrlRes.ok) throw new Error("Failed to get upload URL");
-      const { uploadURL, storageKey } = await getUrlRes.json();
-      
-      const uploadRes = await fetch(uploadURL, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type || "image/jpeg" },
-      });
-      
-      if (!uploadRes.ok) throw new Error("Failed to upload image");
-      
-      const newData = {
-        ...personalData,
-        [side === 'front' ? 'residencePermitFrontImage' : 'residencePermitBackImage']: storageKey,
-      };
-      setPersonalData(newData);
-      
-      await fetch(`/api/worklog/${token}/personal-data`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newData),
-      });
-      
-      toast({
-        title: t("common.saved"),
-        description: t("externalWorklog.personalData.permitImageSaved"),
-      });
-      
-      loadPermitImageUrl(side, storageKey);
-    } catch (err) {
-      toast({
-        title: t("externalWorklog.errorTitle"),
-        description: t("externalWorklog.personalData.permitImageError"),
-        variant: "destructive",
-      });
-    } finally {
-      setUploadingPermitImage(null);
-    }
+  // Called by StammblattForm — uploads to S3 and auto-saves the new storage key; returns the key
+  const uploadPermitImageForWorklog = async (side: 'front' | 'back', file: File | Blob): Promise<string> => {
+    const getUrlRes = await fetch(`/api/worklog/${token}/permit-image-upload`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ side, filename: `permit-${side}.jpg` }),
+    });
+    if (!getUrlRes.ok) throw new Error("Failed to get upload URL");
+    const { uploadURL, storageKey } = await getUrlRes.json();
+
+    const uploadRes = await fetch(uploadURL, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": (file as File).type || "image/jpeg" },
+    });
+    if (!uploadRes.ok) throw new Error("Failed to upload image");
+
+    // Persist the storage key immediately (auto-save after image upload)
+    const newData = {
+      ...personalData,
+      [side === 'front' ? 'residencePermitFrontImage' : 'residencePermitBackImage']: storageKey,
+    };
+    setPersonalData(newData);
+    await fetch(`/api/worklog/${token}/personal-data`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newData),
+    });
+
+    return storageKey;
   };
 
-  const handleCameraCapture = async (photo: string) => {
-    if (!showCameraCapture) return;
-    const side = showCameraCapture;
-    setShowCameraCapture(null);
-    
-    const response = await fetch(photo);
-    const blob = await response.blob();
-    await uploadPermitImage(side, blob);
-  };
-
-  const handleFileUpload = async (side: 'front' | 'back', event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    await uploadPermitImage(side, file);
-  };
-
-  const loadPermitImageUrl = async (side: 'front' | 'back', storageKey: string) => {
+  // Called by StammblattForm — fetches a signed download URL for a stored permit image
+  const loadPermitImageUrlForWorklog = async (side: 'front' | 'back'): Promise<string | null> => {
     try {
       const res = await fetch(`/api/worklog/${token}/permit-image/${side}`);
       if (res.ok) {
         const { downloadURL } = await res.json();
-        setPermitImageUrls(prev => ({ ...prev, [side]: downloadURL }));
+        return downloadURL;
       }
     } catch (err) {
       console.error("Error loading permit image:", err);
     }
+    return null;
   };
-
-  useEffect(() => {
-    if (personalData.residencePermitFrontImage) {
-      loadPermitImageUrl('front', personalData.residencePermitFrontImage);
-    }
-    if (personalData.residencePermitBackImage) {
-      loadPermitImageUrl('back', personalData.residencePermitBackImage);
-    }
-  }, [personalData.residencePermitFrontImage, personalData.residencePermitBackImage]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -1259,505 +1169,12 @@ function ExternalWorklogContent({ token }: { token: string }) {
           </TabsContent>
 
           <TabsContent value="personal" className="mt-4">
-            <Card className="dark:bg-gray-800 dark:border-gray-700">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 dark:text-gray-100">
-                  <User className="w-5 h-5" />
-                  {t("externalWorklog.personalData.title")}
-                </CardTitle>
-                <CardDescription className="dark:text-gray-400">
-                  {t("externalWorklog.personalData.description")}
-                  {contracts.length > 0 && (
-                    <span className="block mt-1 text-blue-600 dark:text-blue-400">
-                      {t("externalWorklog.personalData.prefilled")}
-                    </span>
-                  )}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Section: Personalien */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-base dark:text-gray-100 border-b pb-2 dark:border-gray-600">
-                    {t("externalWorklog.personalData.sections.personal")}
-                  </h3>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.firstName")}</label>
-                      <Input
-                        value={personalData.firstName}
-                        onChange={(e) => setPersonalData({ ...personalData, firstName: e.target.value })}
-                        className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                        data-testid="input-personal-firstname"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.lastName")}</label>
-                      <Input
-                        value={personalData.lastName}
-                        onChange={(e) => setPersonalData({ ...personalData, lastName: e.target.value })}
-                        className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                        data-testid="input-personal-lastname"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.profession")}</label>
-                    <Input
-                      value={personalData.profession}
-                      onChange={(e) => setPersonalData({ ...personalData, profession: e.target.value })}
-                      className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                      placeholder={t("externalWorklog.personalData.professionPlaceholder")}
-                      data-testid="input-personal-profession"
-                    />
-                  </div>
-                  
-                  {/* Address Autocomplete */}
-                  <div>
-                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.address")}</label>
-                    <AddressAutocomplete
-                      values={{
-                        street: personalData.address,
-                        postalCode: personalData.zip,
-                        city: personalData.city,
-                      }}
-                      onChange={(values) => setPersonalData({
-                        ...personalData,
-                        address: values.street,
-                        zip: values.postalCode,
-                        city: values.city,
-                      })}
-                      className="mt-1"
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.dateOfBirth")}</label>
-                      <DateInput
-                        value={personalData.dateOfBirth}
-                        onChange={(v) => setPersonalData({ ...personalData, dateOfBirth: v })}
-                        data-testid="input-personal-dob"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.maritalStatus")}</label>
-                      <Select
-                        value={personalData.maritalStatus}
-                        onValueChange={(value) => setPersonalData({ ...personalData, maritalStatus: value })}
-                      >
-                        <SelectTrigger className="mt-1 dark:bg-gray-700 dark:border-gray-600" data-testid="select-marital-status">
-                          <SelectValue placeholder={t("externalWorklog.personalData.selectOption")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="single">{t("externalWorklog.personalData.maritalOptions.single")}</SelectItem>
-                          <SelectItem value="married">{t("externalWorklog.personalData.maritalOptions.married")}</SelectItem>
-                          <SelectItem value="divorced">{t("externalWorklog.personalData.maritalOptions.divorced")}</SelectItem>
-                          <SelectItem value="widowed">{t("externalWorklog.personalData.maritalOptions.widowed")}</SelectItem>
-                          <SelectItem value="separated">{t("externalWorklog.personalData.maritalOptions.separated")}</SelectItem>
-                          <SelectItem value="registered_partnership">{t("externalWorklog.personalData.maritalOptions.registeredPartnership")}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.nationality")}</label>
-                      <Select
-                        value={personalData.nationality}
-                        onValueChange={(value) => setPersonalData({ ...personalData, nationality: value })}
-                      >
-                        <SelectTrigger className="mt-1 dark:bg-gray-700 dark:border-gray-600" data-testid="select-nationality">
-                          <SelectValue placeholder={t("externalWorklog.personalData.selectOption")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="CH">{t("externalWorklog.personalData.nationalities.CH")}</SelectItem>
-                          <SelectItem value="DE">{t("externalWorklog.personalData.nationalities.DE")}</SelectItem>
-                          <SelectItem value="AT">{t("externalWorklog.personalData.nationalities.AT")}</SelectItem>
-                          <SelectItem value="FR">{t("externalWorklog.personalData.nationalities.FR")}</SelectItem>
-                          <SelectItem value="IT">{t("externalWorklog.personalData.nationalities.IT")}</SelectItem>
-                          <SelectItem value="OTHER">{t("externalWorklog.personalData.nationalities.OTHER")}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.religion")}</label>
-                      <Select
-                        value={personalData.religion}
-                        onValueChange={(value) => setPersonalData({ ...personalData, religion: value })}
-                      >
-                        <SelectTrigger className="mt-1 dark:bg-gray-700 dark:border-gray-600" data-testid="select-religion">
-                          <SelectValue placeholder={t("externalWorklog.personalData.selectOption")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">{t("externalWorklog.personalData.religions.none")}</SelectItem>
-                          <SelectItem value="roman_catholic">{t("externalWorklog.personalData.religions.romanCatholic")}</SelectItem>
-                          <SelectItem value="protestant">{t("externalWorklog.personalData.religions.protestant")}</SelectItem>
-                          <SelectItem value="other">{t("externalWorklog.personalData.religions.other")}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.mobile")}</label>
-                      <Input
-                        type="tel"
-                        value={personalData.mobile}
-                        onChange={(e) => setPersonalData({ ...personalData, mobile: e.target.value })}
-                        className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                        placeholder="+41 79 123 45 67"
-                        data-testid="input-personal-mobile"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.ahvNumber")}</label>
-                      <Input
-                        value={personalData.ahvNumber}
-                        onChange={(e) => setPersonalData({ ...personalData, ahvNumber: e.target.value })}
-                        className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                        placeholder="756.1234.5678.90"
-                        data-testid="input-personal-ahv"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section: Kinderzulagen */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-base dark:text-gray-100 border-b pb-2 dark:border-gray-600 flex items-center gap-2">
-                    <Baby className="w-4 h-4" />
-                    {t("externalWorklog.personalData.sections.childBenefits")}
-                  </h3>
-                  
-                  <div className="flex items-center gap-4">
-                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.hasChildBenefits")}</label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={personalData.hasChildBenefits === true}
-                          onChange={() => setPersonalData({ ...personalData, hasChildBenefits: true })}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-sm dark:text-gray-300">{t("common.yes")}</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={personalData.hasChildBenefits === false}
-                          onChange={() => setPersonalData({ ...personalData, hasChildBenefits: false })}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-sm dark:text-gray-300">{t("common.no")}</span>
-                      </label>
-                    </div>
-                  </div>
-                  
-                  {personalData.hasChildBenefits && (
-                    <div className="space-y-4 pl-4 border-l-2 border-blue-200 dark:border-blue-800">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.numberOfChildren")}</label>
-                          <Input
-                            type="number"
-                            min="0"
-                            value={personalData.numberOfChildren || ""}
-                            onChange={(e) => setPersonalData({ ...personalData, numberOfChildren: parseInt(e.target.value) || 0 })}
-                            className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                            data-testid="input-personal-children"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.childBenefitsRecipient")}</label>
-                          <Input
-                            value={personalData.childBenefitsRecipient}
-                            onChange={(e) => setPersonalData({ ...personalData, childBenefitsRecipient: e.target.value })}
-                            className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                            data-testid="input-personal-benefits-recipient"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.childBenefitsRegistration")}</label>
-                        <Input
-                          value={personalData.childBenefitsRegistration}
-                          onChange={(e) => setPersonalData({ ...personalData, childBenefitsRegistration: e.target.value })}
-                          className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                          data-testid="input-personal-benefits-registration"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Section: Aufenthaltsbewilligung */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-base dark:text-gray-100 border-b pb-2 dark:border-gray-600 flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    {t("externalWorklog.personalData.sections.residencePermit")}
-                  </h3>
-                  
-                  <div className="flex items-center gap-4">
-                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.hasResidencePermit")}</label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={personalData.hasResidencePermit === true}
-                          onChange={() => setPersonalData({ ...personalData, hasResidencePermit: true })}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-sm dark:text-gray-300">{t("common.yes")}</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={personalData.hasResidencePermit === false}
-                          onChange={() => setPersonalData({ ...personalData, hasResidencePermit: false })}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-sm dark:text-gray-300">{t("common.no")}</span>
-                      </label>
-                    </div>
-                  </div>
-                  
-                  {personalData.hasResidencePermit && (
-                    <div className="space-y-4 pl-4 border-l-2 border-blue-200 dark:border-blue-800">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.residencePermitType")}</label>
-                          <Select
-                            value={personalData.residencePermitType}
-                            onValueChange={(value) => setPersonalData({ ...personalData, residencePermitType: value })}
-                          >
-                            <SelectTrigger className="mt-1 dark:bg-gray-700 dark:border-gray-600" data-testid="select-permit-type">
-                              <SelectValue placeholder={t("externalWorklog.personalData.selectOption")} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="L">{t("externalWorklog.personalData.permitTypes.L")}</SelectItem>
-                              <SelectItem value="B">{t("externalWorklog.personalData.permitTypes.B")}</SelectItem>
-                              <SelectItem value="C">{t("externalWorklog.personalData.permitTypes.C")}</SelectItem>
-                              <SelectItem value="G">{t("externalWorklog.personalData.permitTypes.G")}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.residencePermitValidUntil")}</label>
-                          <DateInput
-                            value={personalData.residencePermitValidUntil}
-                            onChange={(v) => setPersonalData({ ...personalData, residencePermitValidUntil: v })}
-                            data-testid="input-permit-valid-until"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded text-sm text-yellow-700 dark:text-yellow-400">
-                        {t("externalWorklog.personalData.permitCopyRequired")}
-                      </div>
-                      
-                      {/* Permit Front Image */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.permitFront")}</label>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowCameraCapture('front')}
-                            disabled={uploadingPermitImage === 'front'}
-                            data-testid="button-camera-front"
-                          >
-                            <Camera className="w-4 h-4 mr-2" />
-                            {t("externalWorklog.personalData.takePhoto")}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => permitFrontInputRef.current?.click()}
-                            disabled={uploadingPermitImage === 'front'}
-                            data-testid="button-upload-front"
-                          >
-                            <Upload className="w-4 h-4 mr-2" />
-                            {t("externalWorklog.personalData.uploadFile")}
-                          </Button>
-                          <input
-                            ref={permitFrontInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleFileUpload('front', e)}
-                          />
-                          {uploadingPermitImage === 'front' && <Loader2 className="w-4 h-4 animate-spin" />}
-                        </div>
-                        {permitImageUrls.front && (
-                          <div className="mt-2">
-                            <img src={permitImageUrls.front} alt="Permit Front" className="max-w-xs rounded border" />
-                          </div>
-                        )}
-                        {personalData.residencePermitFrontImage && !permitImageUrls.front && (
-                          <div className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
-                            <CheckCircle className="w-4 h-4" />
-                            {t("externalWorklog.personalData.imageUploaded")}
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Permit Back Image */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.permitBack")}</label>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowCameraCapture('back')}
-                            disabled={uploadingPermitImage === 'back'}
-                            data-testid="button-camera-back"
-                          >
-                            <Camera className="w-4 h-4 mr-2" />
-                            {t("externalWorklog.personalData.takePhoto")}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => permitBackInputRef.current?.click()}
-                            disabled={uploadingPermitImage === 'back'}
-                            data-testid="button-upload-back"
-                          >
-                            <Upload className="w-4 h-4 mr-2" />
-                            {t("externalWorklog.personalData.uploadFile")}
-                          </Button>
-                          <input
-                            ref={permitBackInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleFileUpload('back', e)}
-                          />
-                          {uploadingPermitImage === 'back' && <Loader2 className="w-4 h-4 animate-spin" />}
-                        </div>
-                        {permitImageUrls.back && (
-                          <div className="mt-2">
-                            <img src={permitImageUrls.back} alt="Permit Back" className="max-w-xs rounded border" />
-                          </div>
-                        )}
-                        {personalData.residencePermitBackImage && !permitImageUrls.back && (
-                          <div className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
-                            <CheckCircle className="w-4 h-4" />
-                            {t("externalWorklog.personalData.imageUploaded")}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Section: Bankangaben */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-base dark:text-gray-100 border-b pb-2 dark:border-gray-600 flex items-center gap-2">
-                    <CreditCard className="w-4 h-4" />
-                    {t("externalWorklog.personalData.sections.bankDetails")}
-                  </h3>
-                  
-                  <div>
-                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.bankName")}</label>
-                    <Input
-                      value={personalData.bankName}
-                      onChange={(e) => setPersonalData({ ...personalData, bankName: e.target.value })}
-                      className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                      placeholder={t("externalWorklog.personalData.bankNamePlaceholder")}
-                      data-testid="input-personal-bank-name"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.bankAddress")}</label>
-                    <Input
-                      value={personalData.bankAddress}
-                      onChange={(e) => setPersonalData({ ...personalData, bankAddress: e.target.value })}
-                      className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                      placeholder={t("externalWorklog.personalData.bankAddressPlaceholder")}
-                      data-testid="input-personal-bank-address"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.bankAccount")}</label>
-                    <Input
-                      value={personalData.bankAccount}
-                      onChange={(e) => setPersonalData({ ...personalData, bankAccount: e.target.value })}
-                      className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                      placeholder={t("externalWorklog.personalData.bankAccountPlaceholder")}
-                      data-testid="input-personal-bank"
-                    />
-                  </div>
-                </div>
-
-                {/* Section: Mobilität */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-base dark:text-gray-100 border-b pb-2 dark:border-gray-600 flex items-center gap-2">
-                    <Car className="w-4 h-4" />
-                    {t("externalWorklog.personalData.sections.mobility")}
-                  </h3>
-                  
-                  <div className="flex items-center gap-4">
-                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.hasOwnVehicle")}</label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={personalData.hasOwnVehicle === true}
-                          onChange={() => setPersonalData({ ...personalData, hasOwnVehicle: true })}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-sm dark:text-gray-300">{t("common.yes")}</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={personalData.hasOwnVehicle === false}
-                          onChange={() => setPersonalData({ ...personalData, hasOwnVehicle: false })}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-sm dark:text-gray-300">{t("common.no")}</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-                
-                <Button
-                  onClick={handleSavePersonalData}
-                  disabled={isSavingPersonal}
-                  className="w-full"
-                  data-testid="button-save-personal"
-                >
-                  {isSavingPersonal ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      {t("externalWorklog.personalData.saving")}
-                    </>
-                  ) : (
-                    t("externalWorklog.personalData.save")
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-            
-            {/* Camera Capture Modal */}
-            <CameraCapture
-              isOpen={showCameraCapture !== null}
-              onClose={() => setShowCameraCapture(null)}
-              onCapture={handleCameraCapture}
-              fullFrame={true}
-              hint={showCameraCapture === 'front' 
-                ? t("externalWorklog.personalData.permitFrontHint")
-                : t("externalWorklog.personalData.permitBackHint")}
+            <StammblattForm
+              initialData={personalData}
+              onSave={handleSavePersonalData}
+              uploadPermitImage={uploadPermitImageForWorklog}
+              loadPermitImageUrl={loadPermitImageUrlForWorklog}
+              showPrefillHint={contracts.length > 0}
             />
           </TabsContent>
 
