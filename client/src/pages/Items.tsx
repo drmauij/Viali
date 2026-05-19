@@ -422,21 +422,26 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
 
   // Surfaces the server's ITEM_HAS_MED_CONFIGS rejection. The user can't
   // archive their way past this — the dialog only lists the offending
-  // configs and the steps to remove them; no "force" button.
+  // configs / chart-history counts and the steps to remove them; no "force"
+  // button. historyCount > 0 means past anesthesia records still reference
+  // the item: those entries cannot be decoupled, so archive stays blocked
+  // for as long as any chart points at the item.
   const [archiveBlockInfo, setArchiveBlockInfo] = useState<{
     itemName: string;
     count: number;
+    historyCount: number;
     adminGroups: string[];
     configs: Array<{ id: string; administrationGroup: string | null; medicationGroup: string | null }>;
   } | null>(null);
 
   // Same idea for bulk-delete: the server returns 409 + ITEMS_HAVE_MED_CONFIGS
-  // when one or more selected items are still wired to a medication config.
-  // Some items in the same batch may have been deleted successfully — the
-  // dialog reports both, and only the blocked ones need decoupling.
+  // when one or more selected items are still wired to a medication config
+  // OR have historical dose entries on past anesthesia records. Some items
+  // in the same batch may have been deleted successfully — the dialog
+  // reports both, and only the blocked ones need attention.
   const [bulkDeleteBlockedInfo, setBulkDeleteBlockedInfo] = useState<{
     deletedCount: number;
-    blocked: Array<{ id: string; name: string; count: number; adminGroups: string[] }>;
+    blocked: Array<{ id: string; name: string; count: number; historyCount: number; adminGroups: string[] }>;
   } | null>(null);
   useEffect(() => {
     if (editFormData.trackExactQuantity) return; // Auto-calculated path owns actualStock here.
@@ -4209,6 +4214,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                           setArchiveBlockInfo({
                             itemName: selectedItem?.name ?? 'this item',
                             count: error?.data?.count ?? 0,
+                            historyCount: error?.data?.historyCount ?? 0,
                             adminGroups: (error?.data?.adminGroups || []).filter(Boolean),
                             configs: error?.data?.configs || [],
                           });
@@ -5455,13 +5461,24 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               {t('items.archiveBlocked.title', 'Cannot archive — item is in use')}
             </DialogTitle>
             <DialogDescription className="pt-2 space-y-3 text-sm">
-              <p>
-                {t(
-                  'items.archiveBlocked.body1',
-                  '"{{name}}" is wired to {{count}} anesthesia medication configuration(s). Archiving the item would silently break every anesthesia record that still draws from it — the signature pad disappears and stock no longer deducts.',
-                  { name: archiveBlockInfo?.itemName ?? '', count: archiveBlockInfo?.count ?? 0 },
-                )}
-              </p>
+              {archiveBlockInfo && archiveBlockInfo.count > 0 && (
+                <p>
+                  {t(
+                    'items.archiveBlocked.body1',
+                    '"{{name}}" is wired to {{count}} anesthesia medication configuration(s). Archiving the item would silently break every anesthesia record that still draws from it — the signature pad disappears and stock no longer deducts.',
+                    { name: archiveBlockInfo.itemName, count: archiveBlockInfo.count },
+                  )}
+                </p>
+              )}
+              {archiveBlockInfo && archiveBlockInfo.historyCount > 0 && (
+                <p>
+                  {t(
+                    'items.archiveBlocked.history',
+                    '"{{name}}" has {{historyCount}} historical dose entr(y/ies) in past anesthesia records. Those entries cannot be decoupled — they document what actually happened. The item must stay active so past charts continue to resolve correctly.',
+                    { name: archiveBlockInfo.itemName, historyCount: archiveBlockInfo.historyCount },
+                  )}
+                </p>
+              )}
               {archiveBlockInfo && archiveBlockInfo.adminGroups.length > 0 && (
                 <div>
                   <p className="font-semibold text-foreground">
@@ -5474,20 +5491,27 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   </ul>
                 </div>
               )}
-              <div>
-                <p className="font-semibold text-foreground">
-                  {t('items.archiveBlocked.howToFix', 'To archive this item:')}
+              {archiveBlockInfo && archiveBlockInfo.count > 0 && (
+                <div>
+                  <p className="font-semibold text-foreground">
+                    {t('items.archiveBlocked.howToFix', 'To archive this item:')}
+                  </p>
+                  <ol className="list-decimal list-inside mt-1 space-y-1">
+                    <li>{t('items.archiveBlocked.step1', 'Open any anesthesia record.')}</li>
+                    <li>{t('items.archiveBlocked.step2', 'In the Medications panel, find this item and open its configuration dialog.')}</li>
+                    <li>{t('items.archiveBlocked.step3', 'Use Remove for each administration group listed above.')}</li>
+                    <li>{t('items.archiveBlocked.step4', 'Return here and archive the item.')}</li>
+                  </ol>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {t('items.archiveBlocked.note', 'There is no separate Settings page for these configurations — they’re edited inline from the anesthesia record.')}
+                  </p>
+                </div>
+              )}
+              {archiveBlockInfo && archiveBlockInfo.count === 0 && archiveBlockInfo.historyCount > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {t('items.archiveBlocked.historyNote', 'If you need to stop ordering this item, consider creating a successor item instead of archiving this one.')}
                 </p>
-                <ol className="list-decimal list-inside mt-1 space-y-1">
-                  <li>{t('items.archiveBlocked.step1', 'Open any anesthesia record.')}</li>
-                  <li>{t('items.archiveBlocked.step2', 'In the Medications panel, find this item and open its configuration dialog.')}</li>
-                  <li>{t('items.archiveBlocked.step3', 'Use Remove for each administration group listed above.')}</li>
-                  <li>{t('items.archiveBlocked.step4', 'Return here and archive the item.')}</li>
-                </ol>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {t('items.archiveBlocked.note', 'There is no separate Settings page for these configurations — they’re edited inline from the anesthesia record.')}
-                </p>
-              </div>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end pt-2">
@@ -5529,19 +5553,30 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 </p>
               )}
               <ul className="list-disc list-inside space-y-1 text-foreground">
-                {bulkDeleteBlockedInfo?.blocked.map((b) => (
-                  <li key={b.id}>
-                    <span className="font-semibold">{b.name}</span> — {b.count} config(s)
-                    {b.adminGroups.length > 0 && (
-                      <span className="text-muted-foreground"> ({b.adminGroups.join(', ')})</span>
-                    )}
-                  </li>
-                ))}
+                {bulkDeleteBlockedInfo?.blocked.map((b) => {
+                  const parts: string[] = [];
+                  if (b.count > 0) {
+                    parts.push(
+                      t('items.bulkDeleteBlocked.configsLabel', '{{count}} config(s)', { count: b.count }) +
+                        (b.adminGroups.length > 0 ? ` (${b.adminGroups.join(', ')})` : ''),
+                    );
+                  }
+                  if (b.historyCount > 0) {
+                    parts.push(
+                      t('items.bulkDeleteBlocked.historyLabel', '{{count}} dose entr(y/ies) in past records', { count: b.historyCount }),
+                    );
+                  }
+                  return (
+                    <li key={b.id}>
+                      <span className="font-semibold">{b.name}</span> — {parts.join('; ')}
+                    </li>
+                  );
+                })}
               </ul>
               <p>
                 {t(
                   'items.bulkDeleteBlocked.howToFix',
-                  'Open an anesthesia record, find each item in the Medications panel, and use Remove for every administration group above. Then retry the deletion.',
+                  'Configurations can be removed inline from the anesthesia record\'s Medications panel. Items with historical dose entries cannot be deleted at all — chart history needs to stay intact.',
                 )}
               </p>
             </DialogDescription>

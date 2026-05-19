@@ -9,6 +9,9 @@ import {
   users,
   items,
   medicationConfigs,
+  surgeries,
+  anesthesiaRecords,
+  anesthesiaMedications,
 } from "@shared/schema";
 import { inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -204,6 +207,60 @@ describe("PATCH /api/items/:itemId — archive guard", () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("archived");
   });
+
+  it("rejects archive when only historical dose entries reference the item (no config)", async () => {
+    // Build a minimal surgery → record → dose chain pointing at a fresh item
+    // that has zero medication_configs. The history-only branch must still
+    // block the archive because the cascade would silently sever the chart.
+    const [historyItem] = await db
+      .insert(items)
+      .values({
+        hospitalId: hospId,
+        unitId,
+        name: `Hist Only ${uniq()}`,
+        unit: "Single unit",
+        status: "active",
+      } as any)
+      .returning();
+    createdItemIds.push(historyItem.id);
+
+    const [surgery] = await db
+      .insert(surgeries)
+      .values({ hospitalId: hospId, plannedDate: new Date() } as any)
+      .returning();
+    const [record] = await db
+      .insert(anesthesiaRecords)
+      .values({ surgeryId: surgery.id, caseStatus: "closed" } as any)
+      .returning();
+    const [med] = await db
+      .insert(anesthesiaMedications)
+      .values({
+        anesthesiaRecordId: record.id,
+        itemId: historyItem.id,
+        timestamp: new Date(),
+        type: "bolus",
+        dose: "100",
+        unit: "mg",
+      } as any)
+      .returning();
+
+    try {
+      const app = buildApp(userId);
+      const res = await request(app)
+        .patch(`/api/items/${historyItem.id}`)
+        .send({ status: "archived" });
+      expect(res.status).toBe(409);
+      expect(res.body.code).toBe("ITEM_HAS_MED_CONFIGS");
+      expect(res.body.count).toBe(0);
+      expect(res.body.historyCount).toBe(1);
+      expect(res.body.configs).toEqual([]);
+    } finally {
+      // Clean up so afterAll's broader cascade doesn't see orphaned rows.
+      await db.delete(anesthesiaMedications).where(inArray(anesthesiaMedications.id, [med.id])).catch(() => {});
+      await db.delete(anesthesiaRecords).where(inArray(anesthesiaRecords.id, [record.id])).catch(() => {});
+      await db.delete(surgeries).where(inArray(surgeries.id, [surgery.id])).catch(() => {});
+    }
+  });
 });
 
 describe("POST /api/items/bulk-delete — same guard", () => {
@@ -284,5 +341,62 @@ describe("POST /api/items/bulk-delete — same guard", () => {
       .send({ itemIds: [blockedItemId] });
     expect(res.status).toBe(200);
     expect(res.body.deletedCount).toBe(1);
+  });
+
+  it("blocks bulk-delete when only historical dose entries reference the item", async () => {
+    // Same shape as the archive history-only test: item has no config but has
+    // one anesthesia_medications row, so deleteItem's cascade would wipe chart
+    // history. Bulk-delete must refuse and report historyCount in blocked[].
+    const [histItem] = await db
+      .insert(items)
+      .values({
+        hospitalId: hospId,
+        unitId,
+        name: `Bulk Hist ${uniq()}`,
+        unit: "Single unit",
+        status: "active",
+      } as any)
+      .returning();
+    createdItemIds.push(histItem.id);
+
+    const [surgery] = await db
+      .insert(surgeries)
+      .values({ hospitalId: hospId, plannedDate: new Date() } as any)
+      .returning();
+    const [record] = await db
+      .insert(anesthesiaRecords)
+      .values({ surgeryId: surgery.id, caseStatus: "closed" } as any)
+      .returning();
+    const [med] = await db
+      .insert(anesthesiaMedications)
+      .values({
+        anesthesiaRecordId: record.id,
+        itemId: histItem.id,
+        timestamp: new Date(),
+        type: "bolus",
+        dose: "50",
+        unit: "mg",
+      } as any)
+      .returning();
+
+    try {
+      const app = buildApp(userId);
+      const res = await request(app)
+        .post(`/api/items/bulk-delete`)
+        .send({ itemIds: [histItem.id] });
+      expect(res.status).toBe(409);
+      expect(res.body.code).toBe("ITEMS_HAVE_MED_CONFIGS");
+      expect(res.body.blocked).toHaveLength(1);
+      expect(res.body.blocked[0]).toMatchObject({
+        id: histItem.id,
+        count: 0,
+        historyCount: 1,
+      });
+      expect(res.body.deletedCount).toBe(0);
+    } finally {
+      await db.delete(anesthesiaMedications).where(inArray(anesthesiaMedications.id, [med.id])).catch(() => {});
+      await db.delete(anesthesiaRecords).where(inArray(anesthesiaRecords.id, [record.id])).catch(() => {});
+      await db.delete(surgeries).where(inArray(surgeries.id, [surgery.id])).catch(() => {});
+    }
   });
 });

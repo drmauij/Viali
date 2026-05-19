@@ -679,38 +679,61 @@ router.patch('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (r
       });
     }
 
-    // Archiving guard (hard block, no bypass): an item that's still wired to
-    // any medication_configs row cannot be archived. There is no force flag.
-    // Anesthesia records resolve drugs via medication_configs.item_id; if the
-    // item disappears from "active" inventory mid-case, the chart drops its
-    // signature pad and stock isn't deducted — see the Fentanyl 2026-04-29
-    // incident. Configurations are managed inline from the anesthesia
-    // record's medications panel (there is no standalone Settings page for
-    // them), so the user must remove the config from there first.
+    // Archiving guard (hard block, no bypass). Two reference paths break a
+    // chart when the underlying item disappears:
+    //   1. medication_configs — the active catalog. An archived item drops
+    //      out of the chart's medication panel mid-case (signature pad gone,
+    //      inventory no longer deducts). Fixable by decoupling from the
+    //      anesthesia record's medications panel.
+    //   2. anesthesia_medications — historical dose entries that point at
+    //      the item by id. Archiving doesn't destroy these rows but the
+    //      chart loses the ability to resolve them to an active product
+    //      (price/name/code lookups break for retroactive edits). NOT
+    //      decouplable — history is history. Same Fentanyl 2026-04-29
+    //      failure mode either way.
     if (req.body.status === "archived" && item.status !== "archived") {
-      const attached = await db
-        .select({
-          id: medicationConfigs.id,
-          adminGroup: medicationConfigs.administrationGroup,
-          medGroup: medicationConfigs.medicationGroup,
-        })
-        .from(medicationConfigs)
-        .where(eq(medicationConfigs.itemId, itemId));
-      if (attached.length > 0) {
+      const [attachedConfigs, historyRows] = await Promise.all([
+        db
+          .select({
+            id: medicationConfigs.id,
+            adminGroup: medicationConfigs.administrationGroup,
+            medGroup: medicationConfigs.medicationGroup,
+          })
+          .from(medicationConfigs)
+          .where(eq(medicationConfigs.itemId, itemId)),
+        db
+          .select({ count: sql<number>`COUNT(*)::int` })
+          .from(anesthesiaMedications)
+          .where(eq(anesthesiaMedications.itemId, itemId)),
+      ]);
+      const historyCount = Number(historyRows[0]?.count ?? 0);
+
+      if (attachedConfigs.length > 0 || historyCount > 0) {
+        const reasons: string[] = [];
+        if (attachedConfigs.length > 0) {
+          reasons.push(`${attachedConfigs.length} anesthesia medication configuration(s)`);
+        }
+        if (historyCount > 0) {
+          reasons.push(`${historyCount} historical dose entr${historyCount === 1 ? 'y' : 'ies'} in past anesthesia records`);
+        }
+        const fixSteps = attachedConfigs.length > 0
+          ? `Open an anesthesia record, find this item in the medications panel, open its configuration dialog, and use Remove for each administration group listed below.`
+          : `Historical dose entries cannot be decoupled — the item must stay active so past charts continue to resolve correctly.`;
+
         return res.status(409).json({
           code: "ITEM_HAS_MED_CONFIGS",
           message:
-            `"${item.name}" is still wired to ${attached.length} anesthesia medication configuration(s) and cannot be archived. ` +
-            `Anesthesia records resolve drugs through these configurations — archiving would break every chart that still references them ` +
-            `(signature pad missing, inventory no longer deducted). ` +
-            `Open an anesthesia record, find this item in the medications panel, open its configuration dialog, and use Remove for each administration group listed below. Then archive the item.`,
-          count: attached.length,
-          configs: attached.map(a => ({
+            `"${item.name}" is referenced by ${reasons.join(' and ')} and cannot be archived. ` +
+            `Archiving would break charts that still resolve to this item (signature pad missing, inventory no longer deducted). ` +
+            fixSteps,
+          count: attachedConfigs.length,
+          historyCount,
+          configs: attachedConfigs.map(a => ({
             id: a.id,
             administrationGroup: a.adminGroup,
             medicationGroup: a.medGroup,
           })),
-          adminGroups: Array.from(new Set(attached.map(a => a.adminGroup).filter(Boolean))),
+          adminGroups: Array.from(new Set(attachedConfigs.map(a => a.adminGroup).filter(Boolean))),
         });
       }
     }
@@ -911,12 +934,21 @@ router.post('/api/items/bulk-delete', isAuthenticated, requireWriteAccess, async
       failed: [] as { id: string; reason: string }[]
     };
 
-    // Same protection as the archive guard above: an item still wired to
-    // medication_configs cannot be deleted, because storage.deleteItem
-    // cascades a hard DELETE on medication_configs + anesthesia_medications
-    // — wiping the chart's history. No force flag. Caller must remove every
-    // configuration from the anesthesia record's Medications panel first.
-    const blocked: Array<{ id: string; name: string; count: number; adminGroups: string[] }> = [];
+    // Same protection as the archive guard above, applied per item in the
+    // batch. Two reference paths block deletion:
+    //   1. medication_configs — fixable by decoupling from the anesthesia
+    //      record's Medications panel.
+    //   2. anesthesia_medications — historical dose entries. storage.deleteItem
+    //      cascades a hard DELETE on these rows, so an unguarded bulk-delete
+    //      would silently wipe chart history. NOT decouplable.
+    // No force flag.
+    const blocked: Array<{
+      id: string;
+      name: string;
+      count: number;
+      historyCount: number;
+      adminGroups: string[];
+    }> = [];
 
     for (const itemId of itemIds) {
       try {
@@ -942,18 +974,39 @@ router.post('/api/items/bulk-delete', isAuthenticated, requireWriteAccess, async
           }
         }
 
-        const attached = await db
-          .select({ adminGroup: medicationConfigs.administrationGroup })
-          .from(medicationConfigs)
-          .where(eq(medicationConfigs.itemId, itemId));
-        if (attached.length > 0) {
+        const [attached, historyRows] = await Promise.all([
+          db
+            .select({ adminGroup: medicationConfigs.administrationGroup })
+            .from(medicationConfigs)
+            .where(eq(medicationConfigs.itemId, itemId)),
+          db
+            .select({ count: sql<number>`COUNT(*)::int` })
+            .from(anesthesiaMedications)
+            .where(eq(anesthesiaMedications.itemId, itemId)),
+        ]);
+        const historyCount = Number(historyRows[0]?.count ?? 0);
+
+        if (attached.length > 0 || historyCount > 0) {
           const adminGroups = Array.from(
             new Set(attached.map(a => a.adminGroup).filter(Boolean) as string[]),
           );
-          blocked.push({ id: itemId, name: item.name, count: attached.length, adminGroups });
+          blocked.push({
+            id: itemId,
+            name: item.name,
+            count: attached.length,
+            historyCount,
+            adminGroups,
+          });
+          const reasonParts: string[] = [];
+          if (attached.length > 0) {
+            reasonParts.push(`${attached.length} medication config(s) — remove from the anesthesia record's Medications panel`);
+          }
+          if (historyCount > 0) {
+            reasonParts.push(`${historyCount} historical dose entr${historyCount === 1 ? 'y' : 'ies'} — chart history would be destroyed`);
+          }
           results.failed.push({
             id: itemId,
-            reason: `"${item.name}" is wired to ${attached.length} anesthesia medication configuration(s). Remove them from the anesthesia record's Medications panel first.`,
+            reason: `"${item.name}": ${reasonParts.join('; ')}`,
           });
           continue;
         }
