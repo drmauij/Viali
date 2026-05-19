@@ -419,6 +419,16 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const [editActualAdjustMode, setEditActualAdjustMode] = useState<QuantityMode>("set");
   const [editActualAdjustInput, setEditActualAdjustInput] = useState("0");
   const [editOriginalActualStock, setEditOriginalActualStock] = useState(0);
+
+  // Surfaces the server's ITEM_HAS_MED_CONFIGS rejection. The user can't
+  // archive their way past this — the dialog only lists the offending
+  // configs and the steps to remove them; no "force" button.
+  const [archiveBlockInfo, setArchiveBlockInfo] = useState<{
+    itemName: string;
+    count: number;
+    adminGroups: string[];
+    configs: Array<{ id: string; administrationGroup: string | null; medicationGroup: string | null }>;
+  } | null>(null);
   useEffect(() => {
     if (editFormData.trackExactQuantity) return; // Auto-calculated path owns actualStock here.
     const resulting = computeResultingAmount(
@@ -4165,34 +4175,27 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                     if (!selectedItem) return;
                     const newStatus = editFormData.status === 'archived' ? 'active' : 'archived';
 
-                    const runArchive = (force: boolean) => {
-                      updateItemMutation.mutate({
-                        selectedItem,
-                        itemData: { status: newStatus, ...(force ? { force: true } : {}) },
-                      }, {
-                        onSuccess: () => {
-                          setEditFormData(prev => ({ ...prev, status: newStatus }));
-                          handleCloseEditDialog();
-                        },
-                        onError: (error: any) => {
-                          if (error?.code === 'ITEM_HAS_MED_CONFIGS' && !force) {
-                            const count = error?.data?.count ?? '?';
-                            const groups = (error?.data?.adminGroups || []).filter(Boolean).join(', ');
-                            const detail = groups ? `\n\nAdmin groups: ${groups}` : '';
-                            const ok = window.confirm(
-                              `This item is referenced by ${count} medication configuration(s). ` +
-                              `Archiving it will break anesthesia records that use it ` +
-                              `(missing signature pad, inventory not deducted).${detail}\n\n` +
-                              `Migrate or delete those configurations first.\n\n` +
-                              `Archive anyway?`
-                            );
-                            if (ok) runArchive(true);
-                          }
-                        },
-                      });
-                    };
-
-                    runArchive(false);
+                    updateItemMutation.mutate({
+                      selectedItem,
+                      itemData: { status: newStatus },
+                    }, {
+                      onSuccess: () => {
+                        setEditFormData(prev => ({ ...prev, status: newStatus }));
+                        handleCloseEditDialog();
+                      },
+                      onError: (error: any) => {
+                        if (error?.code === 'ITEM_HAS_MED_CONFIGS') {
+                          // Hard block: surface a dialog explaining the wiring
+                          // and the exact decoupling steps. No retry path.
+                          setArchiveBlockInfo({
+                            itemName: selectedItem?.name ?? 'this item',
+                            count: error?.data?.count ?? 0,
+                            adminGroups: (error?.data?.adminGroups || []).filter(Boolean),
+                            configs: error?.data?.configs || [],
+                          });
+                        }
+                      },
+                    });
                   }}
                   disabled={updateItemMutation.isPending}
                   data-testid="button-archive-item"
@@ -5423,6 +5426,58 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           setAddItemStage('manual');
         }}
       />
+
+      {/* Archive blocked: explains the wiring + the exact decoupling steps.
+         No "Archive anyway" — the user must remove the configurations first. */}
+      <Dialog open={!!archiveBlockInfo} onOpenChange={(o) => { if (!o) setArchiveBlockInfo(null); }}>
+        <DialogContent className="max-w-lg" data-testid="dialog-archive-blocked">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">
+              {t('items.archiveBlocked.title', 'Cannot archive — item is in use')}
+            </DialogTitle>
+            <DialogDescription className="pt-2 space-y-3 text-sm">
+              <p>
+                {t(
+                  'items.archiveBlocked.body1',
+                  '"{{name}}" is wired to {{count}} anesthesia medication configuration(s). Archiving the item would silently break every anesthesia record that still draws from it — the signature pad disappears and stock no longer deducts.',
+                  { name: archiveBlockInfo?.itemName ?? '', count: archiveBlockInfo?.count ?? 0 },
+                )}
+              </p>
+              {archiveBlockInfo && archiveBlockInfo.adminGroups.length > 0 && (
+                <div>
+                  <p className="font-semibold text-foreground">
+                    {t('items.archiveBlocked.affectedGroups', 'Affected administration groups:')}
+                  </p>
+                  <ul className="list-disc list-inside mt-1">
+                    {archiveBlockInfo.adminGroups.map((g) => (
+                      <li key={g}>{g}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div>
+                <p className="font-semibold text-foreground">
+                  {t('items.archiveBlocked.howToFix', 'To archive this item:')}
+                </p>
+                <ol className="list-decimal list-inside mt-1 space-y-1">
+                  <li>{t('items.archiveBlocked.step1', 'Open Anesthesia → Settings → Medications.')}</li>
+                  <li>{t('items.archiveBlocked.step2', 'For each configuration above, either delete it or repoint it to a different item.')}</li>
+                  <li>{t('items.archiveBlocked.step3', 'Return here and archive the item.')}</li>
+                </ol>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end pt-2">
+            <Button
+              variant="secondary"
+              onClick={() => setArchiveBlockInfo(null)}
+              data-testid="button-close-archive-blocked"
+            >
+              {t('common.close', 'Close')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

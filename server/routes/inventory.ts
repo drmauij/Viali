@@ -679,24 +679,36 @@ router.patch('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (r
       });
     }
 
-    // Archiving guard: if this PATCH transitions status active → archived, refuse
-    // when any medication_config still references this item, unless caller passes
-    // force=true to confirm. Prevents anesthesia records from silently breaking
-    // (signature pad missing, inventory not deducted) — see the Fentanyl 2026-04-29 incident.
-    if (
-      req.body.status === "archived" &&
-      item.status !== "archived" &&
-      req.body.force !== true
-    ) {
+    // Archiving guard (hard block, no bypass): an item that's still wired to
+    // any medication_configs row cannot be archived. There is no force flag.
+    // Anesthesia records resolve drugs via medication_configs.item_id; if the
+    // item disappears from "active" inventory mid-case, the chart drops its
+    // signature pad and stock isn't deducted — see the Fentanyl 2026-04-29
+    // incident. The user must decouple every config first (Anesthesia →
+    // Medications → remove or repoint the configuration), then archive.
+    if (req.body.status === "archived" && item.status !== "archived") {
       const attached = await db
-        .select({ id: medicationConfigs.id, adminGroup: medicationConfigs.administrationGroup })
+        .select({
+          id: medicationConfigs.id,
+          adminGroup: medicationConfigs.administrationGroup,
+          medGroup: medicationConfigs.medicationGroup,
+        })
         .from(medicationConfigs)
         .where(eq(medicationConfigs.itemId, itemId));
       if (attached.length > 0) {
         return res.status(409).json({
-          message: `This item is referenced by ${attached.length} medication configuration(s). Archiving will break anesthesia records that use them.`,
           code: "ITEM_HAS_MED_CONFIGS",
+          message:
+            `"${item.name}" is still wired to ${attached.length} anesthesia medication configuration(s) and cannot be archived. ` +
+            `Anesthesia records resolve drugs through these configurations — archiving would break every chart that still references them ` +
+            `(signature pad missing, inventory no longer deducted). ` +
+            `Open Anesthesia → Settings → Medications, remove or repoint each configuration listed below, then archive the item.`,
           count: attached.length,
+          configs: attached.map(a => ({
+            id: a.id,
+            administrationGroup: a.adminGroup,
+            medicationGroup: a.medGroup,
+          })),
           adminGroups: Array.from(new Set(attached.map(a => a.adminGroup).filter(Boolean))),
         });
       }
