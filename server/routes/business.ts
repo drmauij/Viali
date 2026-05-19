@@ -201,6 +201,13 @@ router.get('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManager
       canLogin: boolean;
       createdAt: Date | null;
       workerPortal: any | null;
+      stammblatt: {
+        status: 'missing' | 'invited' | 'in_progress' | 'submitted';
+        inviteCount: number;
+        lastInvitedAt?: Date | null;
+        tokenExpiresAt?: Date | null;
+        submittedAt?: Date | null;
+      };
     }>();
     
     for (const u of hospitalUsers) {
@@ -232,6 +239,7 @@ router.get('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManager
           canLogin: (u.user as any).canLogin ?? true,
           createdAt: u.user.createdAt,
           workerPortal: null,
+          stammblatt: { status: 'missing', inviteCount: 0 },
         });
       }
     }
@@ -257,6 +265,31 @@ router.get('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManager
         if (!u.email) continue;
         const link = byEmail.get(u.email.toLowerCase());
         if (link) u.workerPortal = link;
+      }
+
+      // Attach Stammblatt status using userId for an exact match (email match
+      // alone is ambiguous when the same address appears at multiple hospitals).
+      const linksByUserId = new Map(
+        links.filter((l) => l.userId).map((l) => [l.userId as string, l]),
+      );
+
+      function deriveStammblattStatus(link: any): 'invited' | 'in_progress' | 'submitted' {
+        if (link.submittedAt) return 'submitted';
+        if (link.lastAccessedAt) return 'in_progress';
+        return 'invited';
+      }
+
+      for (const u of userMap.values()) {
+        const link = linksByUserId.get(u.id);
+        if (link) {
+          u.stammblatt = {
+            status: deriveStammblattStatus(link),
+            inviteCount: link.inviteCount ?? 0,
+            lastInvitedAt: link.lastInvitedAt,
+            tokenExpiresAt: link.tokenExpiresAt,
+            submittedAt: link.submittedAt,
+          };
+        }
       }
     }
 
