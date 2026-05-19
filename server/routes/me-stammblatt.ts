@@ -105,6 +105,7 @@ router.patch("/api/me/stammblatt", isAuthenticated, async (req: any, res) => {
         patch[k] = req.body[k] === "" ? null : req.body[k];
       }
     }
+    patch.lastAccessedAt = new Date();
     patch.updatedAt = new Date();
 
     await db
