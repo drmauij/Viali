@@ -14,7 +14,7 @@ import { WorklogLinkManager } from "@/components/WorklogLinkManager";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import type { Hospital } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Clock, CheckCircle, XCircle, PenLine, Download, User, Building2, Search } from "lucide-react";
+import { Loader2, Clock, CheckCircle, XCircle, PenLine, Download, User, Building2, Search, Coffee } from "lucide-react";
 import { formatDate, formatDateTime, formatDateForInput, formatDateHeader } from "@/lib/dateUtils";
 import type { TFunction } from "i18next";
 
@@ -287,7 +287,24 @@ export default function UnitWorklogs() {
             <div className="font-medium">{calculateWorkHours(entry.timeStart, entry.timeEnd, entry.pauseMinutes)}</div>
           </div>
         </div>
-        
+
+        <div
+          className={`mt-3 inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm ${
+            entry.pauseMinutes > 0
+              ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200"
+              : "border-gray-300 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-400"
+          }`}
+          data-testid={`worklog-pause-${entry.id}`}
+        >
+          <Coffee className="w-4 h-4" />
+          <span className="font-medium">{t('worklogs.pause')}:</span>
+          <span>
+            {entry.pauseMinutes > 0
+              ? `${entry.pauseMinutes} ${t('worklogs.minutes')}`
+              : t('worklogs.noBreak')}
+          </span>
+        </div>
+
         {entry.notes && (
           <div className="mt-3 text-sm">
             <span className="text-gray-500">{t('worklogs.notes')}:</span>

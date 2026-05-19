@@ -596,6 +596,7 @@
     "activity": "Activity",
     "pause": "Break",
     "minutes": "minutes",
+    "noBreak": "No break",
     "notes": "Notes",
     "department": "Department",
     "worker": "Worker",

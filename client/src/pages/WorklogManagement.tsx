@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import type { Hospital } from "@shared/schema";
-import { Loader2, Clock, Download, User, Building2, Filter, FileText, Check, ChevronsUpDown } from "lucide-react";
+import { Loader2, Clock, Download, User, Building2, Filter, FileText, Check, ChevronsUpDown, Coffee } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate, formatDateTime, formatDateForInput, formatDateHeader } from "@/lib/dateUtils";
 import type { TFunction } from "i18next";
@@ -227,7 +227,24 @@ export default function WorklogManagement() {
             </div>
           </div>
         </div>
-        
+
+        <div
+          className={`mt-3 inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm ${
+            entry.pauseMinutes > 0
+              ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200"
+              : "border-gray-300 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-400"
+          }`}
+          data-testid={`worklog-pause-${entry.id}`}
+        >
+          <Coffee className="w-4 h-4" />
+          <span className="font-medium">{t('worklogs.pause')}:</span>
+          <span>
+            {entry.pauseMinutes > 0
+              ? `${entry.pauseMinutes} ${t('worklogs.minutes')}`
+              : t('worklogs.noBreak')}
+          </span>
+        </div>
+
         {entry.notes && (
           <div className="mt-3 text-sm">
             <span className="text-gray-500">{t('worklogs.notes')}:</span>
