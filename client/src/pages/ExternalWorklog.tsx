@@ -62,6 +62,7 @@ interface WorklogLinkInfo {
   linkId: string;
   unitId: string;
   hospitalId: string;
+  personalDataOnly: boolean | null;
   entries: WorklogEntry[];
 }
 
@@ -120,6 +121,7 @@ function ExternalWorklogContent({ token }: { token: string }) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(false);
   const [activeTab, setActiveTab] = useState("planning");
+  const isPersonalDataOnly = linkInfo?.personalDataOnly === true;
   const [reportWizardStep, setReportWizardStep] = useState(0);
   const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
@@ -227,7 +229,10 @@ function ExternalWorklogContent({ token }: { token: string }) {
       }
       const data = await res.json();
       setLinkInfo(data);
-      
+      if (data.personalDataOnly === true) {
+        setActiveTab("personal");
+      }
+
       // Load saved personal data from API response
       if (data.personalData) {
         setPersonalData({
@@ -921,12 +926,12 @@ function ExternalWorklogContent({ token }: { token: string }) {
           <CardHeader className="text-center">
             <CardTitle className="text-xl flex items-center justify-center gap-2 dark:text-gray-100">
               <Clock className="w-5 h-5" />
-              {t("externalWorklog.title")}
+              {isPersonalDataOnly ? t("stammblatt.title", "Personalstammblatt") : t("externalWorklog.title")}
             </CardTitle>
             <CardDescription className="mt-2">
               <div className="flex items-center justify-center gap-2 text-gray-600 dark:text-gray-400">
                 <Building2 className="w-4 h-4" />
-                <span>{linkInfo?.hospitalName} - {linkInfo?.unitName}</span>
+                <span>{isPersonalDataOnly ? linkInfo?.hospitalName : `${linkInfo?.hospitalName} - ${linkInfo?.unitName}`}</span>
               </div>
               <div className="text-sm text-gray-500 dark:text-gray-500 mt-1">
                 {t("externalWorklog.registeredFor")}: {linkInfo?.email}
@@ -936,35 +941,43 @@ function ExternalWorklogContent({ token }: { token: string }) {
         </Card>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 h-auto gap-1 dark:bg-gray-800 p-1">
-            <TabsTrigger value="planning" className="dark:data-[state=active]:bg-gray-700 py-2 text-xs sm:text-sm" data-testid="tab-planning">
-              <CalendarDays className="w-4 h-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">{t("externalWorklog.tabs.planning")}</span>
-              <span className="sm:hidden">{t("externalWorklog.tabs.planning")}</span>
-            </TabsTrigger>
-            <TabsTrigger value="worklogs" className="dark:data-[state=active]:bg-gray-700 py-2 text-xs sm:text-sm" data-testid="tab-worklogs">
-              <History className="w-4 h-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">{t("externalWorklog.tabs.worklogs")}</span>
-              <span className="sm:hidden">Logs</span>
-            </TabsTrigger>
-            <TabsTrigger value="contracts" className="dark:data-[state=active]:bg-gray-700 py-2 text-xs sm:text-sm" data-testid="tab-contracts">
-              <FileSignature className="w-4 h-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">{t("externalWorklog.tabs.contracts")}</span>
-              <span className="sm:hidden">Contracts</span>
-            </TabsTrigger>
+          <TabsList className={`grid w-full h-auto gap-1 dark:bg-gray-800 p-1 ${isPersonalDataOnly ? "grid-cols-1" : "grid-cols-3 sm:grid-cols-5"}`}>
+            {!isPersonalDataOnly && (
+              <TabsTrigger value="planning" className="dark:data-[state=active]:bg-gray-700 py-2 text-xs sm:text-sm" data-testid="tab-planning">
+                <CalendarDays className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">{t("externalWorklog.tabs.planning")}</span>
+                <span className="sm:hidden">{t("externalWorklog.tabs.planning")}</span>
+              </TabsTrigger>
+            )}
+            {!isPersonalDataOnly && (
+              <TabsTrigger value="worklogs" className="dark:data-[state=active]:bg-gray-700 py-2 text-xs sm:text-sm" data-testid="tab-worklogs">
+                <History className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">{t("externalWorklog.tabs.worklogs")}</span>
+                <span className="sm:hidden">Logs</span>
+              </TabsTrigger>
+            )}
+            {!isPersonalDataOnly && (
+              <TabsTrigger value="contracts" className="dark:data-[state=active]:bg-gray-700 py-2 text-xs sm:text-sm" data-testid="tab-contracts">
+                <FileSignature className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">{t("externalWorklog.tabs.contracts")}</span>
+                <span className="sm:hidden">Contracts</span>
+              </TabsTrigger>
+            )}
             <TabsTrigger value="personal" className="dark:data-[state=active]:bg-gray-700 py-2 text-xs sm:text-sm" data-testid="tab-personal">
               <User className="w-4 h-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">{t("externalWorklog.tabs.personalData")}</span>
               <span className="sm:hidden">Personal</span>
             </TabsTrigger>
-            <TabsTrigger value="reports" className="dark:data-[state=active]:bg-gray-700 py-2 text-xs sm:text-sm" data-testid="tab-reports">
-              <FileBarChart className="w-4 h-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">{t("externalWorklog.tabs.reports")}</span>
-              <span className="sm:hidden">Reports</span>
-            </TabsTrigger>
+            {!isPersonalDataOnly && (
+              <TabsTrigger value="reports" className="dark:data-[state=active]:bg-gray-700 py-2 text-xs sm:text-sm" data-testid="tab-reports">
+                <FileBarChart className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">{t("externalWorklog.tabs.reports")}</span>
+                <span className="sm:hidden">Reports</span>
+              </TabsTrigger>
+            )}
           </TabsList>
 
-          <TabsContent value="planning" className="mt-4">
+          {!isPersonalDataOnly && <TabsContent value="planning" className="mt-4">
             <Card className="dark:bg-gray-800 dark:border-gray-700">
               <CardHeader>
                 <CardTitle className="dark:text-gray-100">{t("externalWorklog.planning.title")}</CardTitle>
@@ -984,9 +997,9 @@ function ExternalWorklogContent({ token }: { token: string }) {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabsContent>}
 
-          <TabsContent value="worklogs" className="mt-4">
+          {!isPersonalDataOnly && <TabsContent value="worklogs" className="mt-4">
             <div className="space-y-6">
               <Button
                 className="w-full py-6 text-base"
@@ -1101,9 +1114,9 @@ function ExternalWorklogContent({ token }: { token: string }) {
                 </Card>
               )}
             </div>
-          </TabsContent>
+          </TabsContent>}
 
-          <TabsContent value="contracts" className="mt-4">
+          {!isPersonalDataOnly && <TabsContent value="contracts" className="mt-4">
             <Card className="dark:bg-gray-800 dark:border-gray-700">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2 dark:text-gray-100">
@@ -1166,7 +1179,7 @@ function ExternalWorklogContent({ token }: { token: string }) {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabsContent>}
 
           <TabsContent value="personal" className="mt-4">
             <StammblattForm
@@ -1178,7 +1191,7 @@ function ExternalWorklogContent({ token }: { token: string }) {
             />
           </TabsContent>
 
-          <TabsContent value="reports" className="mt-4">
+          {!isPersonalDataOnly && <TabsContent value="reports" className="mt-4">
             <Card className="dark:bg-gray-800 dark:border-gray-700">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2 dark:text-gray-100">
@@ -1472,7 +1485,7 @@ function ExternalWorklogContent({ token }: { token: string }) {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabsContent>}
         </Tabs>
       </div>
 

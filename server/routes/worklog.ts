@@ -53,6 +53,7 @@ router.get('/api/worklog/:token', async (req, res) => {
       linkId: link.id,
       unitId: link.unitId,
       hospitalId: link.hospitalId,
+      personalDataOnly: link.personalDataOnly,
       entries,
       personalData: {
         firstName: link.firstName || '',
