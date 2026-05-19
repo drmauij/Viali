@@ -195,6 +195,16 @@ export function useItemsMutations(params: UseItemsMutationsParams) {
       });
     },
     onError: (error: any) => {
+      // ITEMS_HAVE_MED_CONFIGS is intercepted by the caller (it surfaces a
+      // dedicated dialog naming the blocked items). The server may still
+      // have deleted some items in the same batch, so we invalidate the
+      // query and close the confirm modal here. Suppress the generic
+      // destructive toast in that case.
+      if (error.code === "ITEMS_HAVE_MED_CONFIGS") {
+        queryClient.invalidateQueries({ queryKey: [`/api/items/${hospitalId}?unitId=${unitId}`, unitId] });
+        setShowDeleteConfirm(false);
+        return;
+      }
       toast({
         title: t('common.error'),
         description: error.message || "Failed to delete items",

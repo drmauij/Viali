@@ -429,6 +429,15 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     adminGroups: string[];
     configs: Array<{ id: string; administrationGroup: string | null; medicationGroup: string | null }>;
   } | null>(null);
+
+  // Same idea for bulk-delete: the server returns 409 + ITEMS_HAVE_MED_CONFIGS
+  // when one or more selected items are still wired to a medication config.
+  // Some items in the same batch may have been deleted successfully — the
+  // dialog reports both, and only the blocked ones need decoupling.
+  const [bulkDeleteBlockedInfo, setBulkDeleteBlockedInfo] = useState<{
+    deletedCount: number;
+    blocked: Array<{ id: string; name: string; count: number; adminGroups: string[] }>;
+  } | null>(null);
   useEffect(() => {
     if (editFormData.trackExactQuantity) return; // Auto-calculated path owns actualStock here.
     const resulting = computeResultingAmount(
@@ -868,7 +877,17 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   };
 
   const confirmBulkDelete = () => {
-    bulkDeleteMutation.mutate(Array.from(selectedItems));
+    bulkDeleteMutation.mutate(Array.from(selectedItems), {
+      onError: (error: any) => {
+        if (error?.code === "ITEMS_HAVE_MED_CONFIGS") {
+          setBulkDeleteBlockedInfo({
+            deletedCount: error?.data?.deletedCount ?? 0,
+            blocked: error?.data?.blocked ?? [],
+          });
+          setSelectedItems(new Set());
+        }
+      },
+    });
   };
 
   const handleEditImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -5476,6 +5495,62 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               variant="secondary"
               onClick={() => setArchiveBlockInfo(null)}
               data-testid="button-close-archive-blocked"
+            >
+              {t('common.close', 'Close')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk-delete blocked dialog — same protection as archive, applied per
+         item in the batch. Lists which items were skipped and why. */}
+      <Dialog open={!!bulkDeleteBlockedInfo} onOpenChange={(o) => { if (!o) setBulkDeleteBlockedInfo(null); }}>
+        <DialogContent className="max-w-lg" data-testid="dialog-bulk-delete-blocked">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">
+              {t('items.bulkDeleteBlocked.title', 'Some items cannot be deleted')}
+            </DialogTitle>
+            <DialogDescription className="pt-2 space-y-3 text-sm">
+              {bulkDeleteBlockedInfo && bulkDeleteBlockedInfo.deletedCount > 0 && (
+                <p>
+                  {t(
+                    'items.bulkDeleteBlocked.partial',
+                    '{{deletedCount}} item(s) were deleted. The following are still wired to anesthesia medication configurations and were skipped:',
+                    { deletedCount: bulkDeleteBlockedInfo.deletedCount },
+                  )}
+                </p>
+              )}
+              {bulkDeleteBlockedInfo && bulkDeleteBlockedInfo.deletedCount === 0 && (
+                <p>
+                  {t(
+                    'items.bulkDeleteBlocked.noneDeleted',
+                    'No items were deleted. The selection contains items still wired to anesthesia medication configurations:',
+                  )}
+                </p>
+              )}
+              <ul className="list-disc list-inside space-y-1 text-foreground">
+                {bulkDeleteBlockedInfo?.blocked.map((b) => (
+                  <li key={b.id}>
+                    <span className="font-semibold">{b.name}</span> — {b.count} config(s)
+                    {b.adminGroups.length > 0 && (
+                      <span className="text-muted-foreground"> ({b.adminGroups.join(', ')})</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <p>
+                {t(
+                  'items.bulkDeleteBlocked.howToFix',
+                  'Open an anesthesia record, find each item in the Medications panel, and use Remove for every administration group above. Then retry the deletion.',
+                )}
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end pt-2">
+            <Button
+              variant="secondary"
+              onClick={() => setBulkDeleteBlockedInfo(null)}
+              data-testid="button-close-bulk-delete-blocked"
             >
               {t('common.close', 'Close')}
             </Button>

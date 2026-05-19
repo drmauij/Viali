@@ -205,3 +205,84 @@ describe("PATCH /api/items/:itemId — archive guard", () => {
     expect(res.body.status).toBe("archived");
   });
 });
+
+describe("POST /api/items/bulk-delete — same guard", () => {
+  // Bulk-delete hard-DELETEs items + cascades onto medication_configs and
+  // anesthesia_medications, so an unguarded delete is even more destructive
+  // than archiving. Same hard block applies — and the response includes the
+  // structured "blocked" array so the client can render specifics.
+  let blockedItemId: string;
+  let plainItemId: string;
+  let blockedConfigId: string;
+
+  beforeAll(async () => {
+    const [itm1] = await db
+      .insert(items)
+      .values({
+        hospitalId: hospId,
+        unitId,
+        name: `Bulk Wired ${uniq()}`,
+        unit: "Single unit",
+        status: "active",
+      } as any)
+      .returning();
+    blockedItemId = itm1.id;
+    createdItemIds.push(blockedItemId);
+
+    const [itm2] = await db
+      .insert(items)
+      .values({
+        hospitalId: hospId,
+        unitId,
+        name: `Bulk Plain ${uniq()}`,
+        unit: "Single unit",
+        status: "active",
+      } as any)
+      .returning();
+    plainItemId = itm2.id;
+    createdItemIds.push(plainItemId);
+
+    const [cfg] = await db
+      .insert(medicationConfigs)
+      .values({
+        itemId: blockedItemId,
+        medicationGroup: "Hypnotika",
+        administrationGroup: "Perfusoren",
+        defaultDose: "5",
+      } as any)
+      .returning();
+    blockedConfigId = cfg.id;
+    createdConfigIds.push(blockedConfigId);
+  });
+
+  it("returns 409 + blocked[] when any item has a medication config", async () => {
+    const app = buildApp(userId);
+    const res = await request(app)
+      .post(`/api/items/bulk-delete`)
+      .send({ itemIds: [blockedItemId, plainItemId] });
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("ITEMS_HAVE_MED_CONFIGS");
+    expect(res.body.blocked).toHaveLength(1);
+    expect(res.body.blocked[0]).toMatchObject({
+      id: blockedItemId,
+      count: 1,
+      adminGroups: ["Perfusoren"],
+    });
+    // The non-blocked item still gets deleted in the same batch — the guard
+    // is per-item, not all-or-nothing.
+    expect(res.body.deletedCount).toBe(1);
+    expect(res.body.results.deleted).toContain(plainItemId);
+  });
+
+  it("succeeds once the configs are decoupled", async () => {
+    await db
+      .delete(medicationConfigs)
+      .where(inArray(medicationConfigs.id, [blockedConfigId]));
+    const app = buildApp(userId);
+    const res = await request(app)
+      .post(`/api/items/bulk-delete`)
+      .send({ itemIds: [blockedItemId] });
+    expect(res.status).toBe(200);
+    expect(res.body.deletedCount).toBe(1);
+  });
+});

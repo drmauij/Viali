@@ -911,6 +911,13 @@ router.post('/api/items/bulk-delete', isAuthenticated, requireWriteAccess, async
       failed: [] as { id: string; reason: string }[]
     };
 
+    // Same protection as the archive guard above: an item still wired to
+    // medication_configs cannot be deleted, because storage.deleteItem
+    // cascades a hard DELETE on medication_configs + anesthesia_medications
+    // — wiping the chart's history. No force flag. Caller must remove every
+    // configuration from the anesthesia record's Medications panel first.
+    const blocked: Array<{ id: string; name: string; count: number; adminGroups: string[] }> = [];
+
     for (const itemId of itemIds) {
       try {
         const item = await storage.getItem(itemId);
@@ -918,14 +925,14 @@ router.post('/api/items/bulk-delete', isAuthenticated, requireWriteAccess, async
           results.failed.push({ id: itemId, reason: "Item not found" });
           continue;
         }
-        
+
         // Use active unit from request header, or fall back to user's default unit
         const unitId = await getUserUnitForHospital(userId, item.hospitalId, activeUnitId || undefined);
         if (!unitId) {
           results.failed.push({ id: itemId, reason: "Access denied" });
           continue;
         }
-        
+
         // Allow access if user's unit matches the item's unit OR if user has logistics access
         if (unitId !== item.unitId) {
           const userHasLogisticsAccess = await hasLogisticsAccess(userId, item.hospitalId);
@@ -934,13 +941,44 @@ router.post('/api/items/bulk-delete', isAuthenticated, requireWriteAccess, async
             continue;
           }
         }
-        
+
+        const attached = await db
+          .select({ adminGroup: medicationConfigs.administrationGroup })
+          .from(medicationConfigs)
+          .where(eq(medicationConfigs.itemId, itemId));
+        if (attached.length > 0) {
+          const adminGroups = Array.from(
+            new Set(attached.map(a => a.adminGroup).filter(Boolean) as string[]),
+          );
+          blocked.push({ id: itemId, name: item.name, count: attached.length, adminGroups });
+          results.failed.push({
+            id: itemId,
+            reason: `"${item.name}" is wired to ${attached.length} anesthesia medication configuration(s). Remove them from the anesthesia record's Medications panel first.`,
+          });
+          continue;
+        }
+
         await storage.deleteItem(itemId);
         results.deleted.push(itemId);
       } catch (error: any) {
         logger.error(`Error deleting item ${itemId}:`, error);
         results.failed.push({ id: itemId, reason: error.message || "Unknown error" });
       }
+    }
+
+    // If any items were blocked, surface a structured payload alongside the
+    // usual results so the client can render a guard dialog instead of just
+    // a flat toast. The 409 status mirrors the single-item archive guard.
+    if (blocked.length > 0) {
+      return res.status(409).json({
+        success: false,
+        code: "ITEMS_HAVE_MED_CONFIGS",
+        message: `${blocked.length} item(s) cannot be deleted because anesthesia medication configurations still reference them.`,
+        blocked,
+        deletedCount: results.deleted.length,
+        failedCount: results.failed.length,
+        results,
+      });
     }
 
     res.json({
