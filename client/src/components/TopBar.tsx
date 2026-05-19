@@ -225,7 +225,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
               </div>
             </button>
             
-            {showHospitalDropdown && hospitals.length > 1 && activeHospital && (
+            {showHospitalDropdown && activeHospital && (
               <div className="absolute top-full left-0 mt-2 w-80 bg-card border border-border rounded-lg shadow-lg z-50 max-h-[70vh] overflow-y-auto">
                 <HospitalDropdownTabs
                   hospitals={hospitals as SidebarHospital[]}
