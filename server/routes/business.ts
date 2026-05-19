@@ -273,11 +273,11 @@ router.get('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManager
         links.filter((l) => l.userId).map((l) => [l.userId as string, l]),
       );
 
-      function deriveStammblattStatus(link: any): 'invited' | 'in_progress' | 'submitted' {
+      const deriveStammblattStatus = (link: any): 'invited' | 'in_progress' | 'submitted' => {
         if (link.submittedAt) return 'submitted';
         if (link.lastAccessedAt) return 'in_progress';
         return 'invited';
-      }
+      };
 
       for (const u of userMap.values()) {
         const link = linksByUserId.get(u.id);
