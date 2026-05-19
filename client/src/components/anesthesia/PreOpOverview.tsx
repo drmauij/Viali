@@ -211,58 +211,11 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
     );
   }
 
-  if (!assessment) {
-    return (
-      <div className="space-y-4 p-4">
-        {/* Header with Send Questionnaire Button - visible even without assessment */}
-        {addons.questionnaire && patientId && patientName && (
-          <div className="flex justify-end">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSendDialogOpen(true)}
-              title={t('common.patientCommunication', 'Contact')}
-              data-testid="button-send-questionnaire-preop-no-data"
-            >
-              <Send className="h-5 w-5 text-white" />
-            </Button>
-          </div>
-        )}
-        {questionnaireLinks.length > 0 ? (
-          <QuestionnaireTab
-            patientId={patientId!}
-            hospitalId={hospitalId!}
-            canWrite={false}
-            questionnaireLinks={questionnaireLinks}
-            onOpenSendDialog={() => setSendDialogOpen(true)}
-            patientRecord={patientName ? {
-              firstName: patientName.split(', ')[1],
-              surname: patientName.split(', ')[0],
-            } : undefined}
-          />
-        ) : (
-          <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-            <p>{t('anesthesia.preop.noAssessmentData', 'No assessment data')}</p>
-          </div>
-        )}
-
-        {/* Send Questionnaire Dialog */}
-        {patientId && patientName && (
-          <SendQuestionnaireDialog
-            open={sendDialogOpen}
-            onOpenChange={setSendDialogOpen}
-            patientId={patientId}
-            patientName={patientName}
-            patientEmail={patientEmail}
-            patientPhone={patientPhone}
-            surgeryId={surgeryId}
-          />
-        )}
-      </div>
-    );
-  }
-
-  const data = assessment;
+  // Fall through to the main render even when no assessment row exists yet —
+  // the subtab layout still has to surface Questionnaire + Documents.
+  // `data` is treated as a partial so the ?.trim() / record-or-empty checks
+  // below short-circuit on every field that's missing.
+  const data = (assessment ?? {}) as PreOpAssessmentData;
 
   // Build medical history sections with data check
   const medicalSections = [
@@ -487,42 +440,11 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
     data.surgicalApproval?.trim() ||
     data.specialNotes?.trim();
 
-  if (!hasAnyData) {
-    // Assessment exists but has no relevant data — show questionnaire if available
-    if (questionnaireLinks.length > 0) {
-      return (
-        <div className="space-y-4 p-4">
-          <QuestionnaireTab
-            patientId={patientId!}
-            hospitalId={hospitalId!}
-            canWrite={false}
-            questionnaireLinks={questionnaireLinks}
-            onOpenSendDialog={() => setSendDialogOpen(true)}
-            patientRecord={patientName ? {
-              firstName: patientName.split(', ')[1],
-              surname: patientName.split(', ')[0],
-            } : undefined}
-          />
-          {patientId && patientName && (
-            <SendQuestionnaireDialog
-              open={sendDialogOpen}
-              onOpenChange={setSendDialogOpen}
-              patientId={patientId}
-              patientName={patientName}
-              patientEmail={patientEmail}
-              patientPhone={patientPhone}
-              surgeryId={surgeryId}
-            />
-          )}
-        </div>
-      );
-    }
-    return (
-      <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-        <p>{t('anesthesia.preop.noAssessmentData', 'No assessment data')}</p>
-      </div>
-    );
-  }
+  // Default to whichever tab has actual content: if the assessment is empty
+  // but a questionnaire was submitted, drop the user onto Questionnaire so
+  // they don't see a blank Assessment tab first.
+  const defaultTab: "assessment" | "questionnaire" | "documents" =
+    !hasAnyData && submittedLinks.length > 0 ? "questionnaire" : "assessment";
 
   return (
     <div className="space-y-4 p-4">
@@ -574,7 +496,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
       {/* Subtabs: keep Assessment / Questionnaire / Documents side-by-side
          instead of stacked. Special Notes stays above the tabs so it's always
          visible — it's the critical-flag block. */}
-      <Tabs defaultValue="assessment" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="assessment" data-testid="preop-subtab-assessment">
             {t('anesthesia.preop.tabs.assessment', 'Assessment')}
@@ -593,6 +515,14 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
         </TabsList>
 
         <TabsContent value="assessment" className="space-y-4 mt-4">
+      {!hasAnyData && (
+        <Card className="border-gray-300 dark:border-gray-600">
+          <CardContent className="p-6 text-sm text-muted-foreground text-center">
+            {t('anesthesia.preop.noAssessmentData', 'No assessment data')}
+          </CardContent>
+        </Card>
+      )}
+
       {/* General Data and Surgical Approval - 70/30 Split */}
       {(data.asa?.trim() || data.surgicalApproval?.trim()) && (
         <div className="grid grid-cols-1 md:grid-cols-10 gap-4">
